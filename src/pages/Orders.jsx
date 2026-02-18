@@ -461,7 +461,7 @@ export default function Orders() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link 
                           to={`/orders/${order.id}`}
-                          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                          className="text-blue-300 hover:text-blue-800 font-medium flex items-center gap-1"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -518,7 +518,6 @@ export default function Orders() {
                               </svg>
                             ) : (
                               <>
-                                <span>📄</span>
                                 <span>Facturer</span>
                               </>
                             )}
@@ -541,7 +540,6 @@ export default function Orders() {
                               </svg>
                             ) : (
                               <>
-                                <span>💰</span>
                                 <span>Payé</span>
                               </>
                             )}
