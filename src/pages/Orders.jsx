@@ -406,9 +406,6 @@ export default function Orders() {
                     Client
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Grade
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -481,12 +478,6 @@ export default function Orders() {
                         {order.fboEmail && (
                           <div className="text-xs text-gray-500">{order.fboEmail}</div>
                         )}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                          {order.fboGrade || "N/A"}
-                        </span>
                       </td>
 
                       <td className="px-6 py-4">
