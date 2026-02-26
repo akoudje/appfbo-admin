@@ -262,26 +262,11 @@ export function MobileSidebar({ isOpen, onClose }) {
 }
 
 // Composant principal qui gère le responsive
+// ... garde DesktopSidebar + MobileSidebar inchangés au-dessus
+
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
-  // Détecter la taille de l'écran
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  if (isMobile) {
-    return <MobileSidebar isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />;
-  }
-
+  // Sidebar desktop uniquement (le mobile est géré par AdminLayout)
   return <DesktopSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />;
 }

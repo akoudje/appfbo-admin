@@ -1,3 +1,5 @@
+// src/components/layout/MobileNav.jsx
+
 import { NavLink } from "react-router-dom";
 
 const item = ({ isActive }) =>

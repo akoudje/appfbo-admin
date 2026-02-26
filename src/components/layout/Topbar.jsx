@@ -12,7 +12,7 @@ const PAGE_TITLES = {
   '/settings': 'Paramètres',
 };
 
-export default function Topbar({ onMenuClick }) {
+export default function Topbar({ onMenuClick = () => {} }) {
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showProfile, setShowProfile] = useState(false);
