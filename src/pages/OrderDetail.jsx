@@ -1,3 +1,6 @@
+//src/pages/OrderDetail.jsx
+// Page de détail d'une commande
+
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";

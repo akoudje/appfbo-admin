@@ -2,6 +2,17 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import ProductThumb from "./ProductThumb";
 
+const DEFAULT_CATEGORIES = [
+  { value: "NON_CLASSE", label: "Non classé" },
+  { value: "BUVABLE", label: "Buvable" },
+  { value: "COMBO_PACKS", label: "Combo Packs" },
+  { value: "GESTION_DE_POIDS", label: "Gestion de poids" },
+  { value: "NUTRITION", label: "Nutrition" },
+  { value: "PRODUIT_DE_LA_ROCHE", label: "Produit de la roche" },
+  { value: "SOINS_DE_LA_PEAU", label: "Soins de la peau" },
+  { value: "SOINS_PERSONNELS", label: "Soins personnels" },
+];
+
 export default function CreateProductModal({
   open,
   mode = "create",
@@ -10,11 +21,18 @@ export default function CreateProductModal({
   onSubmit,
   onUploadImage,
   loading,
+
+  // ✅ optionnel : passé depuis Products.jsx si tu veux une seule source de vérité
+  categoryOptions,
 }) {
   const isEdit = mode === "edit";
   const formRef = useRef(null);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  const categories = Array.isArray(categoryOptions) && categoryOptions.length
+    ? categoryOptions
+    : DEFAULT_CATEGORIES;
 
   const [form, setForm] = useState({
     sku: "",
@@ -24,6 +42,11 @@ export default function CreateProductModal({
     poidsKg: "",
     actif: true,
     imageUrl: "",
+
+    // ✅ nouveaux champs
+    category: "NON_CLASSE",
+    stockQty: 0,
+    details: "",
   });
 
   // Reset form when modal opens/closes
@@ -39,6 +62,10 @@ export default function CreateProductModal({
         poidsKg: String(initialValues.poidsKg ?? "0.000"),
         actif: Boolean(initialValues.actif),
         imageUrl: initialValues.imageUrl || "",
+
+        category: initialValues.category || "NON_CLASSE",
+        stockQty: Number(initialValues.stockQty ?? 0),
+        details: initialValues.details || "",
       });
     } else {
       setForm({
@@ -49,6 +76,10 @@ export default function CreateProductModal({
         poidsKg: "",
         actif: true,
         imageUrl: "",
+
+        category: "NON_CLASSE",
+        stockQty: 0,
+        details: "",
       });
     }
     setErrors({});
@@ -58,31 +89,42 @@ export default function CreateProductModal({
   // Handle ESC key
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === 'Escape' && !loading) onClose();
+      if (e.key === "Escape" && !loading) onClose();
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
   }, [loading, onClose]);
 
   // Validation
   const validateField = (name, value) => {
     switch (name) {
-      case 'sku':
-        return !value.trim() ? "Le SKU est requis" : "";
-      case 'nom':
-        return !value.trim() ? "Le nom est requis" : "";
-      case 'prixBaseFcfa':
+      case "sku":
+        return !String(value || "").trim() ? "Le SKU est requis" : "";
+      case "nom":
+        return !String(value || "").trim() ? "Le nom est requis" : "";
+      case "prixBaseFcfa":
         if (value === "" || value === null) return "Le prix est requis";
+        if (!Number.isFinite(Number(value))) return "Le prix est invalide";
         if (Number(value) < 0) return "Le prix doit être positif";
         return "";
-      case 'cc':
+      case "cc":
         if (value === "" || value === null) return "Le CC est requis";
+        if (!Number.isFinite(Number(value))) return "Le CC est invalide";
         if (Number(value) < 0) return "Le CC doit être positif";
         return "";
-      case 'poidsKg':
+      case "poidsKg":
         if (value === "" || value === null) return "Le poids est requis";
+        if (!Number.isFinite(Number(value))) return "Le poids est invalide";
         if (Number(value) < 0) return "Le poids doit être positif";
         return "";
+      case "stockQty":
+        if (value === "" || value === null) return "";
+        if (!Number.isFinite(Number(value))) return "Le stock est invalide";
+        if (Number(value) < 0) return "Le stock doit être ≥ 0";
+        if (!Number.isInteger(Number(value))) return "Le stock doit être un entier";
+        return "";
+      case "category":
+        return !String(value || "").trim() ? "La catégorie est requise" : "";
       default:
         return "";
     }
@@ -90,53 +132,57 @@ export default function CreateProductModal({
 
   const validateForm = useMemo(() => {
     const newErrors = {
-      sku: validateField('sku', form.sku),
-      nom: validateField('nom', form.nom),
-      prixBaseFcfa: validateField('prixBaseFcfa', form.prixBaseFcfa),
-      cc: validateField('cc', form.cc),
-      poidsKg: validateField('poidsKg', form.poidsKg),
+      sku: validateField("sku", form.sku),
+      nom: validateField("nom", form.nom),
+      prixBaseFcfa: validateField("prixBaseFcfa", form.prixBaseFcfa),
+      cc: validateField("cc", form.cc),
+      poidsKg: validateField("poidsKg", form.poidsKg),
+
+      category: validateField("category", form.category),
+      stockQty: validateField("stockQty", form.stockQty),
+      // details: (optionnel)
     };
     return newErrors;
   }, [form]);
 
-  const hasErrors = Object.values(validateForm).some(error => error !== "");
+  const hasErrors = Object.values(validateForm).some((error) => error !== "");
   const canSubmit = !hasErrors && Object.keys(touched).length > 0;
 
   const handleBlur = (field) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
     const error = validateField(field, form[field]);
-    setErrors(prev => ({ ...prev, [field]: error }));
+    setErrors((prev) => ({ ...prev, [field]: error }));
   };
 
   const handleChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    // Clear error while typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }));
-    }
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const submit = async () => {
-    // Mark all fields as touched
     const allTouched = Object.keys(form).reduce((acc, key) => {
       acc[key] = true;
       return acc;
     }, {});
     setTouched(allTouched);
-    
-    // Validate all fields
+
     const validationErrors = {
-      sku: validateField('sku', form.sku),
-      nom: validateField('nom', form.nom),
-      prixBaseFcfa: validateField('prixBaseFcfa', form.prixBaseFcfa),
-      cc: validateField('cc', form.cc),
-      poidsKg: validateField('poidsKg', form.poidsKg),
+      sku: validateField("sku", form.sku),
+      nom: validateField("nom", form.nom),
+      prixBaseFcfa: validateField("prixBaseFcfa", form.prixBaseFcfa),
+      cc: validateField("cc", form.cc),
+      poidsKg: validateField("poidsKg", form.poidsKg),
+
+      category: validateField("category", form.category),
+      stockQty: validateField("stockQty", form.stockQty),
     };
     setErrors(validationErrors);
 
-    if (Object.values(validationErrors).some(error => error !== "")) {
-      // Scroll to first error
-      formRef.current?.querySelector('.error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (Object.values(validationErrors).some((error) => error !== "")) {
+      formRef.current?.querySelector(".error")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
 
@@ -144,10 +190,15 @@ export default function CreateProductModal({
       sku: form.sku.trim(),
       nom: form.nom.trim(),
       prixBaseFcfa: Number(form.prixBaseFcfa),
-      cc: form.cc,
-      poidsKg: form.poidsKg,
+      cc: String(form.cc),
+      poidsKg: String(form.poidsKg),
       actif: Boolean(form.actif),
       imageUrl: form.imageUrl ? String(form.imageUrl).trim() : null,
+
+      // ✅ nouveaux champs
+      category: form.category || "NON_CLASSE",
+      details: form.details ? String(form.details) : null,
+      stockQty: Number(form.stockQty ?? 0),
     });
   };
 
@@ -155,7 +206,8 @@ export default function CreateProductModal({
     if (!file || !onUploadImage) return;
     try {
       const imageUrl = await onUploadImage(file);
-      setForm(prev => ({ ...prev, imageUrl: imageUrl || "" }));
+      setForm((prev) => ({ ...prev, imageUrl: imageUrl || "" }));
+      setTouched((prev) => ({ ...prev, imageUrl: true }));
     } catch (error) {
       console.error("Upload failed:", error);
     }
@@ -163,24 +215,22 @@ export default function CreateProductModal({
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    setForm(prev => ({ ...prev, imageUrl: pastedText }));
+    const pastedText = e.clipboardData.getData("text");
+    setForm((prev) => ({ ...prev, imageUrl: pastedText }));
+    setTouched((prev) => ({ ...prev, imageUrl: true }));
   };
 
   if (!open) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && !loading && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div 
-        ref={formRef}
-        className="w-full max-w-2xl bg-white rounded-xl shadow-2xl animate-slideUp"
-      >
+      <div ref={formRef} className="w-full max-w-2xl bg-white rounded-xl shadow-2xl animate-slideUp">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
@@ -209,17 +259,14 @@ export default function CreateProductModal({
           <div className="flex items-start gap-4">
             <div className="relative group">
               <div className="w-24 h-24 rounded-lg overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                <ProductThumb 
-                  url={form.imageUrl} 
-                  alt={form.nom || "Aperçu"}
-                  className="w-full h-full object-cover"
-                />
+                <ProductThumb url={form.imageUrl} alt={form.nom || "Aperçu"} className="w-full h-full object-cover" />
               </div>
               {form.imageUrl && (
                 <button
-                  onClick={() => setForm(prev => ({ ...prev, imageUrl: "" }))}
+                  onClick={() => setForm((prev) => ({ ...prev, imageUrl: "" }))}
                   className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                   title="Supprimer l'image"
+                  disabled={loading}
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -227,7 +274,7 @@ export default function CreateProductModal({
                 </button>
               )}
             </div>
-            
+
             <div className="flex-1 space-y-2">
               <p className="text-sm text-gray-600">
                 {onUploadImage ? "Téléchargez une image ou collez une URL" : "Collez une URL d'image"}
@@ -260,27 +307,26 @@ export default function CreateProductModal({
 
           {/* Image URL Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              URL de l'image
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">URL de l'image</label>
             <div className="relative">
               <input
                 className={`w-full px-4 py-2 border rounded-lg transition-all ${
                   errors.imageUrl && touched.imageUrl
-                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-500'
+                    ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
                 placeholder="https://exemple.com/image.jpg"
                 value={form.imageUrl}
-                onChange={(e) => handleChange('imageUrl', e.target.value)}
-                onBlur={() => handleBlur('imageUrl')}
+                onChange={(e) => handleChange("imageUrl", e.target.value)}
+                onBlur={() => handleBlur("imageUrl")}
                 onPaste={handlePaste}
                 disabled={loading}
               />
               {form.imageUrl && (
                 <button
-                  onClick={() => handleChange('imageUrl', '')}
+                  onClick={() => handleChange("imageUrl", "")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  disabled={loading}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -290,32 +336,96 @@ export default function CreateProductModal({
             </div>
           </div>
 
-          {/* Form Grid */}
+          {/* ✅ Nouveau bloc : Catégorie / Stock */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Catégorie <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={`w-full px-4 py-2 border rounded-lg transition-all ${
+                  errors.category && touched.category
+                    ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
+                }`}
+                value={form.category}
+                onChange={(e) => handleChange("category", e.target.value)}
+                onBlur={() => handleBlur("category")}
+                disabled={loading}
+              >
+                {categories.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              {errors.category && touched.category && <p className="mt-1 text-xs text-red-600">{errors.category}</p>}
+            </div>
+
+            {/* Stock */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Stock disponible</label>
+              <input
+                className={`w-full px-4 py-2 border rounded-lg transition-all ${
+                  errors.stockQty && touched.stockQty
+                    ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
+                }`}
+                type="number"
+                min="0"
+                step="1"
+                value={form.stockQty}
+                onChange={(e) => handleChange("stockQty", e.target.value === "" ? "" : Number(e.target.value))}
+                onBlur={() => handleBlur("stockQty")}
+                disabled={loading}
+                placeholder="0"
+              />
+              {errors.stockQty && touched.stockQty && <p className="mt-1 text-xs text-red-600">{errors.stockQty}</p>}
+              <p className="mt-1 text-xs text-gray-500">0 = rupture (filtrable dans la liste)</p>
+            </div>
+          </div>
+
+          {/* ✅ Nouveau bloc : Détails produit */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Détails du produit</label>
+            <textarea
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[110px] resize-y"
+              value={form.details}
+              onChange={(e) => handleChange("details", e.target.value)}
+              onBlur={() => handleBlur("details")}
+              disabled={loading}
+              placeholder="Description longue, infos, conseils d’utilisation…"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Ce champ alimentera la page “détail produit”.
+            </p>
+          </div>
+
+          {/* Form Grid (existant) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* SKU */}
-            <div>
+            <div className={errors.sku && touched.sku ? "error" : ""}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 SKU <span className="text-red-500">*</span>
               </label>
               <input
                 className={`w-full px-4 py-2 border rounded-lg transition-all ${
                   errors.sku && touched.sku
-                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-500'
+                    ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
                 value={form.sku}
-                onChange={(e) => handleChange('sku', e.target.value)}
-                onBlur={() => handleBlur('sku')}
+                onChange={(e) => handleChange("sku", e.target.value)}
+                onBlur={() => handleBlur("sku")}
                 disabled={loading}
                 placeholder="ex: PROD-001"
               />
-              {errors.sku && touched.sku && (
-                <p className="mt-1 text-xs text-red-600">{errors.sku}</p>
-              )}
+              {errors.sku && touched.sku && <p className="mt-1 text-xs text-red-600">{errors.sku}</p>}
             </div>
 
             {/* Price */}
-            <div>
+            <div className={errors.prixBaseFcfa && touched.prixBaseFcfa ? "error" : ""}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Prix de base (FCFA) <span className="text-red-500">*</span>
               </label>
@@ -323,76 +433,68 @@ export default function CreateProductModal({
                 <input
                   className={`w-full px-4 py-2 border rounded-lg transition-all ${
                     errors.prixBaseFcfa && touched.prixBaseFcfa
-                      ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                      : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-500'
+                      ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
                   }`}
                   type="number"
                   min="0"
                   step="10"
                   value={form.prixBaseFcfa}
-                  onChange={(e) => handleChange('prixBaseFcfa', e.target.value)}
-                  onBlur={() => handleBlur('prixBaseFcfa')}
+                  onChange={(e) => handleChange("prixBaseFcfa", e.target.value)}
+                  onBlur={() => handleBlur("prixBaseFcfa")}
                   disabled={loading}
                   placeholder="0"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                  FCFA
-                </span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">FCFA</span>
               </div>
-              {errors.prixBaseFcfa && touched.prixBaseFcfa && (
-                <p className="mt-1 text-xs text-red-600">{errors.prixBaseFcfa}</p>
-              )}
+              {errors.prixBaseFcfa && touched.prixBaseFcfa && <p className="mt-1 text-xs text-red-600">{errors.prixBaseFcfa}</p>}
             </div>
 
-            {/* Name (full width) */}
-            <div className="md:col-span-2">
+            {/* Name */}
+            <div className={`md:col-span-2 ${errors.nom && touched.nom ? "error" : ""}`}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nom du produit <span className="text-red-500">*</span>
               </label>
               <input
                 className={`w-full px-4 py-2 border rounded-lg transition-all ${
                   errors.nom && touched.nom
-                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-500'
+                    ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
                 value={form.nom}
-                onChange={(e) => handleChange('nom', e.target.value)}
-                onBlur={() => handleBlur('nom')}
+                onChange={(e) => handleChange("nom", e.target.value)}
+                onBlur={() => handleBlur("nom")}
                 disabled={loading}
                 placeholder="Nom du produit"
               />
-              {errors.nom && touched.nom && (
-                <p className="mt-1 text-xs text-red-600">{errors.nom}</p>
-              )}
+              {errors.nom && touched.nom && <p className="mt-1 text-xs text-red-600">{errors.nom}</p>}
             </div>
 
             {/* CC */}
-            <div>
+            <div className={errors.cc && touched.cc ? "error" : ""}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Coefficient CC <span className="text-red-500">*</span>
               </label>
               <input
                 className={`w-full px-4 py-2 border rounded-lg transition-all ${
                   errors.cc && touched.cc
-                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-500'
+                    ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
                 type="number"
                 step="0.001"
                 min="0"
                 value={form.cc}
-                onChange={(e) => handleChange('cc', e.target.value)}
-                onBlur={() => handleBlur('cc')}
+                onChange={(e) => handleChange("cc", e.target.value)}
+                onBlur={() => handleBlur("cc")}
                 disabled={loading}
                 placeholder="0.000"
               />
-              {errors.cc && touched.cc && (
-                <p className="mt-1 text-xs text-red-600">{errors.cc}</p>
-              )}
+              {errors.cc && touched.cc && <p className="mt-1 text-xs text-red-600">{errors.cc}</p>}
             </div>
 
             {/* Weight */}
-            <div>
+            <div className={errors.poidsKg && touched.poidsKg ? "error" : ""}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Poids (Kg) <span className="text-red-500">*</span>
               </label>
@@ -400,25 +502,21 @@ export default function CreateProductModal({
                 <input
                   className={`w-full px-4 py-2 border rounded-lg transition-all ${
                     errors.poidsKg && touched.poidsKg
-                      ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                      : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-500'
+                      ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-500/20 focus:border-blue-500"
                   }`}
                   type="number"
                   step="0.001"
                   min="0"
                   value={form.poidsKg}
-                  onChange={(e) => handleChange('poidsKg', e.target.value)}
-                  onBlur={() => handleBlur('poidsKg')}
+                  onChange={(e) => handleChange("poidsKg", e.target.value)}
+                  onBlur={() => handleBlur("poidsKg")}
                   disabled={loading}
                   placeholder="0.000"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                  kg
-                </span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">kg</span>
               </div>
-              {errors.poidsKg && touched.poidsKg && (
-                <p className="mt-1 text-xs text-red-600">{errors.poidsKg}</p>
-              )}
+              {errors.poidsKg && touched.poidsKg && <p className="mt-1 text-xs text-red-600">{errors.poidsKg}</p>}
             </div>
           </div>
 
@@ -427,22 +525,20 @@ export default function CreateProductModal({
             <div>
               <p className="font-medium text-gray-900">Statut du produit</p>
               <p className="text-sm text-gray-500">
-                {form.actif 
-                  ? "Le produit est visible et disponible à la vente" 
-                  : "Le produit est masqué et non disponible"}
+                {form.actif ? "Le produit est visible et disponible à la vente" : "Le produit est masqué et non disponible"}
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setForm(prev => ({ ...prev, actif: !prev.actif }))}
+              onClick={() => setForm((prev) => ({ ...prev, actif: !prev.actif }))}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                form.actif ? 'bg-blue-600' : 'bg-gray-300'
+                form.actif ? "bg-blue-600" : "bg-gray-300"
               }`}
               disabled={loading}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  form.actif ? 'translate-x-6' : 'translate-x-1'
+                  form.actif ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
@@ -473,7 +569,11 @@ export default function CreateProductModal({
               <>
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
                 <span>{isEdit ? "Mise à jour..." : "Création..."}</span>
               </>
