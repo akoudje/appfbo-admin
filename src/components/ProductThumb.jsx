@@ -1,10 +1,12 @@
-// ProductThumb.jsx
-// Ce composant affiche une miniature d'image pour un produit. Si l'URL est invalide ou absente, il affiche un placeholder.
+// src/components/ProductThumb.jsx
+// Ce composant affiche une miniature d'image pour un produit.
+// Si l'URL est invalide ou absente, il affiche un placeholder.
+// Supporte URL absolue (https://...) ou relative (/uploads/...).
 
-// src/components/ui/ProductThumb.jsx  (ou src/components/ProductThumb.jsx selon ton arborescence)
 import { useMemo, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 const BACKEND_ORIGIN = API_BASE.replace(/\/api\/?$/, "");
 
 function resolveSrc(url) {
@@ -14,7 +16,7 @@ function resolveSrc(url) {
   // absolute
   if (/^https?:\/\//i.test(raw)) return raw;
 
-  // relative ("/uploads/..." ou "uploads/...")
+  // relative
   const path = raw.startsWith("/") ? raw : `/${raw}`;
   return `${BACKEND_ORIGIN}${path}`;
 }
@@ -24,7 +26,7 @@ export default function ProductThumb({
   alt,
   className = "",
   onError,
-  clickable = false, // ✅ par défaut: pas de lien (safe)
+  clickable = false, // ✅ par défaut: pas de lien
   size = "thumb", // "thumb" | "product" | "large"
 }) {
   const [broken, setBroken] = useState(false);
@@ -59,6 +61,7 @@ export default function ProductThumb({
       className={imgCls}
       loading="lazy"
       decoding="async"
+      referrerPolicy="no-referrer"
       onError={(e) => {
         setBroken(true);
         onError?.(e);
@@ -68,7 +71,6 @@ export default function ProductThumb({
 
   if (!clickable) return img;
 
-  // clickable optionnel (utile dans l’admin seulement)
   return (
     <a href={src} target="_blank" rel="noreferrer" title="Ouvrir l'image">
       {img}
