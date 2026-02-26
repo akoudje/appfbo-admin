@@ -12,9 +12,25 @@ export default function ProductCreate() {
   const onSubmit = async (payload) => {
     setLoading(true);
     try {
-      const created = await create(payload);
-      // ✅ redirection vers route SANS /admin
-      navigate(`/products/${created.id}/edit`, { replace: true });
+      await create(payload);
+
+      // ✅ Confirmation visuelle + retour page produits
+      navigate("/products", {
+        replace: true,
+        state: { toast: "Produit créé avec succès ✅", type: "success" },
+      });
+    } catch (e) {
+      console.error(e);
+      // ✅ Retour produits avec message d'erreur (visuel)
+      navigate("/products", {
+        replace: true,
+        state: {
+          toast:
+            e?.response?.data?.message ||
+            "Création échouée. Vérifie les champs et réessaie.",
+          type: "error",
+        },
+      });
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 // src/components/ProductForm.jsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ProductThumb from "./ProductThumb";
 
 const DEFAULT_CATEGORIES = [
@@ -58,7 +59,6 @@ function toFixed3Safe(v) {
 function maskUrl(url) {
   try {
     const u = new URL(url);
-    // on masque volontairement le path + query (safe)
     return `${u.protocol}//${u.hostname}/…`;
   } catch {
     return "URL invalide";
@@ -66,27 +66,78 @@ function maskUrl(url) {
 }
 
 function imageSourceTag(url) {
-  if (!url) return { label: "Aucune image", cls: "bg-gray-100 text-gray-700 border-gray-200" };
+  if (!url)
+    return { label: "Aucune image", cls: "bg-gray-100 text-gray-700 border-gray-200" };
   if (/cloudinary\.com/i.test(url)) {
     return { label: "Cloudinary", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
   }
   return { label: "Externe", cls: "bg-amber-50 text-amber-700 border-amber-200" };
 }
 
+function extractApiErrorMessage(e) {
+  return (
+    e?.response?.data?.message ||
+    e?.response?.data?.error ||
+    e?.message ||
+    "Une erreur est survenue. Réessaie."
+  );
+}
+
+function InlineAlert({ type = "success", title, message, onClose }) {
+  const styles =
+    type === "success"
+      ? {
+          wrap: "border-emerald-200 bg-emerald-50",
+          title: "text-emerald-900",
+          text: "text-emerald-800",
+          icon: (
+            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ),
+        }
+      : {
+          wrap: "border-red-200 bg-red-50",
+          title: "text-red-900",
+          text: "text-red-800",
+          icon: (
+            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ),
+        };
+
+  return (
+    <div className={`border rounded-xl p-4 flex items-start gap-3 ${styles.wrap}`}>
+      <div className="mt-0.5">{styles.icon}</div>
+      <div className="flex-1 min-w-0">
+        {title && <div className={`text-sm font-semibold ${styles.title}`}>{title}</div>}
+        {message && <div className={`text-sm mt-0.5 ${styles.text}`}>{message}</div>}
+      </div>
+      {onClose && (
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ProductForm({
   mode = "create", // "create" | "edit"
   initialValues,
-  onSubmit,
+  onSubmit, // peut throw OU retourner { ok:boolean, message?:string }
   onUploadImage, // (file) => Promise<string imageUrl>
   loading,
   categoryOptions,
 }) {
+  const navigate = useNavigate();
   const isEdit = mode === "edit";
 
   const categories =
-    Array.isArray(categoryOptions) && categoryOptions.length
-      ? categoryOptions
-      : DEFAULT_CATEGORIES;
+    Array.isArray(categoryOptions) && categoryOptions.length ? categoryOptions : DEFAULT_CATEGORIES;
 
   const [form, setForm] = useState({
     sku: "",
@@ -106,6 +157,9 @@ export default function ProductForm({
   const [uploadBusy, setUploadBusy] = useState(false);
   const [revealUrl, setRevealUrl] = useState(false);
 
+  // ✅ Feedback UI
+  const [banner, setBanner] = useState(null); // { type: 'success'|'error', title, message }
+
   // snapshot pour dirty-check (edit)
   const initialSnapshotRef = useRef(null);
 
@@ -124,7 +178,7 @@ export default function ProductForm({
         details: initialValues.details || "",
       };
       setForm(next);
-      initialSnapshotRef.current = next; // référence stable
+      initialSnapshotRef.current = next;
     } else {
       const next = {
         sku: "",
@@ -141,9 +195,11 @@ export default function ProductForm({
       setForm(next);
       initialSnapshotRef.current = next;
     }
+
     setErrors({});
     setTouched({});
     setRevealUrl(false);
+    setBanner(null);
   }, [isEdit, initialValues]);
 
   const validateForm = useMemo(() => {
@@ -160,7 +216,6 @@ export default function ProductForm({
 
   const hasErrors = Object.values(validateForm).some((x) => x);
 
-  // dirty-check : utile surtout en EDIT
   const isDirty = useMemo(() => {
     const snap = initialSnapshotRef.current;
     if (!snap) return true;
@@ -177,20 +232,19 @@ export default function ProductForm({
     setForm((p) => ({ ...p, [field]: value }));
     setTouched((p) => ({ ...p, [field]: true }));
     if (errors[field]) setErrors((p) => ({ ...p, [field]: "" }));
+    if (banner) setBanner(null);
   };
 
   const handleBlur = (field) => {
     setTouched((p) => ({ ...p, [field]: true }));
     setErrors((p) => ({ ...p, [field]: validateField(field, form[field]) }));
 
-    // normalisation des décimales
     if (field === "cc" || field === "poidsKg") {
       setForm((p) => ({ ...p, [field]: toFixed3Safe(p[field]) }));
     }
   };
 
   const submit = async () => {
-    // mark touched
     const allTouched = Object.keys(form).reduce((acc, k) => ((acc[k] = true), acc), {});
     setTouched(allTouched);
 
@@ -204,38 +258,92 @@ export default function ProductForm({
       stockQty: validateField("stockQty", form.stockQty),
     };
     setErrors(validationErrors);
-    if (Object.values(validationErrors).some((e) => e)) return;
+    if (Object.values(validationErrors).some((e) => e)) {
+      setBanner({
+        type: "error",
+        title: "Vérifie les champs",
+        message: "Certains champs sont invalides. Corrige puis réessaie.",
+      });
+      return;
+    }
 
-    await onSubmit({
-      sku: form.sku.trim(),
-      nom: form.nom.trim(),
-      prixBaseFcfa: Number(form.prixBaseFcfa),
-      cc: String(form.cc),
-      poidsKg: String(form.poidsKg),
-      actif: Boolean(form.actif),
-      imageUrl: form.imageUrl ? String(form.imageUrl).trim() : null,
-      category: form.category || "NON_CLASSE",
-      details: form.details ? String(form.details) : null,
-      stockQty: Number(form.stockQty ?? 0),
-    });
+    try {
+      setBanner(null);
 
-    // après succès : on “resynchronise” le snapshot pour éviter dirty=true
-    initialSnapshotRef.current = { ...form };
+      const result = await onSubmit?.({
+        sku: form.sku.trim(),
+        nom: form.nom.trim(),
+        prixBaseFcfa: Number(form.prixBaseFcfa),
+        cc: String(form.cc),
+        poidsKg: String(form.poidsKg),
+        actif: Boolean(form.actif),
+        imageUrl: form.imageUrl ? String(form.imageUrl).trim() : null,
+        category: form.category || "NON_CLASSE",
+        details: form.details ? String(form.details) : null,
+        stockQty: Number(form.stockQty ?? 0),
+      });
+
+      // Support 2 contrats :
+      // 1) onSubmit throw => catch
+      // 2) onSubmit retourne {ok:false,message}
+      if (result && typeof result === "object" && result.ok === false) {
+        setBanner({
+          type: "error",
+          title: "Opération échouée",
+          message: result.message || "Impossible d’enregistrer. Réessaie.",
+        });
+        return;
+      }
+
+      // ✅ succès
+      setBanner({
+        type: "success",
+        title: isEdit ? "Produit mis à jour" : "Produit créé",
+        message: isEdit
+          ? "Les modifications ont été enregistrées avec succès."
+          : "Le produit a été créé avec succès.",
+      });
+
+      initialSnapshotRef.current = { ...form };
+      setTouched({});
+      setErrors({});
+    } catch (e) {
+      const msg = extractApiErrorMessage(e);
+      setBanner({
+        type: "error",
+        title: "Opération échouée",
+        message: msg,
+      });
+    }
   };
 
   const uploadImage = async (file) => {
     if (!file || !onUploadImage) return;
     setUploadBusy(true);
     try {
+      setBanner(null);
       const url = await onUploadImage(file);
       handleChange("imageUrl", url || "");
+      setBanner({
+        type: "success",
+        title: "Image mise à jour",
+        message: "L’image du produit a été mise à jour avec succès.",
+      });
+    } catch (e) {
+      setBanner({
+        type: "error",
+        title: "Upload échoué",
+        message: extractApiErrorMessage(e),
+      });
     } finally {
       setUploadBusy(false);
     }
   };
 
   const imgTag = imageSourceTag(form.imageUrl);
-  const uploadDisabled = !onUploadImage || loading || uploadBusy;
+
+  // ✅ upload seulement en EDIT (page dédiée)
+  const uploadDisabled = !isEdit || !onUploadImage || loading || uploadBusy;
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -247,7 +355,7 @@ export default function ProductForm({
           <p className="text-sm text-gray-500 mt-1">
             {isEdit
               ? "Mettez à jour les informations et l’image."
-              : "Renseignez les champs puis créez. L’upload image est disponible après création."}
+              : "Renseignez les champs puis créez. L’upload image se fait sur la page d’édition."}
           </p>
         </div>
 
@@ -266,6 +374,16 @@ export default function ProductForm({
       </div>
 
       <div className="p-6 space-y-6">
+        {/* ✅ Banner feedback */}
+        {banner && (
+          <InlineAlert
+            type={banner.type}
+            title={banner.title}
+            message={banner.message}
+            onClose={() => setBanner(null)}
+          />
+        )}
+
         {/* Image */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="w-44">
@@ -302,10 +420,10 @@ export default function ProductForm({
           <div className="flex-1">
             <p className="text-sm text-gray-700 mb-2">
               Image produit (admin).
-              {!onUploadImage && (
+              {!isEdit && (
                 <span className="text-gray-500">
                   {" "}
-                  — Upload activé après création (page édition).
+                  — Modification uniquement sur la page d’édition.
                 </span>
               )}
             </p>
@@ -315,7 +433,7 @@ export default function ProductForm({
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white transition ${
                   uploadDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50"
                 }`}
-                title={!onUploadImage ? "Upload disponible après création (édition)" : ""}
+                title={!isEdit ? "Upload disponible uniquement en édition" : ""}
               >
                 <input
                   type="file"
@@ -329,11 +447,15 @@ export default function ProductForm({
                   }}
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  {uploadBusy ? "Upload..." : form.imageUrl ? "Remplacer l’image" : "Télécharger une image"}
+                  {uploadBusy
+                    ? "Upload..."
+                    : form.imageUrl
+                    ? "Remplacer l’image"
+                    : "Télécharger une image"}
                 </span>
               </label>
 
-              {form.imageUrl && (
+              {form.imageUrl && isEdit && (
                 <button
                   type="button"
                   onClick={() => handleChange("imageUrl", "")}
@@ -343,6 +465,15 @@ export default function ProductForm({
                   Retirer l’image
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => navigate("/products")}
+                disabled={loading || uploadBusy}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Retour à la liste
+              </button>
             </div>
 
             {form.imageUrl && /cloudinary\.com/i.test(form.imageUrl) === false && (
@@ -384,7 +515,9 @@ export default function ProductForm({
           </div>
 
           <div className={errors.stockQty && touched.stockQty ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stock disponible</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Stock disponible
+            </label>
             <input
               className={`w-full px-4 py-2 border rounded-lg ${
                 errors.stockQty && touched.stockQty ? "border-red-300" : "border-gray-300"
@@ -432,7 +565,9 @@ export default function ProductForm({
               onBlur={() => handleBlur("sku")}
               disabled={loading}
             />
-            {errors.sku && touched.sku && <p className="mt-1 text-xs text-red-600">{errors.sku}</p>}
+            {errors.sku && touched.sku && (
+              <p className="mt-1 text-xs text-red-600">{errors.sku}</p>
+            )}
           </div>
 
           <div className={errors.prixBaseFcfa && touched.prixBaseFcfa ? "error" : ""}>
@@ -469,7 +604,9 @@ export default function ProductForm({
               onBlur={() => handleBlur("nom")}
               disabled={loading}
             />
-            {errors.nom && touched.nom && <p className="mt-1 text-xs text-red-600">{errors.nom}</p>}
+            {errors.nom && touched.nom && (
+              <p className="mt-1 text-xs text-red-600">{errors.nom}</p>
+            )}
           </div>
 
           <div className={errors.cc && touched.cc ? "error" : ""}>
@@ -488,7 +625,9 @@ export default function ProductForm({
               onBlur={() => handleBlur("cc")}
               disabled={loading}
             />
-            {errors.cc && touched.cc && <p className="mt-1 text-xs text-red-600">{errors.cc}</p>}
+            {errors.cc && touched.cc && (
+              <p className="mt-1 text-xs text-red-600">{errors.cc}</p>
+            )}
           </div>
 
           <div className={errors.poidsKg && touched.poidsKg ? "error" : ""}>
@@ -517,7 +656,9 @@ export default function ProductForm({
         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
           <div>
             <p className="font-medium text-gray-900">Statut du produit</p>
-            <p className="text-sm text-gray-500">{form.actif ? "Visible et disponible" : "Masqué et non disponible"}</p>
+            <p className="text-sm text-gray-500">
+              {form.actif ? "Visible et disponible" : "Masqué et non disponible"}
+            </p>
           </div>
           <button
             type="button"

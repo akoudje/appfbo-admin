@@ -20,6 +20,9 @@ export default function ProductEdit() {
       try {
         const p = await getById(id);
         if (alive) setInitialValues(p);
+      } catch (e) {
+        console.error(e);
+        if (alive) setInitialValues(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -34,11 +37,26 @@ export default function ProductEdit() {
     try {
       const updated = await update(id, payload);
       setInitialValues((prev) => ({ ...prev, ...updated }));
+
+      // ✅ Confirmation visuelle + retour page produits
+      navigate("/products", {
+        replace: true,
+        state: { toast: "Produit mis à jour avec succès ✅", type: "success" },
+      });
+    } catch (e) {
+      console.error(e);
+      // ✅ On reste sur la page d'édition si erreur, et on affiche un toast sur /products seulement si tu veux
+      // Ici on garde l'utilisateur sur la page pour corriger.
+      alert(
+        e?.response?.data?.message ||
+          "Mise à jour échouée. Corrige puis réessaie."
+      );
     } finally {
       setSaving(false);
     }
   };
 
+  // ✅ Upload uniquement sur la page dédiée (ici)
   const onUpload = async (file) => {
     const updated = await uploadImage(id, file);
     setInitialValues((prev) => ({ ...prev, ...updated }));
