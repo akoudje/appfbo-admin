@@ -10,7 +10,7 @@ const DEFAULT_CATEGORIES = [
   { value: "COMBO_PACKS", label: "Combo Packs" },
   { value: "GESTION_DE_POIDS", label: "Gestion de poids" },
   { value: "NUTRITION", label: "Nutrition" },
-  { value: "PRODUIT_DE_LA_ROCHE", label: "Produit de la roche" },
+  { value: "PRODUIT_DE_LA_ROCHE", label: "Produit de la ruche" },
   { value: "SOINS_DE_LA_PEAU", label: "Soins de la peau" },
   { value: "SOINS_PERSONNELS", label: "Soins personnels" },
 ];

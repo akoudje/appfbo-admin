@@ -1,3 +1,5 @@
+// src/lib/format.js
+
 export function formatFcfa(n) {
   const v = Number(n || 0);
   return `${v.toLocaleString()} FCFA`;
