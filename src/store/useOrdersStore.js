@@ -1,3 +1,6 @@
+// useOrdersStore.js
+// This store manages the list of orders, with filters and pagination
+
 import { create } from "zustand";
 import { ordersService } from "../services/ordersService";
 
