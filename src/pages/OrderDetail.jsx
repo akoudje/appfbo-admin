@@ -67,10 +67,9 @@ export default function OrderDetail() {
       setProofNote(data?.paymentProofNote || "");
 
       setPackingNote(data?.packingNote || "");
-
       setDeliveryTracking(data?.deliveryTracking || "");
 
-      // internal note peut être réutilisée pour fulfillNote
+      // notes “action”
       setFulfillNote("");
       setVerifyNote("");
       setInvoiceNote("");
@@ -95,6 +94,10 @@ export default function OrderDetail() {
   const canPrepare = status === "PAID";
   const canFulfill = status === "READY";
   const canCancel = status && !["FULFILLED", "CANCELLED"].includes(status);
+
+  const isCash = order?.paymentMode === "ESPECES";
+  const canCashPay =
+    isCash && ["SUBMITTED", "INVOICED"].includes(status) && !saving;
 
   // ---------- actions ----------
   const doInvoice = async () => {
@@ -132,7 +135,9 @@ export default function OrderDetail() {
       await ordersService.proof(id, body);
       await load();
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible d'enregistrer la preuve");
+      setError(
+        e?.response?.data?.message || "Impossible d'enregistrer la preuve"
+      );
     } finally {
       setSaving(false);
     }
@@ -150,7 +155,26 @@ export default function OrderDetail() {
       await ordersService.verifyPayment(id, body);
       await load();
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de valider le paiement");
+      setError(
+        e?.response?.data?.message || "Impossible de valider le paiement"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doCashPay = async () => {
+    try {
+      setSaving(true);
+      setError("");
+
+      // Encaissement espèces (endpoint /pay)
+      await ordersService.pay(id);
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || "Impossible d'encaisser le paiement espèces"
+      );
     } finally {
       setSaving(false);
     }
@@ -168,7 +192,9 @@ export default function OrderDetail() {
       await ordersService.prepare(id, body);
       await load();
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de marquer le colis prêt");
+      setError(
+        e?.response?.data?.message || "Impossible de marquer le colis prêt"
+      );
     } finally {
       setSaving(false);
     }
@@ -229,45 +255,55 @@ export default function OrderDetail() {
   };
 
   const waLink = useMemo(() => {
-    const msg = order?.whatsappMessage ? encodeURIComponent(order.whatsappMessage) : "";
+    const msg = order?.whatsappMessage
+      ? encodeURIComponent(order.whatsappMessage)
+      : "";
     return `https://wa.me/?text=${msg}`;
   }, [order?.whatsappMessage]);
 
-  // ---------- timeline ----------
+  // ---------- timeline (cash flow vs electronic flow) ----------
   const steps = useMemo(() => {
     const s = status;
+    const cash = order?.paymentMode === "ESPECES";
+
+    const flow = cash
+      ? ["SUBMITTED", "INVOICED", "PAID", "READY", "FULFILLED"]
+      : ["SUBMITTED", "INVOICED", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED"];
+
     const done = (name) => {
-      const idx = [
-        "SUBMITTED",
-        "INVOICED",
-        "PAYMENT_PROOF_RECEIVED",
-        "PAID",
-        "READY",
-        "FULFILLED",
-      ].indexOf(name);
-      const cur = [
-        "SUBMITTED",
-        "INVOICED",
-        "PAYMENT_PROOF_RECEIVED",
-        "PAID",
-        "READY",
-        "FULFILLED",
-      ].indexOf(s);
+      const idx = flow.indexOf(name);
+      const cur = flow.indexOf(s);
       return cur >= idx && cur !== -1;
     };
 
-    return [
-      { key: "SUBMITTED", label: "Soumise", at: order?.submittedAt, done: done("SUBMITTED") },
-      { key: "INVOICED", label: "Préfacture", at: order?.invoicedAt, done: done("INVOICED") },
-      { key: "PAYMENT_PROOF_RECEIVED", label: "Preuve reçue", at: order?.proofReceivedAt, done: done("PAYMENT_PROOF_RECEIVED") },
-      { key: "PAID", label: "Paiement OK", at: order?.paidAt, done: done("PAID") },
-      { key: "READY", label: "Colis prêt", at: order?.preparedAt, done: done("READY") },
-      { key: "FULFILLED", label: "Clôturée", at: order?.fulfilledAt, done: done("FULFILLED") },
+    const base = [
+      { key: "SUBMITTED", label: "Soumise", at: order?.submittedAt },
+      { key: "INVOICED", label: "Préfacture", at: order?.invoicedAt },
     ];
+
+    const proof = cash
+      ? []
+      : [
+          {
+            key: "PAYMENT_PROOF_RECEIVED",
+            label: "Preuve reçue",
+            at: order?.proofReceivedAt,
+          },
+        ];
+
+    const tail = [
+      { key: "PAID", label: "Paiement OK", at: order?.paidAt },
+      { key: "READY", label: "Colis prêt", at: order?.preparedAt },
+      { key: "FULFILLED", label: "Clôturée", at: order?.fulfilledAt },
+    ];
+
+    return [...base, ...proof, ...tail].map((st) => ({
+      ...st,
+      done: done(st.key),
+    }));
   }, [order, status]);
 
   if (loading) return <div className="text-sm text-gray-500">Chargement…</div>;
-  if (error) return <div className="text-sm text-red-600">{error}</div>;
   if (!order) return null;
 
   return (
@@ -281,7 +317,9 @@ export default function OrderDetail() {
           <div className="mt-2 flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold">Détail commande</h1>
             <StatusBadge status={order.status} />
-            <span className="text-xs text-gray-500">({STATUSES[order.status] || order.status})</span>
+            <span className="text-xs text-gray-500">
+              ({STATUSES[order.status] || order.status})
+            </span>
           </div>
           <div className="text-xs text-gray-500 font-mono mt-1">{order.id}</div>
         </div>
@@ -292,27 +330,52 @@ export default function OrderDetail() {
           </button>
 
           {canCancel && (
-            <button className="btn" onClick={() => document.getElementById("cancel_box")?.scrollIntoView({ behavior: "smooth" })} disabled={saving}>
+            <button
+              className="btn"
+              onClick={() =>
+                document
+                  .getElementById("cancel_box")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
+              disabled={saving}
+            >
               Annuler
             </button>
           )}
         </div>
       </div>
 
+      {/* Error banner (ne casse pas la page) */}
+      {error && (
+        <div className="card p-3 border border-red-200 bg-red-50 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Timeline */}
       <div className="card p-4">
         <div className="font-semibold mb-3">Traitement</div>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+        <div
+          className={`grid grid-cols-1 gap-2 ${
+            steps.length === 5 ? "md:grid-cols-5" : "md:grid-cols-6"
+          }`}
+        >
           {steps.map((st) => (
             <div
               key={st.key}
               className={`rounded-xl border p-3 text-sm ${
-                st.done ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white"
+                st.done
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-gray-200 bg-white"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="font-medium">{st.label}</div>
-                <div className={`text-xs ${st.done ? "text-emerald-700" : "text-gray-500"}`}>
+                <div
+                  className={`text-xs ${
+                    st.done ? "text-emerald-700" : "text-gray-500"
+                  }`}
+                >
                   {st.done ? "OK" : "—"}
                 </div>
               </div>
@@ -327,7 +390,8 @@ export default function OrderDetail() {
           <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm">
             <div className="font-semibold text-red-700">Commande annulée</div>
             <div className="text-red-700 mt-1">
-              Motif : <span className="font-medium">{order.cancelReason || "—"}</span>
+              Motif :{" "}
+              <span className="font-medium">{order.cancelReason || "—"}</span>
             </div>
             <div className="text-xs text-red-700 mt-1">
               {order.cancelledAt ? formatDateTime(order.cancelledAt) : ""}
@@ -342,7 +406,10 @@ export default function OrderDetail() {
         <div className="card p-4 space-y-3">
           <div className="font-semibold">Client FBO</div>
 
-          <Row label="Numéro FBO" value={<span className="font-mono">{order.fboNumero}</span>} />
+          <Row
+            label="Numéro FBO"
+            value={<span className="font-mono">{order.fboNumero}</span>}
+          />
           <Row label="Nom" value={order.fboNomComplet} />
           <Row label="Grade" value={order.fboGrade} />
           <Row label="Point de vente" value={order.pointDeVente} />
@@ -358,7 +425,10 @@ export default function OrderDetail() {
         <div className="card p-4 space-y-3">
           <div className="font-semibold">Paiement & Livraison</div>
 
-          <Row label="PaymentMode" value={order.paymentMode} />
+          <Row
+            label="PaymentMode"
+            value={<PaymentModeBadge mode={order.paymentMode} />}
+          />
           <Row label="DeliveryMode" value={order.deliveryMode} />
 
           <div className="pt-2 border-t" />
@@ -370,7 +440,12 @@ export default function OrderDetail() {
             label="Lien paiement"
             value={
               order.paymentLink ? (
-                <a className="underline" href={order.paymentLink} target="_blank" rel="noreferrer">
+                <a
+                  className="underline"
+                  href={order.paymentLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Ouvrir
                 </a>
               ) : (
@@ -386,14 +461,18 @@ export default function OrderDetail() {
             <button
               className="btn"
               onClick={copyWhatsApp}
-              disabled={!order.whatsappMessage}
+              disabled={!order.whatsappMessage || saving}
               title="Copier le message WhatsApp"
             >
               Copier WhatsApp
             </button>
 
             <a
-              className={`btn ${!order.whatsappMessage ? "pointer-events-none opacity-50" : ""}`}
+              className={`btn ${
+                !order.whatsappMessage || saving
+                  ? "pointer-events-none opacity-50"
+                  : ""
+              }`}
               href={waLink}
               target="_blank"
               rel="noreferrer"
@@ -407,7 +486,9 @@ export default function OrderDetail() {
               {order.whatsappMessage}
             </div>
           ) : (
-            <div className="text-sm text-gray-500">Aucun message WhatsApp généré</div>
+            <div className="text-sm text-gray-500">
+              Aucun message WhatsApp généré
+            </div>
           )}
         </div>
 
@@ -419,7 +500,11 @@ export default function OrderDetail() {
           <Row label="Livraison" value={formatFcfa(order.fraisLivraisonFcfa)} />
           <Row
             label={<span className="font-semibold">Total</span>}
-            value={<span className="text-lg font-semibold">{formatFcfa(order.totalFcfa)}</span>}
+            value={
+              <span className="text-lg font-semibold">
+                {formatFcfa(order.totalFcfa)}
+              </span>
+            }
           />
 
           <div className="pt-2 border-t" />
@@ -457,7 +542,13 @@ export default function OrderDetail() {
             </Field>
           </div>
 
-          <Field label="Lien de paiement (Wave/OM/autre)">
+          <Field
+            label={
+              isCash
+                ? "Lien de paiement (optionnel — paiement espèces)"
+                : "Lien de paiement (Wave/OM/autre)"
+            }
+          >
             <input
               className="input"
               value={paymentLink}
@@ -493,86 +584,135 @@ export default function OrderDetail() {
           </div>
         </div>
 
-        {/* Preuve / Paiement */}
-        <div className="card p-4 space-y-3">
+        {/* Paiement */}
+        <div className="card p-4 space-y-4">
           <div className="font-semibold">Paiement (Facturier)</div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Field label="Preuve URL (optionnel)">
-              <input
-                className="input"
-                value={proofUrl}
-                onChange={(e) => setProofUrl(e.target.value)}
-                placeholder="https://..."
-                disabled={!canProof || saving}
-              />
-            </Field>
+          {/* Paiement espèces */}
+          {isCash && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <div className="text-sm font-semibold text-amber-800">
+                Paiement espèces
+              </div>
+              <div className="text-xs text-amber-700 mt-1">
+                Vous pouvez encaisser directement au bureau (SUBMITTED ou
+                INVOICED → PAID).
+              </div>
 
-            <Field label="Référence transaction (optionnel)">
-              <input
-                className="input"
-                value={proofRef}
-                onChange={(e) => setProofRef(e.target.value)}
-                placeholder="WAVE-XXXX / OM-XXXX"
-                disabled={!canProof || saving}
-              />
-            </Field>
-          </div>
+              <div className="mt-3">
+                <button
+                  className="btn-primary"
+                  onClick={doCashPay}
+                  disabled={!canCashPay}
+                  title="Encaissement espèces (SUBMITTED/INVOICED → PAID)"
+                >
+                  {saving ? "..." : "Encaisser espèces"}
+                </button>
+              </div>
+            </div>
+          )}
 
-          <Field label="Note preuve (optionnel)">
-            <textarea
-              className="input min-h-[90px]"
-              value={proofNote}
-              onChange={(e) => setProofNote(e.target.value)}
-              placeholder="Capture reçue par WhatsApp..."
-              disabled={!canProof || saving}
-            />
-          </Field>
+          {/* Paiement électronique (preuve + validation) */}
+          {!isCash && (
+            <>
+              <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
+                <div className="text-sm font-semibold">Preuve de paiement</div>
 
-          <div className="flex gap-2 flex-wrap">
-            <button
-              className="btn"
-              onClick={doProof}
-              disabled={!canProof || saving}
-              title="INVOICED → PAYMENT_PROOF_RECEIVED"
-            >
-              {saving ? "..." : "Marquer preuve reçue"}
-            </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <Field label="Preuve URL (optionnel)">
+                    <input
+                      className="input"
+                      value={proofUrl}
+                      onChange={(e) => setProofUrl(e.target.value)}
+                      placeholder="https://..."
+                      disabled={!canProof || saving}
+                    />
+                  </Field>
 
-            <div className="flex-1" />
+                  <Field label="Référence transaction (optionnel)">
+                    <input
+                      className="input"
+                      value={proofRef}
+                      onChange={(e) => setProofRef(e.target.value)}
+                      placeholder="WAVE-XXXX / OM-XXXX"
+                      disabled={!canProof || saving}
+                    />
+                  </Field>
+                </div>
 
-            <Field label="Note validation paiement (optionnel)">
-              <input
-                className="input"
-                value={verifyNote}
-                onChange={(e) => setVerifyNote(e.target.value)}
-                placeholder="Paiement vérifié sur Wave..."
-                disabled={!canVerify || saving}
-              />
-            </Field>
+                <Field label="Note preuve (optionnel)">
+                  <textarea
+                    className="input min-h-[90px]"
+                    value={proofNote}
+                    onChange={(e) => setProofNote(e.target.value)}
+                    placeholder="Capture reçue par WhatsApp..."
+                    disabled={!canProof || saving}
+                  />
+                </Field>
 
-            <button
-              className="btn-primary"
-              onClick={doVerifyPayment}
-              disabled={!canVerify || saving}
-              title="PAYMENT_PROOF_RECEIVED → PAID"
-            >
-              {saving ? "..." : "Valider paiement"}
-            </button>
-          </div>
+                <div className="flex gap-2 flex-wrap items-center">
+                  <button
+                    className="btn"
+                    onClick={doProof}
+                    disabled={!canProof || saving}
+                    title="INVOICED → PAYMENT_PROOF_RECEIVED"
+                  >
+                    {saving ? "..." : "Marquer preuve reçue"}
+                  </button>
 
-          <div className="text-xs text-gray-500">
-            Preuve reçue actif si statut = INVOICED — Valider paiement actif si statut = PAYMENT_PROOF_RECEIVED
-          </div>
+                  <span className="text-xs text-gray-500">
+                    Actif si statut = INVOICED
+                  </span>
+                </div>
+              </div>
 
+              <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
+                <div className="text-sm font-semibold">Validation paiement</div>
+
+                <Field label="Note validation (optionnel)">
+                  <input
+                    className="input"
+                    value={verifyNote}
+                    onChange={(e) => setVerifyNote(e.target.value)}
+                    placeholder="Paiement vérifié sur Wave..."
+                    disabled={!canVerify || saving}
+                  />
+                </Field>
+
+                <div className="flex gap-2 flex-wrap items-center">
+                  <button
+                    className="btn-primary"
+                    onClick={doVerifyPayment}
+                    disabled={!canVerify || saving}
+                    title="PAYMENT_PROOF_RECEIVED → PAID"
+                  >
+                    {saving ? "..." : "Valider paiement"}
+                  </button>
+
+                  <span className="text-xs text-gray-500">
+                    Actif si statut = PAYMENT_PROOF_RECEIVED
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Preuve enregistrée (affichage) */}
           {(order.paymentProofUrl || order.paymentRef || order.paymentProofNote) && (
             <div className="rounded-xl border p-3 bg-gray-50">
-              <div className="text-sm font-semibold">Infos preuve (enregistrées)</div>
+              <div className="text-sm font-semibold">
+                Infos preuve (enregistrées)
+              </div>
               <div className="text-sm text-gray-700 mt-1 space-y-1">
                 <div>
                   URL :{" "}
                   {order.paymentProofUrl ? (
-                    <a className="underline" href={order.paymentProofUrl} target="_blank" rel="noreferrer">
+                    <a
+                      className="underline"
+                      href={order.paymentProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       Ouvrir
                     </a>
                   ) : (
@@ -580,7 +720,9 @@ export default function OrderDetail() {
                   )}
                 </div>
                 <div>Réf : {order.paymentRef || "—"}</div>
-                <div className="text-xs text-gray-600 whitespace-pre-wrap">{order.paymentProofNote || ""}</div>
+                <div className="text-xs text-gray-600 whitespace-pre-wrap">
+                  {order.paymentProofNote || ""}
+                </div>
               </div>
             </div>
           )}
@@ -611,7 +753,9 @@ export default function OrderDetail() {
             >
               {saving ? "..." : "Marquer colis prêt"}
             </button>
-            <span className="text-xs text-gray-500 self-center">Actif si statut = PAID</span>
+            <span className="text-xs text-gray-500 self-center">
+              Actif si statut = PAID
+            </span>
           </div>
         </div>
 
@@ -647,14 +791,19 @@ export default function OrderDetail() {
             >
               {saving ? "..." : "Clôturer (retiré/livré)"}
             </button>
-            <span className="text-xs text-gray-500 self-center">Actif si statut = READY</span>
+            <span className="text-xs text-gray-500 self-center">
+              Actif si statut = READY
+            </span>
           </div>
         </div>
       </div>
 
       {/* Cancel */}
       {canCancel && (
-        <div id="cancel_box" className="card p-4 space-y-3 border border-red-200">
+        <div
+          id="cancel_box"
+          className="card p-4 space-y-3 border border-red-200"
+        >
           <div className="font-semibold text-red-700">Annulation</div>
 
           <Field label="Motif (obligatoire)">
@@ -682,7 +831,9 @@ export default function OrderDetail() {
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="font-semibold">Items</div>
-          <div className="text-sm text-gray-500">{order.items?.length || 0} ligne(s)</div>
+          <div className="text-sm text-gray-500">
+            {order.items?.length || 0} ligne(s)
+          </div>
         </div>
 
         <div className="overflow-auto">
@@ -701,11 +852,17 @@ export default function OrderDetail() {
               {order.items?.length ? (
                 order.items.map((it) => (
                   <tr key={it.id} className="border-t">
-                    <td className="p-3 font-mono whitespace-nowrap">{it.product?.sku}</td>
+                    <td className="p-3 font-mono whitespace-nowrap">
+                      {it.product?.sku}
+                    </td>
                     <td className="p-3">{it.product?.nom}</td>
                     <td className="p-3 whitespace-nowrap">{it.qty}</td>
-                    <td className="p-3 whitespace-nowrap">{formatFcfa(it.prixUnitaireFcfa)}</td>
-                    <td className="p-3 font-semibold whitespace-nowrap">{formatFcfa(it.lineTotalFcfa)}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {formatFcfa(it.prixUnitaireFcfa)}
+                    </td>
+                    <td className="p-3 font-semibold whitespace-nowrap">
+                      {formatFcfa(it.lineTotalFcfa)}
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -738,9 +895,15 @@ export default function OrderDetail() {
                   <div key={l.id} className="rounded-xl border p-3 bg-gray-50">
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-medium">{l.action}</div>
-                      <div className="text-xs text-gray-500">{formatDateTime(l.createdAt)}</div>
+                      <div className="text-xs text-gray-500">
+                        {formatDateTime(l.createdAt)}
+                      </div>
                     </div>
-                    {l.note && <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{l.note}</div>}
+                    {l.note && (
+                      <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                        {l.note}
+                      </div>
+                    )}
                   </div>
                 ))
             ) : (
@@ -768,5 +931,21 @@ function Field({ label, children }) {
       <div className="text-xs text-gray-500 mb-1">{label}</div>
       {children}
     </label>
+  );
+}
+
+function PaymentModeBadge({ mode }) {
+  if (!mode) return null;
+
+  const isCash = mode === "ESPECES";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+        isCash ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+      }`}
+    >
+      {isCash ? "💵 Paiement espèces" : "💳 Paiement électronique"}
+    </span>
   );
 }
