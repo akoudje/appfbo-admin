@@ -1,11 +1,10 @@
-// useOrdersStore.js
+// admin-app/src/store/useOrdersStore.js
 // This store manages the list of orders, with filters and pagination
 
 import { create } from "zustand";
 import { ordersService } from "../services/ordersService";
 
 export const useOrdersStore = create((set, get) => ({
-
   loading: false,
   error: "",
 
@@ -23,16 +22,15 @@ export const useOrdersStore = create((set, get) => ({
   dateTo: "",
 
   setFilter: (patch) => set((s) => ({ ...s, ...patch, page: 1 })),
-
   setPage: (page) => set({ page }),
 
-/**
- * fetch with current state
- */
+  clearError: () => set({ error: "" }),
+
+  /**
+   * fetch with current state
+   */
   fetchOrders: async () => {
-    const {
-      page, pageSize, status, q, dateFrom, dateTo,
-    } = get();
+    const { page, pageSize, status, q, dateFrom, dateTo } = get();
 
     set({ loading: true, error: "" });
 
@@ -63,5 +61,4 @@ export const useOrdersStore = create((set, get) => ({
       });
     }
   },
-
 }));
