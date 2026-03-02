@@ -1,25 +1,19 @@
+// admin-app/src/services/ordersService.js
+// This file contains functions to interact with the orders API endpoints for the admin application.
+
 import api from "./api";
 
 export const ordersService = {
-  getAll: async (params) => {
-    const res = await api.get("/admin/orders", { params });
-    return res.data;
-  },
+  getAll: async (params) => (await api.get("/admin/orders", { params })).data,
+  getById: async (id) => (await api.get(`/admin/orders/${id}`)).data,
 
-  getById: async (id) => {
-    const res = await api.get(`/admin/orders/${id}`);
-    return res.data;
-  },
+  invoice: async (id, body) => (await api.post(`/admin/orders/${id}/invoice`, body)).data,
+  proof: async (id, body) => (await api.post(`/admin/orders/${id}/proof`, body)).data,
+  
+  pay: async (id, body) => (await api.post(`/admin/orders/${id}/pay`, body)).data,
+  verifyPayment: async (id, body) => (await api.post(`/admin/orders/${id}/verify-payment`, body)).data,
+  prepare: async (id, body) => (await api.post(`/admin/orders/${id}/prepare`, body)).data,
 
-  invoice: async (id) => {
-    const res = await api.post(`/admin/orders/${id}/invoice`);
-    return res.data;
-  },
-
-  pay: async (id) => {
-    const res = await api.post(`/admin/orders/${id}/pay`);
-    return res.data;
-  },
+  fulfill: async (id, body) => (await api.post(`/admin/orders/${id}/fulfill`, body)).data,
+  cancel: async (id, body) => (await api.post(`/admin/orders/${id}/cancel`, body)).data,
 };
-
-
