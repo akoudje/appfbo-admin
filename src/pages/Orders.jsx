@@ -4,7 +4,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useOrdersStore } from "../store/useOrdersStore";
-import { ordersService } from "../services/ordersService";
 import StatusBadge from "../components/StatusBadge";
 
 // ⚠️ IMPORTANT: pas de classes tailwind dynamiques du type `bg-${color}-500`
@@ -380,8 +379,6 @@ export default function Orders() {
     fetchOrders,
   } = useOrdersStore();
 
-  const [processingId, setProcessingId] = useState(null);
-
   useEffect(() => {
     fetchOrders();
   }, [page, pageSize, status, q, dateFrom, dateTo, fetchOrders]);
@@ -392,32 +389,6 @@ export default function Orders() {
       return acc;
     }, {});
   }, [orders]);
-
-  const handleQuickInvoice = async (id) => {
-    try {
-      setProcessingId(id);
-      // invoice attend un body; ici on envoie {} pour compat (backend gère defaults)
-      await ordersService.invoice(id, {});
-      await fetchOrders();
-    } catch (e) {
-      console.error("Erreur facturation:", e);
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleCashPay = async (id) => {
-    try {
-      setProcessingId(id);
-      // pay() = encaissement espèces uniquement (backend vérifie paymentMode + status)
-      await ordersService.pay(id, {});
-      await fetchOrders();
-    } catch (e) {
-      console.error("Erreur encaissement espèces:", e);
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const handleClearFilters = () => {
     setFilter({ status: "", q: "", dateFrom: "", dateTo: "" });
@@ -623,13 +594,6 @@ export default function Orders() {
                   </tr>
                 ) : (
                   orders.map((order) => {
-                    const busy = processingId === order.id;
-
-                    const canInvoice = order.status === "SUBMITTED";
-                    const canCashPay =
-                      order.paymentMode === "ESPECES" &&
-                      (order.status === "SUBMITTED" || order.status === "INVOICED");
-
                     return (
                       <tr
                         key={order.id}
@@ -671,78 +635,6 @@ export default function Orders() {
 
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleQuickInvoice(order.id)}
-                              disabled={!canInvoice || busy}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                                canInvoice
-                                  ? "bg-purple-50 text-purple-700 hover:bg-purple-100"
-                                  : "bg-gray-50 text-gray-400 cursor-not-allowed"
-                              }`}
-                              title="SUBMITTED → INVOICED"
-                              type="button"
-                            >
-                              {busy && canInvoice ? (
-                                <svg
-                                  className="animate-spin h-3 w-3"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                    fill="none"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                  />
-                                </svg>
-                              ) : (
-                                <span>Facturer</span>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => handleCashPay(order.id)}
-                              disabled={!canCashPay || busy}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                                canCashPay
-                                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                  : "bg-gray-50 text-gray-400 cursor-not-allowed"
-                              }`}
-                              title="Encaisser espèces (SUBMITTED/INVOICED → PAID)"
-                              type="button"
-                            >
-                              {busy && canCashPay ? (
-                                <svg
-                                  className="animate-spin h-3 w-3"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                    fill="none"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                  />
-                                </svg>
-                              ) : (
-                                <span>Encaisser</span>
-                              )}
-                            </button>
-
                             <Link
                               to={`/orders/${order.id}`}
                               className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
