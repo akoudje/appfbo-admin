@@ -11,11 +11,8 @@ const map = {
   },
 
   PAID: { cls: "bg-green-100 text-green-800", label: "Payée" },
-
   READY: { cls: "bg-sky-100 text-sky-800", label: "Colis prêt" },
-
   FULFILLED: { cls: "bg-emerald-100 text-emerald-800", label: "Clôturée" },
-
   CANCELLED: { cls: "bg-red-100 text-red-800", label: "Annulée" },
 };
 
