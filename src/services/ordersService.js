@@ -5,9 +5,6 @@ export const ordersService = {
   getAll: async (params) => (await api.get("/admin/orders", { params })).data,
   getById: async (id) => (await api.get(`/admin/orders/${id}`)).data,
 
-  setStatus: async (id, status) =>
-    (await api.patch(`/admin/orders/${id}/status`, { status })).data,
-
   invoice: async (id, body) =>
     (await api.post(`/admin/orders/${id}/invoice`, body)).data,
 
@@ -17,6 +14,9 @@ export const ordersService = {
   verifyPayment: async (id, body) =>
     (await api.post(`/admin/orders/${id}/verify-payment`, body)).data,
 
+  pay: async (id, body) =>
+    (await api.post(`/admin/orders/${id}/pay`, body)).data,
+
   prepare: async (id, body) =>
     (await api.post(`/admin/orders/${id}/prepare`, body)).data,
 
@@ -25,8 +25,4 @@ export const ordersService = {
 
   cancel: async (id, body) =>
     (await api.post(`/admin/orders/${id}/cancel`, body)).data,
-
-  // ⚠️ DEPRECATED — garde seulement si tu as encore de l’ancien code
-  pay: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/pay`, body)).data,
 };

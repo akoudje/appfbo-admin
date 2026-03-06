@@ -1,9 +1,11 @@
 // src/pages/OrderDetail.jsx
-// Page de détail d'une commande (Admin) — Workflow Facturier -> Préparateur -> Fulfillment
+// Page de détail d'une commande (Admin)
+// Workflow : Facturier/Caissier -> Préparateur -> Clôture
 // ✅ Action du moment (CTA unique)
 // ✅ Sections repliables
 // ✅ Warning commande vide
 // ✅ Header enrichi (paiement + livraison)
+// ✅ Aligné avec backend idempotent + stock movements + snapshots item
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -16,10 +18,26 @@ const STATUSES = {
   SUBMITTED: "Soumise",
   INVOICED: "Préfacturée",
   PAYMENT_PROOF_RECEIVED: "Preuve reçue",
-  PAID: "Payée (vérifiée)",
+  PAID: "Payée",
   READY: "Colis prêt",
   FULFILLED: "Clôturée",
   CANCELLED: "Annulée",
+};
+
+const LOG_LABELS = {
+  CREATE_DRAFT: "Brouillon créé",
+  SET_ITEMS: "Panier mis à jour",
+  REPRICE: "Recalcul",
+  SUBMIT: "Commande soumise",
+  INVOICE: "Préfacture créée",
+  RECEIVE_PAYMENT_PROOF: "Preuve reçue",
+  VERIFY_PAYMENT: "Paiement vérifié",
+  MARK_PAID: "Paiement marqué OK",
+  PREPARE: "Préparation",
+  FULFILL: "Clôture",
+  CANCEL: "Annulation",
+  STOCK_DEBIT: "Sortie stock",
+  STOCK_CREDIT: "Retour stock",
 };
 
 function normalizeStr(v) {
@@ -27,9 +45,6 @@ function normalizeStr(v) {
   return String(v).trim();
 }
 
-/* =========================================================
-   UI helpers
-   ========================================================= */
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
 }
@@ -43,6 +58,7 @@ function Badge({ children, tone = "gray" }) {
     red: "bg-red-100 text-red-700 border-red-200",
     violet: "bg-violet-100 text-violet-700 border-violet-200",
   };
+
   return (
     <span
       className={cx(
@@ -90,6 +106,7 @@ function Alert({ tone = "amber", title, children }) {
     blue: "border-blue-200 bg-blue-50 text-blue-900",
     emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
   };
+
   return (
     <div className={cx("card p-3 border", tones[tone] || tones.amber)}>
       {title && <div className="font-semibold text-sm mb-1">{title}</div>}
@@ -109,7 +126,6 @@ function AccordionSection({
   const [open, setOpen] = useState(Boolean(defaultOpen));
 
   useEffect(() => {
-    // reset open when id changes (navigating orders)
     setOpen(Boolean(defaultOpen));
   }, [id, defaultOpen]);
 
@@ -145,7 +161,12 @@ function AccordionSection({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </span>
         </div>
@@ -175,7 +196,7 @@ function Field({ label, children }) {
 }
 
 function PaymentModeBadge({ mode }) {
-  if (!mode) return null;
+  if (!mode) return <Badge tone="gray">Paiement non défini</Badge>;
   const isCash = mode === "ESPECES";
   return (
     <Badge tone={isCash ? "amber" : "blue"}>
@@ -186,7 +207,7 @@ function PaymentModeBadge({ mode }) {
 }
 
 function DeliveryModeBadge({ mode }) {
-  if (!mode) return null;
+  if (!mode) return <Badge tone="gray">Livraison non définie</Badge>;
   const isPickup = mode === "RETRAIT_SITE_FLP";
   return (
     <Badge tone={isPickup ? "violet" : "gray"}>
@@ -196,6 +217,18 @@ function DeliveryModeBadge({ mode }) {
   );
 }
 
+function getLogLabel(action) {
+  return LOG_LABELS[action] || action || "Log";
+}
+
+function getItemSku(it) {
+  return it?.productSkuSnapshot || it?.product?.sku || "—";
+}
+
+function getItemName(it) {
+  return it?.productNameSnapshot || it?.product?.nom || "Produit";
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
 
@@ -203,8 +236,8 @@ export default function OrderDetail() {
   const [saving, setSaving] = useState(false);
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
-  // ---- Forms state ----
   const [invoiceRef, setInvoiceRef] = useState("");
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
@@ -215,6 +248,7 @@ export default function OrderDetail() {
   const [proofNote, setProofNote] = useState("");
 
   const [verifyNote, setVerifyNote] = useState("");
+  const [cashNote, setCashNote] = useState("");
   const [packingNote, setPackingNote] = useState("");
 
   const [deliveryTracking, setDeliveryTracking] = useState("");
@@ -229,7 +263,6 @@ export default function OrderDetail() {
       const data = await ordersService.getById(id);
       setOrder(data);
 
-      // hydrate forms from order (si déjà rempli)
       setInvoiceRef(data?.factureReference || "");
       setInvoiceWaTo(data?.factureWhatsappTo || "");
       setPaymentLink(data?.paymentLink || "");
@@ -241,11 +274,12 @@ export default function OrderDetail() {
       setPackingNote(data?.packingNote || "");
       setDeliveryTracking(data?.deliveryTracking || "");
 
-      // notes “action”
       setFulfillNote("");
       setVerifyNote("");
       setInvoiceNote("");
+      setCashNote("");
       setCancelReason("");
+      setInfo("");
     } catch {
       setError("Impossible de charger la commande");
     } finally {
@@ -267,14 +301,22 @@ export default function OrderDetail() {
   const canPrepare = status === "PAID";
   const canFulfill = status === "READY";
   const canCancel = status && !["FULFILLED", "CANCELLED"].includes(status);
-
   const canCashPay = isCash && ["SUBMITTED", "INVOICED"].includes(status) && !saving;
 
-  // ---------- actions ----------
+  const handleActionResult = async (result, fallbackInfo) => {
+    if (result?.alreadyDone) {
+      setInfo(result?.message || fallbackInfo || "Action déjà effectuée.");
+    } else {
+      setInfo("");
+    }
+    await load();
+  };
+
   const doInvoice = async () => {
     try {
       setSaving(true);
       setError("");
+      setInfo("");
 
       const body = {
         factureReference: normalizeStr(invoiceRef) || undefined,
@@ -283,8 +325,8 @@ export default function OrderDetail() {
         note: normalizeStr(invoiceNote) || undefined,
       };
 
-      await ordersService.invoice(id, body);
-      await load();
+      const result = await ordersService.invoice(id, body);
+      await handleActionResult(result, "Préfacture déjà créée.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de facturer");
     } finally {
@@ -296,6 +338,7 @@ export default function OrderDetail() {
     try {
       setSaving(true);
       setError("");
+      setInfo("");
 
       const body = {
         paymentProofUrl: normalizeStr(proofUrl) || undefined,
@@ -303,8 +346,8 @@ export default function OrderDetail() {
         note: normalizeStr(proofNote) || undefined,
       };
 
-      await ordersService.proof(id, body);
-      await load();
+      const result = await ordersService.proof(id, body);
+      await handleActionResult(result, "Preuve déjà enregistrée.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible d'enregistrer la preuve");
     } finally {
@@ -316,13 +359,14 @@ export default function OrderDetail() {
     try {
       setSaving(true);
       setError("");
+      setInfo("");
 
       const body = {
         note: normalizeStr(verifyNote) || undefined,
       };
 
-      await ordersService.verifyPayment(id, body);
-      await load();
+      const result = await ordersService.verifyPayment(id, body);
+      await handleActionResult(result, "Paiement déjà validé.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de valider le paiement");
     } finally {
@@ -334,9 +378,13 @@ export default function OrderDetail() {
     try {
       setSaving(true);
       setError("");
+      setInfo("");
 
-      await ordersService.pay(id);
-      await load();
+      const result = await ordersService.pay(id, {
+        note: normalizeStr(cashNote) || undefined,
+      });
+
+      await handleActionResult(result, "Paiement espèces déjà enregistré.");
     } catch (e) {
       setError(
         e?.response?.data?.message || "Impossible d'encaisser le paiement espèces"
@@ -350,13 +398,14 @@ export default function OrderDetail() {
     try {
       setSaving(true);
       setError("");
+      setInfo("");
 
       const body = {
         packingNote: normalizeStr(packingNote) || undefined,
       };
 
-      await ordersService.prepare(id, body);
-      await load();
+      const result = await ordersService.prepare(id, body);
+      await handleActionResult(result, "Commande déjà préparée.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de marquer le colis prêt");
     } finally {
@@ -368,14 +417,15 @@ export default function OrderDetail() {
     try {
       setSaving(true);
       setError("");
+      setInfo("");
 
       const body = {
         deliveryTracking: normalizeStr(deliveryTracking) || undefined,
         note: normalizeStr(fulfillNote) || undefined,
       };
 
-      await ordersService.fulfill(id, body);
-      await load();
+      const result = await ordersService.fulfill(id, body);
+      await handleActionResult(result, "Commande déjà clôturée.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de clôturer");
     } finally {
@@ -392,9 +442,13 @@ export default function OrderDetail() {
 
       setSaving(true);
       setError("");
+      setInfo("");
 
-      await ordersService.cancel(id, { reason: normalizeStr(cancelReason) });
-      await load();
+      const result = await ordersService.cancel(id, {
+        reason: normalizeStr(cancelReason),
+      });
+
+      await handleActionResult(result, "Commande déjà annulée.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible d'annuler");
     } finally {
@@ -402,12 +456,13 @@ export default function OrderDetail() {
     }
   };
 
-  // ---------- WhatsApp helpers ----------
   const copyWhatsApp = async () => {
     const text = order?.whatsappMessage || "";
     if (!text) return;
+
     try {
       await navigator.clipboard.writeText(text);
+      setInfo("Message WhatsApp copié.");
     } catch {
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -415,6 +470,7 @@ export default function OrderDetail() {
       ta.select();
       document.execCommand("copy");
       document.body.removeChild(ta);
+      setInfo("Message WhatsApp copié.");
     }
   };
 
@@ -423,7 +479,6 @@ export default function OrderDetail() {
     return `https://wa.me/?text=${msg}`;
   }, [order?.whatsappMessage]);
 
-  // ---------- timeline ----------
   const steps = useMemo(() => {
     const s = status;
     const cash = order?.paymentMode === "ESPECES";
@@ -445,7 +500,13 @@ export default function OrderDetail() {
 
     const proof = cash
       ? []
-      : [{ key: "PAYMENT_PROOF_RECEIVED", label: "Preuve reçue", at: order?.proofReceivedAt }];
+      : [
+          {
+            key: "PAYMENT_PROOF_RECEIVED",
+            label: "Preuve reçue",
+            at: order?.proofReceivedAt,
+          },
+        ];
 
     const tail = [
       { key: "PAID", label: "Paiement OK", at: order?.paidAt },
@@ -456,30 +517,49 @@ export default function OrderDetail() {
     return [...base, ...proof, ...tail].map((st) => ({ ...st, done: done(st.key) }));
   }, [order, status]);
 
-  // ---------- Warning commande vide ----------
   const emptyOrder = useMemo(() => {
     const itemCount = Array.isArray(order?.items) ? order.items.length : 0;
     const total = Number(order?.totalFcfa || 0);
-    // commande “vide” = aucune ligne OU total = 0 (selon tes besoins)
     return itemCount === 0 || total === 0;
   }, [order]);
 
-  // ---------- Action du moment (CTA unique) ----------
+  const stockDebited = Boolean(order?.stockDeductedAt);
+  const stockRestored = Boolean(order?.stockRestoredAt);
+
+  const stockSummary = useMemo(() => {
+    const movements = Array.isArray(order?.stockMovements) ? order.stockMovements : [];
+    const debits = movements.filter((m) => m.type === "DEBIT");
+    const credits = movements.filter((m) => m.type === "CREDIT");
+
+    const debitQty = debits.reduce((sum, m) => sum + Number(m.qty || 0), 0);
+    const creditQty = credits.reduce((sum, m) => sum + Number(m.qty || 0), 0);
+
+    return {
+      movements,
+      debitQty,
+      creditQty,
+    };
+  }, [order]);
+
   const nextAction = useMemo(() => {
     const s = status;
     const cash = isCash;
 
     if (!s) return null;
+
     if (s === "CANCELLED") {
       return {
         tone: "red",
         title: "Commande annulée",
-        desc: "Aucune action requise.",
+        desc: stockRestored
+          ? "La commande est annulée et le stock a été réintégré."
+          : "Aucune action requise.",
         primaryLabel: null,
         primaryAction: null,
         enabled: false,
       };
     }
+
     if (s === "FULFILLED") {
       return {
         tone: "emerald",
@@ -491,12 +571,11 @@ export default function OrderDetail() {
       };
     }
 
-    // Bloque si commande vide (pour éviter de guider l’opérateur vers facturation inutile)
     if (emptyOrder && ["SUBMITTED", "INVOICED"].includes(s)) {
       return {
         tone: "amber",
         title: "Commande incomplète",
-        desc: "Aucun item / total à 0. Recommandation : annuler (ou demander au FBO de refaire).",
+        desc: "Aucun item ou total à 0. Recommandation : annuler la commande ou demander au FBO de recommencer.",
         primaryLabel: canCancel ? "Aller à l'annulation" : null,
         primaryAction: () =>
           document.getElementById("cancel_box")?.scrollIntoView({ behavior: "smooth" }),
@@ -509,8 +588,8 @@ export default function OrderDetail() {
         tone: "blue",
         title: "Action du moment : Facturer",
         desc: cash
-          ? "Créez la préfacture, puis envoyez la référence au FBO (paiement au bureau)."
-          : "Créez la préfacture et envoyez le lien de paiement (Wave/OM) au FBO.",
+          ? "Créez la préfacture, puis encaissez au bureau."
+          : "Créez la préfacture puis envoyez le lien ou la référence au FBO.",
         primaryLabel: "Facturer / Envoyer",
         primaryAction: doInvoice,
         enabled: canInvoice && !saving,
@@ -528,10 +607,11 @@ export default function OrderDetail() {
           enabled: canCashPay && !saving,
         };
       }
+
       return {
         tone: "blue",
-        title: "Action du moment : Preuve de paiement",
-        desc: "Quand la preuve est reçue (WhatsApp/capture), marquez-la reçue.",
+        title: "Action du moment : Enregistrer la preuve",
+        desc: "Quand la preuve est reçue, marquez-la reçue.",
         primaryLabel: "Marquer preuve reçue",
         primaryAction: doProof,
         enabled: canProof && !saving,
@@ -542,7 +622,7 @@ export default function OrderDetail() {
       return {
         tone: "blue",
         title: "Action du moment : Valider paiement",
-        desc: "Après vérification (Wave/OM), validez le paiement.",
+        desc: "Après vérification de la preuve, validez le paiement.",
         primaryLabel: "Valider paiement",
         primaryAction: doVerifyPayment,
         enabled: canVerify && !saving,
@@ -553,7 +633,7 @@ export default function OrderDetail() {
       return {
         tone: "emerald",
         title: "Action du moment : Préparer le colis",
-        desc: "Préparez le colis puis marquez-le prêt.",
+        desc: "Cette action décrémentera le stock et marquera le colis prêt.",
         primaryLabel: "Marquer colis prêt",
         primaryAction: doPrepare,
         enabled: canPrepare && !saving,
@@ -564,14 +644,13 @@ export default function OrderDetail() {
       return {
         tone: "emerald",
         title: "Action du moment : Clôturer",
-        desc: "Quand le FBO a retiré / la livraison est faite, clôturez la commande.",
+        desc: "Quand le retrait ou la livraison est effectué(e), clôturez la commande.",
         primaryLabel: "Clôturer",
         primaryAction: doFulfill,
         enabled: canFulfill && !saving,
       };
     }
 
-    // fallback
     return {
       tone: "gray",
       title: "Action du moment",
@@ -584,17 +663,17 @@ export default function OrderDetail() {
     status,
     isCash,
     saving,
+    emptyOrder,
+    canCancel,
     canInvoice,
+    canCashPay,
     canProof,
     canVerify,
     canPrepare,
     canFulfill,
-    canCancel,
-    canCashPay,
-    emptyOrder,
+    stockRestored,
   ]);
 
-  // ---------- Open defaults for accordion ----------
   const openFacturation = status === "SUBMITTED";
   const openPaiement =
     (status === "INVOICED" && !isCash) ||
@@ -611,7 +690,6 @@ export default function OrderDetail() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <Link to="/orders" className="text-sm text-gray-600 underline">
@@ -625,7 +703,6 @@ export default function OrderDetail() {
               ({STATUSES[order.status] || order.status})
             </span>
 
-            {/* ✅ Header enrichi */}
             <PaymentModeBadge mode={order.paymentMode} />
             <DeliveryModeBadge mode={order.deliveryMode} />
           </div>
@@ -634,13 +711,12 @@ export default function OrderDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <SecondaryButton className="btn" onClick={load} disabled={saving}>
+          <SecondaryButton onClick={load} disabled={saving}>
             Rafraîchir
           </SecondaryButton>
 
           {canCancel && (
             <SecondaryButton
-              className="btn"
               onClick={() =>
                 document.getElementById("cancel_box")?.scrollIntoView({ behavior: "smooth" })
               }
@@ -652,35 +728,33 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Error banner */}
       {error && (
         <Alert tone="red" title="Erreur">
           {error}
         </Alert>
       )}
 
-      {/* ✅ Warning commande vide */}
-      {emptyOrder && (
-        <Alert
-          tone="amber"
-          title="Commande potentiellement incomplète"
-        >
-          Cette commande contient <b>{order.items?.length || 0} item(s)</b> et un total{" "}
-          <b>{formatFcfa(order.totalFcfa || 0)}</b>. Si c’est une sortie “abandonnée” côté FBO,
-          recommande : <b>annuler</b> ou contacter le FBO pour qu’il recommence.
+      {info && (
+        <Alert tone="blue" title="Information">
+          {info}
         </Alert>
       )}
 
-      {/* ✅ Action du moment */}
+      {emptyOrder && (
+        <Alert tone="amber" title="Commande potentiellement incomplète">
+          Cette commande contient <b>{order.items?.length || 0} item(s)</b> et un total{" "}
+          <b>{formatFcfa(order.totalFcfa || 0)}</b>. Si c’est une sortie abandonnée côté FBO,
+          recommande : <b>annuler</b> ou demander au FBO de recommencer.
+        </Alert>
+      )}
+
       {nextAction && (
         <div className="card p-4 border border-gray-200">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="font-semibold">{nextAction.title}</div>
-                <Badge tone={nextAction.tone || "gray"}>
-                  {order.status}
-                </Badge>
+                <Badge tone={nextAction.tone || "gray"}>{order.status}</Badge>
               </div>
               <div className="text-sm text-gray-600 mt-1">{nextAction.desc}</div>
             </div>
@@ -688,23 +762,19 @@ export default function OrderDetail() {
             <div className="flex gap-2 flex-wrap">
               {nextAction.primaryLabel ? (
                 <PrimaryButton
-                  className="btn-primary"
                   onClick={nextAction.primaryAction}
                   disabled={!nextAction.enabled}
                 >
                   {saving ? "..." : nextAction.primaryLabel}
                 </PrimaryButton>
               ) : (
-                <SecondaryButton className="btn" disabled>
-                  Aucune action
-                </SecondaryButton>
+                <SecondaryButton disabled>Aucune action</SecondaryButton>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Timeline */}
       <div className="card p-4">
         <div className="font-semibold mb-3">Traitement</div>
         <div
@@ -747,9 +817,7 @@ export default function OrderDetail() {
         )}
       </div>
 
-      {/* Summary grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Col 1 */}
         <div className="card p-4 space-y-3">
           <div className="font-semibold">Client FBO</div>
 
@@ -762,15 +830,15 @@ export default function OrderDetail() {
 
           <Row label="Créée" value={formatDateTime(order.createdAt)} />
           <Row label="Soumise" value={formatDateTime(order.submittedAt)} />
-          <Row label="Payée (OK)" value={formatDateTime(order.paidAt)} />
+          <Row label="Facturée" value={formatDateTime(order.invoicedAt)} />
+          <Row label="Payée" value={formatDateTime(order.paidAt)} />
         </div>
 
-        {/* Col 2 */}
         <div className="card p-4 space-y-3">
           <div className="font-semibold">Paiement & Livraison</div>
 
-          <Row label="PaymentMode" value={<PaymentModeBadge mode={order.paymentMode} />} />
-          <Row label="DeliveryMode" value={<DeliveryModeBadge mode={order.deliveryMode} />} />
+          <Row label="Mode de paiement" value={<PaymentModeBadge mode={order.paymentMode} />} />
+          <Row label="Mode de livraison" value={<DeliveryModeBadge mode={order.deliveryMode} />} />
 
           <div className="pt-2 border-t" />
 
@@ -795,7 +863,6 @@ export default function OrderDetail() {
           <div className="font-semibold">WhatsApp (soumission FBO)</div>
           <div className="flex gap-2 flex-wrap">
             <SecondaryButton
-              className="btn"
               onClick={copyWhatsApp}
               disabled={!order.whatsappMessage || saving}
               title="Copier le message WhatsApp"
@@ -825,7 +892,6 @@ export default function OrderDetail() {
           )}
         </div>
 
-        {/* Col 3 */}
         <div className="card p-4 space-y-3">
           <div className="font-semibold">Totaux</div>
 
@@ -840,12 +906,60 @@ export default function OrderDetail() {
 
           <Row label="Total CC" value={String(order.totalCc)} />
           <Row label="Total poids (Kg)" value={String(order.totalPoidsKg)} />
+
+          <div className="pt-2 border-t" />
+
+          <div className="font-semibold">Stock</div>
+          <Row
+            label="Sortie stock"
+            value={stockDebited ? formatDateTime(order.stockDeductedAt) : "Pas encore"}
+          />
+          <Row
+            label="Retour stock"
+            value={stockRestored ? formatDateTime(order.stockRestoredAt) : "—"}
+          />
         </div>
       </div>
 
-      {/* ✅ Sections repliables */}
+      {Array.isArray(order.stockMovements) && order.stockMovements.length > 0 && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="font-semibold">Mouvements de stock</div>
+            <div className="text-sm text-gray-500">
+              Débit: {stockSummary.debitQty} • Crédit: {stockSummary.creditQty}
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {order.stockMovements.map((m) => (
+              <div key={m.id} className="rounded-xl border p-3 bg-gray-50">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge tone={m.type === "DEBIT" ? "amber" : "emerald"}>
+                      {m.type === "DEBIT" ? "Débit" : "Crédit"}
+                    </Badge>
+                    <div className="font-medium">
+                      {m.product?.sku || "—"} — {m.product?.nom || "Produit"}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">{formatDateTime(m.createdAt)}</div>
+                </div>
+
+                <div className="text-sm text-gray-700 mt-1">
+                  Raison: <span className="font-medium">{m.reason}</span> • Qté:{" "}
+                  <span className="font-medium">{m.qty}</span>
+                </div>
+
+                {m.note ? (
+                  <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{m.note}</div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Facturation */}
         <AccordionSection
           id={id}
           title="Facturation (Facturier)"
@@ -899,20 +1013,15 @@ export default function OrderDetail() {
                 onChange={(e) => setInvoiceNote(e.target.value)}
                 placeholder={
                   isCash
-                    ? "Préfacture prête. Envoyer la référence au FBO pour paiement au bureau."
-                    : "Préfacture envoyée au FBO + lien de paiement..."
+                    ? "Préfacture prête. Encaissement au bureau."
+                    : "Préfacture envoyée au FBO avec lien de paiement."
                 }
                 disabled={!canInvoice || saving}
               />
             </Field>
 
             <div className="flex gap-2 flex-wrap">
-              <PrimaryButton
-                className="btn-primary"
-                onClick={doInvoice}
-                disabled={!canInvoice || saving}
-                title="SUBMITTED → INVOICED"
-              >
+              <PrimaryButton onClick={doInvoice} disabled={!canInvoice || saving}>
                 {saving ? "..." : "Facturer / Envoyer"}
               </PrimaryButton>
 
@@ -923,41 +1032,39 @@ export default function OrderDetail() {
           </div>
         </AccordionSection>
 
-        {/* Paiement */}
         <AccordionSection
           id={id}
-          title="Paiement (Facturier)"
+          title="Paiement (Caissier / Facturier)"
           subtitle={isCash ? "Espèces : encaissement direct" : "Mobile money : preuve + validation"}
           defaultOpen={openPaiement}
-          right={
-            <Badge tone={isCash ? "amber" : "blue"}>
-              {isCash ? "Cash" : "MM"}
-            </Badge>
-          }
+          right={<Badge tone={isCash ? "amber" : "blue"}>{isCash ? "Cash" : "MM"}</Badge>}
         >
           <div className="space-y-4">
-            {/* Paiement espèces */}
             {isCash && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <div className="text-sm font-semibold text-amber-800">Paiement espèces</div>
                 <div className="text-xs text-amber-700 mt-1">
-                  Encaissez au bureau puis marquez la commande payée (SUBMITTED/INVOICED → PAID).
+                  Encaissez au bureau puis marquez la commande payée.
                 </div>
 
-                <div className="mt-3">
-                  <PrimaryButton
-                    className="btn-primary"
-                    onClick={doCashPay}
-                    disabled={!canCashPay}
-                    title="Encaissement espèces (SUBMITTED/INVOICED → PAID)"
-                  >
+                <div className="mt-3 space-y-3">
+                  <Field label="Note encaissement (optionnel)">
+                    <textarea
+                      className="input min-h-[90px]"
+                      value={cashNote}
+                      onChange={(e) => setCashNote(e.target.value)}
+                      placeholder="Paiement reçu au comptoir..."
+                      disabled={!canCashPay || saving}
+                    />
+                  </Field>
+
+                  <PrimaryButton onClick={doCashPay} disabled={!canCashPay}>
                     {saving ? "..." : "Encaisser espèces"}
                   </PrimaryButton>
                 </div>
               </div>
             )}
 
-            {/* Paiement électronique */}
             {!isCash && (
               <>
                 <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
@@ -996,12 +1103,7 @@ export default function OrderDetail() {
                   </Field>
 
                   <div className="flex gap-2 flex-wrap items-center">
-                    <SecondaryButton
-                      className="btn"
-                      onClick={doProof}
-                      disabled={!canProof || saving}
-                      title="INVOICED → PAYMENT_PROOF_RECEIVED"
-                    >
+                    <SecondaryButton onClick={doProof} disabled={!canProof || saving}>
                       {saving ? "..." : "Marquer preuve reçue"}
                     </SecondaryButton>
 
@@ -1017,18 +1119,13 @@ export default function OrderDetail() {
                       className="input"
                       value={verifyNote}
                       onChange={(e) => setVerifyNote(e.target.value)}
-                      placeholder="Paiement vérifié sur Wave..."
+                      placeholder="Paiement vérifié..."
                       disabled={!canVerify || saving}
                     />
                   </Field>
 
                   <div className="flex gap-2 flex-wrap items-center">
-                    <PrimaryButton
-                      className="btn-primary"
-                      onClick={doVerifyPayment}
-                      disabled={!canVerify || saving}
-                      title="PAYMENT_PROOF_RECEIVED → PAID"
-                    >
+                    <PrimaryButton onClick={doVerifyPayment} disabled={!canVerify || saving}>
                       {saving ? "..." : "Valider paiement"}
                     </PrimaryButton>
 
@@ -1040,7 +1137,6 @@ export default function OrderDetail() {
               </>
             )}
 
-            {/* Preuve enregistrée */}
             {(order.paymentProofUrl || order.paymentRef || order.paymentProofNote) && (
               <div className="rounded-xl border p-3 bg-gray-50">
                 <div className="text-sm font-semibold">Infos preuve (enregistrées)</div>
@@ -1048,7 +1144,12 @@ export default function OrderDetail() {
                   <div>
                     URL :{" "}
                     {order.paymentProofUrl ? (
-                      <a className="underline" href={order.paymentProofUrl} target="_blank" rel="noreferrer">
+                      <a
+                        className="underline"
+                        href={order.paymentProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         Ouvrir
                       </a>
                     ) : (
@@ -1066,7 +1167,6 @@ export default function OrderDetail() {
         </AccordionSection>
       </div>
 
-      {/* Préparation / Fulfillment */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <AccordionSection
           id={id}
@@ -1076,6 +1176,10 @@ export default function OrderDetail() {
           right={<Badge tone={canPrepare ? "emerald" : "gray"}>{canPrepare ? "Action" : "—"}</Badge>}
         >
           <div className="space-y-3">
+            <Alert tone="blue" title="Info stock">
+              Le stock sera décrémenté au moment où tu marques la commande <b>prête</b>.
+            </Alert>
+
             <Field label="Note colis (optionnel)">
               <textarea
                 className="input min-h-[90px]"
@@ -1087,12 +1191,7 @@ export default function OrderDetail() {
             </Field>
 
             <div className="flex gap-2 flex-wrap">
-              <PrimaryButton
-                className="btn-primary"
-                onClick={doPrepare}
-                disabled={!canPrepare || saving}
-                title="PAID → READY"
-              >
+              <PrimaryButton onClick={doPrepare} disabled={!canPrepare || saving}>
                 {saving ? "..." : "Marquer colis prêt"}
               </PrimaryButton>
               <span className="text-xs text-gray-500 self-center">Actif si statut = PAID</span>
@@ -1129,12 +1228,7 @@ export default function OrderDetail() {
             </Field>
 
             <div className="flex gap-2 flex-wrap">
-              <PrimaryButton
-                className="btn-primary"
-                onClick={doFulfill}
-                disabled={!canFulfill || saving}
-                title="READY → FULFILLED"
-              >
+              <PrimaryButton onClick={doFulfill} disabled={!canFulfill || saving}>
                 {saving ? "..." : "Clôturer (retiré/livré)"}
               </PrimaryButton>
               <span className="text-xs text-gray-500 self-center">Actif si statut = READY</span>
@@ -1143,7 +1237,6 @@ export default function OrderDetail() {
         </AccordionSection>
       </div>
 
-      {/* Cancel (repliable aussi) */}
       {canCancel && (
         <div id="cancel_box">
           <AccordionSection
@@ -1155,7 +1248,8 @@ export default function OrderDetail() {
           >
             <div className="space-y-3">
               <Alert tone="red" title="Attention">
-                L’annulation est irréversible. Indique un motif clair (rupture stock, paiement non reçu, erreur, etc.).
+                L’annulation est irréversible. Si la commande est déjà <b>READY</b>, le stock sera
+                réintégré automatiquement.
               </Alert>
 
               <Field label="Motif (obligatoire)">
@@ -1169,7 +1263,7 @@ export default function OrderDetail() {
               </Field>
 
               <div className="flex gap-2 flex-wrap">
-                <SecondaryButton className="btn" onClick={doCancel} disabled={saving}>
+                <SecondaryButton onClick={doCancel} disabled={saving}>
                   Annuler la commande
                 </SecondaryButton>
               </div>
@@ -1178,7 +1272,6 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {/* Items */}
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="font-semibold">Items</div>
@@ -1192,7 +1285,9 @@ export default function OrderDetail() {
                 <th className="p-3">SKU</th>
                 <th className="p-3">Produit</th>
                 <th className="p-3">Qty</th>
-                <th className="p-3">PU</th>
+                <th className="p-3">PU catalogue</th>
+                <th className="p-3">Remise</th>
+                <th className="p-3">PU net</th>
                 <th className="p-3">Total</th>
               </tr>
             </thead>
@@ -1201,16 +1296,24 @@ export default function OrderDetail() {
               {order.items?.length ? (
                 order.items.map((it) => (
                   <tr key={it.id} className="border-t">
-                    <td className="p-3 font-mono whitespace-nowrap">{it.product?.sku}</td>
-                    <td className="p-3">{it.product?.nom}</td>
+                    <td className="p-3 font-mono whitespace-nowrap">{getItemSku(it)}</td>
+                    <td className="p-3">{getItemName(it)}</td>
                     <td className="p-3 whitespace-nowrap">{it.qty}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {formatFcfa(it.prixCatalogueFcfa ?? it.prixUnitaireFcfa ?? 0)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      {Number(it.discountPercent || 0).toFixed(2)}%
+                    </td>
                     <td className="p-3 whitespace-nowrap">{formatFcfa(it.prixUnitaireFcfa)}</td>
-                    <td className="p-3 font-semibold whitespace-nowrap">{formatFcfa(it.lineTotalFcfa)}</td>
+                    <td className="p-3 font-semibold whitespace-nowrap">
+                      {formatFcfa(it.lineTotalFcfa)}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="p-3" colSpan={5}>
+                  <td className="p-3" colSpan={7}>
                     Aucun item
                   </td>
                 </tr>
@@ -1225,7 +1328,6 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Logs */}
       {Array.isArray(order.logs) && (
         <div className="card p-4">
           <div className="font-semibold mb-2">Historique</div>
@@ -1237,12 +1339,21 @@ export default function OrderDetail() {
                 .map((l) => (
                   <div key={l.id} className="rounded-xl border p-3 bg-gray-50">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium">{l.action}</div>
+                      <div className="font-medium">{getLogLabel(l.action)}</div>
                       <div className="text-xs text-gray-500">{formatDateTime(l.createdAt)}</div>
                     </div>
+
                     {l.note && (
-                      <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{l.note}</div>
+                      <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                        {l.note}
+                      </div>
                     )}
+
+                    {l.meta ? (
+                      <div className="mt-2 text-xs text-gray-500">
+                        <pre className="whitespace-pre-wrap">{JSON.stringify(l.meta, null, 2)}</pre>
+                      </div>
+                    ) : null}
                   </div>
                 ))
             ) : (
