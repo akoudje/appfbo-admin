@@ -6,6 +6,7 @@
 // ✅ Warning commande vide
 // ✅ Header enrichi (paiement + livraison)
 // ✅ Aligné avec backend idempotent + stock movements + snapshots item
+// ✅ Adapté au paiement automatique PayDunya
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -294,10 +295,23 @@ export default function OrderDetail() {
 
   const status = order?.status;
   const isCash = order?.paymentMode === "ESPECES";
+  const isAutoPayment = !isCash && Boolean(order?.paymentLink);
+
+  useEffect(() => {
+    if (!order) return;
+    if (!(status === "INVOICED" && isAutoPayment)) return;
+
+    const timer = setInterval(() => {
+      load();
+    }, 10000);
+
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, isAutoPayment, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
-  const canProof = status === "INVOICED" && !isCash;
-  const canVerify = status === "PAYMENT_PROOF_RECEIVED" && !isCash;
+  const canProof = status === "INVOICED" && !isCash && !isAutoPayment;
+  const canVerify = status === "PAYMENT_PROOF_RECEIVED" && !isCash && !isAutoPayment;
   const canPrepare = status === "PAID";
   const canFulfill = status === "READY";
   const canCancel = status && !["FULFILLED", "CANCELLED"].includes(status);
@@ -482,10 +496,13 @@ export default function OrderDetail() {
   const steps = useMemo(() => {
     const s = status;
     const cash = order?.paymentMode === "ESPECES";
+    const auto = isAutoPayment;
 
     const flow = cash
       ? ["SUBMITTED", "INVOICED", "PAID", "READY", "FULFILLED"]
-      : ["SUBMITTED", "INVOICED", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED"];
+      : auto
+        ? ["SUBMITTED", "INVOICED", "PAID", "READY", "FULFILLED"]
+        : ["SUBMITTED", "INVOICED", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED"];
 
     const done = (name) => {
       const idx = flow.indexOf(name);
@@ -498,15 +515,16 @@ export default function OrderDetail() {
       { key: "INVOICED", label: "Préfacture", at: order?.invoicedAt },
     ];
 
-    const proof = cash
-      ? []
-      : [
-          {
-            key: "PAYMENT_PROOF_RECEIVED",
-            label: "Preuve reçue",
-            at: order?.proofReceivedAt,
-          },
-        ];
+    const proof =
+      cash || auto
+        ? []
+        : [
+            {
+              key: "PAYMENT_PROOF_RECEIVED",
+              label: "Preuve reçue",
+              at: order?.proofReceivedAt,
+            },
+          ];
 
     const tail = [
       { key: "PAID", label: "Paiement OK", at: order?.paidAt },
@@ -515,7 +533,7 @@ export default function OrderDetail() {
     ];
 
     return [...base, ...proof, ...tail].map((st) => ({ ...st, done: done(st.key) }));
-  }, [order, status]);
+  }, [order, status, isAutoPayment]);
 
   const emptyOrder = useMemo(() => {
     const itemCount = Array.isArray(order?.items) ? order.items.length : 0;
@@ -608,6 +626,17 @@ export default function OrderDetail() {
         };
       }
 
+      if (isAutoPayment) {
+        return {
+          tone: "blue",
+          title: "Action du moment : Attendre la confirmation PayDunya",
+          desc: "Le FBO doit finaliser le paiement via le lien envoyé. Dès confirmation PayDunya, la commande passera automatiquement à PAID.",
+          primaryLabel: "Rafraîchir",
+          primaryAction: load,
+          enabled: !saving,
+        };
+      }
+
       return {
         tone: "blue",
         title: "Action du moment : Enregistrer la preuve",
@@ -662,6 +691,7 @@ export default function OrderDetail() {
   }, [
     status,
     isCash,
+    isAutoPayment,
     saving,
     emptyOrder,
     canCancel,
@@ -677,7 +707,7 @@ export default function OrderDetail() {
   const openFacturation = status === "SUBMITTED";
   const openPaiement =
     (status === "INVOICED" && !isCash) ||
-    (status === "PAYMENT_PROOF_RECEIVED" && !isCash) ||
+    (status === "PAYMENT_PROOF_RECEIVED" && !isCash && !isAutoPayment) ||
     (status === "INVOICED" && isCash) ||
     (status === "SUBMITTED" && isCash);
 
@@ -1001,8 +1031,14 @@ export default function OrderDetail() {
                 className="input"
                 value={paymentLink}
                 onChange={(e) => setPaymentLink(e.target.value)}
-                placeholder={isCash ? "Paiement espèces : pas de lien" : "https://..."}
-                disabled={!canInvoice || saving || isCash}
+                placeholder={
+                  isCash
+                    ? "Paiement espèces : pas de lien"
+                    : isAutoPayment
+                      ? "Lien généré automatiquement par PayDunya"
+                      : "https://..."
+                }
+                disabled={!canInvoice || saving || isCash || isAutoPayment}
               />
             </Field>
 
@@ -1035,7 +1071,13 @@ export default function OrderDetail() {
         <AccordionSection
           id={id}
           title="Paiement (Caissier / Facturier)"
-          subtitle={isCash ? "Espèces : encaissement direct" : "Mobile money : preuve + validation"}
+          subtitle={
+            isCash
+              ? "Espèces : encaissement direct"
+              : isAutoPayment
+                ? "PayDunya : confirmation automatique"
+                : "Mobile money : preuve + validation"
+          }
           defaultOpen={openPaiement}
           right={<Badge tone={isCash ? "amber" : "blue"}>{isCash ? "Cash" : "MM"}</Badge>}
         >
@@ -1065,7 +1107,46 @@ export default function OrderDetail() {
               </div>
             )}
 
-            {!isCash && (
+            {!isCash && isAutoPayment && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3">
+                <div className="text-sm font-semibold text-blue-800">
+                  Paiement PayDunya
+                </div>
+
+                <div className="text-sm text-blue-900">
+                  Le paiement de cette commande est suivi automatiquement via PayDunya.
+                  Après paiement par le FBO, le statut passera automatiquement à <b>PAID</b>.
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <Row label="Référence paiement" value={order.paymentRef || "—"} />
+                  <Row label="Statut actuel" value={order.status} />
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  {order.paymentLink ? (
+                    <a
+                      className="btn"
+                      href={order.paymentLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Ouvrir le lien de paiement
+                    </a>
+                  ) : null}
+
+                  <SecondaryButton onClick={load} disabled={saving}>
+                    Rafraîchir le statut
+                  </SecondaryButton>
+                </div>
+
+                <div className="text-xs text-blue-700">
+                  Le bloc “preuve de paiement” manuel est masqué, car cette commande utilise un lien PayDunya.
+                </div>
+              </div>
+            )}
+
+            {!isCash && !isAutoPayment && (
               <>
                 <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
                   <div className="text-sm font-semibold">Preuve de paiement</div>
@@ -1137,7 +1218,7 @@ export default function OrderDetail() {
               </>
             )}
 
-            {(order.paymentProofUrl || order.paymentRef || order.paymentProofNote) && (
+            {!isAutoPayment && (order.paymentProofUrl || order.paymentRef || order.paymentProofNote) && (
               <div className="rounded-xl border p-3 bg-gray-50">
                 <div className="text-sm font-semibold">Infos preuve (enregistrées)</div>
                 <div className="text-sm text-gray-700 mt-1 space-y-1">
