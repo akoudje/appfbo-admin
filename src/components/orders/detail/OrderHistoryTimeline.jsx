@@ -1,9 +1,7 @@
 // src/components/orders/detail/OrderHistoryTimeline.jsx
 
-// src/components/orders/detail/OrderHistoryTimeline.jsx
-
-import { formatDateTime } from "../../../lib/format";
-import { getOrderHistoryItem } from "../../../lib/orders/orderHistory.helpers";
+import { formatDateTime } from "../../lib/format";
+import { getOrderHistoryItem } from "../../lib/orders/orderHistory.helpers";
 
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
