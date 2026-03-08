@@ -1,0 +1,73 @@
+// src/components/orders/detail/OrderItemsTable.jsx
+
+import { formatFcfa } from "../../../lib/format";
+
+function getItemSku(it) {
+  return it?.productSkuSnapshot || it?.product?.sku || "—";
+}
+
+function getItemName(it) {
+  return it?.productNameSnapshot || it?.product?.nom || "Produit";
+}
+
+export default function OrderItemsTable({ items, totalFcfa }) {
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="font-semibold">Items</div>
+        <div className="text-sm text-gray-500">{items?.length || 0} ligne(s)</div>
+      </div>
+
+      <div className="overflow-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr className="text-left">
+              <th className="p-3">SKU</th>
+              <th className="p-3">Produit</th>
+              <th className="p-3">Qty</th>
+              <th className="p-3">PU catalogue</th>
+              <th className="p-3">Remise</th>
+              <th className="p-3">PU net</th>
+              <th className="p-3">Total</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {items?.length ? (
+              items.map((it) => (
+                <tr key={it.id} className="border-t">
+                  <td className="p-3 font-mono whitespace-nowrap">{getItemSku(it)}</td>
+                  <td className="p-3">{getItemName(it)}</td>
+                  <td className="p-3 whitespace-nowrap">{it.qty}</td>
+                  <td className="p-3 whitespace-nowrap">
+                    {formatFcfa(it.prixCatalogueFcfa ?? it.prixUnitaireFcfa ?? 0)}
+                  </td>
+                  <td className="p-3 whitespace-nowrap">
+                    {Number(it.discountPercent || 0).toFixed(2)}%
+                  </td>
+                  <td className="p-3 whitespace-nowrap">
+                    {formatFcfa(it.prixUnitaireFcfa || 0)}
+                  </td>
+                  <td className="p-3 font-semibold whitespace-nowrap">
+                    {formatFcfa(it.lineTotalFcfa || 0)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="p-3" colSpan={7}>
+                  Aucun item
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="p-4 border-t flex justify-end text-sm">
+        <span className="text-gray-600 mr-2">Total :</span>
+        <span className="font-semibold">{formatFcfa(totalFcfa || 0)}</span>
+      </div>
+    </div>
+  );
+}
