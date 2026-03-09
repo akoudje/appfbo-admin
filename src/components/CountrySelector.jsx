@@ -5,11 +5,11 @@ import { useEffect, useState } from "react";
 import { getCountryCode, setCountryCode } from "../services/api";
 
 const COUNTRIES = [
-  { code: "CI", label: "🇨🇮 CI" },
-  { code: "BF", label: "🇧🇫 BF" },
-  { code: "TG", label: "🇹🇬 TG" },
-  { code: "BJ", label: "🇧🇯 BJ" }, // Bénin (remplace Mali)
-  { code: "NE", label: "🇳🇪 NE" }, // Niger (code NE dans ton seed actuel)
+  { code: "CIV", label: "CIV" },
+  { code: "BFA", label: "BFA" },
+  { code: "TGO", label: "TGO" },
+  { code: "BEN", label: "BEN" }, // Bénin (remplace Mali)
+  { code: "NER", label: "NER" }, // Niger (code NE dans ton seed actuel)
 ];
 
 export default function CountrySelector({ className = "" }) {
