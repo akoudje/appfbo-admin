@@ -5,21 +5,133 @@ import OrderSummaryCards from "./OrderSummaryCards";
 import OrderItemsTable from "./OrderItemsTable";
 import OrderStockCard from "./OrderStockCard";
 
+// ============================================================================
+// Sous-composants
+// ============================================================================
+
 function Alert({ tone = "amber", title, children }) {
   const tones = {
-    amber: "border-amber-200 bg-amber-50 text-amber-900",
-    red: "border-red-200 bg-red-50 text-red-900",
-    blue: "border-blue-200 bg-blue-50 text-blue-900",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    red: "border-red-200 bg-red-50 text-red-800",
+    blue: "border-blue-200 bg-blue-50 text-blue-800",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    gray: "border-gray-200 bg-gray-50 text-gray-700",
+  };
+
+  const icons = {
+    amber: "⚠️",
+    red: "❌",
+    blue: "ℹ️",
+    emerald: "✅",
+    gray: "📌",
   };
 
   return (
-    <div className={`card p-3 border ${tones[tone] || tones.amber}`}>
-      {title && <div className="font-semibold text-sm mb-1">{title}</div>}
-      <div className="text-sm">{children}</div>
+    <div className={`rounded-lg border p-4 ${tones[tone] || tones.amber}`}>
+      <div className="flex gap-3">
+        <span className="text-lg" role="img" aria-hidden="true">
+          {icons[tone] || icons.amber}
+        </span>
+        <div className="flex-1">
+          {title && (
+            <div className="font-semibold text-sm mb-1 flex items-center gap-2">
+              {title}
+            </div>
+          )}
+          <div className="text-sm leading-relaxed">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
+
+function InfoCard({ title, children, className = "" }) {
+  return (
+    <div className={`card p-4 space-y-3 ${className}`}>
+      <h4 className="font-semibold text-gray-900">{title}</h4>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, value, copyable = false }) {
+  const handleCopy = () => {
+    if (value && value !== "—") {
+      navigator.clipboard?.writeText(value.toString());
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-gray-100 last:border-0">
+      <span className="text-gray-500">{label}</span>
+      <div className="font-medium text-right flex items-center gap-2">
+        <span className="break-all">{value ?? "—"}</span>
+        {copyable && value && value !== "—" && (
+          <button
+            onClick={handleCopy}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            title="Copier"
+          >
+            📋
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MovementBadge({ type }) {
+  const config = {
+    DEBIT: { label: "Débit", tone: "amber", icon: "⬇️" },
+    CREDIT: { label: "Crédit", tone: "emerald", icon: "⬆️" },
+  };
+
+  const { label, tone, icon } = config[type] || config.DEBIT;
+
+  const tones = {
+    amber: "bg-amber-100 text-amber-700 border-amber-200",
+    emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${tones[tone]}`}>
+      <span>{icon}</span>
+      {label}
+    </span>
+  );
+}
+
+// ============================================================================
+// Utilitaires
+// ============================================================================
+
+function formatFcfa(value) {
+  const num = Number(value || 0);
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "XOF",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(num);
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString("fr-FR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+// ============================================================================
+// Composant principal
+// ============================================================================
 
 export default function OrderOverviewTab({
   order,
@@ -29,50 +141,87 @@ export default function OrderOverviewTab({
   stockDebited,
   stockRestored,
 }) {
-  return (
-    <div className="space-y-4">
-      {emptyOrder && (
-        <Alert tone="amber" title="Commande potentiellement incomplète">
-          Cette commande contient <b>{order?.items?.length || 0} item(s)</b> et un total{" "}
-          <b>
-            {new Intl.NumberFormat("fr-FR").format(Number(order?.totalFcfa || 0))} FCFA
-          </b>
-          . Si c’est une sortie abandonnée côté FBO, recommande : <b>annuler</b> ou
-          demander au FBO de recommencer.
-        </Alert>
-      )}
+  const status = order?.status;
+  const isCancelled = status === "CANCELLED";
+  const isPaid = status === "PAID";
+  const isReady = status === "READY";
+  const hasWhatsappMessage = Boolean(order?.whatsappMessage);
+  const hasStockMovements = Array.isArray(order?.stockMovements) && order.stockMovements.length > 0;
 
-      {order?.status === "CANCELLED" && (
-        <Alert tone="red" title="Commande annulée">
-          <div>
-            Motif : <span className="font-medium">{order?.cancelReason || "—"}</span>
-          </div>
-          {stockRestored ? (
-            <div className="mt-1">
-              Le stock a été <span className="font-medium">réintégré</span>.
+  // Rendu conditionnel des alertes
+  const renderAlert = () => {
+    if (emptyOrder) {
+      return (
+        <Alert tone="amber" title="⚠️ Commande incomplète">
+          <p>
+            Cette commande contient <strong>{order?.items?.length || 0} article(s)</strong> pour un total de{" "}
+            <strong>{formatFcfa(order?.totalFcfa)}</strong>.
+          </p>
+          <p className="mt-2">
+            Si c'est une commande abandonnée, recommande au FBO de :
+            <br />
+            • <strong>Annuler</strong> la commande
+            <br />
+            • Ou <strong>recommencer</strong> depuis le début
+          </p>
+        </Alert>
+      );
+    }
+
+    if (isCancelled) {
+      return (
+        <Alert tone="red" title="❌ Commande annulée">
+          <div className="space-y-2">
+            <div>
+              <span className="text-gray-600">Motif :</span>{" "}
+              <span className="font-medium">{order?.cancelReason || "Non spécifié"}</span>
             </div>
-          ) : null}
+            {stockRestored && (
+              <div className="flex items-center gap-2 text-emerald-700">
+                <span>✅</span>
+                <span>Le stock a été réintégré automatiquement.</span>
+              </div>
+            )}
+          </div>
         </Alert>
-      )}
+      );
+    }
 
-      {order?.status === "PAID" && !stockDebited && (
-        <Alert tone="blue" title="Commande payée">
-          Le paiement est confirmé. La prochaine étape est la <b>préparation</b> du colis.
-          Le stock sera décrémenté au moment du passage à <b>READY</b>.
+    if (isPaid && !stockDebited) {
+      return (
+        <Alert tone="blue" title="💳 Commande payée">
+          <p>Le paiement est confirmé. La prochaine étape est la <strong>préparation du colis</strong>.</p>
+          <p className="mt-1">Le stock sera décrémenté au moment du passage en statut <strong>READY</strong>.</p>
         </Alert>
-      )}
+      );
+    }
 
-      {order?.status === "READY" && stockDebited && (
-        <Alert tone="emerald" title="Commande prête">
-          Le colis est prêt et le stock a déjà été décrémenté.
+    if (isReady && stockDebited) {
+      return (
+        <Alert tone="emerald" title="📦 Commande prête">
+          <p>Le colis est prêt et le stock a été décrémenté.</p>
+          <p className="mt-1">La commande peut maintenant être clôturée.</p>
         </Alert>
-      )}
+      );
+    }
 
-      <OrderTimeline steps={steps} status={order?.status} />
+    return null;
+  };
 
+  return (
+    <div className="space-y-6">
+      {/* Alertes contextuelles */}
+      {renderAlert()}
+
+      {/* Timeline */}
+      <OrderTimeline steps={steps} status={status} />
+
+      {/* Cartes de résumé */}
       <OrderSummaryCards order={order} />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      {/* Grille principale */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Tableau des articles */}
         <div className="xl:col-span-2">
           <OrderItemsTable
             items={order?.items || []}
@@ -80,7 +229,9 @@ export default function OrderOverviewTab({
           />
         </div>
 
-        <div className="space-y-4">
+        {/* Colonne latérale */}
+        <div className="space-y-6">
+          {/* Carte stock */}
           <OrderStockCard
             order={order}
             stockSummary={stockSummary}
@@ -88,130 +239,157 @@ export default function OrderOverviewTab({
             stockRestored={stockRestored}
           />
 
-          <div className="card p-4 space-y-3">
-            <div className="font-semibold">Message WhatsApp</div>
-
-            {order?.whatsappMessage ? (
-              <>
-                <div className="text-xs text-gray-600 whitespace-pre-wrap border rounded-xl p-3 bg-gray-50 max-h-64 overflow-auto">
+          {/* Carte WhatsApp */}
+          <InfoCard title="💬 Message WhatsApp">
+            {hasWhatsappMessage ? (
+              <div className="space-y-3">
+                <div className="text-xs text-gray-600 whitespace-pre-wrap border rounded-lg p-3 bg-gray-50 max-h-64 overflow-auto font-mono text-sm">
                   {order.whatsappMessage}
                 </div>
-
-                <div className="text-xs text-gray-500">
-                  Message actuellement stocké dans la commande.
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+                  Message stocké dans la commande
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="text-sm text-gray-500">
-                Aucun message WhatsApp généré.
+              <div className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                <span className="block text-2xl mb-2">📭</span>
+                Aucun message WhatsApp généré
               </div>
             )}
-          </div>
+          </InfoCard>
 
-          <div className="card p-4 space-y-3">
-            <div className="font-semibold">Paiement / Facture</div>
-
-            <div className="text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-500">Référence facture</span>
-                <span className="font-medium text-right">
-                  {order?.factureReference || "—"}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-500">Référence paiement</span>
-                <span className="font-medium text-right">
-                  {order?.paymentRef || "—"}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-500">Lien de paiement</span>
-                <span className="font-medium text-right">
-                  {order?.paymentLink ? (
+          {/* Carte Paiement / Facture */}
+          <InfoCard title="💰 Paiement & Facture">
+            <div className="space-y-2">
+              <Row 
+                label="Référence facture" 
+                value={order?.factureReference} 
+                copyable 
+              />
+              <Row 
+                label="Référence paiement" 
+                value={order?.paymentRef} 
+                copyable 
+              />
+              <Row 
+                label="Lien de paiement" 
+                value={
+                  order?.paymentLink ? (
                     <a
-                      className="underline"
+                      className="text-indigo-600 hover:text-indigo-800 underline inline-flex items-center gap-1"
                       href={order.paymentLink}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Ouvrir
+                      🔗 Ouvrir
                     </a>
-                  ) : (
-                    "—"
-                  )}
-                </span>
-              </div>
+                  ) : "—"
+                }
+              />
+              <Row 
+                label="WhatsApp destinataire" 
+                value={order?.factureWhatsappTo} 
+                copyable 
+              />
             </div>
 
-            <div className="text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-500">WhatsApp To</span>
-                <span className="font-medium text-right">
-                  {order?.factureWhatsappTo || "—"}
+            {order?.paidAt && (
+              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <span>✅ Paiement confirmé le</span>
+                  <span className="font-medium text-gray-700">
+                    {formatDateTime(order.paidAt)}
+                  </span>
                 </span>
               </div>
-            </div>
-          </div>
+            )}
+          </InfoCard>
+
+          {/* Informations additionnelles si disponibles */}
+          {order?.notes && (
+            <InfoCard title="📝 Note client">
+              <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                {order.notes}
+              </div>
+            </InfoCard>
+          )}
         </div>
       </div>
 
-      {Array.isArray(order?.stockMovements) && order.stockMovements.length > 0 && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="font-semibold">Mouvements de stock</div>
+      {/* Mouvements de stock */}
+      {hasStockMovements && (
+        <InfoCard title="📊 Mouvements de stock">
+          <div className="flex items-center justify-between gap-2 mb-4">
             <div className="text-sm text-gray-500">
+              Historique des mouvements liés à cette commande
+            </div>
+            <div className="text-sm font-medium bg-gray-100 px-3 py-1 rounded-full">
               Débit: {stockSummary?.debitQty || 0} • Crédit: {stockSummary?.creditQty || 0}
             </div>
           </div>
 
-          <div className="mt-3 space-y-2">
-            {order.stockMovements.map((m) => (
-              <div key={m.id} className="rounded-xl border p-3 bg-gray-50">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${
-                        m.type === "DEBIT"
-                          ? "bg-amber-100 text-amber-800 border-amber-200"
-                          : "bg-emerald-100 text-emerald-800 border-emerald-200"
-                      }`}
-                    >
-                      {m.type === "DEBIT" ? "Débit" : "Crédit"}
-                    </span>
-
-                    <div className="font-medium">
-                      {m.product?.sku || "—"} — {m.product?.nom || "Produit"}
+          <div className="space-y-3">
+            {order.stockMovements.map((movement) => (
+              <div
+                key={movement.id}
+                className="rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MovementBadge type={movement.type} />
+                      <span className="font-medium text-gray-900">
+                        {movement.product?.sku || "—"}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {movement.product?.nom || "Produit inconnu"}
+                      </span>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Quantité :</span>{" "}
+                        <span className="font-medium">{movement.qty}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Raison :</span>{" "}
+                        <span className="font-medium">{movement.reason}</span>
+                      </div>
+                    </div>
+
+                    {movement.note && (
+                      <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+                        <span className="text-xs text-gray-400 block mb-1">Note :</span>
+                        {movement.note}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="text-xs text-gray-500">
-                    {m.createdAt
-                      ? new Date(m.createdAt).toLocaleString("fr-FR")
-                      : "—"}
+                  <div className="text-xs text-gray-400 whitespace-nowrap bg-gray-50 px-2 py-1 rounded">
+                    {formatDateTime(movement.createdAt)}
                   </div>
                 </div>
-
-                <div className="text-sm text-gray-700 mt-1">
-                  Raison : <span className="font-medium">{m.reason}</span> • Qté :{" "}
-                  <span className="font-medium">{m.qty}</span>
-                </div>
-
-                {m.note ? (
-                  <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
-                    {m.note}
-                  </div>
-                ) : null}
               </div>
             ))}
           </div>
-        </div>
+        </InfoCard>
       )}
+
+      {/* Pied de page avec métadonnées */}
+      <div className="text-xs text-gray-400 border-t border-gray-100 pt-4 mt-2">
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          {order?.createdAt && (
+            <span>Créée le {formatDateTime(order.createdAt)}</span>
+          )}
+          {order?.createdBy && (
+            <span>par {order.createdBy}</span>
+          )}
+          {order?.updatedAt && order?.updatedAt !== order?.createdAt && (
+            <span>• Modifiée le {formatDateTime(order.updatedAt)}</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
