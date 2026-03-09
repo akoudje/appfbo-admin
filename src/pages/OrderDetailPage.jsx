@@ -47,7 +47,7 @@ export default function OrderDetailPage() {
   const [info, setInfo] = useState("");
 
   const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") || "overview"
+    searchParams.get("tab") || "overview",
   );
 
   const [invoiceRef, setInvoiceRef] = useState("");
@@ -68,13 +68,20 @@ export default function OrderDetailPage() {
 
   const [cancelReason, setCancelReason] = useState("");
 
+  const [messages, setMessages] = useState([]);
+
   const load = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const data = await ordersService.getById(id);
+      const [data, messageData] = await Promise.all([
+        ordersService.getById(id),
+        ordersService.getMessages(id).catch(() => []),
+      ]);
+
       setOrder(data);
+      setMessages(Array.isArray(messageData) ? messageData : []);
 
       setInvoiceRef(data?.factureReference || "");
       setInvoiceWaTo(data?.factureWhatsappTo || "");
@@ -93,7 +100,9 @@ export default function OrderDetailPage() {
       setInvoiceNote("");
       setCancelReason("");
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de charger la commande");
+      setError(
+        e?.response?.data?.message || "Impossible de charger la commande",
+      );
     } finally {
       setLoading(false);
     }
@@ -139,7 +148,8 @@ export default function OrderDetailPage() {
 
   const canInvoice = status === "SUBMITTED";
   const canProof = status === "INVOICED" && !isCash && !isAutoPayment;
-  const canVerify = status === "PAYMENT_PROOF_RECEIVED" && !isCash && !isAutoPayment;
+  const canVerify =
+    status === "PAYMENT_PROOF_RECEIVED" && !isCash && !isAutoPayment;
   const canPrepare = status === "PAID";
   const canFulfill = status === "READY";
   const canCancel = !!status && !["FULFILLED", "CANCELLED"].includes(status);
@@ -345,7 +355,24 @@ export default function OrderDetailPage() {
       primaryAction: null,
       enabled: false,
     };
-  }, [status, stockRestored, emptyOrder, canCancel, saving, isCash, isAutoPayment]);
+  }, [
+    status,
+    stockRestored,
+    emptyOrder,
+    canCancel,
+    saving,
+    isCash,
+    isAutoPayment,
+  ]);
+
+  const billingMessage = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) return null;
+
+    return (
+      messages.find((m) => ["INVOICE", "PAYMENT_LINK"].includes(m?.purpose)) ||
+      null
+    );
+  }, [messages]);
 
   const handleActionResult = async (result, fallbackInfo) => {
     if (result?.alreadyDone) {
@@ -354,6 +381,10 @@ export default function OrderDetailPage() {
       setInfo("");
     }
     await load();
+  };
+
+  const handleResendWhatsApp = async () => {
+    setInfo("Fonction de renvoi WhatsApp bientôt disponible.");
   };
 
   const doInvoice = async () => {
@@ -392,7 +423,9 @@ export default function OrderDetailPage() {
       const result = await ordersService.proof(id, body);
       await handleActionResult(result, "Preuve déjà enregistrée.");
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible d'enregistrer la preuve");
+      setError(
+        e?.response?.data?.message || "Impossible d'enregistrer la preuve",
+      );
     } finally {
       setSaving(false);
     }
@@ -410,7 +443,9 @@ export default function OrderDetailPage() {
 
       await handleActionResult(result, "Paiement déjà validé.");
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de valider le paiement");
+      setError(
+        e?.response?.data?.message || "Impossible de valider le paiement",
+      );
     } finally {
       setSaving(false);
     }
@@ -429,7 +464,8 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Paiement espèces déjà enregistré.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible d'encaisser le paiement espèces"
+        e?.response?.data?.message ||
+          "Impossible d'encaisser le paiement espèces",
       );
     } finally {
       setSaving(false);
@@ -448,7 +484,9 @@ export default function OrderDetailPage() {
 
       await handleActionResult(result, "Commande déjà préparée.");
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de marquer le colis prêt");
+      setError(
+        e?.response?.data?.message || "Impossible de marquer le colis prêt",
+      );
     } finally {
       setSaving(false);
     }
@@ -554,17 +592,9 @@ export default function OrderDetailPage() {
         </Alert>
       )}
 
-      <OrderActionPanel
-        order={order}
-        nextAction={nextAction}
-        saving={saving}
-      />
+      <OrderActionPanel order={order} nextAction={nextAction} saving={saving} />
 
-      <OrderDetailTabs
-        activeTab={activeTab}
-        onChange={setTab}
-        order={order}
-      />
+      <OrderDetailTabs activeTab={activeTab} onChange={setTab} order={order} />
 
       {activeTab === "overview" && (
         <OrderOverviewTab
@@ -591,6 +621,8 @@ export default function OrderDetailPage() {
           setInvoiceNote={setInvoiceNote}
           onInvoice={doInvoice}
           onCopyWhatsApp={copyWhatsApp}
+          billingMessage={billingMessage}
+          onResendWhatsApp={handleResendWhatsApp}
         />
       )}
 

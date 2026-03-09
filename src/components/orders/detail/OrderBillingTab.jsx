@@ -35,8 +35,39 @@ function Row({ label, value }) {
   );
 }
 
+function WhatsAppStatusBadge({ status }) {
+  const tones = {
+    DRAFT: "bg-gray-100 text-gray-700 border-gray-200",
+    QUEUED: "bg-slate-100 text-slate-700 border-slate-200",
+    SENT: "bg-blue-100 text-blue-700 border-blue-200",
+    DELIVERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    READ: "bg-green-100 text-green-700 border-green-200",
+    FAILED: "bg-red-100 text-red-700 border-red-200",
+    CANCELLED: "bg-gray-100 text-gray-700 border-gray-200",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+        tones[status] || tones.DRAFT
+      }`}
+    >
+      {status || "DRAFT"}
+    </span>
+  );
+}
+
 function formatFcfa(value) {
   return `${new Intl.NumberFormat("fr-FR").format(Number(value || 0))} FCFA`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+
+  return d.toLocaleString("fr-FR");
 }
 
 export default function OrderBillingTab({
@@ -55,10 +86,18 @@ export default function OrderBillingTab({
   onCopyWhatsApp,
   isCash,
   isAutoPayment,
+
+  // ✅ nouvelles props
+  billingMessage = null,
+  onResendWhatsApp,
 }) {
   const hasInvoice = ["INVOICED", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED"].includes(
     order?.status
   );
+
+  const resolvedPaymentLink = paymentLink || order?.paymentLink || "";
+  const resolvedWhatsappStatus =
+    billingMessage?.status || order?.lastWhatsappStatus || null;
 
   return (
     <div className="space-y-4">
@@ -133,7 +172,7 @@ export default function OrderBillingTab({
         >
           <input
             className="input"
-            value={paymentLink || order?.paymentLink || ""}
+            value={resolvedPaymentLink}
             onChange={(e) => setPaymentLink?.(e.target.value)}
             placeholder={
               isCash
@@ -206,6 +245,63 @@ export default function OrderBillingTab({
             >
               Ouvrir le lien de paiement
             </a>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ✅ Nouveau bloc */}
+      <div className="card p-4 space-y-3">
+        <div className="font-semibold">Suivi WhatsApp</div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Row label="Canal" value="WhatsApp" />
+          <Row
+            label="Destinataire"
+            value={billingMessage?.toPhone || order?.factureWhatsappTo || "—"}
+          />
+          <Row
+            label="Type de message"
+            value={billingMessage?.purpose || "—"}
+          />
+          <Row
+            label="Statut"
+            value={<WhatsAppStatusBadge status={resolvedWhatsappStatus} />}
+          />
+          <Row
+            label="Dernier événement"
+            value={formatDateTime(
+              billingMessage?.lastStatusAt || order?.lastWhatsappStatusAt
+            )}
+          />
+          <Row
+            label="Envoyé le"
+            value={formatDateTime(billingMessage?.sentAt)}
+          />
+          <Row
+            label="Lien cliqué"
+            value={order?.paymentLinkClickedAt ? "Oui" : "Non"}
+          />
+          <Row
+            label="Nombre de clics"
+            value={String(order?.paymentLinkClickCount || 0)}
+          />
+        </div>
+
+        {billingMessage?.errorMessage ? (
+          <Alert tone="red" title="Erreur d’envoi WhatsApp">
+            {billingMessage.errorMessage}
+          </Alert>
+        ) : null}
+
+        <div className="flex gap-2 flex-wrap">
+          {typeof onResendWhatsApp === "function" ? (
+            <button
+              className="btn"
+              onClick={onResendWhatsApp}
+              disabled={!billingMessage?.id || saving}
+            >
+              Renvoyer le message
+            </button>
           ) : null}
         </div>
       </div>

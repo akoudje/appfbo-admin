@@ -3,7 +3,11 @@ import api from "./api";
 
 export const ordersService = {
   getAll: async (params) => (await api.get("/admin/orders", { params })).data,
+
   getById: async (id) => (await api.get(`/admin/orders/${id}`)).data,
+
+  getMessages: async (id) =>
+    (await api.get(`/admin/orders/${id}/messages`)).data,
 
   invoice: async (id, body) =>
     (await api.post(`/admin/orders/${id}/invoice`, body)).data,
