@@ -9,7 +9,7 @@ const COUNTRIES = [
   { code: "BFA", label: "BFA" },
   { code: "TGO", label: "TGO" },
   { code: "BEN", label: "BEN" }, // Bénin (remplace Mali)
-  { code: "NER", label: "NER" }, // Niger (code NE dans ton seed actuel)
+  { code: "NER", label: "NER" }, // Niger
 ];
 
 export default function CountrySelector({ className = "" }) {
