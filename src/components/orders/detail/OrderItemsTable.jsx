@@ -12,12 +12,21 @@ function getItemName(it) {
 }
 
 function getDiscountPercent(it) {
-  const raw = it?.discountPercent;
+  if (it?.discountPercent !== undefined && it?.discountPercent !== null) {
+    const n = Number(it.discountPercent);
+    return Number.isFinite(n) ? n : 0;
+  }
 
-  if (raw === null || raw === undefined || raw === "") return 0;
+  const catalogue = Number(it?.prixCatalogueFcfa);
+  const net = Number(it?.prixUnitaireFcfa);
 
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 0;
+  if (!catalogue || !net) return 0;
+
+  const pct = (1 - net / catalogue) * 100;
+
+  if (!Number.isFinite(pct)) return 0;
+
+  return Math.max(0, pct);
 }
 
 function formatPercent(value) {
