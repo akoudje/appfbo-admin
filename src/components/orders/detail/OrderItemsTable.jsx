@@ -1,5 +1,6 @@
 // src/components/orders/detail/OrderItemsTable.jsx
 
+
 import { formatFcfa } from "../../../lib/format";
 
 function getItemSku(it) {
@@ -8,6 +9,19 @@ function getItemSku(it) {
 
 function getItemName(it) {
   return it?.productNameSnapshot || it?.product?.nom || "Produit";
+}
+
+function getDiscountPercent(it) {
+  const raw = it?.discountPercent;
+
+  if (raw === null || raw === undefined || raw === "") return 0;
+
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatPercent(value) {
+  return `${value.toFixed(2).replace(".", ",")} %`;
 }
 
 export default function OrderItemsTable({ items, totalFcfa }) {
@@ -34,25 +48,46 @@ export default function OrderItemsTable({ items, totalFcfa }) {
 
           <tbody>
             {items?.length ? (
-              items.map((it) => (
-                <tr key={it.id} className="border-t">
-                  <td className="p-3 font-mono whitespace-nowrap">{getItemSku(it)}</td>
-                  <td className="p-3">{getItemName(it)}</td>
-                  <td className="p-3 whitespace-nowrap">{it.qty}</td>
-                  <td className="p-3 whitespace-nowrap">
-                    {formatFcfa(it.prixCatalogueFcfa ?? it.prixUnitaireFcfa ?? 0)}
-                  </td>
-                  <td className="p-3 whitespace-nowrap">
-                    {Number(it.discountPercent || 0).toFixed(2)}%
-                  </td>
-                  <td className="p-3 whitespace-nowrap">
-                    {formatFcfa(it.prixUnitaireFcfa || 0)}
-                  </td>
-                  <td className="p-3 font-semibold whitespace-nowrap">
-                    {formatFcfa(it.lineTotalFcfa || 0)}
-                  </td>
-                </tr>
-              ))
+              items.map((it) => {
+                const discountPercent = getDiscountPercent(it);
+                const hasDiscount = discountPercent > 0;
+
+                return (
+                  <tr key={it.id} className="border-t">
+                    <td className="p-3 font-mono whitespace-nowrap">
+                      {getItemSku(it)}
+                    </td>
+
+                    <td className="p-3">{getItemName(it)}</td>
+
+                    <td className="p-3 whitespace-nowrap">{it.qty}</td>
+
+                    <td className="p-3 whitespace-nowrap">
+                      {formatFcfa(it.prixCatalogueFcfa ?? it.prixUnitaireFcfa ?? 0)}
+                    </td>
+
+                    <td className="p-3 whitespace-nowrap">
+                      <span
+                        className={
+                          hasDiscount
+                            ? "inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-xs font-medium text-emerald-700"
+                            : "text-gray-500"
+                        }
+                      >
+                        {formatPercent(discountPercent)}
+                      </span>
+                    </td>
+
+                    <td className="p-3 whitespace-nowrap">
+                      {formatFcfa(it.prixUnitaireFcfa || 0)}
+                    </td>
+
+                    <td className="p-3 font-semibold whitespace-nowrap">
+                      {formatFcfa(it.lineTotalFcfa || 0)}
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td className="p-3" colSpan={7}>
