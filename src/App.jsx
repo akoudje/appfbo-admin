@@ -31,6 +31,7 @@ export default function App() {
                 <Route path="/products" element={<Products />} />
                 <Route path="/products/new" element={<ProductCreate />} />
                 <Route path="/products/:id/edit" element={<ProductEdit />} />
+                <Route path="/settings/grade-discounts" element={<AdminGradeDiscountsPage />} />
                 <Route path="*" element={<div className="p-6">Not found</div>} />
               </Routes>
             </AdminLayout>
