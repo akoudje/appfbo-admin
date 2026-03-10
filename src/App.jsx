@@ -1,4 +1,6 @@
 // src/App.jsx
+// Point d'entrée de l'application, définissant les routes principales et intégrant le layout admin.
+
 import { Routes, Route } from "react-router-dom";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -6,11 +8,11 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
-//import OrderDetail from "./pages/OrderDetail";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import Products from "./pages/Products";
 import ProductCreate from "./pages/ProductCreate.jsx";
 import ProductEdit from "./pages/ProductEdit.jsx";
+import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 
 export default function App() {
   return (
@@ -31,7 +33,10 @@ export default function App() {
                 <Route path="/products" element={<Products />} />
                 <Route path="/products/new" element={<ProductCreate />} />
                 <Route path="/products/:id/edit" element={<ProductEdit />} />
-                <Route path="/settings/grade-discounts" element={<AdminGradeDiscountsPage />} />
+                <Route
+                  path="/settings/grade-discounts"
+                  element={<AdminGradeDiscountsPage />}
+                />
                 <Route path="*" element={<div className="p-6">Not found</div>} />
               </Routes>
             </AdminLayout>
