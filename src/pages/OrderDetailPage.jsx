@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
 
-//import OrderDetailHeader from "../components/orders/detail/OrderDetailHeader";
+import OrderDetailHeader from "../components/orders/detail/OrderDetailHeader";
 //import OrderActionPanel from "../components/orders/detail/OrderActionPanel";
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
 import OrderOverviewTab from "../components/orders/detail/OrderOverviewTab";
@@ -571,14 +571,14 @@ export default function OrderDetailPage() {
   };
 
   return (
-/*     <div className="space-y-4">
+    <div className="space-y-4">
       <OrderDetailHeader
         order={order}
         saving={saving}
         canCancel={canCancel}
         onRefresh={load}
         onGoCancel={() => setTab("cancel")}
-      /> */
+      />
 
       {error && (
         <Alert tone="red" title="Erreur">
@@ -592,8 +592,7 @@ export default function OrderDetailPage() {
         </Alert>
       )}
 
-      <OrderActionPanel order={order} nextAction={nextAction} saving={saving} />
-
+    {/*   <OrderActionPanel order={order} nextAction={nextAction} saving={saving} /> */}
       <OrderDetailTabs activeTab={activeTab} onChange={setTab} order={order} />
 
       {activeTab === "overview" && (
