@@ -1,3 +1,5 @@
+// src/components/layout/Sidebar.jsx
+
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 
@@ -46,6 +48,17 @@ const SETTINGS_ITEMS = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
+  },
+  
+  {
+    to: "/settings/users",
+    label: "Utilisateurs",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5V4H2v16h5m10 0v-1a4 4 0 00-4-4H11a4 4 0 00-4 4v1m10 0H7m8-12a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    badge: null,
   },
   {
     to: "/settings/grade-discounts",

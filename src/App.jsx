@@ -13,6 +13,7 @@ import Products from "./pages/Products";
 import ProductCreate from "./pages/ProductCreate.jsx";
 import ProductEdit from "./pages/ProductEdit.jsx";
 import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
                   path="/settings/grade-discounts"
                   element={<AdminGradeDiscountsPage />}
                 />
+                <Route path="/settings/users" element={<AdminUsersPage />} />
                 <Route path="*" element={<div className="p-6">Not found</div>} />
               </Routes>
             </AdminLayout>
