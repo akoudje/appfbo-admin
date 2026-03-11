@@ -3,16 +3,8 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { setAdminToken } from "../services/auth";
+import { setAdminToken, setAdminUser } from "../services/auth";
 
-function persistAdminUser(user) {
-  try {
-    if (!user) return;
-    window.localStorage.setItem("admin_user", JSON.stringify(user));
-  } catch {
-    // ignore
-  }
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -43,7 +35,7 @@ export default function Login() {
       }
 
       setAdminToken(token);
-      persistAdminUser(user);
+      setAdminUser(user);
 
       navigate(redirectTo, { replace: true });
     } catch (e) {

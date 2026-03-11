@@ -2,10 +2,9 @@
 // Axios API helper with country + auth headers
 
 import axios from "axios";
-
+import { getAdminToken, clearAdminSession } from "./auth";
 
 const COUNTRY_STORAGE_KEY = "countryCode";
-const TOKEN_STORAGE_KEY = "adminToken";
 const DEFAULT_COUNTRY_CODE = "CIV";
 
 /* ============================
@@ -27,32 +26,11 @@ export function setCountryCode(code) {
 }
 
 /* ============================
-   Auth helpers
-============================ */
-
-export function getAdminToken() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
-}
-
-export function setAdminToken(token) {
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  }
-}
-
-export function clearAdminToken() {
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-  }
-}
-
-/* ============================
    Axios instance
 ============================ */
 
 const DEFAULT_API =
-  window.location.hostname === "localhost"
+  typeof window !== "undefined" && window.location.hostname === "localhost"
     ? "http://localhost:4000/api"
     : "https://appfbo-backend.onrender.com/api";
 
@@ -68,10 +46,8 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   config.headers = config.headers || {};
 
-  // Country context (mandatory for backend)
   config.headers["X-Country"] = getCountryCode();
 
-  // Admin auth token
   const token = getAdminToken();
   if (token) {
     config.headers["Authorization"] = `Bearer ${token}`;
@@ -88,13 +64,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      // Token expired / invalid
-      clearAdminToken();
+      clearAdminSession();
 
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
     }
+
     return Promise.reject(error);
   }
 );

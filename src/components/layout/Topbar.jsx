@@ -4,37 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import CountrySelector from "../CountrySelector";
-import { clearAdminToken, getCountryCode } from "../../services/api";
+import { getCountryCode } from "../../services/api";
+import { clearAdminSession, getAdminUser } from "../../services/auth";
 
 /* ============================================================================
-   Helpers session admin
+   Helpers
 ============================================================================ */
-
-function safeJsonParse(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function readStoredAdminUser() {
-  if (typeof window === "undefined") return null;
-
-  const candidates = ["admin_user", "adminUser", "user"];
-
-  for (const key of candidates) {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) continue;
-
-    const parsed = safeJsonParse(raw);
-    if (parsed && (parsed.email || parsed.role || parsed.fullName)) {
-      return parsed;
-    }
-  }
-
-  return null;
-}
 
 function getInitials(fullName, email) {
   const source = String(fullName || "").trim();
@@ -85,9 +60,8 @@ function getPageTitle(pathname) {
   if (pathname === "/products/new") return "Nouveau produit";
   if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier produit";
 
-  
+  if (pathname === "/users") return "Utilisateurs";
   if (pathname === "/settings") return "Paramètres";
-  if (pathname === "/settings/users") return "Utilisateurs";
   if (pathname === "/settings/grade-discounts") return "Remises par grade";
 
   return "PRECOMMANDE FOREVER Admin Panel";
@@ -104,7 +78,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showProfile, setShowProfile] = useState(false);
   const [countryCode, setCountryCode] = useState(() => getCountryCode());
-  const [adminUser, setAdminUser] = useState(() => readStoredAdminUser());
+  const [adminUser, setAdminUserState] = useState(() => getAdminUser());
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
@@ -114,7 +88,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
   useEffect(() => {
     const refreshTopbarContext = () => {
       setCountryCode(getCountryCode());
-      setAdminUser(readStoredAdminUser());
+      setAdminUserState(getAdminUser());
     };
 
     refreshTopbarContext();
@@ -159,16 +133,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
   const initials = getInitials(adminUser?.fullName, adminUser?.email);
 
   function handleLogout() {
-    clearAdminToken();
-
-    try {
-      window.localStorage.removeItem("admin_user");
-      window.localStorage.removeItem("adminUser");
-      window.localStorage.removeItem("user");
-    } catch {
-      // ignore
-    }
-
+    clearAdminSession();
     setShowProfile(false);
     navigate("/login", { replace: true });
   }
@@ -236,6 +201,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
             <button
               className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
               aria-label="Notifications"
+              type="button"
             >
               <svg
                 className="h-5 w-5 text-gray-600"
@@ -257,6 +223,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
               <button
                 onClick={() => setShowProfile((v) => !v)}
                 className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-gray-100"
+                type="button"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
                   <span className="text-sm font-medium text-white">{initials}</span>
@@ -314,6 +281,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                     <button
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                       onClick={() => setShowProfile(false)}
+                      type="button"
                     >
                       <svg
                         className="h-4 w-4"
@@ -337,6 +305,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                         setShowProfile(false);
                         navigate("/settings");
                       }}
+                      type="button"
                     >
                       <svg
                         className="h-4 w-4"
@@ -366,6 +335,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                         setShowProfile(false);
                         navigate("/users");
                       }}
+                      type="button"
                     >
                       <svg
                         className="h-4 w-4"
@@ -388,6 +358,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                     <button
                       onClick={handleLogout}
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                      type="button"
                     >
                       <svg
                         className="h-4 w-4"
