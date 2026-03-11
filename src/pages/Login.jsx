@@ -1,8 +1,18 @@
 // src/pages/Login.jsx
+
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { setAdminToken } from "../services/auth";
+
+function persistAdminUser(user) {
+  try {
+    if (!user) return;
+    window.localStorage.setItem("admin_user", JSON.stringify(user));
+  } catch {
+    // ignore
+  }
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,9 +36,15 @@ export default function Login() {
       });
 
       const token = res.data?.token;
-      if (!token) throw new Error("Token manquant");
+      const user = res.data?.user;
+
+      if (!token) {
+        throw new Error("Token manquant");
+      }
 
       setAdminToken(token);
+      persistAdminUser(user);
+
       navigate(redirectTo, { replace: true });
     } catch (e) {
       const msg =
@@ -42,11 +58,13 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900">Connexion Admin</h1>
-          <p className="text-sm text-gray-500">Accédez au backoffice Précommande</p>
+          <p className="text-sm text-gray-500">
+            Accédez au backoffice Précommande
+          </p>
         </div>
 
         {err ? (
@@ -57,7 +75,7 @@ export default function Login() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Email
             </label>
             <input
@@ -65,14 +83,14 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               autoComplete="email"
-              className="w-full h-10 rounded-lg border border-gray-200 px-3 outline-none focus:ring-2 focus:ring-gray-200"
+              className="h-10 w-full rounded-lg border border-gray-200 px-3 outline-none focus:ring-2 focus:ring-gray-200"
               placeholder="admin@forever.ci"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Mot de passe
             </label>
             <input
@@ -80,7 +98,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               autoComplete="current-password"
-              className="w-full h-10 rounded-lg border border-gray-200 px-3 outline-none focus:ring-2 focus:ring-gray-200"
+              className="h-10 w-full rounded-lg border border-gray-200 px-3 outline-none focus:ring-2 focus:ring-gray-200"
               placeholder="••••••••"
               required
             />
@@ -88,7 +106,7 @@ export default function Login() {
 
           <button
             disabled={loading}
-            className="w-full h-10 rounded-lg bg-gray-900 text-white font-medium hover:bg-gray-800 disabled:opacity-60"
+            className="h-10 w-full rounded-lg bg-gray-900 font-medium text-white hover:bg-gray-800 disabled:opacity-60"
           >
             {loading ? "Connexion..." : "Se connecter"}
           </button>

@@ -21,12 +21,7 @@ function safeJsonParse(value) {
 function readStoredAdminUser() {
   if (typeof window === "undefined") return null;
 
-  // Adapte facilement ici si ton app stocke l'utilisateur sous une autre clé
-  const candidates = [
-    "admin_user",
-    "adminUser",
-    "user",
-  ];
+  const candidates = ["admin_user", "adminUser", "user"];
 
   for (const key of candidates) {
     const raw = window.localStorage.getItem(key);
@@ -70,7 +65,11 @@ function formatRoleLabel(role) {
     ORDER_PREPARER: "Préparateur de commande",
   };
 
-  return map[String(role || "").trim().toUpperCase()] || role || "Administrateur";
+  return (
+    map[String(role || "").trim().toUpperCase()] ||
+    role ||
+    "Administrateur"
+  );
 }
 
 /* ============================================================================
@@ -86,6 +85,7 @@ function getPageTitle(pathname) {
   if (pathname === "/products/new") return "Nouveau produit";
   if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier produit";
 
+  
   if (pathname === "/settings") return "Paramètres";
   if (pathname === "/settings/users") return "Utilisateurs";
   if (pathname === "/settings/grade-discounts") return "Remises par grade";
@@ -106,13 +106,11 @@ export default function Topbar({ onMenuClick = () => {} }) {
   const [countryCode, setCountryCode] = useState(() => getCountryCode());
   const [adminUser, setAdminUser] = useState(() => readStoredAdminUser());
 
-  // Horloge
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
-  // Relecture country / user quand on revient sur l’onglet ou qu’un storage change
   useEffect(() => {
     const refreshTopbarContext = () => {
       setCountryCode(getCountryCode());
@@ -132,7 +130,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
 
   const pageTitle = useMemo(
     () => getPageTitle(location.pathname),
-    [location.pathname]
+    [location.pathname],
   );
 
   const formattedTime = useMemo(
@@ -141,7 +139,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
         hour: "2-digit",
         minute: "2-digit",
       }),
-    [currentTime]
+    [currentTime],
   );
 
   const formattedDate = useMemo(
@@ -151,7 +149,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
         month: "long",
         year: "numeric",
       }),
-    [currentTime]
+    [currentTime],
   );
 
   const adminDisplayName =
@@ -163,7 +161,6 @@ export default function Topbar({ onMenuClick = () => {} }) {
   function handleLogout() {
     clearAdminToken();
 
-    // Nettoyage session locale si ton app la stocke
     try {
       window.localStorage.removeItem("admin_user");
       window.localStorage.removeItem("adminUser");
@@ -180,27 +177,36 @@ export default function Topbar({ onMenuClick = () => {} }) {
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Left */}
           <div className="flex items-center gap-4">
             <button
               onClick={onMenuClick}
               className="rounded-lg p-2 transition-colors hover:bg-gray-100 lg:hidden"
               aria-label="Menu"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
 
             <div>
               <h1 className="text-lg font-semibold text-gray-900">{pageTitle}</h1>
-              <p className="hidden text-xs text-gray-500 sm:block">{formattedDate}</p>
+              <p className="hidden text-xs text-gray-500 sm:block">
+                {formattedDate}
+              </p>
             </div>
           </div>
 
-          {/* Right */}
           <div className="flex items-center gap-3">
-            {/* Country selector desktop */}
             <div className="hidden items-center gap-2 sm:flex">
               <CountrySelector />
               <span className="hidden rounded-lg bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 md:inline-flex">
@@ -208,26 +214,45 @@ export default function Topbar({ onMenuClick = () => {} }) {
               </span>
             </div>
 
-            {/* Clock */}
             <div className="hidden items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 sm:flex">
-              <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="h-4 w-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <span className="text-sm font-medium text-gray-700">{formattedTime}</span>
+              <span className="text-sm font-medium text-gray-700">
+                {formattedTime}
+              </span>
             </div>
 
-            {/* Notifications */}
             <button
               className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
               aria-label="Notifications"
             >
-              <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              <svg
+                className="h-5 w-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
               </svg>
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </button>
 
-            {/* Profil */}
             <div className="relative">
               <button
                 onClick={() => setShowProfile((v) => !v)}
@@ -238,14 +263,26 @@ export default function Topbar({ onMenuClick = () => {} }) {
                 </div>
 
                 <div className="hidden text-left lg:block">
-                  <p className="text-sm font-medium text-gray-900">{adminDisplayName}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {adminDisplayName}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {adminRoleLabel} • {countryCode}
                   </p>
                 </div>
 
-                <svg className="hidden h-4 w-4 text-gray-500 lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg
+                  className="hidden h-4 w-4 text-gray-500 lg:block"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
 
@@ -278,8 +315,18 @@ export default function Topbar({ onMenuClick = () => {} }) {
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                       onClick={() => setShowProfile(false)}
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
                       </svg>
                       Mon profil
                     </button>
@@ -291,9 +338,24 @@ export default function Topbar({ onMenuClick = () => {} }) {
                         navigate("/settings");
                       }}
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
                       </svg>
                       Paramètres
                     </button>
@@ -305,8 +367,18 @@ export default function Topbar({ onMenuClick = () => {} }) {
                         navigate("/users");
                       }}
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5V4H2v16h5m10 0v-1a4 4 0 00-4-4H11a4 4 0 00-4 4v1m10 0H7m8-12a4 4 0 11-8 0 4 4 0 018 0z" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 20h5V4H2v16h5m10 0v-1a4 4 0 00-4-4H11a4 4 0 00-4 4v1m10 0H7m8-12a4 4 0 11-8 0 4 4 0 018 0z"
+                        />
                       </svg>
                       Utilisateurs
                     </button>
@@ -317,8 +389,18 @@ export default function Topbar({ onMenuClick = () => {} }) {
                       onClick={handleLogout}
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
                       </svg>
                       Déconnexion
                     </button>
@@ -329,7 +411,6 @@ export default function Topbar({ onMenuClick = () => {} }) {
           </div>
         </div>
 
-        {/* Mobile row */}
         <div className="pb-3 sm:hidden">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-gray-500">{formattedDate}</div>

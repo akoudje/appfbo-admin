@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
 
-//import OrderDetailHeader from "../components/orders/detail/OrderDetailHeader";
-//import OrderActionPanel from "../components/orders/detail/OrderActionPanel";
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
 import OrderOverviewTab from "../components/orders/detail/OrderOverviewTab";
 import OrderBillingTab from "../components/orders/detail/OrderBillingTab";
@@ -20,18 +18,70 @@ function normalizeStr(v) {
   return String(v).trim();
 }
 
+function formatFcfa(value) {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "XOF",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
 function Alert({ tone = "red", title, children }) {
   const tones = {
     amber: "border-amber-200 bg-amber-50 text-amber-900",
     red: "border-red-200 bg-red-50 text-red-900",
     blue: "border-blue-200 bg-blue-50 text-blue-900",
     emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    gray: "border-gray-200 bg-gray-50 text-gray-900",
   };
 
   return (
-    <div className={`card p-3 border ${tones[tone] || tones.red}`}>
-      {title ? <div className="font-semibold text-sm mb-1">{title}</div> : null}
+    <div className={`rounded-xl border p-3 ${tones[tone] || tones.red}`}>
+      {title ? <div className="mb-1 text-sm font-semibold">{title}</div> : null}
       <div className="text-sm">{children}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    DRAFT: "bg-gray-100 text-gray-700 border-gray-200",
+    SUBMITTED: "bg-blue-100 text-blue-700 border-blue-200",
+    INVOICED: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    PAYMENT_PROOF_RECEIVED: "bg-amber-100 text-amber-700 border-amber-200",
+    PAID: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    READY: "bg-teal-100 text-teal-700 border-teal-200",
+    FULFILLED: "bg-green-100 text-green-700 border-green-200",
+    CANCELLED: "bg-red-100 text-red-700 border-red-200",
+  };
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
+        map[status] || map.DRAFT
+      }`}
+    >
+      {status || "—"}
+    </span>
+  );
+}
+
+function SummaryRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-gray-500">{label}</span>
+      <span className="text-right font-medium text-gray-900">{value ?? "—"}</span>
     </div>
   );
 }
@@ -229,141 +279,6 @@ export default function OrderDetailPage() {
       done: done(st.key),
     }));
   }, [order, isCash, isAutoPayment]);
-
-  const nextAction = useMemo(() => {
-    if (!status) return null;
-
-    if (status === "CANCELLED") {
-      return {
-        tone: "red",
-        title: "Commande annulée",
-        desc: stockRestored
-          ? "La commande est annulée et le stock a été réintégré."
-          : "Aucune action requise.",
-        primaryLabel: null,
-        primaryAction: null,
-        enabled: false,
-      };
-    }
-
-    if (status === "FULFILLED") {
-      return {
-        tone: "emerald",
-        title: "Commande clôturée",
-        desc: "Aucune action requise.",
-        primaryLabel: null,
-        primaryAction: null,
-        enabled: false,
-      };
-    }
-
-    if (emptyOrder && ["SUBMITTED", "INVOICED"].includes(status)) {
-      return {
-        tone: "amber",
-        title: "Commande incomplète",
-        desc: "Aucun item ou total à 0. Recommandation : annuler la commande ou demander au FBO de recommencer.",
-        primaryLabel: canCancel ? "Aller à l'annulation" : null,
-        primaryAction: () => setTab("cancel"),
-        enabled: canCancel && !saving,
-      };
-    }
-
-    if (status === "SUBMITTED") {
-      return {
-        tone: "blue",
-        title: "Action du moment : Facturer",
-        desc: isCash
-          ? "Créez la préfacture, puis encaissez au bureau."
-          : "Créez la préfacture puis envoyez le lien ou la référence au FBO.",
-        primaryLabel: "Aller à la facturation",
-        primaryAction: () => setTab("billing"),
-        enabled: !saving,
-      };
-    }
-
-    if (status === "INVOICED") {
-      if (isCash) {
-        return {
-          tone: "amber",
-          title: "Action du moment : Encaisser espèces",
-          desc: "Encaissez au bureau puis marquez la commande payée.",
-          primaryLabel: "Aller au paiement",
-          primaryAction: () => setTab("payment"),
-          enabled: !saving,
-        };
-      }
-
-      if (isAutoPayment) {
-        return {
-          tone: "blue",
-          title: "Action du moment : Attendre la confirmation PayDunya",
-          desc: "Le FBO doit finaliser le paiement via le lien envoyé. Dès confirmation, la commande passera automatiquement à PAID.",
-          primaryLabel: "Rafraîchir",
-          primaryAction: load,
-          enabled: !saving,
-        };
-      }
-
-      return {
-        tone: "blue",
-        title: "Action du moment : Enregistrer la preuve",
-        desc: "Quand la preuve est reçue, marquez-la reçue.",
-        primaryLabel: "Aller au paiement",
-        primaryAction: () => setTab("payment"),
-        enabled: !saving,
-      };
-    }
-
-    if (status === "PAYMENT_PROOF_RECEIVED") {
-      return {
-        tone: "blue",
-        title: "Action du moment : Valider paiement",
-        desc: "Après vérification de la preuve, validez le paiement.",
-        primaryLabel: "Aller au paiement",
-        primaryAction: () => setTab("payment"),
-        enabled: !saving,
-      };
-    }
-
-    if (status === "PAID") {
-      return {
-        tone: "emerald",
-        title: "Action du moment : Préparer le colis",
-        desc: "Cette action décrémentera le stock et marquera le colis prêt.",
-        primaryLabel: "Aller à la préparation",
-        primaryAction: () => setTab("preparation"),
-        enabled: !saving,
-      };
-    }
-
-    if (status === "READY") {
-      return {
-        tone: "emerald",
-        title: "Action du moment : Clôturer",
-        desc: "Quand le retrait ou la livraison est effectué(e), clôturez la commande.",
-        primaryLabel: "Aller à la clôture",
-        primaryAction: () => setTab("fulfillment"),
-        enabled: !saving,
-      };
-    }
-
-    return {
-      tone: "gray",
-      title: "Action du moment",
-      desc: "Aucune action disponible pour ce statut.",
-      primaryLabel: null,
-      primaryAction: null,
-      enabled: false,
-    };
-  }, [
-    status,
-    stockRestored,
-    emptyOrder,
-    canCancel,
-    saving,
-    isCash,
-    isAutoPayment,
-  ]);
 
   const billingMessage = useMemo(() => {
     if (!Array.isArray(messages) || messages.length === 0) return null;
@@ -572,27 +487,58 @@ export default function OrderDetailPage() {
 
   return (
     <div className="space-y-4">
-{/*       <OrderDetailHeader
-        order={order}
-        saving={saving}
-        canCancel={canCancel}
-        onRefresh={load}
-        onGoCancel={() => setTab("cancel")}
-      />
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Commande #{order?.id?.slice?.(-8) || "—"}
+              </h2>
+              <StatusBadge status={order?.status} />
+            </div>
 
-      {error && (
+            <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+              <SummaryRow label="FBO" value={order?.fboNomComplet || "—"} />
+              <SummaryRow label="Numéro FBO" value={order?.fboNumero || "—"} />
+              <SummaryRow label="Montant" value={formatFcfa(order?.totalFcfa)} />
+              <SummaryRow label="Créée le" value={formatDateTime(order?.createdAt)} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start">
+            <button
+              onClick={load}
+              disabled={saving}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Rafraîchir
+            </button>
+
+            {canCancel ? (
+              <button
+                onClick={() => setTab("cancel")}
+                disabled={saving}
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {error ? (
         <Alert tone="red" title="Erreur">
           {error}
         </Alert>
-      )}
+      ) : null}
 
-      {info && (
+      {info ? (
         <Alert tone="blue" title="Information">
           {info}
         </Alert>
-      )} */}
+      ) : null}
 
-    {/*   <OrderActionPanel order={order} nextAction={nextAction} saving={saving} /> */}
       <OrderDetailTabs activeTab={activeTab} onChange={setTab} order={order} />
 
       {activeTab === "overview" && (
