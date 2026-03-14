@@ -4,8 +4,8 @@
 
 import { Link } from "react-router-dom";
 import StatusBadge from "../StatusBadge";
-import OrderPaymentBadge from "./OrderPaymentBadge";
-import OrderBillingBadge from "./OrderBillingBadge";
+import OrderPaymentBadge from "./detail/OrderPaymentBadge";
+import OrderBillingBadge from "./detail/OrderBillingBadge";
 import RequirePermission from "../auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
 
