@@ -3,9 +3,9 @@
 
 import { useEffect } from "react";
 import { useOrdersStore } from "../store/useOrdersStore";
-import OrdersFiltersCard from "../../components/orders/OrdersFiltersCard";
-import OrdersStatsBar from "../../components/orders/OrdersStatsBar";
-import OrdersTable from "../../components/orders/OrdersTable";
+import OrdersFiltersCard from "../components/orders/OrdersFiltersCard";
+import OrdersStatsBar from "../components/orders/OrdersStatsBar";
+import OrdersTable from "../components/orders/OrdersTable";
 import RequirePermission from "../../components/auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
 
