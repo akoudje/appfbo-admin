@@ -3,7 +3,7 @@
 
 import OrderBillingBadge from "../orders/OrderBillingBadge";
 import RequirePermission from "../auth/RequirePermission";
-import { Permission } from "../../auth/permissions";
+import { Permission } from "../auth/permissions";
 
 function formatFcfa(value) {
   return new Intl.NumberFormat("fr-FR", {
