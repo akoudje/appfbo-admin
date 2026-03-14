@@ -1,4 +1,6 @@
 // src/components/orders/detail/OrderPaymentTab.jsx
+// Composant de l'onglet "Paiement" dans la page de détail d'une commande. Ce composant affiche les informations de paiement de la commande, le mode de paiement utilisé, et propose des actions spécifiques selon le mode (ex: marquer comme encaissé pour les paiements en espèces, valider la preuve pour les paiements manuels). Il gère également l'affichage conditionnel des différentes étapes du processus de paiement selon le statut actuel de la commande.
+
 
 // ============================================================================
 // Sous-composants
@@ -57,22 +59,33 @@ function Alert({ tone = "blue", title, children }) {
 }
 
 function Row({ label, value, highlight = false, copyable = false }) {
-  const handleCopy = () => {
-    if (value && value !== "—") {
-      navigator.clipboard?.writeText(value.toString());
+  const handleCopy = async () => {
+    if (!value || value === "—") return;
+    try {
+      await navigator.clipboard?.writeText(String(value));
+    } catch {
+      // noop
     }
   };
+
+  const isReactNode =
+    typeof value === "object" && value !== null && !Array.isArray(value);
 
   return (
     <div className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-gray-100 last:border-0">
       <div className="text-gray-500">{label}</div>
-      <div className={`font-medium text-right flex items-center gap-2 ${highlight ? 'text-indigo-600' : ''}`}>
-        <span className="break-all">{value ?? "—"}</span>
-        {copyable && value && value !== "—" && (
+      <div
+        className={`font-medium text-right flex items-center gap-2 ${
+          highlight ? "text-indigo-600" : ""
+        }`}
+      >
+        {isReactNode ? value : <span className="break-all">{value ?? "—"}</span>}
+        {copyable && !isReactNode && value && value !== "—" && (
           <button
             onClick={handleCopy}
             className="text-gray-400 hover:text-gray-600 transition-colors"
             title="Copier"
+            type="button"
           >
             📋
           </button>
@@ -115,17 +128,24 @@ function InfoSection({ title, children, className = "" }) {
 function StepIndicator({ number, title, active = false, completed = false }) {
   return (
     <div className="flex items-center gap-3">
-      <div className={`
-        w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm
-        ${completed ? 'bg-emerald-100 text-emerald-700' : 
-          active ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'}
-      `}>
-        {completed ? '✓' : number}
+      <div
+        className={`
+          w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm
+          ${
+            completed
+              ? "bg-emerald-100 text-emerald-700"
+              : active
+                ? "bg-indigo-100 text-indigo-700"
+                : "bg-gray-100 text-gray-500"
+          }
+        `}
+      >
+        {completed ? "✓" : number}
       </div>
       <div>
         <div className="font-medium text-gray-700">{title}</div>
         <div className="text-xs text-gray-500">
-          {completed ? 'Terminée' : active ? 'En cours' : 'À venir'}
+          {completed ? "Terminée" : active ? "En cours" : "À venir"}
         </div>
       </div>
     </div>
@@ -160,15 +180,17 @@ function formatDateTime(value) {
   }
 }
 
-function PaymentMethodBadge({ mode, isCash, isAutoPayment }) {
+function PaymentMethodBadge({ isCash, isWave, isAutoPayment }) {
   const config = {
     cash: { label: "Espèces", tone: "amber", icon: "💵" },
+    wave: { label: "Wave", tone: "blue", icon: "🌊" },
     auto: { label: "En ligne auto", tone: "blue", icon: "🔗" },
     manual: { label: "Manuel avec preuve", tone: "gray", icon: "📎" },
   };
 
   let type = "manual";
   if (isCash) type = "cash";
+  else if (isWave) type = "wave";
   else if (isAutoPayment) type = "auto";
 
   const { label, tone, icon } = config[type];
@@ -180,10 +202,27 @@ function PaymentMethodBadge({ mode, isCash, isAutoPayment }) {
   };
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${tones[tone]}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${tones[tone]}`}
+    >
       <span>{icon}</span>
       {label}
     </span>
+  );
+}
+
+function getLatestAttempt(order) {
+  const attempts = order?.activePayment?.attempts;
+  if (Array.isArray(attempts) && attempts.length > 0) return attempts[0];
+  return null;
+}
+
+function getPaymentDisplayStatus(order) {
+  return (
+    order?.activePayment?.status ||
+    order?.paymentStatus ||
+    order?.status ||
+    "—"
   );
 }
 
@@ -212,20 +251,51 @@ export default function OrderPaymentTab({
   onCashPay,
   onProof,
   onVerify,
+  onInitiateWave,
+  onSyncWave,
   reload,
 }) {
   const status = order?.status;
   const isPaid = status === "PAID";
   const isInvoiced = status === "INVOICED";
-  const isProofReceived = status === "PAYMENT_PROOF_RECEIVED";
-  const hasPaymentInfo = Boolean(order?.paidAt || order?.paymentVerifiedBy || order?.paymentRef);
+  const isPaymentPending = status === "PAYMENT_PENDING";
+  const hasPaymentInfo = Boolean(
+    order?.paidAt || order?.paymentVerifiedBy || order?.paymentRef
+  );
 
-  // Rendu conditionnel selon le mode de paiement
+  const isWave = order?.paymentProvider === "WAVE";
+  const activePayment = order?.activePayment || null;
+  const latestAttempt = getLatestAttempt(order);
+
+  const canInitiateWave =
+    ["INVOICED", "PAYMENT_PENDING"].includes(status) && !saving;
+
+  const waveCheckoutUrl =
+    latestAttempt?.providerLaunchUrl ||
+    latestAttempt?.checkoutUrl ||
+    order?.paymentLink ||
+    "—";
+
+  const waveSessionId =
+    latestAttempt?.providerSessionId ||
+    activePayment?.providerReference ||
+    order?.paymentRef ||
+    "—";
+
+  const waveTransactionId =
+    latestAttempt?.providerTransactionId ||
+    activePayment?.providerTxnId ||
+    "—";
+
   const renderCashFlow = () => (
     <div className="space-y-6">
       <Alert tone="amber" title="💵 Paiement espèces">
-        <p>Ce paiement se fait <strong>manuellement au bureau</strong>.</p>
-        <p className="mt-1">L'admin doit encaisser et marquer la commande comme payée.</p>
+        <p>
+          Ce paiement se fait <strong>manuellement au bureau</strong>.
+        </p>
+        <p className="mt-1">
+          L'admin doit encaisser et marquer la commande comme payée.
+        </p>
       </Alert>
 
       <InfoSection title="Encaissement">
@@ -248,6 +318,7 @@ export default function OrderPaymentTab({
             }`}
             onClick={onCashPay}
             disabled={!canCashPay || saving || isPaid}
+            type="button"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -262,8 +333,16 @@ export default function OrderPaymentTab({
           </button>
 
           <div className="text-xs text-gray-500 flex items-center gap-1">
-            <span className={`inline-block w-2 h-2 rounded-full ${canCashPay && !isPaid ? 'bg-amber-400' : 'bg-gray-400'}`} />
-            {isPaid ? 'Déjà payé' : (canCashPay ? 'Prêt à encaisser' : 'Encaissement non disponible')}
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${
+                canCashPay && !isPaid ? "bg-amber-400" : "bg-gray-400"
+              }`}
+            />
+            {isPaid
+              ? "Déjà payé"
+              : canCashPay
+                ? "Prêt à encaisser"
+                : "Encaissement non disponible"}
           </div>
         </div>
       </InfoSection>
@@ -271,121 +350,202 @@ export default function OrderPaymentTab({
       {hasPaymentInfo && (
         <InfoSection title="Traçabilité">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Row 
-              label="Validé par" 
-              value={order?.paymentVerifiedBy} 
-            />
-            <Row 
-              label="Validé le" 
-              value={formatDateTime(order?.paidAt)} 
-            />
+            <Row label="Validé par" value={order?.paymentVerifiedBy} />
+            <Row label="Validé le" value={formatDateTime(order?.paidAt)} />
           </div>
         </InfoSection>
       )}
     </div>
   );
 
-  const renderAutoFlow = () => (
+  const renderWaveFlow = () => (
     <div className="space-y-6">
-      <Alert tone="blue" title="🔗 Paiement en ligne automatique">
-        <p>Cette commande utilise un <strong>lien PayDunya</strong>.</p>
-        <p className="mt-1">Le statut passe automatiquement à <strong>PAID</strong> dès que le client paie.</p>
+      <Alert tone="blue" title="🌊 Paiement Wave">
+        <p>
+          Cette commande utilise un <strong>checkout Wave</strong>.
+        </p>
+        <p className="mt-1">
+          Le client paie via le lien Wave, puis l’admin peut synchroniser le statut.
+        </p>
       </Alert>
 
-      <InfoSection title="Suivi du paiement">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <InfoSection title="Session Wave">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
-            label="Statut"
-            value={status}
+            label="Statut commande"
+            value={status || "—"}
             subvalue={isPaid ? "Paiement confirmé" : "En attente"}
             tone={isPaid ? "emerald" : "gray"}
             icon={isPaid ? "✅" : "⏳"}
           />
           <StatCard
-            label="Référence"
-            value={order?.paymentRef || "—"}
-            subvalue="Transaction"
-            tone="blue"
-            icon="🔢"
+            label="Statut paiement"
+            value={getPaymentDisplayStatus(order)}
+            subvalue="Payment / Attempt"
+            tone={isPaid ? "emerald" : "blue"}
+            icon="💳"
           />
           <StatCard
-            label="Validé par"
-            value={order?.paymentVerifiedBy || "Automatique"}
-            subvalue="Système"
+            label="Montant"
+            value={formatFcfa(order?.totalFcfa)}
+            subvalue="Attendu"
             tone="gray"
-            icon="🤖"
+            icon="💰"
           />
           <StatCard
             label="Date"
-            value={formatDateTime(order?.paidAt) || "—"}
-            subvalue="de paiement"
+            value={formatDateTime(order?.paidAt)}
+            subvalue="Paiement"
             tone="gray"
             icon="📅"
           />
         </div>
 
-        <div className="flex gap-3 flex-wrap pt-2">
-          {order?.paymentLink && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Row label="Session Wave" value={waveSessionId} copyable />
+          <Row label="Transaction Wave" value={waveTransactionId} copyable />
+          <Row
+            label="Lien de paiement"
+            value={
+              waveCheckoutUrl && waveCheckoutUrl !== "—" ? (
+                <a
+                  href={waveCheckoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                >
+                  Ouvrir le lien Wave
+                </a>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Row
+            label="Tentative créée le"
+            value={formatDateTime(latestAttempt?.createdAt)}
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-3 pt-2">
+          <button
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              !canInitiateWave
+                ? "opacity-50 cursor-not-allowed bg-gray-400 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
+            }`}
+            onClick={onInitiateWave}
+            disabled={!canInitiateWave}
+            type="button"
+          >
+            {saving ? "Initialisation..." : "Initier / réinitier Wave"}
+          </button>
+
+          <button
+            className="px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            onClick={onSyncWave}
+            disabled={saving || !isWave}
+            type="button"
+          >
+            {saving ? "Synchronisation..." : "Synchroniser le statut"}
+          </button>
+
+          {waveCheckoutUrl && waveCheckoutUrl !== "—" && (
             <a
-              className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              href={order.paymentLink}
+              href={waveCheckoutUrl}
               target="_blank"
               rel="noreferrer"
+              className="px-4 py-2 rounded-lg font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
             >
-              🔗 Ouvrir le lien PayDunya
+              Ouvrir Wave
             </a>
           )}
 
           <button
-            className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
             onClick={reload}
             disabled={saving}
+            type="button"
           >
-            🔄 Rafraîchir le statut
+            Rafraîchir la commande
           </button>
         </div>
 
-        <div className={`mt-2 p-3 rounded-lg text-sm ${
-          isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-600'
-        }`}>
+        <div
+          className={`mt-2 p-3 rounded-lg text-sm ${
+            isPaid
+              ? "bg-emerald-50 text-emerald-700"
+              : isPaymentPending || isInvoiced
+                ? "bg-blue-50 text-blue-700"
+                : "bg-gray-50 text-gray-600"
+          }`}
+        >
           {isPaid ? (
-            <span className="flex items-center gap-2">✅ Paiement confirmé. La commande peut être préparée.</span>
+            <span className="flex items-center gap-2">
+              ✅ Paiement Wave confirmé. La commande peut être préparée.
+            </span>
           ) : (
-            <span className="flex items-center gap-2">⏳ En attente de confirmation du paiement en ligne.</span>
+            <span className="flex items-center gap-2">
+              ⏳ Paiement Wave en attente ou à synchroniser.
+            </span>
           )}
         </div>
       </InfoSection>
+
+      {activePayment && (
+        <InfoSection title="Détails paiement actif">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Row label="Payment ID" value={activePayment.id} copyable />
+            <Row label="Provider" value={activePayment.provider} />
+            <Row label="Method type" value={activePayment.methodType} />
+            <Row label="Statut Payment" value={activePayment.status} />
+            <Row
+              label="Montant attendu"
+              value={formatFcfa(activePayment.amountExpectedFcfa)}
+            />
+            <Row
+              label="Montant payé"
+              value={formatFcfa(activePayment.amountPaidFcfa)}
+            />
+            <Row label="Référence provider" value={activePayment.providerReference} copyable />
+            <Row label="Txn provider" value={activePayment.providerTxnId} copyable />
+            <Row label="Client ref" value={activePayment.clientReference} copyable />
+            <Row label="Initié le" value={formatDateTime(activePayment.initiatedAt)} />
+            <Row label="Payé le" value={formatDateTime(activePayment.paidAt)} />
+          </div>
+        </InfoSection>
+      )}
     </div>
   );
 
   const renderManualFlow = () => {
-    const step1Completed = isProofReceived || isPaid;
+    const step1Completed = status === "PAYMENT_PENDING" || isPaid;
     const step2Completed = isPaid;
 
     return (
       <div className="space-y-6">
         <Alert tone="gray" title="📎 Paiement manuel avec preuve">
           <p>Flux de secours : le client paie hors ligne et envoie une preuve.</p>
-          <p className="mt-1">L'admin enregistre la preuve puis valide manuellement.</p>
+          <p className="mt-1">
+            L'admin enregistre la preuve puis valide manuellement.
+          </p>
         </Alert>
 
-        {/* Indicateur d'étapes */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-          <StepIndicator 
-            number={1} 
+          <StepIndicator
+            number={1}
             title="Enregistrer la preuve"
             active={!step1Completed && isInvoiced}
             completed={step1Completed}
           />
-          <StepIndicator 
-            number={2} 
+          <StepIndicator
+            number={2}
             title="Valider le paiement"
             active={step1Completed && !step2Completed}
             completed={step2Completed}
           />
         </div>
 
-        {/* Étape 1 */}
         <InfoSection title="Étape 1 — Preuve de paiement">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="URL de la preuve" optional>
@@ -428,6 +588,7 @@ export default function OrderPaymentTab({
               }`}
               onClick={onProof}
               disabled={!canProof || saving || step1Completed}
+              type="button"
             >
               {saving ? (
                 <span className="flex items-center gap-2">
@@ -442,12 +603,13 @@ export default function OrderPaymentTab({
             </button>
 
             <span className="text-xs text-gray-500">
-              {step1Completed ? '✓ Preuve enregistrée' : 'Statut INVOICED requis'}
+              {step1Completed
+                ? "✓ Preuve enregistrée"
+                : "Statut INVOICED requis"}
             </span>
           </div>
         </InfoSection>
 
-        {/* Étape 2 */}
         <InfoSection title="Étape 2 — Validation finale">
           <Field label="Note de validation" optional>
             <input
@@ -468,6 +630,7 @@ export default function OrderPaymentTab({
               }`}
               onClick={onVerify}
               disabled={!canVerify || saving || step2Completed}
+              type="button"
             >
               {saving ? (
                 <span className="flex items-center gap-2">
@@ -482,41 +645,49 @@ export default function OrderPaymentTab({
             </button>
 
             <span className="text-xs text-gray-500">
-              {step2Completed ? '✓ Paiement validé' : 'Statut PAYMENT_PROOF_RECEIVED requis'}
+              {step2Completed
+                ? "✓ Paiement validé"
+                : "Statut PAYMENT_PENDING requis"}
             </span>
           </div>
         </InfoSection>
 
-        {/* Informations enregistrées */}
-        {(order?.paymentProofUrl || order?.paymentRef || order?.paymentProofNote) && (
+        {(order?.manualPaymentProofUrl ||
+          order?.paymentProofUrl ||
+          order?.manualPaymentReference ||
+          order?.paymentRef ||
+          order?.manualPaymentProofNote ||
+          order?.paymentProofNote) && (
           <InfoSection title="Preuve enregistrée">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Row 
-                label="URL preuve" 
+              <Row
+                label="URL preuve"
                 value={
-                  order?.paymentProofUrl ? (
+                  order?.manualPaymentProofUrl || order?.paymentProofUrl ? (
                     <a
                       className="text-indigo-600 hover:text-indigo-800 underline inline-flex items-center gap-1"
-                      href={order.paymentProofUrl}
+                      href={order?.manualPaymentProofUrl || order?.paymentProofUrl}
                       target="_blank"
                       rel="noreferrer"
                     >
                       🔗 Voir la preuve
                     </a>
-                  ) : "—"
+                  ) : (
+                    "—"
+                  )
                 }
               />
-              <Row 
-                label="Référence" 
-                value={order?.paymentRef}
+              <Row
+                label="Référence"
+                value={order?.manualPaymentReference || order?.paymentRef}
                 copyable
               />
             </div>
 
-            {order?.paymentProofNote && (
+            {(order?.manualPaymentProofNote || order?.paymentProofNote) && (
               <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-700 whitespace-pre-wrap border border-gray-200">
                 <span className="text-xs text-gray-500 block mb-1">Note :</span>
-                {order.paymentProofNote}
+                {order?.manualPaymentProofNote || order?.paymentProofNote}
               </div>
             )}
           </InfoSection>
@@ -527,7 +698,6 @@ export default function OrderPaymentTab({
 
   return (
     <div className="space-y-6">
-      {/* En-tête commun */}
       <InfoSection title="Paiement">
         <p className="text-sm text-gray-600">
           Traitement du paiement selon le mode sélectionné.
@@ -536,27 +706,33 @@ export default function OrderPaymentTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Mode"
-            value={<PaymentMethodBadge isCash={isCash} isAutoPayment={isAutoPayment} />}
-            subvalue={order?.paymentMode}
-            tone={isCash ? "amber" : isAutoPayment ? "blue" : "gray"}
+            value={
+              <PaymentMethodBadge
+                isCash={isCash}
+                isWave={isWave}
+                isAutoPayment={isAutoPayment}
+              />
+            }
+            subvalue={order?.paymentMode || order?.paymentProvider || "—"}
+            tone={isCash ? "amber" : isWave || isAutoPayment ? "blue" : "gray"}
           />
           <StatCard
-            label="Statut"
-            value={status}
+            label="Statut commande"
+            value={status || "—"}
             subvalue={isPaid ? "Payé" : "En attente"}
             tone={isPaid ? "emerald" : "gray"}
             icon={isPaid ? "✅" : "⏳"}
           />
           <StatCard
             label="Référence"
-            value={order?.paymentRef || "—"}
-            subvalue="Transaction"
+            value={order?.paymentRef || waveSessionId || "—"}
+            subvalue="Transaction / session"
             tone="blue"
             icon="🔢"
           />
           <StatCard
             label="Date"
-            value={formatDateTime(order?.paidAt) || "—"}
+            value={formatDateTime(order?.paidAt)}
             subvalue="de paiement"
             tone="gray"
             icon="📅"
@@ -564,10 +740,10 @@ export default function OrderPaymentTab({
         </div>
       </InfoSection>
 
-      {/* Flux conditionnel */}
       {isCash && renderCashFlow()}
-      {!isCash && isAutoPayment && renderAutoFlow()}
-      {!isCash && !isAutoPayment && renderManualFlow()}
+      {!isCash && isWave && renderWaveFlow()}
+      {!isCash && !isWave && !isAutoPayment && renderManualFlow()}
+      {!isCash && !isWave && isAutoPayment && renderWaveFlow()}
     </div>
   );
 }

@@ -1,19 +1,33 @@
-// src/App.jsx
+// admin-app/src/App.jsx
 // Point d'entrée de l'application, définissant les routes principales et intégrant le layout admin.
 
 import { Routes, Route } from "react-router-dom";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import RequirePermission from "./components/auth/RequirePermission";
+import { Permission } from "./auth/permissions";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Orders from "./pages/Orders";
 import OrderDetailPage from "./pages/OrderDetailPage";
+import BillingQueuePage from "./pages/billing/BillingQueuePage";
+import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import Products from "./pages/Products";
 import ProductCreate from "./pages/ProductCreate.jsx";
 import ProductEdit from "./pages/ProductEdit.jsx";
 import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import OrdersListPage from "./pages/orders/OrdersListPage";
+
+function AccessDenied({ message = "Accès refusé." }) {
+  return (
+    <div className="p-6">
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        {message}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -29,16 +43,127 @@ export default function App() {
             <AdminLayout>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/orders" element={<Orders />} />
-                <Route path="/orders/:id" element={<OrderDetailPage />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/products/new" element={<ProductCreate />} />
-                <Route path="/products/:id/edit" element={<ProductEdit />} />
+
+                <Route
+                  path="/orders"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREORDER_READ}
+                      fallback={<AccessDenied message="Accès refusé aux commandes." />}
+                    >
+                      <OrdersListPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/orders/:id"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREORDER_READ}
+                      fallback={<AccessDenied message="Accès refusé au détail de commande." />}
+                    >
+                      <OrderDetailPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/billing"
+                  element={
+                    <RequirePermission
+                      permission={Permission.INVOICE_CREATE}
+                      fallback={<AccessDenied message="Accès refusé à la file de facturation." />}
+                    >
+                      <BillingQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/preparation"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREPARATION_UPDATE}
+                      fallback={<AccessDenied message="Accès refusé à la file de préparation." />}
+                    >
+                      <PreparationQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/products"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PRODUCT_READ}
+                      fallback={<AccessDenied message="Accès refusé aux produits." />}
+                    >
+                      <Products />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/products/new"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PRODUCT_WRITE}
+                      fallback={<AccessDenied message="Accès refusé à la création produit." />}
+                    >
+                      <ProductCreate />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/products/:id/edit"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PRODUCT_WRITE}
+                      fallback={<AccessDenied message="Accès refusé à l’édition produit." />}
+                    >
+                      <ProductEdit />
+                    </RequirePermission>
+                  }
+                />
+
                 <Route
                   path="/settings/grade-discounts"
-                  element={<AdminGradeDiscountsPage />}
+                  element={
+                    <RequirePermission
+                      permission={Permission.DISCOUNT_READ}
+                      fallback={<AccessDenied message="Accès refusé aux remises par grade." />}
+                    >
+                      <AdminGradeDiscountsPage />
+                    </RequirePermission>
+                  }
                 />
-                <Route path="/settings/users" element={<AdminUsersPage />} />
+
+                <Route
+                  path="/settings/users"
+                  element={
+                    <RequirePermission
+                      permission={Permission.COUNTRY_WRITE}
+                      fallback={<AccessDenied message="Accès refusé aux utilisateurs." />}
+                    >
+                      <AdminUsersPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/settings"
+                  element={
+                    <RequirePermission
+                      permission={Permission.COUNTRY_WRITE}
+                      fallback={<AccessDenied message="Accès refusé aux paramètres." />}
+                    >
+                      <div className="p-6">Paramètres</div>
+                    </RequirePermission>
+                  }
+                />
+
                 <Route path="*" element={<div className="p-6">Not found</div>} />
               </Routes>
             </AdminLayout>

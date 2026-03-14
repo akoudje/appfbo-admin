@@ -1,6 +1,7 @@
 // admin-app/src/store/useOrdersStore.js
-// This store manages the list of orders, with filters and pagination
+// Ce store gère la liste des commandes, les filtres et la pagination. Il utilise le service ordersService pour récupérer les données depuis l'API.
 
+// admin-app/src/store/useOrdersStore.js
 import { create } from "zustand";
 import { ordersService } from "../services/ordersService";
 
@@ -20,17 +21,55 @@ export const useOrdersStore = create((set, get) => ({
   q: "",
   dateFrom: "",
   dateTo: "",
+  paymentStatus: "",
+  billingWorkStatus: "",
+  priority: "",
+  assignedOnly: false,
+  hasAssignee: false,
+  invoicerId: "",
+  sort: "createdAt",
+  dir: "desc",
 
-  setFilter: (patch) => set((s) => ({ ...s, ...patch, page: 1 })),
+  setFilter: (patch) => set((state) => ({ ...state, ...patch, page: 1 })),
   setPage: (page) => set({ page }),
+  setPageSize: (pageSize) => set({ pageSize, page: 1 }),
 
   clearError: () => set({ error: "" }),
 
-  /**
-   * fetch with current state
-   */
+  resetFilters: () =>
+    set({
+      page: 1,
+      status: "",
+      q: "",
+      dateFrom: "",
+      dateTo: "",
+      paymentStatus: "",
+      billingWorkStatus: "",
+      priority: "",
+      assignedOnly: false,
+      hasAssignee: false,
+      invoicerId: "",
+      sort: "createdAt",
+      dir: "desc",
+    }),
+
   fetchOrders: async () => {
-    const { page, pageSize, status, q, dateFrom, dateTo } = get();
+    const {
+      page,
+      pageSize,
+      status,
+      q,
+      dateFrom,
+      dateTo,
+      paymentStatus,
+      billingWorkStatus,
+      priority,
+      assignedOnly,
+      hasAssignee,
+      invoicerId,
+      sort,
+      dir,
+    } = get();
 
     set({ loading: true, error: "" });
 
@@ -42,19 +81,26 @@ export const useOrdersStore = create((set, get) => ({
         q: q || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
-        sort: "createdAt",
-        dir: "desc",
+        paymentStatus: paymentStatus || undefined,
+        billingWorkStatus: billingWorkStatus || undefined,
+        priority: priority || undefined,
+        assignedOnly: assignedOnly || undefined,
+        hasAssignee: hasAssignee || undefined,
+        invoicerId: invoicerId || undefined,
+        sort: sort || "createdAt",
+        dir: dir || "desc",
       });
 
       set({
-        orders: res.data,
-        page: res.page,
-        pageSize: res.pageSize,
-        totalPages: res.totalPages,
-        totalCount: res.totalCount,
+        orders: Array.isArray(res.data) ? res.data : [],
+        page: Number(res.page) || 1,
+        pageSize: Number(res.pageSize) || pageSize,
+        totalPages: Number(res.totalPages) || 1,
+        totalCount: Number(res.totalCount) || 0,
         loading: false,
       });
-    } catch (e) {
+    } catch (error) {
+      console.error("useOrdersStore.fetchOrders error:", error);
       set({
         loading: false,
         error: "Impossible de charger les commandes",

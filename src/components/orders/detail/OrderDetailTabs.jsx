@@ -1,31 +1,23 @@
 // src/components/orders/detail/OrderDetailTabs.jsx
-
-function cx(...arr) {
-  return arr.filter(Boolean).join(" ");
-}
-
-const TABS = [
-  { key: "overview", label: "Vue d’ensemble" },
-  { key: "billing", label: "Facturation" },
-  { key: "payment", label: "Paiement" },
-  { key: "preparation", label: "Préparation" },
-  { key: "fulfillment", label: "Clôture / Livraison" },
-  { key: "history", label: "Historique" },
-  { key: "cancel", label: "Annulation", danger: true },
-];
+// Composant de navigation par onglets pour la page de détail d'une commande, affichant les différentes sections (Aperçu, Workflow, Facturation, etc.) et gérant l'état de l'onglet actif.
 
 export default function OrderDetailTabs({ activeTab, onChange, order }) {
-  const status = order?.status;
+  const tabs = [
+    { key: "overview", label: "Aperçu" },
+    { key: "workflow", label: "Workflow" },
+    { key: "billing", label: "Facturation" },
+    { key: "payment", label: "Paiement" },
+    { key: "preparation", label: "Préparation" },
+    { key: "fulfillment", label: "Clôture" },
+    { key: "history", label: "Historique" },
+  ];
 
-  const tabs = TABS.filter((tab) => {
-    if (tab.key === "cancel") {
-      return status && !["FULFILLED", "CANCELLED"].includes(status);
-    }
-    return true;
-  });
+  if (order?.status !== "FULFILLED" && order?.status !== "CANCELLED") {
+    tabs.push({ key: "cancel", label: "Annulation" });
+  }
 
   return (
-    <div className="card p-2">
+    <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
@@ -33,18 +25,12 @@ export default function OrderDetailTabs({ activeTab, onChange, order }) {
           return (
             <button
               key={tab.key}
-              type="button"
               onClick={() => onChange(tab.key)}
-              className={cx(
-                "px-3 py-2 rounded-xl text-sm font-medium border transition",
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                 active
-                  ? tab.danger
-                    ? "bg-red-50 text-red-700 border-red-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : tab.danger
-                    ? "bg-white text-red-600 border-red-200 hover:bg-red-50"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-              )}
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
             >
               {tab.label}
             </button>

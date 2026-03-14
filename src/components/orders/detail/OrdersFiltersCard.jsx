@@ -1,0 +1,362 @@
+// admin-app/src/components/orders/OrdersFiltersCard.jsx
+// Composant d'affichage des filtres de la liste des commandes, avec des sélecteurs pour le statut, le statut de paiement, la date, etc. et des chips pour les filtres actifs.
+
+import { useEffect, useState } from "react";
+
+const ORDER_STATUS_OPTIONS = [
+  { value: "", label: "Tous les statuts" },
+  { value: "DRAFT", label: "Brouillon" },
+  { value: "SUBMITTED", label: "Soumise" },
+  { value: "INVOICED", label: "Préfacturée" },
+  { value: "PAYMENT_PENDING", label: "Paiement en attente" },
+  { value: "PAID", label: "Payée" },
+  { value: "READY", label: "Colis prêt" },
+  { value: "FULFILLED", label: "Clôturée" },
+  { value: "CANCELLED", label: "Annulée" },
+];
+
+const PAYMENT_STATUS_OPTIONS = [
+  { value: "", label: "Tous les paiements" },
+  { value: "UNPAID", label: "Non payé" },
+  { value: "PAYMENT_PENDING", label: "Paiement en attente" },
+  { value: "PAID", label: "Payé" },
+  { value: "FAILED", label: "Échec paiement" },
+];
+
+const BILLING_WORK_STATUS_OPTIONS = [
+  { value: "", label: "Toute la facturation" },
+  { value: "QUEUED", label: "En file" },
+  { value: "ASSIGNED", label: "Assignée" },
+  { value: "IN_PROGRESS", label: "En cours" },
+  { value: "WAITING_CUSTOMER_DATA", label: "Attente infos client" },
+  { value: "WAITING_PAYMENT", label: "Attente paiement" },
+  { value: "ESCALATED", label: "Escaladée" },
+  { value: "RELEASED", label: "Relâchée" },
+  { value: "DONE", label: "Terminée" },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: "", label: "Toutes priorités" },
+  { value: "LOW", label: "Faible" },
+  { value: "NORMAL", label: "Normale" },
+  { value: "HIGH", label: "Haute" },
+  { value: "URGENT", label: "Urgente" },
+];
+
+const SORT_OPTIONS = [
+  { value: "createdAt", label: "Date création" },
+  { value: "updatedAt", label: "Dernière mise à jour" },
+  { value: "total", label: "Montant" },
+  { value: "billingQueueEnteredAt", label: "Entrée file" },
+  { value: "assignedAt", label: "Date assignation" },
+  { value: "billingSlaDeadlineAt", label: "Échéance SLA" },
+  { value: "priority", label: "Priorité" },
+];
+
+function FilterChip({ children, onRemove, tone = "blue" }) {
+  const toneClass =
+    tone === "green"
+      ? "bg-green-50 text-green-700"
+      : tone === "amber"
+        ? "bg-amber-50 text-amber-700"
+        : tone === "purple"
+          ? "bg-purple-50 text-purple-700"
+          : "bg-blue-50 text-blue-700";
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${toneClass}`}>
+      {children}
+      <button onClick={onRemove} type="button">
+        ✕
+      </button>
+    </span>
+  );
+}
+
+export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) {
+  const [localQ, setLocalQ] = useState(filters.q || "");
+
+  useEffect(() => {
+    setLocalQ(filters.q || "");
+  }, [filters.q]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localQ !== filters.q) {
+        onFilterChange({ q: localQ });
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [localQ, filters.q, onFilterChange]);
+
+  const hasActiveFilters = [
+    filters.status,
+    filters.q,
+    filters.dateFrom,
+    filters.dateTo,
+    filters.paymentStatus,
+    filters.billingWorkStatus,
+    filters.priority,
+    filters.assignedOnly,
+    filters.hasAssignee,
+    filters.invoicerId,
+  ].some(Boolean);
+
+  const handleQuickDate = (range) => {
+    const today = new Date();
+    const from = new Date();
+
+    if (range === "today") {
+      from.setHours(0, 0, 0, 0);
+    } else if (range === "week") {
+      from.setDate(from.getDate() - 7);
+    } else if (range === "month") {
+      from.setMonth(from.getMonth() - 1);
+    } else {
+      return;
+    }
+
+    onFilterChange({
+      dateFrom: from.toISOString().split("T")[0],
+      dateTo: today.toISOString().split("T")[0],
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="space-y-4">
+        <div className="relative">
+          <input
+            className="block w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Rechercher par numéro FBO, nom, facture..."
+            value={localQ}
+            onChange={(e) => setLocalQ(e.target.value)}
+          />
+          {localQ && (
+            <button
+              onClick={() => setLocalQ("")}
+              className="absolute inset-y-0 right-0 pr-3 text-gray-400 hover:text-gray-600"
+              type="button"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filters.status || ""}
+            onChange={(e) => onFilterChange({ status: e.target.value })}
+          >
+            {ORDER_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filters.paymentStatus || ""}
+            onChange={(e) => onFilterChange({ paymentStatus: e.target.value })}
+          >
+            {PAYMENT_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filters.billingWorkStatus || ""}
+            onChange={(e) => onFilterChange({ billingWorkStatus: e.target.value })}
+          >
+            {BILLING_WORK_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filters.priority || ""}
+            onChange={(e) => onFilterChange({ priority: e.target.value })}
+          >
+            {PRIORITY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <input
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            type="date"
+            value={filters.dateFrom || ""}
+            onChange={(e) => onFilterChange({ dateFrom: e.target.value })}
+          />
+
+          <input
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            type="date"
+            value={filters.dateTo || ""}
+            min={filters.dateFrom || undefined}
+            onChange={(e) => onFilterChange({ dateTo: e.target.value })}
+          />
+
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filters.sort || "createdAt"}
+            onChange={(e) => onFilterChange({ sort: e.target.value })}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                Trier par : {option.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filters.dir || "desc"}
+            onChange={(e) => onFilterChange({ dir: e.target.value })}
+          >
+            <option value="desc">Décroissant</option>
+            <option value="asc">Croissant</option>
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={!!filters.assignedOnly}
+              onChange={(e) =>
+                onFilterChange({
+                  assignedOnly: e.target.checked,
+                  ...(e.target.checked ? { hasAssignee: false, invoicerId: "" } : {}),
+                })
+              }
+            />
+            Mes dossiers
+          </label>
+
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={!!filters.hasAssignee}
+              onChange={(e) =>
+                onFilterChange({
+                  hasAssignee: e.target.checked,
+                  ...(e.target.checked ? { assignedOnly: false } : {}),
+                })
+              }
+            />
+            Seulement assignées
+          </label>
+
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => handleQuickDate("today")}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              type="button"
+            >
+              Aujourd&apos;hui
+            </button>
+            <button
+              onClick={() => handleQuickDate("week")}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              type="button"
+            >
+              7 jours
+            </button>
+            <button
+              onClick={() => handleQuickDate("month")}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              type="button"
+            >
+              30 jours
+            </button>
+          </div>
+        </div>
+
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-wrap gap-2">
+              {filters.status && (
+                <FilterChip onRemove={() => onFilterChange({ status: "" })}>
+                  Statut: {filters.status}
+                </FilterChip>
+              )}
+
+              {filters.paymentStatus && (
+                <FilterChip
+                  tone="green"
+                  onRemove={() => onFilterChange({ paymentStatus: "" })}
+                >
+                  Paiement: {filters.paymentStatus}
+                </FilterChip>
+              )}
+
+              {filters.billingWorkStatus && (
+                <FilterChip
+                  tone="purple"
+                  onRemove={() => onFilterChange({ billingWorkStatus: "" })}
+                >
+                  Facturation: {filters.billingWorkStatus}
+                </FilterChip>
+              )}
+
+              {filters.priority && (
+                <FilterChip
+                  tone="amber"
+                  onRemove={() => onFilterChange({ priority: "" })}
+                >
+                  Priorité: {filters.priority}
+                </FilterChip>
+              )}
+
+              {filters.dateFrom && (
+                <FilterChip onRemove={() => onFilterChange({ dateFrom: "" })}>
+                  Du: {new Date(filters.dateFrom).toLocaleDateString("fr-FR")}
+                </FilterChip>
+              )}
+
+              {filters.dateTo && (
+                <FilterChip onRemove={() => onFilterChange({ dateTo: "" })}>
+                  Au: {new Date(filters.dateTo).toLocaleDateString("fr-FR")}
+                </FilterChip>
+              )}
+
+              {filters.assignedOnly && (
+                <FilterChip onRemove={() => onFilterChange({ assignedOnly: false })}>
+                  Mes dossiers
+                </FilterChip>
+              )}
+
+              {filters.hasAssignee && (
+                <FilterChip onRemove={() => onFilterChange({ hasAssignee: false })}>
+                  Assignées
+                </FilterChip>
+              )}
+            </div>
+
+            <button
+              onClick={onClear}
+              className="text-sm text-gray-500 hover:text-gray-700"
+              type="button"
+            >
+              Effacer tout
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,8 +1,12 @@
 // src/pages/OrderDetailPage.jsx
+// Page de détail d'une commande, affichant les informations principales de la commande, son statut, et proposant des onglets pour voir les détails, la facturation, le paiement, la préparation, le fulfillment, l'historique et le workflow de la commande. La page gère également les actions possibles sur la commande (ex: facturer, préparer, expédier) en fonction de son statut actuel et des permissions de l'utilisateur.
+
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
+import RequirePermission from "../components/auth/RequirePermission";
+import { Permission } from "../auth/permissions";
 
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
 import OrderOverviewTab from "../components/orders/detail/OrderOverviewTab";
@@ -12,6 +16,7 @@ import OrderPreparationTab from "../components/orders/detail/OrderPreparationTab
 import OrderFulfillmentTab from "../components/orders/detail/OrderFulfillmentTab";
 import OrderHistoryTab from "../components/orders/detail/OrderHistoryTab";
 import OrderCancelPanel from "../components/orders/detail/OrderCancelPanel";
+import OrderWorkflowTab from "../components/orders/detail/OrderWorkflowTab";
 
 function normalizeStr(v) {
   if (v === null || v === undefined) return "";
@@ -60,6 +65,7 @@ function StatusBadge({ status }) {
     SUBMITTED: "bg-blue-100 text-blue-700 border-blue-200",
     INVOICED: "bg-indigo-100 text-indigo-700 border-indigo-200",
     PAYMENT_PROOF_RECEIVED: "bg-amber-100 text-amber-700 border-amber-200",
+    PAYMENT_PENDING: "bg-amber-100 text-amber-700 border-amber-200",
     PAID: "bg-emerald-100 text-emerald-700 border-emerald-200",
     READY: "bg-teal-100 text-teal-700 border-teal-200",
     FULFILLED: "bg-green-100 text-green-700 border-green-200",
@@ -82,6 +88,14 @@ function SummaryRow({ label, value }) {
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-gray-500">{label}</span>
       <span className="text-right font-medium text-gray-900">{value ?? "—"}</span>
+    </div>
+  );
+}
+
+function AccessDeniedPanel({ message }) {
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      {message}
     </div>
   );
 }
@@ -137,9 +151,9 @@ export default function OrderDetailPage() {
       setInvoiceWaTo(data?.factureWhatsappTo || "");
       setPaymentLink(data?.paymentLink || "");
 
-      setProofUrl(data?.paymentProofUrl || "");
-      setProofRef(data?.paymentRef || "");
-      setProofNote(data?.paymentProofNote || "");
+      setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
+      setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
+      setProofNote(data?.manualPaymentProofNote || data?.paymentProofNote || "");
 
       setPackingNote(data?.packingNote || "");
       setDeliveryTracking(data?.deliveryTracking || "");
@@ -181,12 +195,17 @@ export default function OrderDetailPage() {
   };
 
   const status = order?.status;
-  const isCash = order?.paymentMode === "ESPECES";
+  const paymentStatus = order?.paymentStatus;
+
+  const isCash =
+    order?.paymentMode === "ESPECES" || order?.paymentProvider === "MANUAL";
+  const isWave = order?.paymentProvider === "WAVE";
   const isAutoPayment = !isCash && Boolean(order?.paymentLink);
 
   useEffect(() => {
     if (!order) return;
-    if (!(status === "INVOICED" && isAutoPayment)) return;
+    if (!["INVOICED", "PAYMENT_PENDING"].includes(status)) return;
+    if (!isWave) return;
 
     const timer = setInterval(() => {
       load();
@@ -194,17 +213,18 @@ export default function OrderDetailPage() {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, isAutoPayment, order?.id]);
+  }, [status, isWave, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
-  const canProof = status === "INVOICED" && !isCash && !isAutoPayment;
+  const canProof = status === "INVOICED" && !isCash && !isWave && !isAutoPayment;
   const canVerify =
-    status === "PAYMENT_PROOF_RECEIVED" && !isCash && !isAutoPayment;
+    ["PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "INVOICED"].includes(status) &&
+    paymentStatus !== "PAID";
   const canPrepare = status === "PAID";
   const canFulfill = status === "READY";
   const canCancel = !!status && !["FULFILLED", "CANCELLED"].includes(status);
   const canCashPay =
-    isCash && ["SUBMITTED", "INVOICED"].includes(status) && !saving;
+    isCash && ["SUBMITTED", "INVOICED", "PAYMENT_PENDING"].includes(status) && !saving;
 
   const emptyOrder = useMemo(() => {
     const itemCount = Array.isArray(order?.items) ? order.items.length : 0;
@@ -235,16 +255,9 @@ export default function OrderDetailPage() {
 
     const flow = isCash
       ? ["SUBMITTED", "INVOICED", "PAID", "READY", "FULFILLED"]
-      : isAutoPayment
-        ? ["SUBMITTED", "INVOICED", "PAID", "READY", "FULFILLED"]
-        : [
-            "SUBMITTED",
-            "INVOICED",
-            "PAYMENT_PROOF_RECEIVED",
-            "PAID",
-            "READY",
-            "FULFILLED",
-          ];
+      : isWave
+        ? ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAID", "READY", "FULFILLED"]
+        : ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAID", "READY", "FULFILLED"];
 
     const done = (name) => {
       const idx = flow.indexOf(name);
@@ -258,13 +271,16 @@ export default function OrderDetailPage() {
     ];
 
     const proof =
-      isCash || isAutoPayment
+      isCash
         ? []
         : [
             {
-              key: "PAYMENT_PROOF_RECEIVED",
-              label: "Preuve reçue",
-              at: order?.proofReceivedAt,
+              key: "PAYMENT_PENDING",
+              label: isWave ? "Wave en attente" : "Paiement en attente",
+              at:
+                order?.manualPaymentReceivedAt ||
+                order?.proofReceivedAt ||
+                order?.activePayment?.initiatedAt,
             },
           ];
 
@@ -278,7 +294,7 @@ export default function OrderDetailPage() {
       ...st,
       done: done(st.key),
     }));
-  }, [order, isCash, isAutoPayment]);
+  }, [order, isCash, isWave]);
 
   const billingMessage = useMemo(() => {
     if (!Array.isArray(messages) || messages.length === 0) return null;
@@ -330,8 +346,8 @@ export default function OrderDetailPage() {
       setInfo("");
 
       const body = {
-        paymentProofUrl: normalizeStr(proofUrl) || undefined,
-        paymentRef: normalizeStr(proofRef) || undefined,
+        manualPaymentProofUrl: normalizeStr(proofUrl) || undefined,
+        manualPaymentReference: normalizeStr(proofRef) || undefined,
         note: normalizeStr(proofNote) || undefined,
       };
 
@@ -381,6 +397,54 @@ export default function OrderDetailPage() {
       setError(
         e?.response?.data?.message ||
           "Impossible d'encaisser le paiement espèces",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doInitiateWave = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.initiateWavePayment(id);
+
+      if (result?.checkoutUrl) {
+        setInfo("Session Wave créée avec succès.");
+      } else {
+        setInfo("Paiement Wave initié.");
+      }
+
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || "Impossible d'initier le paiement Wave",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doSyncWave = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.syncWavePaymentStatus(id);
+
+      if (result?.mapped?.markOrderPaid) {
+        setInfo("Paiement Wave confirmé.");
+      } else {
+        setInfo("Statut Wave synchronisé.");
+      }
+
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || "Impossible de synchroniser le paiement Wave",
       );
     } finally {
       setSaving(false);
@@ -486,152 +550,202 @@ export default function OrderDetailPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Commande #{order?.id?.slice?.(-8) || "—"}
-              </h2>
-              <StatusBadge status={order?.status} />
+    <RequirePermission
+      permission={Permission.PREORDER_READ}
+      fallback={<AccessDeniedPanel message="Accès refusé au détail de commande." />}
+    >
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Commande #{order?.id?.slice?.(-8) || "—"}
+                </h2>
+                <StatusBadge status={order?.status} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+                <SummaryRow label="FBO" value={order?.fboNomComplet || "—"} />
+                <SummaryRow label="Numéro FBO" value={order?.fboNumero || "—"} />
+                <SummaryRow label="Montant" value={formatFcfa(order?.totalFcfa)} />
+                <SummaryRow label="Créée le" value={formatDateTime(order?.createdAt)} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-              <SummaryRow label="FBO" value={order?.fboNomComplet || "—"} />
-              <SummaryRow label="Numéro FBO" value={order?.fboNumero || "—"} />
-              <SummaryRow label="Montant" value={formatFcfa(order?.totalFcfa)} />
-              <SummaryRow label="Créée le" value={formatDateTime(order?.createdAt)} />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-start">
-            <button
-              onClick={load}
-              disabled={saving}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Rafraîchir
-            </button>
-
-            {canCancel ? (
+            <div className="flex items-center gap-2 self-start">
               <button
-                onClick={() => setTab("cancel")}
+                onClick={load}
                 disabled={saving}
-                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                type="button"
               >
-                Annuler
+                Rafraîchir
               </button>
-            ) : null}
+
+              <RequirePermission permission={Permission.PREORDER_UPDATE_STATUS}>
+                {canCancel ? (
+                  <button
+                    onClick={() => setTab("cancel")}
+                    disabled={saving}
+                    className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                    type="button"
+                  >
+                    Annuler
+                  </button>
+                ) : null}
+              </RequirePermission>
+            </div>
           </div>
         </div>
+
+        {error ? (
+          <Alert tone="red" title="Erreur">
+            {error}
+          </Alert>
+        ) : null}
+
+        {info ? (
+          <Alert tone="blue" title="Information">
+            {info}
+          </Alert>
+        ) : null}
+
+        <OrderDetailTabs activeTab={activeTab} onChange={setTab} order={order} />
+
+        {activeTab === "overview" && (
+          <OrderOverviewTab
+            {...commonTabProps}
+            emptyOrder={emptyOrder}
+            steps={steps}
+            stockSummary={stockSummary}
+            stockDebited={stockDebited}
+            stockRestored={stockRestored}
+          />
+        )}
+
+        {activeTab === "workflow" && (
+          <RequirePermission
+            permission={Permission.PREORDER_READ}
+            fallback={<AccessDeniedPanel message="Accès refusé à l’onglet workflow." />}
+          >
+            <OrderWorkflowTab {...commonTabProps} />
+          </RequirePermission>
+        )}
+
+        {activeTab === "billing" && (
+          <RequirePermission
+            permission={Permission.INVOICE_CREATE}
+            fallback={<AccessDeniedPanel message="Accès refusé à la facturation." />}
+          >
+            <OrderBillingTab
+              {...commonTabProps}
+              canInvoice={canInvoice}
+              invoiceRef={invoiceRef}
+              setInvoiceRef={setInvoiceRef}
+              invoiceWaTo={invoiceWaTo}
+              setInvoiceWaTo={setInvoiceWaTo}
+              paymentLink={paymentLink}
+              setPaymentLink={setPaymentLink}
+              invoiceNote={invoiceNote}
+              setInvoiceNote={setInvoiceNote}
+              onInvoice={doInvoice}
+              onCopyWhatsApp={copyWhatsApp}
+              billingMessage={billingMessage}
+              onResendWhatsApp={handleResendWhatsApp}
+            />
+          </RequirePermission>
+        )}
+
+        {activeTab === "payment" && (
+          <RequirePermission
+            permission={Permission.PAYMENT_VALIDATE}
+            fallback={<AccessDeniedPanel message="Accès refusé au paiement." />}
+          >
+            <OrderPaymentTab
+              {...commonTabProps}
+              canCashPay={canCashPay}
+              canProof={canProof}
+              canVerify={canVerify}
+              cashNote={cashNote}
+              setCashNote={setCashNote}
+              proofUrl={proofUrl}
+              setProofUrl={setProofUrl}
+              proofRef={proofRef}
+              setProofRef={setProofRef}
+              proofNote={proofNote}
+              setProofNote={setProofNote}
+              verifyNote={verifyNote}
+              setVerifyNote={setVerifyNote}
+              onCashPay={doCashPay}
+              onProof={doProof}
+              onVerify={doVerifyPayment}
+              onInitiateWave={doInitiateWave}
+              onSyncWave={doSyncWave}
+            />
+          </RequirePermission>
+        )}
+
+        {activeTab === "preparation" && (
+          <RequirePermission
+            permission={Permission.PREPARATION_UPDATE}
+            fallback={<AccessDeniedPanel message="Accès refusé à la préparation." />}
+          >
+            <OrderPreparationTab
+              {...commonTabProps}
+              canPrepare={canPrepare}
+              packingNote={packingNote}
+              setPackingNote={setPackingNote}
+              onPrepare={doPrepare}
+              stockSummary={stockSummary}
+            />
+          </RequirePermission>
+        )}
+
+        {activeTab === "fulfillment" && (
+          <RequirePermission
+            permission={Permission.PREPARATION_UPDATE}
+            fallback={<AccessDeniedPanel message="Accès refusé au fulfillment." />}
+          >
+            <OrderFulfillmentTab
+              {...commonTabProps}
+              canFulfill={canFulfill}
+              deliveryTracking={deliveryTracking}
+              setDeliveryTracking={setDeliveryTracking}
+              fulfillNote={fulfillNote}
+              setFulfillNote={setFulfillNote}
+              onFulfill={doFulfill}
+            />
+          </RequirePermission>
+        )}
+
+        {activeTab === "history" && (
+          <RequirePermission
+            permission={Permission.PREORDER_READ}
+            fallback={<AccessDeniedPanel message="Accès refusé à l’historique." />}
+          >
+            <OrderHistoryTab
+              {...commonTabProps}
+              logs={Array.isArray(order.logs) ? order.logs : []}
+            />
+          </RequirePermission>
+        )}
+
+        {activeTab === "cancel" && canCancel && (
+          <RequirePermission
+            permission={Permission.PREORDER_UPDATE_STATUS}
+            fallback={<AccessDeniedPanel message="Accès refusé à l’annulation." />}
+          >
+            <OrderCancelPanel
+              {...commonTabProps}
+              canCancel={canCancel}
+              cancelReason={cancelReason}
+              setCancelReason={setCancelReason}
+              onCancel={doCancel}
+            />
+          </RequirePermission>
+        )}
       </div>
-
-      {error ? (
-        <Alert tone="red" title="Erreur">
-          {error}
-        </Alert>
-      ) : null}
-
-      {info ? (
-        <Alert tone="blue" title="Information">
-          {info}
-        </Alert>
-      ) : null}
-
-      <OrderDetailTabs activeTab={activeTab} onChange={setTab} order={order} />
-
-      {activeTab === "overview" && (
-        <OrderOverviewTab
-          {...commonTabProps}
-          emptyOrder={emptyOrder}
-          steps={steps}
-          stockSummary={stockSummary}
-          stockDebited={stockDebited}
-          stockRestored={stockRestored}
-        />
-      )}
-
-      {activeTab === "billing" && (
-        <OrderBillingTab
-          {...commonTabProps}
-          canInvoice={canInvoice}
-          invoiceRef={invoiceRef}
-          setInvoiceRef={setInvoiceRef}
-          invoiceWaTo={invoiceWaTo}
-          setInvoiceWaTo={setInvoiceWaTo}
-          paymentLink={paymentLink}
-          setPaymentLink={setPaymentLink}
-          invoiceNote={invoiceNote}
-          setInvoiceNote={setInvoiceNote}
-          onInvoice={doInvoice}
-          onCopyWhatsApp={copyWhatsApp}
-          billingMessage={billingMessage}
-          onResendWhatsApp={handleResendWhatsApp}
-        />
-      )}
-
-      {activeTab === "payment" && (
-        <OrderPaymentTab
-          {...commonTabProps}
-          canCashPay={canCashPay}
-          canProof={canProof}
-          canVerify={canVerify}
-          cashNote={cashNote}
-          setCashNote={setCashNote}
-          proofUrl={proofUrl}
-          setProofUrl={setProofUrl}
-          proofRef={proofRef}
-          setProofRef={setProofRef}
-          proofNote={proofNote}
-          setProofNote={setProofNote}
-          verifyNote={verifyNote}
-          setVerifyNote={setVerifyNote}
-          onCashPay={doCashPay}
-          onProof={doProof}
-          onVerify={doVerifyPayment}
-        />
-      )}
-
-      {activeTab === "preparation" && (
-        <OrderPreparationTab
-          {...commonTabProps}
-          canPrepare={canPrepare}
-          packingNote={packingNote}
-          setPackingNote={setPackingNote}
-          onPrepare={doPrepare}
-          stockSummary={stockSummary}
-        />
-      )}
-
-      {activeTab === "fulfillment" && (
-        <OrderFulfillmentTab
-          {...commonTabProps}
-          canFulfill={canFulfill}
-          deliveryTracking={deliveryTracking}
-          setDeliveryTracking={setDeliveryTracking}
-          fulfillNote={fulfillNote}
-          setFulfillNote={setFulfillNote}
-          onFulfill={doFulfill}
-        />
-      )}
-
-      {activeTab === "history" && (
-        <OrderHistoryTab
-          {...commonTabProps}
-          logs={Array.isArray(order.logs) ? order.logs : []}
-        />
-      )}
-
-      {activeTab === "cancel" && canCancel && (
-        <OrderCancelPanel
-          {...commonTabProps}
-          canCancel={canCancel}
-          cancelReason={cancelReason}
-          setCancelReason={setCancelReason}
-          onCancel={doCancel}
-        />
-      )}
-    </div>
+    </RequirePermission>
   );
 }
