@@ -3,7 +3,7 @@
 // Le composant `RequirePermission` prend en props une permission à vérifier, un composant de fallback à afficher si la permission n'est pas accordée, et les enfants à afficher si la permission est accordée. Il retourne les enfants si l'administrateur a la permission requise, ou le fallback sinon.
 
 
-import { usePermission } from "../hooks/usePermission";
+import { usePermission } from "../../hooks/usePermission";
 
 export default function RequirePermission({
   permission,
