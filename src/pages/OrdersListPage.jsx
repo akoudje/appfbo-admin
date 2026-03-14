@@ -6,8 +6,8 @@ import { useOrdersStore } from "../store/useOrdersStore";
 import OrdersFiltersCard from "../components/orders/OrdersFiltersCard";
 import OrdersStatsBar from "../components/orders/OrdersStatsBar";
 import OrdersTable from "../components/orders/OrdersTable";
-import RequirePermission from "../../components/auth/RequirePermission";
-import { Permission } from "../../auth/permissions";
+import RequirePermission from "../components/auth/RequirePermission";
+import { Permission } from "../auth/permissions";
 
 export default function OrdersListPage() {
   const {
