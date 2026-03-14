@@ -2,7 +2,7 @@
 // Page d'affichage de la liste des commandes, avec les filtres, les stats et le tableau.
 
 import { useEffect } from "react";
-import { useOrdersStore } from "../../store/useOrdersStore";
+import { useOrdersStore } from "../store/useOrdersStore";
 import OrdersFiltersCard from "../../components/orders/OrdersFiltersCard";
 import OrdersStatsBar from "../../components/orders/OrdersStatsBar";
 import OrdersTable from "../../components/orders/OrdersTable";
