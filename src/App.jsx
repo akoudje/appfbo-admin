@@ -17,7 +17,7 @@ import ProductCreate from "./pages/ProductCreate.jsx";
 import ProductEdit from "./pages/ProductEdit.jsx";
 import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
-import OrdersListPage from "./pages/orders/OrdersListPage";
+import OrdersListPage from "./pages/OrdersListPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
