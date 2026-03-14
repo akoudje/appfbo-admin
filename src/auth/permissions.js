@@ -3,8 +3,6 @@
 // Ce module exporte les rôles d'administrateurs, les permissions disponibles, ainsi que des fonctions utilitaires pour vérifier les permissions d'un rôle donné.
 // Les rôles sont définis avec des permissions spécifiques, et les fonctions `hasPermission` et `hasAnyPermission` permettent de vérifier si un rôle possède une permission particulière ou au moins une permission parmi une liste donnée.
 
-// Miroir frontend des rôles + permissions admin
-
 export const AdminRole = {
   SUPER_ADMIN: "SUPER_ADMIN",
   TECH_ADMIN: "TECH_ADMIN",
@@ -21,23 +19,27 @@ export const AdminRole = {
 export const Permission = {
   COUNTRY_READ: "COUNTRY_READ",
   COUNTRY_WRITE: "COUNTRY_WRITE",
+
   PRODUCT_READ: "PRODUCT_READ",
   PRODUCT_WRITE: "PRODUCT_WRITE",
+
   DISCOUNT_READ: "DISCOUNT_READ",
   DISCOUNT_WRITE: "DISCOUNT_WRITE",
+
   PREORDER_READ: "PREORDER_READ",
   PREORDER_UPDATE_STATUS: "PREORDER_UPDATE_STATUS",
+
   INVOICE_CREATE: "INVOICE_CREATE",
   PAYMENT_VALIDATE: "PAYMENT_VALIDATE",
+
   PREPARATION_UPDATE: "PREPARATION_UPDATE",
+
   EXPORT_READ: "EXPORT_READ",
 };
 
-const allPermissions = Object.freeze(Object.values(Permission));
-
-export const ROLE_PERMISSIONS = Object.freeze({
-  [AdminRole.SUPER_ADMIN]: allPermissions,
-  [AdminRole.TECH_ADMIN]: allPermissions,
+export const ROLE_PERMISSIONS = {
+  [AdminRole.SUPER_ADMIN]: Object.values(Permission),
+  [AdminRole.TECH_ADMIN]: Object.values(Permission),
 
   [AdminRole.OPERATIONS_DIRECTOR]: [
     Permission.COUNTRY_READ,
@@ -107,27 +109,20 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREORDER_READ,
     Permission.PREPARATION_UPDATE,
   ],
-});
+};
 
 export function getRolePermissions(role) {
   return ROLE_PERMISSIONS[role] || [];
 }
 
 export function hasPermission(role, permission, userPermissions = []) {
-  if (!role) return false;
+  const rolePerms = getRolePermissions(role);
 
-  const rolePermissions = getRolePermissions(role);
-  if (rolePermissions.includes(permission)) return true;
+  if (rolePerms.includes(permission)) return true;
 
   if (Array.isArray(userPermissions) && userPermissions.includes(permission)) {
     return true;
   }
 
   return false;
-}
-
-export function hasAnyPermission(role, permissions = [], userPermissions = []) {
-  return permissions.some((permission) =>
-    hasPermission(role, permission, userPermissions),
-  );
 }
