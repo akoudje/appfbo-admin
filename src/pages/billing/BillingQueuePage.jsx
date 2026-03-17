@@ -1,5 +1,6 @@
 // admin-app/src/pages/billing/BillingQueuePage.jsx
-// Page d'affichage de la file de facturation, avec les stats, les onglets et le tableau. Gère les actions de prise en charge, démarrage, libération et escalade des dossiers de facturation.
+// Page d'affichage de la file de facturation, avec les stats, les onglets et le tableau. 
+// Gère les actions de prise en charge, démarrage, libération et escalade des dossiers de facturation.
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";

@@ -346,7 +346,7 @@ export default function OrderBillingTab({
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                🚀 Facturer et envoyer
+                🚀 Facturer et envoyer ===xxxx===
               </span>
             )}
           </button>
