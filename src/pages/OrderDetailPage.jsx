@@ -1,6 +1,7 @@
 // src/pages/OrderDetailPage.jsx
-// Page de détail d'une commande, affichant les informations principales de la commande, son statut, et proposant des onglets pour voir les détails, la facturation, le paiement, la préparation, le fulfillment, l'historique et le workflow de la commande. La page gère également les actions possibles sur la commande (ex: facturer, préparer, expédier) en fonction de son statut actuel et des permissions de l'utilisateur.
-
+// Page de détail d'une commande, affichant les informations principales de la commande,
+// son statut, et proposant des onglets pour voir les détails, la facturation, le paiement,
+// la préparation, le fulfillment, l'historique et le workflow de la commande.
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -106,13 +107,12 @@ export default function OrderDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [waveLoading, setWaveLoading] = useState(false);
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
-  const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") || "overview",
-  );
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
 
   const [invoiceRef, setInvoiceRef] = useState("");
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
@@ -164,9 +164,7 @@ export default function OrderDetailPage() {
       setInvoiceNote("");
       setCancelReason("");
     } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible de charger la commande",
-      );
+      setError(e?.response?.data?.message || "Impossible de charger la commande");
     } finally {
       setLoading(false);
     }
@@ -197,10 +195,21 @@ export default function OrderDetailPage() {
   const status = order?.status;
   const paymentStatus = order?.paymentStatus;
 
+  const paymentModeRaw = String(order?.paymentMode || "").toUpperCase();
+  const paymentProviderRaw = String(order?.paymentProvider || "").toUpperCase();
+
   const isCash =
-    order?.paymentMode === "ESPECES" || order?.paymentProvider === "MANUAL";
-  const isWave = order?.paymentProvider === "WAVE";
-  const isAutoPayment = !isCash && Boolean(order?.paymentLink);
+    paymentModeRaw === "ESPECES" ||
+    paymentModeRaw === "CASH" ||
+    paymentProviderRaw === "MANUAL";
+
+  const isWave =
+    paymentProviderRaw === "WAVE" ||
+    paymentModeRaw === "MOBILE_MONEY" ||
+    paymentModeRaw === "MOBILE MONEY";
+
+  // Pour ton métier, "auto payment" = mobile money / wave
+  const isAutoPayment = !isCash && isWave;
 
   useEffect(() => {
     if (!order) return;
@@ -270,19 +279,18 @@ export default function OrderDetailPage() {
       { key: "INVOICED", label: "Préfacture", at: order?.invoicedAt },
     ];
 
-    const proof =
-      isCash
-        ? []
-        : [
-            {
-              key: "PAYMENT_PENDING",
-              label: isWave ? "Wave en attente" : "Paiement en attente",
-              at:
-                order?.manualPaymentReceivedAt ||
-                order?.proofReceivedAt ||
-                order?.activePayment?.initiatedAt,
-            },
-          ];
+    const proof = isCash
+      ? []
+      : [
+          {
+            key: "PAYMENT_PENDING",
+            label: isWave ? "Wave en attente" : "Paiement en attente",
+            at:
+              order?.manualPaymentReceivedAt ||
+              order?.proofReceivedAt ||
+              order?.activePayment?.initiatedAt,
+          },
+        ];
 
     const tail = [
       { key: "PAID", label: "Paiement OK", at: order?.paidAt },
@@ -330,8 +338,21 @@ export default function OrderDetailPage() {
         note: normalizeStr(invoiceNote) || undefined,
       };
 
-      const result = await ordersService.invoice(id, body);
-      await handleActionResult(result, "Préfacture déjà créée.");
+      await ordersService.invoice(id, body);
+
+      if (!isCash && isAutoPayment) {
+        const wave = await ordersService.initiateWavePayment(id);
+
+        if (wave?.checkoutUrl) {
+          setInfo("Préfacture créée et paiement Wave initié.");
+        } else {
+          setInfo("Préfacture créée. Paiement Wave initié.");
+        }
+      } else {
+        setInfo("Préfacture créée et envoyée.");
+      }
+
+      await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de facturer");
     } finally {
@@ -355,7 +376,7 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Preuve déjà enregistrée.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible d'enregistrer la preuve",
+        e?.response?.data?.message || "Impossible d'enregistrer la preuve"
       );
     } finally {
       setSaving(false);
@@ -375,7 +396,7 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Paiement déjà validé.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de valider le paiement",
+        e?.response?.data?.message || "Impossible de valider le paiement"
       );
     } finally {
       setSaving(false);
@@ -396,7 +417,7 @@ export default function OrderDetailPage() {
     } catch (e) {
       setError(
         e?.response?.data?.message ||
-          "Impossible d'encaisser le paiement espèces",
+          "Impossible d'encaisser le paiement espèces"
       );
     } finally {
       setSaving(false);
@@ -405,7 +426,7 @@ export default function OrderDetailPage() {
 
   const doInitiateWave = async () => {
     try {
-      setSaving(true);
+      setWaveLoading(true);
       setError("");
       setInfo("");
 
@@ -420,16 +441,16 @@ export default function OrderDetailPage() {
       await load();
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible d'initier le paiement Wave",
+        e?.response?.data?.message || "Impossible d'initier le paiement Wave"
       );
     } finally {
-      setSaving(false);
+      setWaveLoading(false);
     }
   };
 
   const doSyncWave = async () => {
     try {
-      setSaving(true);
+      setWaveLoading(true);
       setError("");
       setInfo("");
 
@@ -444,10 +465,39 @@ export default function OrderDetailPage() {
       await load();
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de synchroniser le paiement Wave",
+        e?.response?.data?.message ||
+          "Impossible de synchroniser le paiement Wave"
       );
     } finally {
-      setSaving(false);
+      setWaveLoading(false);
+    }
+  };
+
+  const doSimulateWave = async (scenario) => {
+    try {
+      setWaveLoading(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.simulateWavePayment(id, scenario);
+
+      if (result?.scenario === "succeeded") {
+        setInfo("Simulation Wave succeeded exécutée.");
+      } else if (result?.scenario === "expired") {
+        setInfo("Simulation Wave expired exécutée.");
+      } else if (result?.scenario === "cancelled") {
+        setInfo("Simulation Wave cancelled exécutée.");
+      } else {
+        setInfo("Simulation Wave processing exécutée.");
+      }
+
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || "Impossible de simuler le paiement Wave"
+      );
+    } finally {
+      setWaveLoading(false);
     }
   };
 
@@ -464,7 +514,7 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Commande déjà préparée.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de marquer le colis prêt",
+        e?.response?.data?.message || "Impossible de marquer le colis prêt"
       );
     } finally {
       setSaving(false);
@@ -576,7 +626,7 @@ export default function OrderDetailPage() {
             <div className="flex items-center gap-2 self-start">
               <button
                 onClick={load}
-                disabled={saving}
+                disabled={saving || waveLoading}
                 className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 type="button"
               >
@@ -587,7 +637,7 @@ export default function OrderDetailPage() {
                 {canCancel ? (
                   <button
                     onClick={() => setTab("cancel")}
-                    disabled={saving}
+                    disabled={saving || waveLoading}
                     className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
                     type="button"
                   >
@@ -640,6 +690,7 @@ export default function OrderDetailPage() {
           >
             <OrderBillingTab
               {...commonTabProps}
+              saving={saving}
               canInvoice={canInvoice}
               invoiceRef={invoiceRef}
               setInvoiceRef={setInvoiceRef}
@@ -653,6 +704,11 @@ export default function OrderDetailPage() {
               onCopyWhatsApp={copyWhatsApp}
               billingMessage={billingMessage}
               onResendWhatsApp={handleResendWhatsApp}
+              onInitiateWave={doInitiateWave}
+              onRefreshWaveStatus={doSyncWave}
+              onSimulateWave={doSimulateWave}
+              waveLoading={waveLoading}
+              showWaveDevTools={true}
             />
           </RequirePermission>
         )}

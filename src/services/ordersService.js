@@ -54,4 +54,7 @@ export const ordersService = {
 
   syncWavePaymentStatus: async (orderId) =>
     (await api.get(`/payments/wave/${orderId}/status`)).data,
+
+  simulateWavePayment: async (orderId, scenario) =>
+    (await api.post(`/payments/wave/${orderId}/simulate`, { scenario })).data,
 };
