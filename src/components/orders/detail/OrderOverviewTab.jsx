@@ -55,9 +55,12 @@ function InfoCard({ title, children, className = "" }) {
 }
 
 function Row({ label, value, copyable = false }) {
+  const isCopyable =
+    copyable && typeof value === "string" && value.trim() && value !== "—";
+
   const handleCopy = () => {
-    if (value && value !== "—") {
-      navigator.clipboard?.writeText(value.toString());
+    if (isCopyable) {
+      navigator.clipboard?.writeText(value);
     }
   };
 
@@ -66,11 +69,12 @@ function Row({ label, value, copyable = false }) {
       <span className="text-gray-500">{label}</span>
       <div className="font-medium text-right flex items-center gap-2">
         <span className="break-all">{value ?? "—"}</span>
-        {copyable && value && value !== "—" && (
+        {isCopyable && (
           <button
             onClick={handleCopy}
             className="text-gray-400 hover:text-gray-600 transition-colors"
             title="Copier"
+            type="button"
           >
             📋
           </button>
@@ -94,7 +98,9 @@ function MovementBadge({ type }) {
   };
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${tones[tone]}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${tones[tone]}`}
+    >
       <span>{icon}</span>
       {label}
     </span>
@@ -129,6 +135,15 @@ function formatDateTime(value) {
   }
 }
 
+function humanizeEnum(value) {
+  if (!value) return "—";
+  return String(value)
+    .trim()
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
 // ============================================================================
 // Composant principal
 // ============================================================================
@@ -146,15 +161,16 @@ export default function OrderOverviewTab({
   const isPaid = status === "PAID";
   const isReady = status === "READY";
   const hasWhatsappMessage = Boolean(order?.whatsappMessage);
-  const hasStockMovements = Array.isArray(order?.stockMovements) && order.stockMovements.length > 0;
+  const hasStockMovements =
+    Array.isArray(order?.stockMovements) && order.stockMovements.length > 0;
 
-  // Rendu conditionnel des alertes
   const renderAlert = () => {
     if (emptyOrder) {
       return (
         <Alert tone="amber" title="⚠️ Commande incomplète">
           <p>
-            Cette commande contient <strong>{order?.items?.length || 0} article(s)</strong> pour un total de{" "}
+            Cette commande contient{" "}
+            <strong>{order?.items?.length || 0} article(s)</strong> pour un total de{" "}
             <strong>{formatFcfa(order?.totalFcfa)}</strong>.
           </p>
           <p className="mt-2">
@@ -190,8 +206,14 @@ export default function OrderOverviewTab({
     if (isPaid && !stockDebited) {
       return (
         <Alert tone="blue" title="💳 Commande payée">
-          <p>Le paiement est confirmé. La prochaine étape est la <strong>préparation du colis</strong>.</p>
-          <p className="mt-1">Le stock sera décrémenté au moment du passage en statut <strong>READY</strong>.</p>
+          <p>
+            Le paiement est confirmé. La prochaine étape est la{" "}
+            <strong>préparation du colis</strong>.
+          </p>
+          <p className="mt-1">
+            Le stock sera décrémenté au moment du passage en statut{" "}
+            <strong>READY</strong>.
+          </p>
         </Alert>
       );
     }
@@ -210,18 +232,13 @@ export default function OrderOverviewTab({
 
   return (
     <div className="space-y-6">
-      {/* Alertes contextuelles */}
       {renderAlert()}
 
-      {/* Timeline */}
       <OrderTimeline steps={steps} status={status} />
 
-      {/* Cartes de résumé */}
       <OrderSummaryCards order={order} />
 
-      {/* Grille principale */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Tableau des articles */}
         <div className="xl:col-span-2">
           <OrderItemsTable
             items={order?.items || []}
@@ -229,9 +246,33 @@ export default function OrderOverviewTab({
           />
         </div>
 
-        {/* Colonne latérale */}
         <div className="space-y-6">
-          {/* Carte stock */}
+          <InfoCard title="🧾 Informations précommande">
+            <div className="space-y-2">
+              <Row
+                label="N° précommande"
+                value={order?.preorderNumber || "—"}
+                copyable
+              />
+              <Row label="ID technique" value={order?.id || "—"} copyable />
+              <Row label="Numéro FBO" value={order?.fboNumero || "—"} copyable />
+              <Row label="Nom FBO" value={order?.fboNomComplet || "—"} />
+              <Row label="Grade" value={humanizeEnum(order?.fboGrade)} />
+              <Row
+                label="Mode de paiement"
+                value={humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)}
+              />
+              <Row
+                label="Mode de livraison"
+                value={humanizeEnum(order?.deliveryMode)}
+              />
+              <Row
+                label="Point de vente"
+                value={order?.pointDeVente || "—"}
+              />
+            </div>
+          </InfoCard>
+
           <OrderStockCard
             order={order}
             stockSummary={stockSummary}
@@ -239,7 +280,6 @@ export default function OrderOverviewTab({
             stockRestored={stockRestored}
           />
 
-          {/* Carte WhatsApp */}
           <InfoCard title="💬 Message WhatsApp">
             {hasWhatsappMessage ? (
               <div className="space-y-3">
@@ -259,21 +299,20 @@ export default function OrderOverviewTab({
             )}
           </InfoCard>
 
-          {/* Carte Paiement / Facture */}
           <InfoCard title="💰 Paiement & Facture">
             <div className="space-y-2">
-              <Row 
-                label="Référence facture" 
-                value={order?.factureReference} 
-                copyable 
+              <Row label="Référence facture" value={order?.factureReference} copyable />
+              <Row
+                label="Mode de paiement précommande"
+                value={humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)}
               />
-              <Row 
-                label="Référence paiement" 
-                value={order?.paymentRef} 
-                copyable 
+              <Row
+                label="Provider paiement"
+                value={humanizeEnum(order?.paymentProvider)}
               />
-              <Row 
-                label="Lien de paiement" 
+              <Row label="Référence paiement" value={order?.paymentRef} copyable />
+              <Row
+                label="Lien de paiement"
                 value={
                   order?.paymentLink ? (
                     <a
@@ -287,10 +326,10 @@ export default function OrderOverviewTab({
                   ) : "—"
                 }
               />
-              <Row 
-                label="WhatsApp destinataire" 
-                value={order?.factureWhatsappTo} 
-                copyable 
+              <Row
+                label="WhatsApp destinataire"
+                value={order?.factureWhatsappTo}
+                copyable
               />
             </div>
 
@@ -306,7 +345,6 @@ export default function OrderOverviewTab({
             )}
           </InfoCard>
 
-          {/* Informations additionnelles si disponibles */}
           {order?.notes && (
             <InfoCard title="📝 Note client">
               <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -317,7 +355,6 @@ export default function OrderOverviewTab({
         </div>
       </div>
 
-      {/* Mouvements de stock */}
       {hasStockMovements && (
         <InfoCard title="📊 Mouvements de stock">
           <div className="flex items-center justify-between gap-2 mb-4">
@@ -366,7 +403,7 @@ export default function OrderOverviewTab({
                     )}
                   </div>
 
-                  <div className="text-xs text-gray-400 whitespace-nowrap bg-gray-50 px-2 py-1 rounded">
+                  <div className="text-xs text-gray-500 whitespace-nowrap">
                     {formatDateTime(movement.createdAt)}
                   </div>
                 </div>
@@ -375,21 +412,6 @@ export default function OrderOverviewTab({
           </div>
         </InfoCard>
       )}
-
-      {/* Pied de page avec métadonnées */}
-      <div className="text-xs text-gray-400 border-t border-gray-100 pt-4 mt-2">
-        <div className="flex flex-wrap gap-x-6 gap-y-2">
-          {order?.createdAt && (
-            <span>Créée le {formatDateTime(order.createdAt)}</span>
-          )}
-          {order?.createdBy && (
-            <span>par {order.createdBy}</span>
-          )}
-          {order?.updatedAt && order?.updatedAt !== order?.createdAt && (
-            <span>• Modifiée le {formatDateTime(order.updatedAt)}</span>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
