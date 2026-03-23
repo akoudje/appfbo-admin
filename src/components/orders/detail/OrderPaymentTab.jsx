@@ -1,24 +1,22 @@
 // ============================================================================
-// Sous-composants
+// Sous-composants optimisés
 // ============================================================================
 
-function Field({ label, children, optional = false }) {
+function Field({ label, children, optional = false, className = "" }) {
   return (
-    <label className="block space-y-1">
+    <label className={`block space-y-1 ${className}`}>
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
           {label}
         </span>
-        {optional && (
-          <span className="text-xs text-gray-400">(optionnel)</span>
-        )}
+        {optional && <span className="text-xs text-gray-400">(optionnel)</span>}
       </div>
       {children}
     </label>
   );
 }
 
-function Alert({ tone = "blue", title, children }) {
+function Alert({ tone = "blue", title, children, className = "" }) {
   const tones = {
     amber: "border-amber-200 bg-amber-50 text-amber-800",
     red: "border-red-200 bg-red-50 text-red-800",
@@ -36,13 +34,13 @@ function Alert({ tone = "blue", title, children }) {
   };
 
   return (
-    <div className={`rounded-lg border p-4 ${tones[tone] || tones.blue}`}>
-      <div className="flex gap-3">
-        <span className="text-lg" role="img" aria-hidden="true">
+    <div className={`rounded-lg border p-3 ${tones[tone] || tones.blue} ${className}`}>
+      <div className="flex gap-2">
+        <span className="text-base" role="img" aria-hidden="true">
           {icons[tone] || icons.blue}
         </span>
-        <div className="flex-1">
-          {title && <div className="font-semibold text-sm mb-1">{title}</div>}
+        <div className="flex-1 min-w-0">
+          {title && <div className="font-semibold text-sm mb-0.5">{title}</div>}
           <div className="text-sm leading-relaxed">{children}</div>
         </div>
       </div>
@@ -50,7 +48,7 @@ function Alert({ tone = "blue", title, children }) {
   );
 }
 
-function Row({ label, value, highlight = false, copyable = false }) {
+function Row({ label, value, highlight = false, copyable = false, className = "" }) {
   const handleCopy = async () => {
     if (!value || value === "—") return;
     try {
@@ -60,17 +58,12 @@ function Row({ label, value, highlight = false, copyable = false }) {
     }
   };
 
-  const isReactNode =
-    typeof value === "object" && value !== null && !Array.isArray(value);
+  const isReactNode = typeof value === "object" && value !== null && !Array.isArray(value);
 
   return (
-    <div className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-gray-100 last:border-0">
-      <div className="text-gray-500">{label}</div>
-      <div
-        className={`font-medium text-right flex items-center gap-2 ${
-          highlight ? "text-indigo-600" : ""
-        }`}
-      >
+    <div className={`flex items-center justify-between gap-2 text-sm py-1 border-b border-gray-100 last:border-0 ${className}`}>
+      <div className="text-gray-500 text-xs uppercase tracking-wide">{label}</div>
+      <div className={`font-medium text-right flex items-center gap-1.5 ${highlight ? "text-indigo-600" : ""}`}>
         {isReactNode ? value : <span className="break-all">{value ?? "—"}</span>}
         {copyable && !isReactNode && value && value !== "—" && (
           <button
@@ -87,7 +80,7 @@ function Row({ label, value, highlight = false, copyable = false }) {
   );
 }
 
-function StatCard({ label, value, subvalue, tone = "gray", icon }) {
+function StatCard({ label, value, subvalue, tone = "gray", icon, className = "" }) {
   const tones = {
     gray: "bg-gray-50 border-gray-200",
     amber: "bg-amber-50 border-amber-200",
@@ -97,32 +90,34 @@ function StatCard({ label, value, subvalue, tone = "gray", icon }) {
   };
 
   return (
-    <div className={`rounded-lg border p-4 ${tones[tone]}`}>
-      <div className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
-        {icon && <span>{icon}</span>}
+    <div className={`rounded-lg border p-3 ${tones[tone]} ${className}`}>
+      <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 uppercase tracking-wide">
+        {icon && <span className="text-sm">{icon}</span>}
         {label}
       </div>
-      <div className="text-xl font-semibold mt-1">{value}</div>
-      {subvalue && <div className="text-xs text-gray-500 mt-1">{subvalue}</div>}
+      <div className="text-lg font-semibold mt-0.5">{value}</div>
+      {subvalue && <div className="text-xs text-gray-500 mt-0.5">{subvalue}</div>}
     </div>
   );
 }
 
-function InfoSection({ title, children, className = "" }) {
+function CompactInfoCard({ title, children, className = "" }) {
   return (
-    <div className={`card p-6 space-y-4 ${className}`}>
-      <h4 className="font-semibold text-gray-900">{title}</h4>
-      {children}
+    <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
+      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+        <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+      </div>
+      <div className="p-4">{children}</div>
     </div>
   );
 }
 
 function StepIndicator({ number, title, active = false, completed = false }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <div
         className={`
-          w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm
+          w-6 h-6 rounded-full flex items-center justify-center font-medium text-xs
           ${
             completed
               ? "bg-emerald-100 text-emerald-700"
@@ -135,7 +130,7 @@ function StepIndicator({ number, title, active = false, completed = false }) {
         {completed ? "✓" : number}
       </div>
       <div>
-        <div className="font-medium text-gray-700">{title}</div>
+        <div className="font-medium text-gray-700 text-sm">{title}</div>
         <div className="text-xs text-gray-500">
           {completed ? "Terminée" : active ? "En cours" : "À venir"}
         </div>
@@ -148,50 +143,49 @@ function PaymentStatusBadge({ status }) {
   const value = String(status || "").toUpperCase();
 
   const config = {
-    PENDING_CUSTOMER_ACTION: {
-      label: "En attente client",
-      cls: "bg-amber-100 text-amber-700 border-amber-200",
-    },
-    PAYMENT_PENDING: {
-      label: "Paiement en attente",
-      cls: "bg-amber-100 text-amber-700 border-amber-200",
-    },
-    PROCESSING: {
-      label: "En cours",
-      cls: "bg-blue-100 text-blue-700 border-blue-200",
-    },
-    SUCCEEDED: {
-      label: "Payé",
-      cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    },
-    PAID: {
-      label: "Payé",
-      cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    },
-    EXPIRED: {
-      label: "Expiré",
-      cls: "bg-orange-100 text-orange-700 border-orange-200",
-    },
-    CANCELLED: {
-      label: "Annulé",
-      cls: "bg-red-100 text-red-700 border-red-200",
-    },
-    FAILED: {
-      label: "Échec",
-      cls: "bg-red-100 text-red-700 border-red-200",
-    },
+    PENDING_CUSTOMER_ACTION: { label: "En attente client", cls: "bg-amber-100 text-amber-700 border-amber-200" },
+    PAYMENT_PENDING: { label: "En attente", cls: "bg-amber-100 text-amber-700 border-amber-200" },
+    PROCESSING: { label: "En cours", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+    SUCCEEDED: { label: "Payé", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+    PAID: { label: "Payé", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+    EXPIRED: { label: "Expiré", cls: "bg-orange-100 text-orange-700 border-orange-200" },
+    CANCELLED: { label: "Annulé", cls: "bg-red-100 text-red-700 border-red-200" },
+    FAILED: { label: "Échec", cls: "bg-red-100 text-red-700 border-red-200" },
   };
 
-  const item = config[value] || {
-    label: status || "—",
-    cls: "bg-gray-100 text-gray-700 border-gray-200",
+  const item = config[value] || { label: status || "—", cls: "bg-gray-100 text-gray-700 border-gray-200" };
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${item.cls}`}>
+      {item.label}
+    </span>
+  );
+}
+
+function PaymentMethodBadge({ isCash, isWave, isAutoPayment }) {
+  const config = {
+    cash: { label: "Espèces", tone: "amber", icon: "💵" },
+    wave: { label: "Wave", tone: "blue", icon: "🌊" },
+    auto: { label: "Auto", tone: "blue", icon: "🔗" },
+    manual: { label: "Manuel", tone: "gray", icon: "📎" },
+  };
+
+  let type = "manual";
+  if (isCash) type = "cash";
+  else if (isWave) type = "wave";
+  else if (isAutoPayment) type = "auto";
+
+  const { label, tone, icon } = config[type];
+  const tones = {
+    amber: "bg-amber-100 text-amber-700 border-amber-200",
+    blue: "bg-blue-100 text-blue-700 border-blue-200",
+    gray: "bg-gray-100 text-gray-700 border-gray-200",
   };
 
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${item.cls}`}
-    >
-      {item.label}
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${tones[tone]}`}>
+      <span>{icon}</span>
+      {label}
     </span>
   );
 }
@@ -215,44 +209,10 @@ function formatDateTime(value) {
   try {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
+    return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
   } catch {
     return "—";
   }
-}
-
-function PaymentMethodBadge({ isCash, isWave, isAutoPayment }) {
-  const config = {
-    cash: { label: "Espèces", tone: "amber", icon: "💵" },
-    wave: { label: "Wave", tone: "blue", icon: "🌊" },
-    auto: { label: "En ligne auto", tone: "blue", icon: "🔗" },
-    manual: { label: "Manuel avec preuve", tone: "gray", icon: "📎" },
-  };
-
-  let type = "manual";
-  if (isCash) type = "cash";
-  else if (isWave) type = "wave";
-  else if (isAutoPayment) type = "auto";
-
-  const { label, tone, icon } = config[type];
-
-  const tones = {
-    amber: "bg-amber-100 text-amber-700 border-amber-200",
-    blue: "bg-blue-100 text-blue-700 border-blue-200",
-    gray: "bg-gray-100 text-gray-700 border-gray-200",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${tones[tone]}`}
-    >
-      <span>{icon}</span>
-      {label}
-    </span>
-  );
 }
 
 function getLatestAttempt(order) {
@@ -266,7 +226,7 @@ function getPaymentDisplayStatus(order) {
 }
 
 // ============================================================================
-// Composant principal
+// Composant principal optimisé
 // ============================================================================
 
 export default function OrderPaymentTab({
@@ -298,576 +258,344 @@ export default function OrderPaymentTab({
   const isPaid = status === "PAID";
   const isInvoiced = status === "INVOICED";
   const isPaymentPendingStatus = status === "PAYMENT_PENDING";
-  const hasPaymentInfo = Boolean(
-    order?.paidAt || order?.paymentVerifiedBy || order?.paymentRef
-  );
-
-  const isWave =
-    order?.paymentProvider === "WAVE" ||
-    order?.preorderPaymentMode === "WAVE" ||
-    order?.paymentMode === "WAVE";
+  
+  const isWave = order?.paymentProvider === "WAVE" || order?.preorderPaymentMode === "WAVE" || order?.paymentMode === "WAVE";
 
   const activePayment = order?.activePayment || null;
   const latestAttempt = getLatestAttempt(order);
 
-  const paymentStatus = String(
-    activePayment?.status || order?.paymentStatus || ""
-  ).toUpperCase();
+  const paymentStatus = String(activePayment?.status || order?.paymentStatus || "").toUpperCase();
 
-  const waveCheckoutUrl =
-    latestAttempt?.providerLaunchUrl ||
-    latestAttempt?.checkoutUrl ||
-    order?.paymentLink ||
-    "—";
+  const waveCheckoutUrl = latestAttempt?.providerLaunchUrl || latestAttempt?.checkoutUrl || order?.paymentLink || "—";
+  const waveSessionId = latestAttempt?.providerSessionId || activePayment?.providerReference || order?.paymentRef || "—";
+  const waveTransactionId = activePayment?.providerTxnId || latestAttempt?.providerTransactionId || order?.paymentRef || "—";
 
-  const waveSessionId =
-    latestAttempt?.providerSessionId ||
-    activePayment?.providerReference ||
-    order?.paymentRef ||
-    "—";
+  const canInitiateWave = ["INVOICED", "PAYMENT_PENDING"].includes(status) && !saving;
 
-  const waveTransactionId =
-    activePayment?.providerTxnId ||
-    latestAttempt?.providerTransactionId ||
-    order?.paymentRef ||
-    "—";
+  const step1Completed = status === "PAYMENT_PENDING" || isPaid;
+  const step2Completed = isPaid;
 
-  const canInitiateWave =
-    ["INVOICED", "PAYMENT_PENDING"].includes(status) && !saving;
+  // Déterminer le type de flux
+  const isCashFlow = isCash;
+  const isWaveFlow = !isCash && (isWave || isAutoPayment);
+  const isManualFlow = !isCash && !isWave && !isAutoPayment;
 
-  const renderCashFlow = () => (
-    <div className="space-y-6">
-      <Alert tone="amber" title="Paiement espèces">
-        <p>
-          Ce paiement se fait <strong>manuellement au bureau</strong>.
-        </p>
-        <p className="mt-1">
-          L’admin doit encaisser et marquer la commande comme payée.
-        </p>
-      </Alert>
+  // Message de statut global
+  const getStatusMessage = () => {
+    if (isPaid) return { tone: "emerald", text: "Paiement confirmé - commande prête" };
+    if (isCashFlow) return { tone: "amber", text: "Paiement espèces - à encaisser au bureau" };
+    if (isWaveFlow && paymentStatus === "PROCESSING") return { tone: "blue", text: "Paiement Wave en cours - le client doit finaliser" };
+    if (isWaveFlow && paymentStatus === "PENDING_CUSTOMER_ACTION") return { tone: "blue", text: "En attente d'action client" };
+    if (isManualFlow && step1Completed && !step2Completed) return { tone: "amber", text: "Preuve reçue - à valider" };
+    if (isManualFlow && !step1Completed && isInvoiced) return { tone: "blue", text: "En attente de preuve de paiement" };
+    return null;
+  };
 
-      <InfoSection title="Encaissement">
-        <Field label="Note d'encaissement" optional>
-          <textarea
-            className="input w-full min-h-[100px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-            value={cashNote}
-            onChange={(e) => setCashNote(e.target.value)}
-            disabled={!canCashPay || saving || isPaid}
-            placeholder="Ex: Paiement reçu au comptoir..."
-          />
-        </Field>
+  const statusMessage = getStatusMessage();
 
-        <div className="flex items-center gap-4 pt-2">
-          <button
-            className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
-              !canCashPay || saving || isPaid
-                ? "opacity-50 cursor-not-allowed bg-gray-400"
-                : "bg-amber-600 hover:bg-amber-700 text-white shadow-sm hover:shadow"
-            }`}
-            onClick={onCashPay}
-            disabled={!canCashPay || saving || isPaid}
-            type="button"
-          >
-            {saving ? (
-              <span className="flex items-center gap-2">
-                <span className="animate-spin">⚪</span>
-                Traitement...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                💰 Marquer comme encaissé
-              </span>
-            )}
-          </button>
-
-          <div className="text-xs text-gray-500 flex items-center gap-1">
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                canCashPay && !isPaid ? "bg-amber-400" : "bg-gray-400"
-              }`}
-            />
-            {isPaid
-              ? "Déjà payé"
-              : canCashPay
-                ? "Prêt à encaisser"
-                : "Encaissement non disponible"}
-          </div>
-        </div>
-      </InfoSection>
-
-      {hasPaymentInfo && (
-        <InfoSection title="Traçabilité">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Row label="Validé par" value={order?.paymentVerifiedBy} />
-            <Row label="Validé le" value={formatDateTime(order?.paidAt)} />
-          </div>
-        </InfoSection>
-      )}
+  // Rendu des cartes de statut communes
+  const renderStatCards = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <StatCard
+        label="Mode"
+        value={<PaymentMethodBadge isCash={isCash} isWave={isWave} isAutoPayment={isAutoPayment} />}
+        subvalue={order?.preorderPaymentMode || order?.paymentMode || order?.paymentProvider || "—"}
+        tone={isCash ? "amber" : isWave || isAutoPayment ? "blue" : "gray"}
+      />
+      <StatCard
+        label="Statut"
+        value={status || "—"}
+        subvalue={isPaid ? "Payé" : "En attente"}
+        tone={isPaid ? "emerald" : "gray"}
+        icon={isPaid ? "✅" : "⏳"}
+      />
+      <StatCard
+        label="Référence"
+        value={waveTransactionId !== "—" ? waveTransactionId.substring(0, 12) + "..." : waveSessionId.substring(0, 12) + "..."}
+        subvalue="Transaction / session"
+        tone="blue"
+        icon="🔢"
+      />
+      <StatCard
+        label="Date"
+        value={formatDateTime(order?.paidAt) || "—"}
+        subvalue="paiement"
+        tone="gray"
+        icon="📅"
+      />
     </div>
   );
 
-  const renderWaveFlow = () => (
-    <div className="space-y-6">
-      <Alert tone="blue" title="Paiement Wave">
-        <p>
-          Cette commande utilise un <strong>checkout Wave</strong>.
-        </p>
-        <p className="mt-1">
-          Le client paie via le lien Wave, puis l’admin peut synchroniser le
-          statut si nécessaire.
-        </p>
-      </Alert>
-
-      <InfoSection title="Session Wave">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatCard
-            label="Statut commande"
-            value={status || "—"}
-            subvalue={isPaid ? "Paiement confirmé" : "En attente"}
-            tone={isPaid ? "emerald" : "gray"}
-            icon={isPaid ? "✅" : "⏳"}
-          />
-          <StatCard
-            label="Statut paiement"
-            value={<PaymentStatusBadge status={paymentStatus} />}
-            subvalue="Payment actif"
-            tone={isPaid ? "emerald" : "blue"}
-            icon="💳"
-          />
-          <StatCard
-            label="Montant attendu"
-            value={formatFcfa(order?.totalFcfa)}
-            subvalue="Commande"
-            tone="gray"
-            icon="💰"
-          />
-          <StatCard
-            label="Montant payé"
-            value={formatFcfa(activePayment?.amountPaidFcfa || 0)}
-            subvalue="Confirmé"
-            tone={isPaid ? "emerald" : "gray"}
-            icon="🧾"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Row label="Session Wave" value={waveSessionId} copyable />
-          <Row label="Transaction Wave" value={waveTransactionId} copyable />
-          <Row
-            label="Lien de paiement"
-            value={
-              waveCheckoutUrl && waveCheckoutUrl !== "—" ? (
-                <a
-                  href={waveCheckoutUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline"
-                >
-                  Ouvrir le lien Wave
-                </a>
-              ) : (
-                "—"
-              )
-            }
-          />
-          <Row
-            label="Tentative créée le"
-            value={formatDateTime(latestAttempt?.createdAt)}
-          />
-          <Row
-            label="Paiement confirmé le"
-            value={formatDateTime(
-              activePayment?.paidAt || latestAttempt?.completedAt || order?.paidAt
-            )}
-            highlight={isPaid}
-          />
-          <Row
-            label="Dernière synchro"
-            value={formatDateTime(
-              activePayment?.updatedAt || latestAttempt?.updatedAt
-            )}
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-3 pt-2">
-          <button
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              !canInitiateWave
-                ? "opacity-50 cursor-not-allowed bg-gray-400 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
-            }`}
-            onClick={onInitiateWave}
-            disabled={!canInitiateWave}
-            type="button"
-          >
-            {saving ? "Initialisation..." : "Initier / réinitier Wave"}
-          </button>
-
-          <button
-            className="px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            onClick={onSyncWave}
-            disabled={saving || !isWave}
-            type="button"
-          >
-            {saving ? "Synchronisation..." : "Synchroniser le statut"}
-          </button>
-
-          {waveCheckoutUrl && waveCheckoutUrl !== "—" && (
-            <a
-              href={waveCheckoutUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="px-4 py-2 rounded-lg font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-            >
-              Ouvrir Wave
-            </a>
-          )}
-
-          <button
-            className="px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            onClick={reload}
-            disabled={saving}
-            type="button"
-          >
-            Rafraîchir la commande
-          </button>
-        </div>
-
-        <div
-          className={`mt-2 p-3 rounded-lg text-sm ${
-            isPaid
-              ? "bg-emerald-50 text-emerald-700"
-              : isPaymentPendingStatus || isInvoiced || paymentStatus === "PROCESSING"
-                ? "bg-blue-50 text-blue-700"
-                : "bg-gray-50 text-gray-600"
-          }`}
-        >
-          {isPaid ? (
-            <span className="flex items-center gap-2">
-              ✅ Paiement Wave confirmé. La commande peut être préparée.
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              ⏳ Paiement Wave en attente ou à synchroniser.
-            </span>
-          )}
-        </div>
-      </InfoSection>
-
-      {activePayment && (
-        <InfoSection title="Détails paiement actif">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Row label="Payment ID" value={activePayment.id} copyable />
-            <Row label="Provider" value={activePayment.provider} />
-            <Row label="Method type" value={activePayment.methodType} />
-            <Row
-              label="Statut Payment"
-              value={<PaymentStatusBadge status={activePayment.status} />}
-            />
-            <Row
-              label="Montant attendu"
-              value={formatFcfa(activePayment.amountExpectedFcfa)}
-            />
-            <Row
-              label="Montant payé"
-              value={formatFcfa(activePayment.amountPaidFcfa)}
-              highlight={activePayment.amountPaidFcfa > 0}
-            />
-            <Row
-              label="Référence provider"
-              value={activePayment.providerReference}
-              copyable
-            />
-            <Row
-              label="Txn provider"
-              value={activePayment.providerTxnId}
-              copyable
-            />
-            <Row
-              label="Client ref"
-              value={activePayment.clientReference}
-              copyable
-            />
-            <Row
-              label="Initié le"
-              value={formatDateTime(activePayment.initiatedAt)}
-            />
-            <Row label="Payé le" value={formatDateTime(activePayment.paidAt)} />
-            <Row
-              label="Mis à jour le"
-              value={formatDateTime(activePayment.updatedAt)}
-            />
-          </div>
-        </InfoSection>
-      )}
-
-      {latestAttempt && (
-        <InfoSection title="Dernière tentative Wave">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Row label="Attempt ID" value={latestAttempt.id} copyable />
-            <Row
-              label="Statut tentative"
-              value={<PaymentStatusBadge status={latestAttempt.status} />}
-            />
-            <Row
-              label="Session ID"
-              value={latestAttempt.providerSessionId}
-              copyable
-            />
-            <Row
-              label="Transaction ID"
-              value={
-                latestAttempt.providerTransactionId ||
-                activePayment?.providerTxnId ||
-                "—"
-              }
-              copyable={
-                Boolean(
-                  latestAttempt.providerTransactionId || activePayment?.providerTxnId
-                )
-              }
-            />
-            <Row
-              label="Créée le"
-              value={formatDateTime(latestAttempt.createdAt)}
-            />
-            <Row
-              label="Terminée le"
-              value={formatDateTime(latestAttempt.completedAt)}
-            />
-          </div>
-        </InfoSection>
-      )}
-    </div>
-  );
-
-  const renderManualFlow = () => {
-    const step1Completed = status === "PAYMENT_PENDING" || isPaid;
-    const step2Completed = isPaid;
-
-    return (
-      <div className="space-y-6">
-        <Alert tone="gray" title="Paiement manuel avec preuve">
-          <p>Flux de secours : le client paie hors ligne et envoie une preuve.</p>
-          <p className="mt-1">
-            L’admin enregistre la preuve puis valide manuellement.
-          </p>
-        </Alert>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-          <StepIndicator
-            number={1}
-            title="Enregistrer la preuve"
-            active={!step1Completed && isInvoiced}
-            completed={step1Completed}
-          />
-          <StepIndicator
-            number={2}
-            title="Valider le paiement"
-            active={step1Completed && !step2Completed}
-            completed={step2Completed}
-          />
-        </div>
-
-        <InfoSection title="Étape 1 — Preuve de paiement">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="URL de la preuve" optional>
-              <input
-                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={proofUrl}
-                onChange={(e) => setProofUrl(e.target.value)}
-                disabled={!canProof || saving || step1Completed}
-                placeholder="https://..."
+  // Rendu du contenu principal selon le flux
+  const renderMainContent = () => {
+    // Flux Espèces
+    if (isCashFlow) {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Colonne gauche: Alerte + Action */}
+          <CompactInfoCard title="💵 Paiement espèces">
+            <Alert tone="amber" className="mb-4 p-2 text-xs">
+              Paiement manuel au bureau. L'admin encaisse et valide.
+            </Alert>
+            <Field label="Note d'encaissement" optional>
+              <textarea
+                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 text-sm min-h-[80px]"
+                value={cashNote}
+                onChange={(e) => setCashNote(e.target.value)}
+                disabled={!canCashPay || saving || isPaid}
+                placeholder="Ex: Paiement reçu au comptoir..."
               />
             </Field>
-
-            <Field label="Référence transaction" optional>
-              <input
-                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={proofRef}
-                onChange={(e) => setProofRef(e.target.value)}
-                disabled={!canProof || saving || step1Completed}
-                placeholder="WAVE-XXXX / OM-XXXX"
-              />
-            </Field>
-          </div>
-
-          <Field label="Note" optional>
-            <textarea
-              className="input w-full min-h-[100px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-              value={proofNote}
-              onChange={(e) => setProofNote(e.target.value)}
-              disabled={!canProof || saving || step1Completed}
-              placeholder="Capture reçue par WhatsApp..."
-            />
-          </Field>
-
-          <div className="flex items-center gap-4 pt-2">
-            <button
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
-                !canProof || saving || step1Completed
-                  ? "opacity-50 cursor-not-allowed bg-gray-400"
-                  : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow"
-              }`}
-              onClick={onProof}
-              disabled={!canProof || saving || step1Completed}
-              type="button"
-            >
-              {saving ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin">⚪</span>
-                  Enregistrement...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  📸 Marquer preuve reçue
-                </span>
-              )}
-            </button>
-
-            <span className="text-xs text-gray-500">
-              {step1Completed ? "✓ Preuve enregistrée" : "Statut INVOICED requis"}
-            </span>
-          </div>
-        </InfoSection>
-
-        <InfoSection title="Étape 2 — Validation finale">
-          <Field label="Note de validation" optional>
-            <input
-              className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-              value={verifyNote}
-              onChange={(e) => setVerifyNote(e.target.value)}
-              disabled={!canVerify || saving || step2Completed}
-              placeholder="Paiement vérifié, tout est conforme..."
-            />
-          </Field>
-
-          <div className="flex items-center gap-4 pt-2">
-            <button
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
-                !canVerify || saving || step2Completed
-                  ? "opacity-50 cursor-not-allowed bg-gray-400"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow"
-              }`}
-              onClick={onVerify}
-              disabled={!canVerify || saving || step2Completed}
-              type="button"
-            >
-              {saving ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin">⚪</span>
-                  Validation...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  ✅ Valider le paiement
-                </span>
-              )}
-            </button>
-
-            <span className="text-xs text-gray-500">
-              {step2Completed ? "✓ Paiement validé" : "Statut PAYMENT_PENDING requis"}
-            </span>
-          </div>
-        </InfoSection>
-
-        {(order?.manualPaymentProofUrl ||
-          order?.paymentProofUrl ||
-          order?.manualPaymentReference ||
-          order?.paymentRef ||
-          order?.manualPaymentProofNote ||
-          order?.paymentProofNote) && (
-          <InfoSection title="Preuve enregistrée">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Row
-                label="URL preuve"
-                value={
-                  order?.manualPaymentProofUrl || order?.paymentProofUrl ? (
-                    <a
-                      className="text-indigo-600 hover:text-indigo-800 underline inline-flex items-center gap-1"
-                      href={order?.manualPaymentProofUrl || order?.paymentProofUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      🔗 Voir la preuve
-                    </a>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-              <Row
-                label="Référence"
-                value={order?.manualPaymentReference || order?.paymentRef}
-                copyable
-              />
+            <div className="flex items-center justify-between gap-3 mt-3">
+              <button
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                  !canCashPay || saving || isPaid
+                    ? "opacity-50 cursor-not-allowed bg-gray-400"
+                    : "bg-amber-600 hover:bg-amber-700 text-white"
+                }`}
+                onClick={onCashPay}
+                disabled={!canCashPay || saving || isPaid}
+                type="button"
+              >
+                {saving ? "Traitement..." : "💰 Marquer encaissé"}
+              </button>
+              <span className="text-xs text-gray-500">
+                {isPaid ? "Payé" : canCashPay ? "Prêt" : "Non disponible"}
+              </span>
             </div>
+          </CompactInfoCard>
 
-            {(order?.manualPaymentProofNote || order?.paymentProofNote) && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-700 whitespace-pre-wrap border border-gray-200">
-                <span className="text-xs text-gray-500 block mb-1">Note :</span>
-                {order?.manualPaymentProofNote || order?.paymentProofNote}
+          {/* Colonne droite: Traçabilité */}
+          {(order?.paymentVerifiedBy || order?.paidAt) && (
+            <CompactInfoCard title="📋 Traçabilité">
+              <Row label="Validé par" value={order?.paymentVerifiedBy} />
+              <Row label="Validé le" value={formatDateTime(order?.paidAt)} />
+            </CompactInfoCard>
+          )}
+        </div>
+      );
+    }
+
+    // Flux Wave
+    if (isWaveFlow) {
+      return (
+        <div className="space-y-4">
+          {/* Ligne 1: Stats Wave */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard label="Statut Wave" value={<PaymentStatusBadge status={paymentStatus} />} subvalue="Paiement" tone={isPaid ? "emerald" : "blue"} />
+            <StatCard label="Montant" value={formatFcfa(order?.totalFcfa)} subvalue="Attendu" tone="gray" />
+            <StatCard label="Payé" value={formatFcfa(activePayment?.amountPaidFcfa || 0)} subvalue="Confirmé" tone={isPaid ? "emerald" : "gray"} />
+            <StatCard label="Session" value={waveSessionId.substring(0, 12) + "..."} subvalue="ID" tone="blue" />
+          </div>
+
+          {/* Ligne 2: Infos Wave + Actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <CompactInfoCard title="🔗 Détails Wave">
+              <Row label="Session ID" value={waveSessionId} copyable />
+              <Row label="Transaction ID" value={waveTransactionId} copyable />
+              <Row label="Lien de paiement" value={
+                waveCheckoutUrl && waveCheckoutUrl !== "—" ? (
+                  <a href={waveCheckoutUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 text-sm">🔗 Ouvrir</a>
+                ) : "—"
+              } />
+              <Row label="Dernière synchro" value={formatDateTime(activePayment?.updatedAt || latestAttempt?.updatedAt)} />
+            </CompactInfoCard>
+
+            <CompactInfoCard title="⚡ Actions Wave">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={`px-4 py-1.5 rounded-lg font-medium text-sm transition-all ${
+                    !canInitiateWave ? "opacity-50 cursor-not-allowed bg-gray-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                  onClick={onInitiateWave}
+                  disabled={!canInitiateWave}
+                  type="button"
+                >
+                  {saving ? "..." : "💰 Initier / réinitier"}
+                </button>
+                <button
+                  className="px-4 py-1.5 rounded-lg font-medium text-sm border border-gray-200 hover:bg-gray-50"
+                  onClick={onSyncWave}
+                  disabled={saving || !isWave}
+                  type="button"
+                >
+                  🔄 Synchroniser
+                </button>
+                {waveCheckoutUrl && waveCheckoutUrl !== "—" && (
+                  <a href={waveCheckoutUrl} target="_blank" rel="noreferrer" className="px-4 py-1.5 rounded-lg font-medium text-sm border border-blue-200 bg-blue-50 text-blue-700">
+                    🔗 Wave
+                  </a>
+                )}
+                <button
+                  className="px-4 py-1.5 rounded-lg font-medium text-sm border border-gray-200 hover:bg-gray-50"
+                  onClick={reload}
+                  disabled={saving}
+                  type="button"
+                >
+                  🔄 Rafraîchir
+                </button>
               </div>
-            )}
-          </InfoSection>
-        )}
-      </div>
-    );
+              <div className={`mt-3 p-2 rounded-lg text-xs ${isPaid ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>
+                {isPaid ? "✅ Paiement confirmé" : "⏳ En attente de paiement"}
+              </div>
+            </CompactInfoCard>
+          </div>
+
+          {/* Ligne 3: Détails additionnels (si disponibles) */}
+          {(activePayment || latestAttempt) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {activePayment && (
+                <CompactInfoCard title="💳 Détails paiement">
+                  <div className="grid grid-cols-2 gap-1">
+                    <Row label="Provider" value={activePayment.provider} />
+                    <Row label="Status" value={<PaymentStatusBadge status={activePayment.status} />} />
+                    <Row label="Montant attendu" value={formatFcfa(activePayment.amountExpectedFcfa)} />
+                    <Row label="Payé" value={formatFcfa(activePayment.amountPaidFcfa)} highlight={activePayment.amountPaidFcfa > 0} />
+                    <Row label="Payé le" value={formatDateTime(activePayment.paidAt)} />
+                    <Row label="Client ref" value={activePayment.clientReference} copyable />
+                  </div>
+                </CompactInfoCard>
+              )}
+              {latestAttempt && (
+                <CompactInfoCard title="🔄 Dernière tentative">
+                  <div className="grid grid-cols-2 gap-1">
+                    <Row label="Status" value={<PaymentStatusBadge status={latestAttempt.status} />} />
+                    <Row label="Créée le" value={formatDateTime(latestAttempt.createdAt)} />
+                    <Row label="Terminée le" value={formatDateTime(latestAttempt.completedAt)} />
+                  </div>
+                </CompactInfoCard>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Flux Manuel avec preuve
+    if (isManualFlow) {
+      return (
+        <div className="space-y-4">
+          {/* Étapes */}
+          <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+            <StepIndicator number={1} title="Preuve" active={!step1Completed && isInvoiced} completed={step1Completed} />
+            <StepIndicator number={2} title="Validation" active={step1Completed && !step2Completed} completed={step2Completed} />
+          </div>
+
+          {/* Étape 1 - Preuve */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <CompactInfoCard title="📸 Étape 1 - Preuve de paiement">
+              <Field label="URL preuve" optional>
+                <input
+                  className="input w-full rounded-lg border-gray-200 text-sm"
+                  value={proofUrl}
+                  onChange={(e) => setProofUrl(e.target.value)}
+                  disabled={!canProof || saving || step1Completed}
+                  placeholder="https://..."
+                />
+              </Field>
+              <Field label="Référence transaction" optional className="mt-2">
+                <input
+                  className="input w-full rounded-lg border-gray-200 text-sm"
+                  value={proofRef}
+                  onChange={(e) => setProofRef(e.target.value)}
+                  disabled={!canProof || saving || step1Completed}
+                  placeholder="WAVE-XXXX / OM-XXXX"
+                />
+              </Field>
+              <Field label="Note" optional className="mt-2">
+                <textarea
+                  className="input w-full rounded-lg border-gray-200 text-sm min-h-[70px]"
+                  value={proofNote}
+                  onChange={(e) => setProofNote(e.target.value)}
+                  disabled={!canProof || saving || step1Completed}
+                  placeholder="Capture reçue par WhatsApp..."
+                />
+              </Field>
+              <div className="flex items-center justify-between gap-3 mt-3">
+                <button
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                    !canProof || saving || step1Completed
+                      ? "opacity-50 cursor-not-allowed bg-gray-400"
+                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  }`}
+                  onClick={onProof}
+                  disabled={!canProof || saving || step1Completed}
+                  type="button"
+                >
+                  {saving ? "..." : "📸 Enregistrer la preuve"}
+                </button>
+                <span className="text-xs text-gray-500">{step1Completed ? "✓ Reçue" : "INVOICED requis"}</span>
+              </div>
+            </CompactInfoCard>
+
+            {/* Étape 2 - Validation */}
+            <CompactInfoCard title="✅ Étape 2 - Validation finale">
+              <Field label="Note de validation" optional>
+                <input
+                  className="input w-full rounded-lg border-gray-200 text-sm"
+                  value={verifyNote}
+                  onChange={(e) => setVerifyNote(e.target.value)}
+                  disabled={!canVerify || saving || step2Completed}
+                  placeholder="Paiement vérifié..."
+                />
+              </Field>
+              <div className="flex items-center justify-between gap-3 mt-3">
+                <button
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                    !canVerify || saving || step2Completed
+                      ? "opacity-50 cursor-not-allowed bg-gray-400"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  }`}
+                  onClick={onVerify}
+                  disabled={!canVerify || saving || step2Completed}
+                  type="button"
+                >
+                  {saving ? "..." : "✅ Valider le paiement"}
+                </button>
+                <span className="text-xs text-gray-500">{step2Completed ? "✓ Validé" : "PAYMENT_PENDING requis"}</span>
+              </div>
+            </CompactInfoCard>
+          </div>
+
+          {/* Preuve enregistrée existante */}
+          {(order?.manualPaymentProofUrl || order?.paymentProofUrl || order?.manualPaymentReference) && (
+            <CompactInfoCard title="📋 Preuve enregistrée">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Row label="URL" value={
+                  (order?.manualPaymentProofUrl || order?.paymentProofUrl) ? (
+                    <a href={order?.manualPaymentProofUrl || order?.paymentProofUrl} target="_blank" rel="noreferrer" className="text-indigo-600 text-sm">🔗 Voir</a>
+                  ) : "—"
+                } />
+                <Row label="Référence" value={order?.manualPaymentReference || order?.paymentRef} copyable />
+              </div>
+              {(order?.manualPaymentProofNote || order?.paymentProofNote) && (
+                <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-700">
+                  {order?.manualPaymentProofNote || order?.paymentProofNote}
+                </div>
+              )}
+            </CompactInfoCard>
+          )}
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
-    <div className="space-y-6">
-      <InfoSection title="Paiement">
-        <p className="text-sm text-gray-600">
-          Traitement du paiement selon le mode sélectionné.
-        </p>
+    <div className="space-y-4">
+      {/* Ligne 1: Cartes de statut */}
+      {renderStatCards()}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Mode"
-            value={
-              <PaymentMethodBadge
-                isCash={isCash}
-                isWave={isWave}
-                isAutoPayment={isAutoPayment}
-              />
-            }
-            subvalue={
-              order?.preorderPaymentMode ||
-              order?.paymentMode ||
-              order?.paymentProvider ||
-              "—"
-            }
-            tone={isCash ? "amber" : isWave || isAutoPayment ? "blue" : "gray"}
-          />
-          <StatCard
-            label="Statut commande"
-            value={status || "—"}
-            subvalue={isPaid ? "Payé" : "En attente"}
-            tone={isPaid ? "emerald" : "gray"}
-            icon={isPaid ? "✅" : "⏳"}
-          />
-          <StatCard
-            label="Référence"
-            value={waveTransactionId !== "—" ? waveTransactionId : waveSessionId}
-            subvalue="Transaction / session"
-            tone="blue"
-            icon="🔢"
-          />
-          <StatCard
-            label="Date"
-            value={formatDateTime(order?.paidAt)}
-            subvalue="de paiement"
-            tone="gray"
-            icon="📅"
-          />
-        </div>
-      </InfoSection>
+      {/* Ligne 2: Message de statut (si présent) */}
+      {statusMessage && (
+        <Alert tone={statusMessage.tone} className="py-2">
+          {statusMessage.text}
+        </Alert>
+      )}
 
-      {isCash && renderCashFlow()}
-      {!isCash && isWave && renderWaveFlow()}
-      {!isCash && !isWave && !isAutoPayment && renderManualFlow()}
-      {!isCash && !isWave && isAutoPayment && renderWaveFlow()}
+      {/* Ligne 3: Contenu principal selon le flux */}
+      {renderMainContent()}
     </div>
   );
 }
