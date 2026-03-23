@@ -1,7 +1,3 @@
-// src/components/orders/detail/OrderPaymentTab.jsx
-// Composant de l'onglet "Paiement" dans la page de détail d'une commande. Ce composant affiche les informations de paiement de la commande, le mode de paiement utilisé, et propose des actions spécifiques selon le mode (ex: marquer comme encaissé pour les paiements en espèces, valider la preuve pour les paiements manuels). Il gère également l'affichage conditionnel des différentes étapes du processus de paiement selon le statut actuel de la commande.
-
-
 // ============================================================================
 // Sous-composants
 // ============================================================================
@@ -46,11 +42,7 @@ function Alert({ tone = "blue", title, children }) {
           {icons[tone] || icons.blue}
         </span>
         <div className="flex-1">
-          {title && (
-            <div className="font-semibold text-sm mb-1 flex items-center gap-2">
-              {title}
-            </div>
-          )}
+          {title && <div className="font-semibold text-sm mb-1">{title}</div>}
           <div className="text-sm leading-relaxed">{children}</div>
         </div>
       </div>
@@ -152,6 +144,58 @@ function StepIndicator({ number, title, active = false, completed = false }) {
   );
 }
 
+function PaymentStatusBadge({ status }) {
+  const value = String(status || "").toUpperCase();
+
+  const config = {
+    PENDING_CUSTOMER_ACTION: {
+      label: "En attente client",
+      cls: "bg-amber-100 text-amber-700 border-amber-200",
+    },
+    PAYMENT_PENDING: {
+      label: "Paiement en attente",
+      cls: "bg-amber-100 text-amber-700 border-amber-200",
+    },
+    PROCESSING: {
+      label: "En cours",
+      cls: "bg-blue-100 text-blue-700 border-blue-200",
+    },
+    SUCCEEDED: {
+      label: "Payé",
+      cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    },
+    PAID: {
+      label: "Payé",
+      cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    },
+    EXPIRED: {
+      label: "Expiré",
+      cls: "bg-orange-100 text-orange-700 border-orange-200",
+    },
+    CANCELLED: {
+      label: "Annulé",
+      cls: "bg-red-100 text-red-700 border-red-200",
+    },
+    FAILED: {
+      label: "Échec",
+      cls: "bg-red-100 text-red-700 border-red-200",
+    },
+  };
+
+  const item = config[value] || {
+    label: status || "—",
+    cls: "bg-gray-100 text-gray-700 border-gray-200",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${item.cls}`}
+    >
+      {item.label}
+    </span>
+  );
+}
+
 // ============================================================================
 // Utilitaires
 // ============================================================================
@@ -218,12 +262,7 @@ function getLatestAttempt(order) {
 }
 
 function getPaymentDisplayStatus(order) {
-  return (
-    order?.activePayment?.status ||
-    order?.paymentStatus ||
-    order?.status ||
-    "—"
-  );
+  return order?.activePayment?.status || order?.paymentStatus || order?.status || "—";
 }
 
 // ============================================================================
@@ -258,17 +297,22 @@ export default function OrderPaymentTab({
   const status = order?.status;
   const isPaid = status === "PAID";
   const isInvoiced = status === "INVOICED";
-  const isPaymentPending = status === "PAYMENT_PENDING";
+  const isPaymentPendingStatus = status === "PAYMENT_PENDING";
   const hasPaymentInfo = Boolean(
     order?.paidAt || order?.paymentVerifiedBy || order?.paymentRef
   );
 
-  const isWave = order?.paymentProvider === "WAVE";
+  const isWave =
+    order?.paymentProvider === "WAVE" ||
+    order?.preorderPaymentMode === "WAVE" ||
+    order?.paymentMode === "WAVE";
+
   const activePayment = order?.activePayment || null;
   const latestAttempt = getLatestAttempt(order);
 
-  const canInitiateWave =
-    ["INVOICED", "PAYMENT_PENDING"].includes(status) && !saving;
+  const paymentStatus = String(
+    activePayment?.status || order?.paymentStatus || ""
+  ).toUpperCase();
 
   const waveCheckoutUrl =
     latestAttempt?.providerLaunchUrl ||
@@ -283,18 +327,22 @@ export default function OrderPaymentTab({
     "—";
 
   const waveTransactionId =
-    latestAttempt?.providerTransactionId ||
     activePayment?.providerTxnId ||
+    latestAttempt?.providerTransactionId ||
+    order?.paymentRef ||
     "—";
+
+  const canInitiateWave =
+    ["INVOICED", "PAYMENT_PENDING"].includes(status) && !saving;
 
   const renderCashFlow = () => (
     <div className="space-y-6">
-      <Alert tone="amber" title="💵 Paiement espèces">
+      <Alert tone="amber" title="Paiement espèces">
         <p>
           Ce paiement se fait <strong>manuellement au bureau</strong>.
         </p>
         <p className="mt-1">
-          L'admin doit encaisser et marquer la commande comme payée.
+          L’admin doit encaisser et marquer la commande comme payée.
         </p>
       </Alert>
 
@@ -305,7 +353,7 @@ export default function OrderPaymentTab({
             value={cashNote}
             onChange={(e) => setCashNote(e.target.value)}
             disabled={!canCashPay || saving || isPaid}
-            placeholder="Ex: Paiement reçu au comptoir par Mamadou..."
+            placeholder="Ex: Paiement reçu au comptoir..."
           />
         </Field>
 
@@ -360,12 +408,13 @@ export default function OrderPaymentTab({
 
   const renderWaveFlow = () => (
     <div className="space-y-6">
-      <Alert tone="blue" title="🌊 Paiement Wave">
+      <Alert tone="blue" title="Paiement Wave">
         <p>
           Cette commande utilise un <strong>checkout Wave</strong>.
         </p>
         <p className="mt-1">
-          Le client paie via le lien Wave, puis l’admin peut synchroniser le statut.
+          Le client paie via le lien Wave, puis l’admin peut synchroniser le
+          statut si nécessaire.
         </p>
       </Alert>
 
@@ -380,24 +429,24 @@ export default function OrderPaymentTab({
           />
           <StatCard
             label="Statut paiement"
-            value={getPaymentDisplayStatus(order)}
-            subvalue="Payment / Attempt"
+            value={<PaymentStatusBadge status={paymentStatus} />}
+            subvalue="Payment actif"
             tone={isPaid ? "emerald" : "blue"}
             icon="💳"
           />
           <StatCard
-            label="Montant"
+            label="Montant attendu"
             value={formatFcfa(order?.totalFcfa)}
-            subvalue="Attendu"
+            subvalue="Commande"
             tone="gray"
             icon="💰"
           />
           <StatCard
-            label="Date"
-            value={formatDateTime(order?.paidAt)}
-            subvalue="Paiement"
-            tone="gray"
-            icon="📅"
+            label="Montant payé"
+            value={formatFcfa(activePayment?.amountPaidFcfa || 0)}
+            subvalue="Confirmé"
+            tone={isPaid ? "emerald" : "gray"}
+            icon="🧾"
           />
         </div>
 
@@ -424,6 +473,19 @@ export default function OrderPaymentTab({
           <Row
             label="Tentative créée le"
             value={formatDateTime(latestAttempt?.createdAt)}
+          />
+          <Row
+            label="Paiement confirmé le"
+            value={formatDateTime(
+              activePayment?.paidAt || latestAttempt?.completedAt || order?.paidAt
+            )}
+            highlight={isPaid}
+          />
+          <Row
+            label="Dernière synchro"
+            value={formatDateTime(
+              activePayment?.updatedAt || latestAttempt?.updatedAt
+            )}
           />
         </div>
 
@@ -475,7 +537,7 @@ export default function OrderPaymentTab({
           className={`mt-2 p-3 rounded-lg text-sm ${
             isPaid
               ? "bg-emerald-50 text-emerald-700"
-              : isPaymentPending || isInvoiced
+              : isPaymentPendingStatus || isInvoiced || paymentStatus === "PROCESSING"
                 ? "bg-blue-50 text-blue-700"
                 : "bg-gray-50 text-gray-600"
           }`}
@@ -498,7 +560,10 @@ export default function OrderPaymentTab({
             <Row label="Payment ID" value={activePayment.id} copyable />
             <Row label="Provider" value={activePayment.provider} />
             <Row label="Method type" value={activePayment.methodType} />
-            <Row label="Statut Payment" value={activePayment.status} />
+            <Row
+              label="Statut Payment"
+              value={<PaymentStatusBadge status={activePayment.status} />}
+            />
             <Row
               label="Montant attendu"
               value={formatFcfa(activePayment.amountExpectedFcfa)}
@@ -506,12 +571,70 @@ export default function OrderPaymentTab({
             <Row
               label="Montant payé"
               value={formatFcfa(activePayment.amountPaidFcfa)}
+              highlight={activePayment.amountPaidFcfa > 0}
             />
-            <Row label="Référence provider" value={activePayment.providerReference} copyable />
-            <Row label="Txn provider" value={activePayment.providerTxnId} copyable />
-            <Row label="Client ref" value={activePayment.clientReference} copyable />
-            <Row label="Initié le" value={formatDateTime(activePayment.initiatedAt)} />
+            <Row
+              label="Référence provider"
+              value={activePayment.providerReference}
+              copyable
+            />
+            <Row
+              label="Txn provider"
+              value={activePayment.providerTxnId}
+              copyable
+            />
+            <Row
+              label="Client ref"
+              value={activePayment.clientReference}
+              copyable
+            />
+            <Row
+              label="Initié le"
+              value={formatDateTime(activePayment.initiatedAt)}
+            />
             <Row label="Payé le" value={formatDateTime(activePayment.paidAt)} />
+            <Row
+              label="Mis à jour le"
+              value={formatDateTime(activePayment.updatedAt)}
+            />
+          </div>
+        </InfoSection>
+      )}
+
+      {latestAttempt && (
+        <InfoSection title="Dernière tentative Wave">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Row label="Attempt ID" value={latestAttempt.id} copyable />
+            <Row
+              label="Statut tentative"
+              value={<PaymentStatusBadge status={latestAttempt.status} />}
+            />
+            <Row
+              label="Session ID"
+              value={latestAttempt.providerSessionId}
+              copyable
+            />
+            <Row
+              label="Transaction ID"
+              value={
+                latestAttempt.providerTransactionId ||
+                activePayment?.providerTxnId ||
+                "—"
+              }
+              copyable={
+                Boolean(
+                  latestAttempt.providerTransactionId || activePayment?.providerTxnId
+                )
+              }
+            />
+            <Row
+              label="Créée le"
+              value={formatDateTime(latestAttempt.createdAt)}
+            />
+            <Row
+              label="Terminée le"
+              value={formatDateTime(latestAttempt.completedAt)}
+            />
           </div>
         </InfoSection>
       )}
@@ -524,10 +647,10 @@ export default function OrderPaymentTab({
 
     return (
       <div className="space-y-6">
-        <Alert tone="gray" title="📎 Paiement manuel avec preuve">
+        <Alert tone="gray" title="Paiement manuel avec preuve">
           <p>Flux de secours : le client paie hors ligne et envoie une preuve.</p>
           <p className="mt-1">
-            L'admin enregistre la preuve puis valide manuellement.
+            L’admin enregistre la preuve puis valide manuellement.
           </p>
         </Alert>
 
@@ -575,7 +698,7 @@ export default function OrderPaymentTab({
               value={proofNote}
               onChange={(e) => setProofNote(e.target.value)}
               disabled={!canProof || saving || step1Completed}
-              placeholder="Capture d'écran reçue par WhatsApp..."
+              placeholder="Capture reçue par WhatsApp..."
             />
           </Field>
 
@@ -603,9 +726,7 @@ export default function OrderPaymentTab({
             </button>
 
             <span className="text-xs text-gray-500">
-              {step1Completed
-                ? "✓ Preuve enregistrée"
-                : "Statut INVOICED requis"}
+              {step1Completed ? "✓ Preuve enregistrée" : "Statut INVOICED requis"}
             </span>
           </div>
         </InfoSection>
@@ -645,9 +766,7 @@ export default function OrderPaymentTab({
             </button>
 
             <span className="text-xs text-gray-500">
-              {step2Completed
-                ? "✓ Paiement validé"
-                : "Statut PAYMENT_PENDING requis"}
+              {step2Completed ? "✓ Paiement validé" : "Statut PAYMENT_PENDING requis"}
             </span>
           </div>
         </InfoSection>
@@ -713,7 +832,12 @@ export default function OrderPaymentTab({
                 isAutoPayment={isAutoPayment}
               />
             }
-            subvalue={order?.paymentMode || order?.paymentProvider || "—"}
+            subvalue={
+              order?.preorderPaymentMode ||
+              order?.paymentMode ||
+              order?.paymentProvider ||
+              "—"
+            }
             tone={isCash ? "amber" : isWave || isAutoPayment ? "blue" : "gray"}
           />
           <StatCard
@@ -725,7 +849,7 @@ export default function OrderPaymentTab({
           />
           <StatCard
             label="Référence"
-            value={order?.paymentRef || waveSessionId || "—"}
+            value={waveTransactionId !== "—" ? waveTransactionId : waveSessionId}
             subvalue="Transaction / session"
             tone="blue"
             icon="🔢"

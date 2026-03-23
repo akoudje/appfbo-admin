@@ -1,5 +1,3 @@
-// src/components/orders/detail/OrderBillingTab.jsx
-
 import React from "react";
 
 // ============================================================================
@@ -46,11 +44,7 @@ function Alert({ tone = "blue", title, children }) {
           {icons[tone] || icons.blue}
         </span>
         <div className="flex-1">
-          {title && (
-            <div className="font-semibold text-sm mb-1 flex items-center gap-2">
-              {title}
-            </div>
-          )}
+          {title && <div className="font-semibold text-sm mb-1">{title}</div>}
           <div className="text-sm leading-relaxed">{children}</div>
         </div>
       </div>
@@ -59,11 +53,19 @@ function Alert({ tone = "blue", title, children }) {
 }
 
 function Row({ label, value, highlight = false, copyable = false }) {
-  const handleCopy = () => {
-    if (typeof value === "string" && value && value !== "—") {
-      navigator.clipboard?.writeText(value);
+  const handleCopy = async () => {
+    if (!value || value === "—") return;
+    if (typeof value !== "string") return;
+
+    try {
+      await navigator.clipboard?.writeText(value);
+    } catch {
+      // noop
     }
   };
+
+  const isReactNode =
+    typeof value === "object" && value !== null && !Array.isArray(value);
 
   return (
     <div className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-gray-100 last:border-0">
@@ -73,14 +75,13 @@ function Row({ label, value, highlight = false, copyable = false }) {
           highlight ? "text-indigo-600" : ""
         }`}
       >
-        <span className="break-all">
-          {value ?? "—"}
-        </span>
-        {copyable && typeof value === "string" && value && value !== "—" && (
+        {isReactNode ? value : <span className="break-all">{value ?? "—"}</span>}
+        {copyable && !isReactNode && typeof value === "string" && value && value !== "—" && (
           <button
             onClick={handleCopy}
             className="text-gray-400 hover:text-gray-600 transition-colors"
             title="Copier"
+            type="button"
           >
             📋
           </button>
@@ -232,6 +233,12 @@ function formatDateTime(value) {
   }
 }
 
+function getLatestAttempt(order) {
+  const attempts = order?.activePayment?.attempts;
+  if (Array.isArray(attempts) && attempts.length > 0) return attempts[0];
+  return null;
+}
+
 // ============================================================================
 // Composant principal
 // ============================================================================
@@ -255,7 +262,7 @@ export default function OrderBillingTab({
   billingMessage = null,
   onResendWhatsApp,
 
-  // ✅ nouvelles props Wave
+  // ✅ props Wave
   onInitiateWave,
   onRefreshWaveStatus,
   onSimulateWave,
@@ -263,7 +270,9 @@ export default function OrderBillingTab({
   showWaveDevTools = false,
 }) {
   const status = order?.status;
-  const isSubmitted = status === "SUBMITTED";
+  const latestAttempt = getLatestAttempt(order);
+  const payment = order?.activePayment || null;
+
   const hasInvoice = [
     "INVOICED",
     "PAYMENT_PROOF_RECEIVED",
@@ -273,41 +282,53 @@ export default function OrderBillingTab({
     "PAYMENT_PENDING",
   ].includes(status);
 
-  const payment = order?.activePayment || null;
   const paymentStatus = payment?.status || order?.paymentStatus || null;
   const paymentProvider = payment?.provider || order?.paymentProvider || null;
-  const paymentRef = payment?.providerReference || order?.paymentRef || null;
+  const paymentSessionId =
+    latestAttempt?.providerSessionId || payment?.providerReference || "—";
+  const paymentTxnId =
+    payment?.providerTxnId || latestAttempt?.providerTransactionId || "—";
 
-  const resolvedPaymentLink = paymentLink || order?.paymentLink || "";
+  const resolvedPaymentLink =
+    paymentLink ||
+    latestAttempt?.providerLaunchUrl ||
+    latestAttempt?.checkoutUrl ||
+    order?.paymentLink ||
+    "";
+
   const resolvedWhatsappStatus =
     billingMessage?.status || order?.lastWhatsappStatus || null;
 
   const hasWhatsappMessage = Boolean(order?.whatsappMessage);
   const hasBillingInfo = Boolean(
-    order?.factureReference || order?.factureWhatsappTo || order?.paymentLink
+    order?.factureReference ||
+      order?.factureWhatsappTo ||
+      resolvedPaymentLink ||
+      paymentSessionId !== "—" ||
+      paymentTxnId !== "—"
   );
 
   const canUseWave = !isCash && isAutoPayment;
+
+  const normalizedPaymentStatus = String(paymentStatus || "").toUpperCase();
   const isPaymentPending = [
     "PAYMENT_PENDING",
     "PENDING_CUSTOMER_ACTION",
     "PROCESSING",
-  ].includes(String(paymentStatus || "").toUpperCase());
+  ].includes(normalizedPaymentStatus);
 
   const isPaymentSucceeded = ["SUCCEEDED", "PAID"].includes(
-    String(paymentStatus || "").toUpperCase()
+    normalizedPaymentStatus
   );
 
-  const isPaymentExpired =
-    String(paymentStatus || "").toUpperCase() === "EXPIRED";
-
-  const isPaymentCancelled =
-    String(paymentStatus || "").toUpperCase() === "CANCELLED";
+  const isPaymentExpired = normalizedPaymentStatus === "EXPIRED";
+  const isPaymentCancelled = normalizedPaymentStatus === "CANCELLED";
+  const isPaymentFailed = normalizedPaymentStatus === "FAILED";
 
   const renderPaymentAlert = () => {
     if (isCash) {
       return (
-        <Alert tone="amber" title="💵 Paiement espèces">
+        <Alert tone="amber" title="Paiement espèces">
           <p>
             Cette commande est en paiement <strong>espèces</strong>.
           </p>
@@ -319,34 +340,30 @@ export default function OrderBillingTab({
       );
     }
 
-    if (isAutoPayment && hasInvoice) {
+    if (canUseWave) {
       return (
-        <Alert tone="blue" title="🔗 Paiement mobile money / Wave">
+        <Alert tone="blue" title="Paiement Wave / Mobile Money">
           <p>
-            Cette commande utilise un <strong>paiement en ligne</strong>.
+            Cette commande utilise un <strong>checkout Wave</strong>.
           </p>
           <p className="mt-1">
-            Après facturation, un lien de paiement peut être initié puis envoyé
-            au client par WhatsApp.
+            Après facturation, vous pouvez initier le lien de paiement, l’envoyer
+            au client puis synchroniser le statut si nécessaire.
           </p>
         </Alert>
       );
     }
 
-    if (!isCash && !isAutoPayment) {
-      return (
-        <Alert tone="gray" title="📎 Mode manuel">
-          <p>
-            Cette commande n'utilise pas de lien de paiement automatique.
-          </p>
-          <p className="mt-1">
-            Le paiement sera traité manuellement après réception d'une preuve.
-          </p>
-        </Alert>
-      );
-    }
-
-    return null;
+    return (
+      <Alert tone="gray" title="Paiement manuel">
+        <p>
+          Cette commande n’utilise pas de lien de paiement automatique.
+        </p>
+        <p className="mt-1">
+          Le paiement sera traité manuellement après réception d’une preuve.
+        </p>
+      </Alert>
+    );
   };
 
   return (
@@ -359,9 +376,9 @@ export default function OrderBillingTab({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Statut"
-            value={status}
-            subvalue={isSubmitted ? "En attente de facturation" : "Facturé / en suivi"}
+            label="Statut commande"
+            value={status || "—"}
+            subvalue={hasInvoice ? "Facturée / en suivi" : "En attente de facturation"}
             tone={hasInvoice ? "emerald" : "gray"}
             icon={hasInvoice ? "✅" : "⏳"}
           />
@@ -374,15 +391,20 @@ export default function OrderBillingTab({
           />
           <StatCard
             label="Mode de paiement"
-            value={order?.paymentMode || "—"}
-            subvalue={isCash ? "Espèces" : isAutoPayment ? "Mobile money" : "Manuel"}
-            tone={isCash ? "amber" : "gray"}
+            value={
+              order?.preorderPaymentMode ||
+              order?.paymentMode ||
+              paymentProvider ||
+              "—"
+            }
+            subvalue={isCash ? "Espèces" : canUseWave ? "Wave" : "Manuel"}
+            tone={isCash ? "amber" : canUseWave ? "blue" : "gray"}
             icon={isCash ? "💵" : "💳"}
           />
           <StatCard
-            label="Référence"
+            label="Référence facture"
             value={order?.factureReference || "—"}
-            subvalue={hasInvoice ? "Facture générée" : "Préfacture"}
+            subvalue={hasInvoice ? "Préfacture générée" : "À générer"}
             tone={hasInvoice ? "emerald" : "gray"}
             icon="📄"
           />
@@ -391,7 +413,7 @@ export default function OrderBillingTab({
 
       {renderPaymentAlert()}
 
-      <InfoSection title="📋 Générer la préfacture">
+      <InfoSection title="Générer la préfacture">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Référence préfacture" optional>
             <input
@@ -439,7 +461,7 @@ export default function OrderBillingTab({
             placeholder={
               isCash
                 ? "Préfacture prête. Paiement à effectuer au bureau."
-                : "Préfacture prête. Le client recevra un lien de paiement."
+                : "Préfacture prête. Le client recevra un lien de paiement Wave."
             }
             disabled={!canInvoice || saving}
           />
@@ -454,6 +476,7 @@ export default function OrderBillingTab({
             }`}
             onClick={onInvoice}
             disabled={!canInvoice || saving}
+            type="button"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -480,7 +503,7 @@ export default function OrderBillingTab({
         </div>
       </InfoSection>
 
-      <InfoSection title="💳 Paiement Wave">
+      <InfoSection title="Paiement Wave">
         {!canUseWave ? (
           <Alert tone="gray" title="Paiement non concerné">
             Cette commande n’utilise pas le paiement Wave. Aucun lien de paiement
@@ -495,9 +518,14 @@ export default function OrderBillingTab({
                 value={<PaymentStatusBadge status={paymentStatus} />}
               />
               <Row
-                label="Référence paiement"
-                value={paymentRef || "—"}
-                copyable={typeof paymentRef === "string" && !!paymentRef}
+                label="Session Wave"
+                value={paymentSessionId}
+                copyable={paymentSessionId !== "—"}
+              />
+              <Row
+                label="Transaction Wave"
+                value={paymentTxnId}
+                copyable={paymentTxnId !== "—"}
               />
               <Row
                 label="Lien de paiement"
@@ -516,6 +544,24 @@ export default function OrderBillingTab({
                   )
                 }
               />
+              <Row
+                label="Dernière synchronisation utile"
+                value={formatDateTime(
+                  payment?.updatedAt ||
+                    latestAttempt?.updatedAt ||
+                    order?.billingLastActivityAt
+                )}
+              />
+              <Row
+                label="Payé le"
+                value={formatDateTime(payment?.paidAt || order?.paidAt)}
+                highlight={isPaymentSucceeded}
+              />
+              <Row
+                label="Montant payé"
+                value={formatFcfa(payment?.amountPaidFcfa || 0)}
+                highlight={isPaymentSucceeded}
+              />
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -523,6 +569,7 @@ export default function OrderBillingTab({
                 className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 onClick={onInitiateWave}
                 disabled={!canUseWave || saving || waveLoading}
+                type="button"
               >
                 💳 {resolvedPaymentLink ? "Réinitier le paiement" : "Initier le paiement"}
               </button>
@@ -530,9 +577,10 @@ export default function OrderBillingTab({
               <button
                 className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 onClick={onRefreshWaveStatus}
-                disabled={!canUseWave || saving || waveLoading || !paymentRef}
+                disabled={!canUseWave || saving || waveLoading || paymentSessionId === "—"}
+                type="button"
               >
-                🔄 Vérifier le paiement
+                🔄 Vérifier / synchroniser
               </button>
 
               {resolvedPaymentLink && (
@@ -540,6 +588,7 @@ export default function OrderBillingTab({
                   <button
                     className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                     onClick={() => navigator.clipboard?.writeText(resolvedPaymentLink)}
+                    type="button"
                   >
                     📋 Copier le lien
                   </button>
@@ -566,6 +615,7 @@ export default function OrderBillingTab({
                     className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
                     onClick={() => onSimulateWave("processing")}
                     disabled={waveLoading || saving}
+                    type="button"
                   >
                     Simuler processing
                   </button>
@@ -573,6 +623,7 @@ export default function OrderBillingTab({
                     className="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                     onClick={() => onSimulateWave("succeeded")}
                     disabled={waveLoading || saving}
+                    type="button"
                   >
                     Simuler succeeded
                   </button>
@@ -580,6 +631,7 @@ export default function OrderBillingTab({
                     className="px-3 py-2 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100"
                     onClick={() => onSimulateWave("expired")}
                     disabled={waveLoading || saving}
+                    type="button"
                   >
                     Simuler expired
                   </button>
@@ -587,6 +639,7 @@ export default function OrderBillingTab({
                     className="px-3 py-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
                     onClick={() => onSimulateWave("cancelled")}
                     disabled={waveLoading || saving}
+                    type="button"
                   >
                     Simuler cancelled
                   </button>
@@ -620,11 +673,18 @@ export default function OrderBillingTab({
                 lien si nécessaire.
               </Alert>
             )}
+
+            {isPaymentFailed && (
+              <Alert tone="red" title="Paiement échoué">
+                Le paiement Wave a échoué. Vérifiez le détail puis réinitiez une
+                nouvelle session si nécessaire.
+              </Alert>
+            )}
           </div>
         )}
       </InfoSection>
 
-      <InfoSection title="💬 Message WhatsApp">
+      <InfoSection title="Message WhatsApp">
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
           {hasWhatsappMessage ? (
             <div className="space-y-2">
@@ -647,14 +707,15 @@ export default function OrderBillingTab({
             className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={onCopyWhatsApp}
             disabled={!hasWhatsappMessage}
+            type="button"
           >
             📋 Copier le message
           </button>
 
-          {order?.paymentLink && (
+          {resolvedPaymentLink && (
             <a
               className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              href={order.paymentLink}
+              href={resolvedPaymentLink}
               target="_blank"
               rel="noreferrer"
             >
@@ -664,7 +725,7 @@ export default function OrderBillingTab({
         </div>
       </InfoSection>
 
-      <InfoSection title="📊 Suivi WhatsApp">
+      <InfoSection title="Suivi WhatsApp">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
             <div className="text-xs text-gray-500">Canal</div>
@@ -732,7 +793,7 @@ export default function OrderBillingTab({
         </div>
 
         {billingMessage?.errorMessage && (
-          <Alert tone="red" title="❌ Erreur d'envoi">
+          <Alert tone="red" title="Erreur d'envoi">
             {billingMessage.errorMessage}
           </Alert>
         )}
@@ -743,6 +804,7 @@ export default function OrderBillingTab({
               className="btn inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
               onClick={onResendWhatsApp}
               disabled={!billingMessage?.id || saving}
+              type="button"
             >
               🔄 Renvoyer le message
             </button>
@@ -751,7 +813,7 @@ export default function OrderBillingTab({
       </InfoSection>
 
       {hasBillingInfo && (
-        <InfoSection title="📌 Informations de facturation">
+        <InfoSection title="Informations de facturation">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Row label="Référence facture" value={order?.factureReference} copyable />
             <Row
@@ -760,12 +822,22 @@ export default function OrderBillingTab({
               copyable
             />
             <Row
+              label="Session Wave"
+              value={paymentSessionId}
+              copyable={paymentSessionId !== "—"}
+            />
+            <Row
+              label="Transaction Wave"
+              value={paymentTxnId}
+              copyable={paymentTxnId !== "—"}
+            />
+            <Row
               label="Lien de paiement"
               value={
-                order?.paymentLink ? (
+                resolvedPaymentLink ? (
                   <a
                     className="text-indigo-600 hover:text-indigo-800 underline inline-flex items-center gap-1"
-                    href={order.paymentLink}
+                    href={resolvedPaymentLink}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -776,12 +848,15 @@ export default function OrderBillingTab({
                 )
               }
             />
-            <Row label="Référence paiement" value={order?.paymentRef} copyable />
+            <Row
+              label="Payé le"
+              value={formatDateTime(payment?.paidAt || order?.paidAt)}
+            />
           </div>
 
           {order?.invoicedAt && (
             <div className="mt-4 text-xs text-gray-500 border-t border-gray-100 pt-3">
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 flex-wrap">
                 <span>📅 Facturée le</span>
                 <span className="font-medium text-gray-700">
                   {formatDateTime(order.invoicedAt)}
