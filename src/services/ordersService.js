@@ -2,59 +2,144 @@
 // Service d'API pour les commandes, fournissant des méthodes pour récupérer les commandes, leurs détails, leurs messages, et pour effectuer des actions sur les commandes (ex: facturer, préparer, expédier). Ce service utilise une instance d'API préconfigurée pour faire des requêtes vers les endpoints correspondants de l'API backend.
 // Service d'API pour les commandes + flux de paiement Wave
 
+// admin-app/src/services/ordersService.js
+// Service API commandes + paiement Wave (version PATCHÉE et sécurisée)
+
 import api from "./api";
 
-export const ordersService = {
-  // lecture
-  getAll: async (params) => (await api.get("/admin/orders", { params })).data,
+/* =========================================================
+   Helpers
+========================================================= */
 
-  getById: async (id) => (await api.get(`/admin/orders/${id}`)).data,
+/**
+ * Permet d'accepter soit un id string, soit un objet order
+ * ex:
+ *   "abc123"
+ *   { id: "abc123" }
+ */
+function normalizeOrderId(idOrOrder) {
+  if (!idOrOrder) return null;
+  if (typeof idOrOrder === "string") return idOrOrder;
+  if (typeof idOrOrder === "object" && idOrOrder.id) return idOrOrder.id;
+  return null;
+}
+
+/* =========================================================
+   Service
+========================================================= */
+
+export const ordersService = {
+  /* ============================
+     Lecture
+  ============================ */
+
+  getAll: async (params) =>
+    (await api.get("/admin/orders", { params })).data,
+
+  getById: async (id) =>
+    (await api.get(`/admin/orders/${normalizeOrderId(id)}`)).data,
 
   getMessages: async (id) =>
-    (await api.get(`/admin/orders/${id}/messages`)).data,
+    (await api.get(`/admin/orders/${normalizeOrderId(id)}/messages`)).data,
 
-  // workflow commande
+  /* ============================
+     Workflow commande
+  ============================ */
+
   invoice: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/invoice`, body)).data,
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/invoice`, body))
+      .data,
 
   proof: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/proof`, body)).data,
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/proof`, body))
+      .data,
 
   verifyPayment: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/verify-payment`, body)).data,
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/verify-payment`,
+        body
+      )
+    ).data,
 
   pay: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/pay`, body)).data,
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/pay`, body)).data,
 
   prepare: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/prepare`, body)).data,
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/prepare`, body))
+      .data,
 
   fulfill: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/fulfill`, body)).data,
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/fulfill`, body))
+      .data,
 
   cancel: async (id, body) =>
-    (await api.post(`/admin/orders/${id}/cancel`, body)).data,
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/cancel`, body))
+      .data,
 
-  // billing queue
+  /* ============================
+     Billing queue
+  ============================ */
+
   claimNextBilling: async () =>
     (await api.post("/admin/billing/claim-next")).data,
 
   startBilling: async (id) =>
-    (await api.post(`/admin/billing/${id}/start`)).data,
+    (await api.post(`/admin/billing/${normalizeOrderId(id)}/start`)).data,
 
   releaseBilling: async (id, body = {}) =>
-    (await api.post(`/admin/billing/${id}/release`, body)).data,
+    (
+      await api.post(
+        `/admin/billing/${normalizeOrderId(id)}/release`,
+        body
+      )
+    ).data,
 
   escalateBilling: async (id, body = {}) =>
-    (await api.post(`/admin/billing/${id}/escalate`, body)).data,
+    (
+      await api.post(
+        `/admin/billing/${normalizeOrderId(id)}/escalate`,
+        body
+      )
+    ).data,
 
-  // wave payments
-  initiateWavePayment: async (orderId, body = {}) =>
-    (await api.post("/payments/wave/initiate", { orderId, ...body })).data,
+  /* ============================
+     Wave payments
+  ============================ */
 
-  syncWavePaymentStatus: async (orderId) =>
-    (await api.get(`/payments/wave/${orderId}/status`)).data,
+  /**
+   * Initier ou réinitier un paiement Wave
+   * ⚠️ NOTE:
+   * - NE PAS appeler après invoice()
+   *   car invoice backend initie déjà Wave
+   */
+  initiateWavePayment: async (orderId, body = {}) => {
+    const id = normalizeOrderId(orderId);
+    return (
+      await api.post("/payments/wave/initiate", {
+        orderId: id,
+        ...body,
+      })
+    ).data;
+  },
 
-  simulateWavePayment: async (orderId, scenario) =>
-    (await api.post(`/payments/wave/${orderId}/simulate`, { scenario })).data,
+  /**
+   * Synchroniser le statut Wave avec le provider
+   */
+  syncWavePaymentStatus: async (orderId) => {
+    const id = normalizeOrderId(orderId);
+    return (await api.get(`/payments/wave/${id}/status`)).data;
+  },
+
+  /**
+   * Simulation dev/test (Wave mock)
+   */
+  simulateWavePayment: async (orderId, scenario) => {
+    const id = normalizeOrderId(orderId);
+    return (
+      await api.post(`/payments/wave/${id}/simulate`, {
+        scenario,
+      })
+    ).data;
+  },
 };

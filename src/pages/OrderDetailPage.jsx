@@ -362,41 +362,33 @@ export default function OrderDetailPage() {
     setInfo("Fonction de renvoi WhatsApp bientôt disponible.");
   };
 
-  const doInvoice = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
+const doInvoice = async () => {
+  try {
+    setSaving(true);
+    setError("");
+    setInfo("");
 
-      const body = {
-        factureReference: normalizeStr(invoiceRef) || undefined,
-        whatsappTo: normalizeStr(invoiceWaTo) || undefined,
-        note: normalizeStr(invoiceNote) || undefined,
-      };
+    const body = {
+      factureReference: normalizeStr(invoiceRef) || undefined,
+      whatsappTo: normalizeStr(invoiceWaTo) || undefined,
+      note: normalizeStr(invoiceNote) || undefined,
+    };
 
-      await ordersService.invoice(id, body);
+    await ordersService.invoice(id, body);
 
-      await load();
+    await load();
 
-      if (!isCash && isWave) {
-        const wave = await ordersService.initiateWavePayment(id);
-
-        if (wave?.checkoutUrl) {
-          setInfo("Préfacture créée et paiement Wave initié.");
-        } else {
-          setInfo("Préfacture créée. Paiement Wave initié.");
-        }
-
-        await load();
-      } else {
-        setInfo("Préfacture créée et envoyée.");
-      }
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de facturer");
-    } finally {
-      setSaving(false);
+    if (!isCash && isWave) {
+      setInfo("Préfacture créée, paiement Wave initié et message WhatsApp envoyé.");
+    } else {
+      setInfo("Préfacture créée et envoyée.");
     }
-  };
+  } catch (e) {
+    setError(e?.response?.data?.message || "Impossible de facturer");
+  } finally {
+    setSaving(false);
+  }
+};
 
   const doProof = async () => {
     try {

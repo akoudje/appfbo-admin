@@ -1,3 +1,7 @@
+//src/components/orders/detail/OrderBillingTab.jsx
+// Ce composant est optimisé pour une lecture rapide et une action efficace, avec des éléments visuels clairs et des interactions simplifiées.
+// Il est conçu pour permettre aux agents de service client de comprendre rapidement le statut de la commande, d'identifier les actions nécessaires et de les
+
 import React from "react";
 
 // ============================================================================
