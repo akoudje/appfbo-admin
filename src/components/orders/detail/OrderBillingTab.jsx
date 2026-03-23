@@ -453,20 +453,6 @@ export default function OrderBillingTab({
           />
         </Field>
 
-        <Field label="Note de facturation" optional>
-          <textarea
-            className="input w-full min-h-[100px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-            value={invoiceNote}
-            onChange={(e) => setInvoiceNote(e.target.value)}
-            placeholder={
-              isCash
-                ? "Préfacture prête. Paiement à effectuer au bureau."
-                : "Préfacture prête. Le client recevra un lien de paiement Wave."
-            }
-            disabled={!canInvoice || saving}
-          />
-        </Field>
-
         <div className="flex items-center gap-4 pt-2">
           <button
             className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
@@ -604,48 +590,6 @@ export default function OrderBillingTab({
                 </>
               )}
             </div>
-
-            {showWaveDevTools && typeof onSimulateWave === "function" && (
-              <div className="pt-3 border-t border-dashed border-gray-200">
-                <div className="text-xs uppercase tracking-wide text-gray-500 mb-3">
-                  Dev tools Wave
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-                    onClick={() => onSimulateWave("processing")}
-                    disabled={waveLoading || saving}
-                    type="button"
-                  >
-                    Simuler processing
-                  </button>
-                  <button
-                    className="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                    onClick={() => onSimulateWave("succeeded")}
-                    disabled={waveLoading || saving}
-                    type="button"
-                  >
-                    Simuler succeeded
-                  </button>
-                  <button
-                    className="px-3 py-2 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100"
-                    onClick={() => onSimulateWave("expired")}
-                    disabled={waveLoading || saving}
-                    type="button"
-                  >
-                    Simuler expired
-                  </button>
-                  <button
-                    className="px-3 py-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
-                    onClick={() => onSimulateWave("cancelled")}
-                    disabled={waveLoading || saving}
-                    type="button"
-                  >
-                    Simuler cancelled
-                  </button>
-                </div>
-              </div>
-            )}
 
             {isPaymentPending && (
               <Alert tone="blue" title="Paiement en attente">
