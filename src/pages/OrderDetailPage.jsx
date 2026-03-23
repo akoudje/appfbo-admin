@@ -124,7 +124,7 @@ export default function OrderDetailPage() {
   const [info, setInfo] = useState("");
 
   const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") || "overview"
+    searchParams.get("tab") || "overview",
   );
 
   const [invoiceRef, setInvoiceRef] = useState("");
@@ -166,7 +166,9 @@ export default function OrderDetailPage() {
 
       setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
       setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
-      setProofNote(data?.manualPaymentProofNote || data?.paymentProofNote || "");
+      setProofNote(
+        data?.manualPaymentProofNote || data?.paymentProofNote || "",
+      );
 
       setPackingNote(data?.packingNote || "");
       setDeliveryTracking(data?.deliveryTracking || "");
@@ -178,7 +180,7 @@ export default function OrderDetailPage() {
       setCancelReason("");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de charger la commande"
+        e?.response?.data?.message || "Impossible de charger la commande",
       );
     } finally {
       setLoading(false);
@@ -214,7 +216,7 @@ export default function OrderDetailPage() {
     order?.preorderNumber || (order?.id ? `#${order.id.slice(-8)}` : "—");
 
   const paymentModeRaw = String(
-    order?.preorderPaymentMode || order?.paymentMode || ""
+    order?.preorderPaymentMode || order?.paymentMode || "",
   )
     .trim()
     .toUpperCase();
@@ -253,8 +255,9 @@ export default function OrderDetailPage() {
   const canProof =
     status === "INVOICED" && !isCash && !isWave && !isAutoPayment;
   const canVerify =
-    ["PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "INVOICED"].includes(status) &&
-    paymentStatus !== "PAID";
+    ["PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "INVOICED"].includes(
+      status,
+    ) && paymentStatus !== "PAID";
   const canPrepare = status === "PAID";
   const canFulfill = status === "READY";
   const canCancel = !!status && !["FULFILLED", "CANCELLED"].includes(status);
@@ -292,7 +295,14 @@ export default function OrderDetailPage() {
 
     const flow = isCash
       ? ["SUBMITTED", "INVOICED", "PAID", "READY", "FULFILLED"]
-      : ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAID", "READY", "FULFILLED"];
+      : [
+          "SUBMITTED",
+          "INVOICED",
+          "PAYMENT_PENDING",
+          "PAID",
+          "READY",
+          "FULFILLED",
+        ];
 
     const done = (name) => {
       const idx = flow.indexOf(name);
@@ -404,7 +414,7 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Preuve déjà enregistrée.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible d'enregistrer la preuve"
+        e?.response?.data?.message || "Impossible d'enregistrer la preuve",
       );
     } finally {
       setSaving(false);
@@ -424,7 +434,7 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Paiement déjà validé.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de valider le paiement"
+        e?.response?.data?.message || "Impossible de valider le paiement",
       );
     } finally {
       setSaving(false);
@@ -445,7 +455,7 @@ export default function OrderDetailPage() {
     } catch (e) {
       setError(
         e?.response?.data?.message ||
-          "Impossible d'encaisser le paiement espèces"
+          "Impossible d'encaisser le paiement espèces",
       );
     } finally {
       setSaving(false);
@@ -469,7 +479,7 @@ export default function OrderDetailPage() {
       await load();
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible d'initier le paiement Wave"
+        e?.response?.data?.message || "Impossible d'initier le paiement Wave",
       );
     } finally {
       setWaveLoading(false);
@@ -494,7 +504,7 @@ export default function OrderDetailPage() {
     } catch (e) {
       setError(
         e?.response?.data?.message ||
-          "Impossible de synchroniser le paiement Wave"
+          "Impossible de synchroniser le paiement Wave",
       );
     } finally {
       setWaveLoading(false);
@@ -522,7 +532,7 @@ export default function OrderDetailPage() {
       await load();
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de simuler le paiement Wave"
+        e?.response?.data?.message || "Impossible de simuler le paiement Wave",
       );
     } finally {
       setWaveLoading(false);
@@ -542,7 +552,7 @@ export default function OrderDetailPage() {
       await handleActionResult(result, "Commande déjà préparée.");
     } catch (e) {
       setError(
-        e?.response?.data?.message || "Impossible de marquer le colis prêt"
+        e?.response?.data?.message || "Impossible de marquer le colis prêt",
       );
     } finally {
       setSaving(false);
@@ -630,7 +640,9 @@ export default function OrderDetailPage() {
   return (
     <RequirePermission
       permission={Permission.PREORDER_READ}
-      fallback={<AccessDeniedPanel message="Accès refusé au détail de commande." />}
+      fallback={
+        <AccessDeniedPanel message="Accès refusé au détail de commande." />
+      }
     >
       <div className="space-y-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -644,13 +656,33 @@ export default function OrderDetailPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-                <SummaryRow label="Numéro métier" value={order?.preorderNumber || "—"} />
+                <SummaryRow
+                  label="Numéro métier"
+                  value={order?.preorderNumber || "—"}
+                />
                 <SummaryRow label="FBO" value={order?.fboNomComplet || "—"} />
-                <SummaryRow label="Numéro FBO" value={order?.fboNumero || "—"} />
-                <SummaryRow label="Mode paiement" value={humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)} />
-                <SummaryRow label="Montant" value={formatFcfa(order?.totalFcfa)} />
-                <SummaryRow label="Créée le" value={formatDateTime(order?.createdAt)} />
-                <SummaryRow label="Livraison" value={humanizeEnum(order?.deliveryMode)} />
+                <SummaryRow
+                  label="Numéro FBO"
+                  value={order?.fboNumero || "—"}
+                />
+                <SummaryRow
+                  label="Mode paiement"
+                  value={humanizeEnum(
+                    order?.preorderPaymentMode || order?.paymentMode,
+                  )}
+                />
+                <SummaryRow
+                  label="Montant"
+                  value={formatFcfa(order?.totalFcfa)}
+                />
+                <SummaryRow
+                  label="Créée le"
+                  value={formatDateTime(order?.createdAt)}
+                />
+                <SummaryRow
+                  label="Livraison"
+                  value={humanizeEnum(order?.deliveryMode)}
+                />
                 <SummaryRow label="ID technique" value={order?.id || "—"} />
               </div>
             </div>
@@ -693,7 +725,11 @@ export default function OrderDetailPage() {
           </Alert>
         ) : null}
 
-        <OrderDetailTabs activeTab={activeTab} onChange={setTab} order={order} />
+        <OrderDetailTabs
+          activeTab={activeTab}
+          onChange={setTab}
+          order={order}
+        />
 
         {activeTab === "overview" && (
           <OrderOverviewTab
@@ -709,7 +745,9 @@ export default function OrderDetailPage() {
         {activeTab === "workflow" && (
           <RequirePermission
             permission={Permission.PREORDER_READ}
-            fallback={<AccessDeniedPanel message="Accès refusé à l’onglet workflow." />}
+            fallback={
+              <AccessDeniedPanel message="Accès refusé à l’onglet workflow." />
+            }
           >
             <OrderWorkflowTab {...commonTabProps} />
           </RequirePermission>
@@ -718,7 +756,9 @@ export default function OrderDetailPage() {
         {activeTab === "billing" && (
           <RequirePermission
             permission={Permission.INVOICE_CREATE}
-            fallback={<AccessDeniedPanel message="Accès refusé à la facturation." />}
+            fallback={
+              <AccessDeniedPanel message="Accès refusé à la facturation." />
+            }
           >
             <OrderBillingTab
               {...commonTabProps}
@@ -752,7 +792,7 @@ export default function OrderDetailPage() {
           >
             <OrderPaymentTab
               {...commonTabProps}
-              saving={saving}
+              saving={saving || waveLoading}
               canProof={canProof}
               canVerify={canVerify}
               canCashPay={canCashPay}
@@ -767,14 +807,11 @@ export default function OrderDetailPage() {
               cashNote={cashNote}
               setCashNote={setCashNote}
               onProof={doProof}
-              onVerifyPayment={doVerifyPayment}
+              onVerify={doVerifyPayment} // ✅ FIX
               onCashPay={doCashPay}
               onInitiateWave={doInitiateWave}
-              onRefreshWaveStatus={doSyncWave}
-              onSimulateWave={doSimulateWave}
-              waveLoading={waveLoading}
-              isWave={isWave}
-              isCash={isCash}
+              onSyncWave={doSyncWave} // ✅ FIX
+              reload={load} // ✅ FIX IMPORTANT
             />
           </RequirePermission>
         )}
@@ -782,7 +819,9 @@ export default function OrderDetailPage() {
         {activeTab === "preparation" && (
           <RequirePermission
             permission={Permission.PREORDER_PREPARE}
-            fallback={<AccessDeniedPanel message="Accès refusé à la préparation." />}
+            fallback={
+              <AccessDeniedPanel message="Accès refusé à la préparation." />
+            }
           >
             <OrderPreparationTab
               {...commonTabProps}
@@ -798,7 +837,9 @@ export default function OrderDetailPage() {
         {activeTab === "fulfillment" && (
           <RequirePermission
             permission={Permission.PREORDER_FULFILL}
-            fallback={<AccessDeniedPanel message="Accès refusé au fulfillment." />}
+            fallback={
+              <AccessDeniedPanel message="Accès refusé au fulfillment." />
+            }
           >
             <OrderFulfillmentTab
               {...commonTabProps}
@@ -816,7 +857,9 @@ export default function OrderDetailPage() {
         {activeTab === "history" && (
           <RequirePermission
             permission={Permission.PREORDER_READ}
-            fallback={<AccessDeniedPanel message="Accès refusé à l’historique." />}
+            fallback={
+              <AccessDeniedPanel message="Accès refusé à l’historique." />
+            }
           >
             <OrderHistoryTab {...commonTabProps} messages={messages} />
           </RequirePermission>
@@ -825,7 +868,9 @@ export default function OrderDetailPage() {
         {activeTab === "cancel" && (
           <RequirePermission
             permission={Permission.PREORDER_UPDATE_STATUS}
-            fallback={<AccessDeniedPanel message="Accès refusé à l’annulation." />}
+            fallback={
+              <AccessDeniedPanel message="Accès refusé à l’annulation." />
+            }
           >
             <OrderCancelPanel
               {...commonTabProps}
