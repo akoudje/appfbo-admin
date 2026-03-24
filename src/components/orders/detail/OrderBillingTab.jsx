@@ -194,6 +194,132 @@ function formatDateTime(value) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildThermalReceiptHtml({
+  preorderNumber,
+  factureReference,
+  customerName,
+  fboNumero,
+  clientRef,
+  provider,
+  payerPhone,
+  transactionRef,
+  paidAt,
+  amountPaid,
+}) {
+  const line = (label, value) => `
+    <div class="row">
+      <div class="label">${escapeHtml(label)}</div>
+      <div class="value">${escapeHtml(value || "—")}</div>
+    </div>
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reçu de paiement</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #111;
+      font-family: "Courier New", Courier, monospace;
+    }
+    .ticket {
+      width: 80mm;
+      margin: 0 auto;
+      padding: 8mm 6mm;
+    }
+    .title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .badge {
+      border: 1px solid #111;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 8px;
+      margin-bottom: 10px;
+    }
+    .divider {
+      border-top: 1px dashed #111;
+      margin: 10px 0;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+      margin-bottom: 4px;
+    }
+    .label {
+      flex: 0 0 34%;
+      font-weight: 700;
+    }
+    .value {
+      flex: 1;
+      text-align: right;
+      word-break: break-word;
+    }
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      margin-top: 12px;
+    }
+    @page {
+      size: 80mm auto;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket">
+    <div class="title">REÇU DE PAIEMENT</div>
+    <div class="badge">PAIEMENT CONFIRMÉ</div>
+    ${line("Précommande", preorderNumber)}
+    ${line("Facture", factureReference)}
+    ${line("Client", customerName)}
+    ${line("N° FBO", fboNumero)}
+    ${line("Client Ref", clientRef)}
+    ${line("Provider", provider)}
+    ${line("Numéro payeur", payerPhone)}
+    ${line("Transaction", transactionRef)}
+    ${line("Date paiement", paidAt)}
+    <div class="divider"></div>
+    ${line("Montant payé", amountPaid)}
+    <div class="footer">FOREVER BUSINESS OFFICE</div>
+  </div>
+  <script>
+    window.addEventListener("load", () => {
+      setTimeout(() => window.print(), 150);
+    });
+    window.addEventListener("afterprint", () => {
+      setTimeout(() => window.close(), 150);
+    });
+  </script>
+</body>
+</html>`;
+}
+
 function getLatestAttempt(order) {
   const attempts = order?.activePayment?.attempts;
   if (Array.isArray(attempts) && attempts.length > 0) return attempts[0];
@@ -238,6 +364,33 @@ export default function OrderBillingTab({
   const paymentProvider = payment?.provider || order?.paymentProvider || null;
   const paymentSessionId = latestAttempt?.providerSessionId || payment?.providerReference || "—";
   const paymentTxnId = payment?.providerTxnId || latestAttempt?.providerTransactionId || "—";
+  const visibleClientRef =
+    order?.preorderNumber ||
+    payment?.clientReference ||
+    latestAttempt?.clientReference ||
+    order?.id ||
+    "";
+  const payerPhone =
+    latestAttempt?.providerPayerPhone ||
+    latestAttempt?.payerPhone ||
+    payment?.payerPhone ||
+    payment?.customerPhone ||
+    latestAttempt?.rawProviderPayload?.payerPhone ||
+    latestAttempt?.rawProviderPayload?.customer_msisdn ||
+    latestAttempt?.rawProviderPayload?.phoneNumber ||
+    payment?.providerPayerPhone ||
+    "";
+  const paidAtValue =
+    payment?.paidAt ||
+    latestAttempt?.completedAt ||
+    latestAttempt?.updatedAt ||
+    order?.paidAt ||
+    null;
+  const amountPaidValue =
+    payment?.amountPaidFcfa ||
+    latestAttempt?.amountPaidFcfa ||
+    order?.totalFcfa ||
+    0;
 
   const resolvedPaymentLink = paymentLink || latestAttempt?.providerLaunchUrl || latestAttempt?.checkoutUrl || order?.paymentLink || "";
 
@@ -253,6 +406,32 @@ export default function OrderBillingTab({
   const isPaymentFailed = normalizedPaymentStatus === "FAILED";
 
   const showWaveActions = canUseWave && (resolvedPaymentLink || !isPaymentSucceeded);
+  const canPrintReceipt = canUseWave && isPaymentSucceeded;
+
+  const handlePrintReceipt = () => {
+    if (!canPrintReceipt || typeof window === "undefined") return;
+
+    const receiptWindow = window.open("", "_blank", "width=420,height=720");
+    if (!receiptWindow) return;
+
+    receiptWindow.document.open();
+    receiptWindow.document.write(
+      buildThermalReceiptHtml({
+        preorderNumber: order?.preorderNumber || "—",
+        factureReference: order?.factureReference || "—",
+        customerName: order?.fboNomComplet || order?.fbo?.nomComplet || "—",
+        fboNumero: order?.fboNumero || "—",
+        clientRef: visibleClientRef || "—",
+        provider: paymentProvider || "WAVE",
+        payerPhone: payerPhone || "—",
+        transactionRef: paymentTxnId !== "—" ? paymentTxnId : paymentSessionId,
+        paidAt: formatDateTime(paidAtValue),
+        amountPaid: formatFcfa(amountPaidValue),
+      }),
+    );
+    receiptWindow.document.close();
+    receiptWindow.focus();
+  };
 
   // Message de statut condensé
   const getStatusMessage = () => {
@@ -405,39 +584,74 @@ export default function OrderBillingTab({
               <div className="grid grid-cols-2 gap-2">
                 <Row label="Statut" value={<PaymentStatusBadge status={paymentStatus} />} />
                 <Row label="Provider" value={paymentProvider || "WAVE"} />
+                <Row label="Client Ref" value={visibleClientRef || "—"} copyable={Boolean(visibleClientRef)} />
+                <Row label="Numéro payeur" value={payerPhone || "—"} copyable={Boolean(payerPhone)} />
                 <Row label="Session" value={paymentSessionId} copyable={paymentSessionId !== "—"} />
                 <Row label="Transaction" value={paymentTxnId} copyable={paymentTxnId !== "—"} />
-                <Row label="Payé le" value={formatDateTime(payment?.paidAt || order?.paidAt)} highlight={isPaymentSucceeded} />
-                <Row label="Montant payé" value={formatFcfa(payment?.amountPaidFcfa || 0)} highlight={isPaymentSucceeded} />
+                <Row label="Payé le" value={formatDateTime(paidAtValue)} highlight={isPaymentSucceeded} />
+                <Row label="Montant payé" value={formatFcfa(amountPaidValue)} highlight={isPaymentSucceeded} />
               </div>
 
-              {showWaveActions && (
+              {(showWaveActions || canPrintReceipt || showWaveDevTools) && (
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                  <button
-                    className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-                    onClick={onInitiateWave}
-                    disabled={!canUseWave || saving || waveLoading}
-                    type="button"
-                  >
-                    💳 {resolvedPaymentLink ? "Réinitier" : "Initier"}
-                  </button>
-                  <button
-                    className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-                    onClick={onRefreshWaveStatus}
-                    disabled={!canUseWave || saving || waveLoading || paymentSessionId === "—"}
-                    type="button"
-                  >
-                    🔄 Synchroniser
-                  </button>
-                  {resolvedPaymentLink && (
-                    <a
-                      className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-                      href={resolvedPaymentLink}
-                      target="_blank"
-                      rel="noreferrer"
+                  {showWaveActions && (
+                    <>
+                      <button
+                        className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
+                        onClick={onInitiateWave}
+                        disabled={!canUseWave || saving || waveLoading}
+                        type="button"
+                      >
+                        💳 {resolvedPaymentLink ? "Réinitier" : "Initier"}
+                      </button>
+                      <button
+                        className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
+                        onClick={onRefreshWaveStatus}
+                        disabled={!canUseWave || saving || waveLoading || paymentSessionId === "—"}
+                        type="button"
+                      >
+                        🔄 Synchroniser
+                      </button>
+                      {resolvedPaymentLink && (
+                        <a
+                          className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
+                          href={resolvedPaymentLink}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          🔗 Ouvrir
+                        </a>
+                      )}
+                    </>
+                  )}
+                  {canPrintReceipt && (
+                    <button
+                      className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm"
+                      onClick={handlePrintReceipt}
+                      type="button"
                     >
-                      🔗 Ouvrir
-                    </a>
+                      🖨 Imprimer reçu
+                    </button>
+                  )}
+                  {showWaveDevTools && typeof onSimulateWave === "function" && (
+                    <>
+                      <button
+                        className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
+                        onClick={() => onSimulateWave("succeeded")}
+                        disabled={saving || waveLoading}
+                        type="button"
+                      >
+                        🧪 Succeeded
+                      </button>
+                      <button
+                        className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
+                        onClick={() => onSimulateWave("expired")}
+                        disabled={saving || waveLoading}
+                        type="button"
+                      >
+                        🧪 Expired
+                      </button>
+                    </>
                   )}
                 </div>
               )}
