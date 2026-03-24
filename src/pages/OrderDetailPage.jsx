@@ -754,8 +754,11 @@ const doInvoice = async () => {
           >
             <OrderBillingTab
               {...commonTabProps}
-              saving={saving}
+              saving={saving || waveLoading}
               canInvoice={canInvoice}
+              canProof={canProof}
+              canVerify={canVerify}
+              canCashPay={canCashPay}
               invoiceRef={invoiceRef}
               setInvoiceRef={setInvoiceRef}
               invoiceWaTo={invoiceWaTo}
@@ -764,15 +767,30 @@ const doInvoice = async () => {
               setPaymentLink={setPaymentLink}
               invoiceNote={invoiceNote}
               setInvoiceNote={setInvoiceNote}
+              proofUrl={proofUrl}
+              setProofUrl={setProofUrl}
+              proofRef={proofRef}
+              setProofRef={setProofRef}
+              proofNote={proofNote}
+              setProofNote={setProofNote}
+              verifyNote={verifyNote}
+              setVerifyNote={setVerifyNote}
+              cashNote={cashNote}
+              setCashNote={setCashNote}
               onInvoice={doInvoice}
               onCopyWhatsApp={copyWhatsApp}
+              onProof={doProof}
+              onVerify={doVerifyPayment}
+              onCashPay={doCashPay}
               billingMessage={billingMessage}
               onResendWhatsApp={handleResendWhatsApp}
               onInitiateWave={doInitiateWave}
               onRefreshWaveStatus={doSyncWave}
+              onSyncWave={doSyncWave}
               onSimulateWave={doSimulateWave}
               waveLoading={waveLoading}
               showWaveDevTools={true}
+              reload={load}
             />
           </RequirePermission>
         )}
