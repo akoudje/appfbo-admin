@@ -1,7 +1,13 @@
 // src/components/ImportCsvModal.jsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { importCsv } from "../services/productsService";
+
+const CSV_TEMPLATE = [
+  "sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;details",
+  '123-ABC;"Aloe Vera Gel";15000;0.482;3.300;true;https://example.com/image.jpg;BUVABLE;12;"Gel a boire"',
+  "456-DEF;Forever Fiber;12500;0.250;0.300;false;;NUTRITION;;",
+].join("\n");
 
 function splitCsvLines(text) {
   const normalized = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -262,7 +268,7 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
   const normalized = useMemo(() => parsed.rows.map(normalizeRow), [parsed.rows]);
   const preview = useMemo(() => normalized.slice(0, 5), [normalized]);
 
-  const validate = (r) => {
+  const validate = useCallback((r) => {
     const e = [];
     if (!r.sku) e.push("sku");
     if (!r.nom) e.push("nom");
@@ -282,12 +288,25 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
     }
 
     return e;
-  };
+  }, []);
 
-  const invalidCount = useMemo(
-    () => normalized.filter((r) => validate(r).length).length,
-    [normalized],
+  const invalidRows = useMemo(
+    () =>
+      normalized
+        .map((r, idx) => {
+          const errors = validate(r);
+          return {
+            line: idx + 2,
+            sku: r.sku || "—",
+            nom: r.nom || "—",
+            errors,
+          };
+        })
+        .filter((x) => x.errors.length > 0),
+    [normalized, validate],
   );
+
+  const invalidCount = invalidRows.length;
 
   useEffect(() => {
     if (!open) return;
@@ -301,6 +320,21 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
   const close = () => {
     if (busy) return;
     onClose?.();
+  };
+
+  const downloadTemplate = () => {
+    if (busy) return;
+    const blob = new Blob([`\uFEFF${CSV_TEMPLATE}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "produits-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const submit = async () => {
@@ -430,6 +464,14 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
                 >
                   Vider
                 </button>
+                <button
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  onClick={downloadTemplate}
+                  disabled={busy}
+                  type="button"
+                >
+                  Télécharger modèle
+                </button>
               </div>
             </div>
 
@@ -507,6 +549,22 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
               {result?.errors?.length ? (
                 <div className="mt-2 text-xs text-rose-700">
                   ⚠️ {result.errors.length} ligne(s) en erreur (voir retour API).
+                </div>
+              ) : null}
+
+              {invalidRows.length > 0 ? (
+                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-2">
+                  <div className="text-xs font-semibold text-rose-800">
+                    Lignes invalides détectées avant envoi ({invalidRows.length})
+                  </div>
+                  <div className="mt-1 max-h-28 overflow-auto text-xs text-rose-900">
+                    {invalidRows.map((row) => (
+                      <div key={`${row.line}-${row.sku}`} className="py-0.5">
+                        Ligne {row.line}: {row.sku} / {row.nom} {"->"}{" "}
+                        {row.errors.join(", ")}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
