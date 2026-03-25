@@ -31,6 +31,10 @@ export default function OrderBillingBadge({ status }) {
       label: "Relâchée",
       className: "bg-purple-50 text-purple-700 border-purple-200",
     },
+    COMPLETED: {
+      label: "Terminée",
+      className: "bg-green-50 text-green-700 border-green-200",
+    },
     DONE: {
       label: "Terminée",
       className: "bg-green-50 text-green-700 border-green-200",

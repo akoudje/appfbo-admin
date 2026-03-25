@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ordersService } from "../../services/ordersService";
+import useAdminAuth from "../../hooks/useAdminAuth";
 import BillingQueueHeader from "../../components/billing/BillingQueueHeader";
 import BillingQueueAlerts from "../../components/billing/BillingQueueAlerts";
 import BillingQueueStats from "../../components/billing/BillingQueueStats";
@@ -13,6 +14,8 @@ import BillingQueueTable from "../../components/billing/BillingQueueTable";
 
 export default function BillingQueuePage() {
   const navigate = useNavigate();
+  const { admin } = useAdminAuth();
+  const currentAdminId = admin?.id || null;
 
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -30,7 +33,7 @@ export default function BillingQueuePage() {
         ordersService.getAll({
           page: 1,
           pageSize: 100,
-          assignedOnly: true,
+          assignedToMe: true,
           sort: "billingSlaDeadlineAt",
           dir: "asc",
         }),
@@ -85,6 +88,8 @@ export default function BillingQueuePage() {
 
   const filteredRows = useMemo(() => {
     if (!Array.isArray(rows)) return [];
+    const isMine = (row) =>
+      Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
 
     if (tab === "queue") {
       return rows.filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus));
@@ -98,27 +103,33 @@ export default function BillingQueuePage() {
       return rows.filter((r) => r.billingWorkStatus === "ESCALATED");
     }
 
-    return rows.filter((r) =>
-      ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
-        r.billingWorkStatus,
-      ),
-    );
-  }, [rows, tab]);
-
-  const stats = useMemo(() => {
-    const all = Array.isArray(rows) ? rows : [];
-
-    return {
-      queue: all.filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus)).length,
-      my: all.filter((r) =>
+    return rows.filter(
+      (r) =>
+        isMine(r) &&
         ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
           r.billingWorkStatus,
         ),
+    );
+  }, [rows, tab, currentAdminId]);
+
+  const stats = useMemo(() => {
+    const all = Array.isArray(rows) ? rows : [];
+    const isMine = (row) =>
+      Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
+
+    return {
+      queue: all.filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus)).length,
+      my: all.filter(
+        (r) =>
+          isMine(r) &&
+          ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
+            r.billingWorkStatus,
+          ),
       ).length,
       waitingPayment: all.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT").length,
       escalated: all.filter((r) => r.billingWorkStatus === "ESCALATED").length,
     };
-  }, [rows]);
+  }, [rows, currentAdminId]);
 
   const handleOpen = (row) => {
     navigate(`/orders/${row.id}?tab=workflow`);
@@ -219,6 +230,7 @@ export default function BillingQueuePage() {
       <BillingQueueTable
         rows={filteredRows}
         loading={loading}
+        currentAdminId={currentAdminId}
         onOpen={handleOpen}
         onStart={handleStart}
         onRelease={handleRelease}

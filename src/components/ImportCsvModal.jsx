@@ -3,15 +3,115 @@
 import { useEffect, useMemo, useState } from "react";
 import { importCsv } from "../services/productsService";
 
+function splitCsvLines(text) {
+  const normalized = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const ch = normalized[i];
+    const next = normalized[i + 1];
+
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === "\n" && !inQuotes) {
+      lines.push(current);
+      current = "";
+      continue;
+    }
+
+    current += ch;
+  }
+
+  lines.push(current);
+  return lines.filter((line) => line.trim() !== "");
+}
+
+function parseCsvLine(line, sep) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    const next = line[i + 1];
+
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === sep && !inQuotes) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += ch;
+  }
+
+  cells.push(current.trim());
+  return cells;
+}
+
+function normalizeHeaderName(raw) {
+  const base = String(raw || "")
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/_/g, "");
+
+  const map = {
+    sku: "sku",
+    nom: "nom",
+    name: "nom",
+    prixbasefcfa: "prixBaseFcfa",
+    prix: "prixBaseFcfa",
+    price: "prixBaseFcfa",
+    cc: "cc",
+    poidskg: "poidsKg",
+    poids: "poidsKg",
+    weightkg: "poidsKg",
+    actif: "actif",
+    active: "actif",
+    imageurl: "imageUrl",
+    image: "imageUrl",
+    category: "category",
+    categorie: "category",
+    stockqty: "stockQty",
+    stock: "stockQty",
+    details: "details",
+    detail: "details",
+    description: "details",
+  };
+
+  return map[base] || String(raw || "").trim();
+}
+
 function parseCsv(text) {
-  const lines = text.replace(/\r/g, "").split("\n").filter(Boolean);
+  const lines = splitCsvLines(text);
   if (lines.length < 2) return { headers: [], rows: [] };
 
   const sep = lines[0].includes(";") ? ";" : ",";
-  const headers = lines[0].split(sep).map((h) => h.trim());
+  const headers = parseCsvLine(lines[0], sep).map(normalizeHeaderName);
 
   const rows = lines.slice(1).map((line) => {
-    const cols = line.split(sep).map((c) => c.trim());
+    const cols = parseCsvLine(line, sep);
     const obj = {};
     headers.forEach((h, idx) => (obj[h] = cols[idx] ?? ""));
     return obj;
@@ -32,7 +132,11 @@ function toNullableString(v) {
 }
 
 function toNumberOrNaN(v) {
-  const s = (v ?? "").toString().trim();
+  const s = (v ?? "")
+    .toString()
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(",", ".");
   if (s === "") return NaN;
   return Number(s);
 }
@@ -188,11 +292,11 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
   useEffect(() => {
     if (!open) return;
     const onEsc = (e) => {
-      if (e.key === "Escape") onClose?.();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [open, onClose]);
+  }, [open, busy, onClose]);
 
   const close = () => {
     if (busy) return;
@@ -205,8 +309,18 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
       setBanner(null);
       setResult(null);
 
+      const validRows = normalized.filter((r) => validate(r).length === 0);
+      if (validRows.length === 0) {
+        setBanner({
+          type: "error",
+          title: "Aucune ligne valide",
+          message: "Corrige le CSV avant import.",
+        });
+        return;
+      }
+
       // ✅ prépare payload côté API (nullables)
-      const rows = normalized.map((r) => ({
+      const rows = validRows.map((r) => ({
         sku: r.sku,
         nom: r.nom,
         prixBaseFcfa: Number(r.prixBaseFcfa),
@@ -219,7 +333,7 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
         details: r.details ? r.details : null,
         stockQty:
           r.stockQty === "" || r.stockQty === null || r.stockQty === undefined
-            ? 0
+            ? null
             : Number(r.stockQty),
       }));
 

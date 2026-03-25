@@ -69,6 +69,7 @@ function OrderStatusBadge({ status }) {
 export default function BillingQueueTable({
   rows,
   loading,
+  currentAdminId,
   onOpen,
   onStart,
   onRelease,
@@ -112,6 +113,19 @@ export default function BillingQueueTable({
 
           <tbody>
             {rows.map((row) => {
+              const isMine =
+                Boolean(currentAdminId) &&
+                row?.assignedInvoicerId === currentAdminId;
+              const isActiveBilling = [
+                "ASSIGNED",
+                "IN_PROGRESS",
+                "WAITING_CUSTOMER_DATA",
+                "WAITING_PAYMENT",
+              ].includes(row?.billingWorkStatus);
+              const canStart = isMine && ["ASSIGNED", "IN_PROGRESS"].includes(row?.billingWorkStatus);
+              const canRelease = isMine && isActiveBilling;
+              const canEscalate = isActiveBilling && row?.billingWorkStatus !== "ESCALATED";
+
               const assignedName =
                 row?.assignedInvoicer?.fullName ||
                 row?.assignedInvoicer?.email ||
@@ -157,35 +171,41 @@ export default function BillingQueueTable({
                         </button>
                       </RequirePermission>
 
-                      <RequirePermission permission={Permission.INVOICE_CREATE}>
-                        <button
-                          onClick={() => onStart(row)}
-                          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                          type="button"
-                        >
-                          Démarrer
-                        </button>
-                      </RequirePermission>
+                      {canStart ? (
+                        <RequirePermission permission={Permission.INVOICE_CREATE}>
+                          <button
+                            onClick={() => onStart(row)}
+                            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                            type="button"
+                          >
+                            Démarrer
+                          </button>
+                        </RequirePermission>
+                      ) : null}
 
-                      <RequirePermission permission={Permission.INVOICE_CREATE}>
-                        <button
-                          onClick={() => onRelease(row)}
-                          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
-                          type="button"
-                        >
-                          Libérer
-                        </button>
-                      </RequirePermission>
+                      {canRelease ? (
+                        <RequirePermission permission={Permission.INVOICE_CREATE}>
+                          <button
+                            onClick={() => onRelease(row)}
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                            type="button"
+                          >
+                            Libérer
+                          </button>
+                        </RequirePermission>
+                      ) : null}
 
-                      <RequirePermission permission={Permission.INVOICE_CREATE}>
-                        <button
-                          onClick={() => onEscalate(row)}
-                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                          type="button"
-                        >
-                          Escalader
-                        </button>
-                      </RequirePermission>
+                      {canEscalate ? (
+                        <RequirePermission permission={Permission.INVOICE_CREATE}>
+                          <button
+                            onClick={() => onEscalate(row)}
+                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                            type="button"
+                          >
+                            Escalader
+                          </button>
+                        </RequirePermission>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
