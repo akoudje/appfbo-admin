@@ -828,7 +828,7 @@ const doInvoice = async () => {
 
         {activeTab === "preparation" && (
           <RequirePermission
-            permission={Permission.PREORDER_PREPARE}
+            permission={Permission.PREPARATION_UPDATE}
             fallback={
               <AccessDeniedPanel message="Accès refusé à la préparation." />
             }
@@ -846,7 +846,7 @@ const doInvoice = async () => {
 
         {activeTab === "fulfillment" && (
           <RequirePermission
-            permission={Permission.PREORDER_FULFILL}
+            permission={Permission.PREPARATION_UPDATE}
             fallback={
               <AccessDeniedPanel message="Accès refusé au fulfillment." />
             }
