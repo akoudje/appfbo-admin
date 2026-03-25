@@ -131,6 +131,11 @@ export const ordersService = {
     return (await api.get(`/payments/wave/${id}/status`)).data;
   },
 
+  getPaymentTransactions: async (orderId, params = {}) => {
+    const id = normalizeOrderId(orderId);
+    return (await api.get(`/payments/wave/${id}/transactions`, { params })).data;
+  },
+
   /**
    * Simulation dev/test (Wave mock)
    */

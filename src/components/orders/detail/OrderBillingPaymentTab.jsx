@@ -1,6 +1,7 @@
 import React from "react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
+import PaymentTimeline from "./PaymentTimeline";
 
 function Field({ label, children, optional = false, className = "" }) {
   return (
@@ -870,6 +871,9 @@ export default function OrderBillingPaymentTab({
 
   const resolvedWhatsappStatus = billingMessage?.status || order?.lastWhatsappStatus || null;
   const hasWhatsappMessage = Boolean(order?.whatsappMessage);
+  const paymentTimelineItems = Array.isArray(order?.paymentTransactionLogs)
+    ? order.paymentTransactionLogs
+    : [];
   const normalizedPaymentStatus = String(paymentStatus || "").toUpperCase();
   const isPaymentPending = ["PAYMENT_PENDING", "PENDING_CUSTOMER_ACTION", "PROCESSING"].includes(normalizedPaymentStatus);
   const isPaymentSucceeded = ["SUCCEEDED", "PAID"].includes(normalizedPaymentStatus);
@@ -1053,6 +1057,8 @@ export default function OrderBillingPaymentTab({
         paidAtValue={paidAtValue}
         amountPaidValue={amountPaidValue}
       />
+
+      <PaymentTimeline items={paymentTimelineItems} />
     </div>
   );
 }
