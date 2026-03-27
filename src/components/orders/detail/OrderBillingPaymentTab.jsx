@@ -256,6 +256,32 @@ function buildReceiptQrUrl(payload) {
   )}`;
 }
 
+function resolveReceiptCountryLabel(order) {
+  const explicitName = String(
+    order?.country?.name || order?.countryName || "",
+  ).trim();
+  if (explicitName) return explicitName;
+
+  const explicitCode = String(
+    order?.country?.code || order?.countryCode || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  if (explicitCode === "CIV") return "Côte d'Ivoire";
+  if (explicitCode) return explicitCode;
+
+  try {
+    const storageCode = String(localStorage.getItem("countryCode") || "")
+      .trim()
+      .toUpperCase();
+    if (storageCode === "CIV") return "Côte d'Ivoire";
+    if (storageCode) return storageCode;
+  } catch {}
+
+  return "—";
+}
+
 function buildReceiptNumber({ factureReference, transactionRef, paidAt }) {
   const paidDate = new Date(paidAt || Date.now());
   const y = paidDate.getFullYear();
@@ -330,22 +356,22 @@ function buildThermalReceiptHtml({
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; background: #fff; color: #000; font-family: "Courier New", Courier, monospace; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .ticket { width: 80mm; margin: 0 auto; padding: 7mm 5mm 8mm; }
-    .brand { text-align: center; margin-bottom: 10px; }
-    .brand img { display: block; width: 46mm; max-width: 100%; height: auto; margin: 0 auto; filter: brightness(0) saturate(100%); }
-    .title { text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.08em; margin-bottom: 8px; color: #000; }
-    .receipt-no { border: 1.5px solid #000; text-align: center; font-size: 13px; font-weight: 800; padding: 7px 8px; margin-bottom: 12px; color: #000; }
+    .ticket { width: 80mm; margin: 0 auto; padding: 6mm 4mm 8mm; }
+    .brand { text-align: center; margin-bottom: 12px; }
+    .brand img { display: block; width: 58mm; max-width: 100%; height: auto; margin: 0 auto; }
+    .title { text-align: center; font-size: 19px; font-weight: 900; letter-spacing: 0.08em; margin-bottom: 8px; color: #000; }
+    .receipt-no { border: 2px solid #000; text-align: center; font-size: 14px; font-weight: 900; padding: 8px 8px; margin-bottom: 12px; color: #000; }
     .divider { border-top: 1px dashed #111; margin: 10px 0; }
-    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; margin-bottom: 4px; color: #000; }
-    .label { flex: 0 0 34%; font-weight: 700; }
-    .value { flex: 1; text-align: right; word-break: break-word; }
-    .payment-box { border: 2px solid #000; padding: 8px 7px; margin: 12px 0; }
-    .payment-heading { text-align: center; font-size: 13px; font-weight: 800; margin-bottom: 8px; letter-spacing: 0.05em; }
-    .payment-row { margin-bottom: 6px; }
+    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; margin-bottom: 5px; color: #000; font-weight: 800; }
+    .label { flex: 0 0 38%; font-weight: 900; }
+    .value { flex: 1; text-align: right; word-break: break-word; font-weight: 900; }
+    .payment-box { border: 2px solid #000; padding: 9px 8px; margin: 12px 0; }
+    .payment-heading { text-align: center; font-size: 14px; font-weight: 900; margin-bottom: 8px; letter-spacing: 0.05em; }
+    .payment-row { margin-bottom: 7px; }
     .payment-row:last-child { margin-bottom: 0; }
-    .payment-label { font-size: 11px; font-weight: 700; margin-bottom: 2px; color: #000; }
-    .payment-value { font-size: 15px; font-weight: 800; line-height: 1.25; color: #000; word-break: break-word; }
-    .payment-value.amount { font-size: 18px; }
+    .payment-label { font-size: 12px; font-weight: 900; margin-bottom: 2px; color: #000; }
+    .payment-value { font-size: 16px; font-weight: 900; line-height: 1.25; color: #000; word-break: break-word; }
+    .payment-value.amount { font-size: 20px; }
     .qr { text-align: center; margin-top: 12px; }
     .qr img { width: 28mm; height: 28mm; object-fit: contain; display: inline-block; }
     @page { size: 80mm auto; margin: 0; }
@@ -354,7 +380,7 @@ function buildThermalReceiptHtml({
 <body>
   <div class="ticket">
     <div class="brand">
-      <img src="/forever-corporate-logo.png" alt="Forever" />
+      <img src="/forever-corporate-logo-black.png" alt="Forever" />
     </div>
     <div class="title">REÇU DE PAIEMENT</div>
     <div class="receipt-no">N° REÇU ${escapeHtml(receiptNumber)}</div>
@@ -1052,7 +1078,7 @@ export default function OrderBillingPaymentTab({
       buildThermalReceiptHtml({
         preorderNumber: order?.preorderNumber || "—",
         factureReference: order?.factureReference || "—",
-        countryName: order?.country?.name || order?.country?.code || "—",
+        countryName: resolveReceiptCountryLabel(order),
         customerName: order?.fboNomComplet || order?.fbo?.nomComplet || "—",
         fboNumero: order?.fboNumero || "—",
         clientRef: visibleClientRef || "—",
