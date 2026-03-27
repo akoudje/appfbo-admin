@@ -250,6 +250,12 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function buildReceiptQrUrl(payload) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+    payload,
+  )}`;
+}
+
 function buildThermalReceiptHtml({
   preorderNumber,
   factureReference,
@@ -262,6 +268,19 @@ function buildThermalReceiptHtml({
   paidAt,
   amountPaid,
 }) {
+  const qrPayload = [
+    `precommande:${preorderNumber || "-"}`,
+    `facture:${factureReference || "-"}`,
+    `client:${customerName || "-"}`,
+    `fbo:${fboNumero || "-"}`,
+    `provider:${provider || "-"}`,
+    `payer:${payerPhone || "-"}`,
+    `transaction:${transactionRef || "-"}`,
+    `montant:${amountPaid || "-"}`,
+    `date:${paidAt || "-"}`,
+  ].join("|");
+  const qrUrl = buildReceiptQrUrl(qrPayload);
+
   const line = (label, value) => `
     <div class="row">
       <div class="label">${escapeHtml(label)}</div>
@@ -280,18 +299,26 @@ function buildThermalReceiptHtml({
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; background: #fff; color: #111; font-family: "Courier New", Courier, monospace; }
     .ticket { width: 80mm; margin: 0 auto; padding: 8mm 6mm; }
+    .brand { text-align: center; margin-bottom: 10px; }
+    .brand img { max-width: 40mm; height: auto; }
     .title { text-align: center; font-size: 16px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 8px; }
     .badge { border: 1px solid #111; text-align: center; font-size: 12px; font-weight: 700; padding: 6px 8px; margin-bottom: 10px; }
     .divider { border-top: 1px dashed #111; margin: 10px 0; }
     .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; margin-bottom: 4px; }
     .label { flex: 0 0 34%; font-weight: 700; }
     .value { flex: 1; text-align: right; word-break: break-word; }
+    .qr { text-align: center; margin-top: 12px; }
+    .qr img { width: 30mm; height: 30mm; object-fit: contain; }
+    .qr-note { text-align: center; font-size: 10px; margin-top: 4px; color: #444; }
     .footer { text-align: center; font-size: 11px; margin-top: 12px; }
     @page { size: 80mm auto; margin: 0; }
   </style>
 </head>
 <body>
   <div class="ticket">
+    <div class="brand">
+      <img src="/logo-forever.png" alt="Forever" />
+    </div>
     <div class="title">REÇU DE PAIEMENT</div>
     <div class="badge">PAIEMENT CONFIRMÉ</div>
     ${line("Précommande", preorderNumber)}
@@ -305,6 +332,10 @@ function buildThermalReceiptHtml({
     ${line("Date paiement", paidAt)}
     <div class="divider"></div>
     ${line("Montant payé", amountPaid)}
+    <div class="qr">
+      <img src="${escapeHtml(qrUrl)}" alt="QR Code reçu paiement" />
+    </div>
+    <div class="qr-note">QR de vérification du reçu</div>
     <div class="footer">FOREVER BUSINESS OFFICE</div>
   </div>
   <script>
