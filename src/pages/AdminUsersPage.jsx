@@ -16,7 +16,7 @@ const ROLE_OPTIONS = [
   { value: "BILLING_MANAGER", label: "Responsable facturation" },
   { value: "MARKETING_ASSISTANT", label: "Assistant marketing" },
   { value: "STOCK_MANAGER", label: "Gestionnaire de stock" },
-  { value: "COUNTER_MANAGER", label: "Responsable comptoir" },
+  { value: "COUNTER_MANAGER", label: "Responsable caisse" },
   { value: "CAISSIERE", label: "Caissière" },
   { value: "INVOICER", label: "Facturier" },
   { value: "ORDER_PREPARER", label: "Préparateur de commande" },

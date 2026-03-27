@@ -35,7 +35,7 @@ function formatRoleLabel(role) {
     BILLING_MANAGER: "Responsable facturation",
     MARKETING_ASSISTANT: "Assistant marketing",
     STOCK_MANAGER: "Gestionnaire de stock",
-    COUNTER_MANAGER: "Responsable comptoir",
+    COUNTER_MANAGER: "Responsable caisse",
     CAISSIERE: "Caissière",
     INVOICER: "Facturier",
     ORDER_PREPARER: "Préparateur de commande",
@@ -56,6 +56,7 @@ function getPageTitle(pathname) {
   if (pathname === "/") return "Tableau de bord";
   if (pathname === "/orders") return "Commandes";
   if (pathname.startsWith("/orders/")) return "Détail commande";
+  if (pathname === "/cashier") return "Espace Caisse";
 
   if (pathname === "/products") return "Produits";
   if (pathname === "/products/new") return "Nouveau produit";
