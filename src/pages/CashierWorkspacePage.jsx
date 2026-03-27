@@ -199,7 +199,7 @@ function QueueTable(props) {
                 <tr key={row.id} className="border-t border-gray-100 align-top">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-gray-900">
-                      {row.preorderNumber || row.factureReference || row.id}
+                      {row.parcelNumber || row.preorderNumber || row.factureReference || row.id}
                     </div>
                     <div className="text-xs text-gray-500">{row.factureReference || "—"}</div>
                   </td>
@@ -279,7 +279,7 @@ function JournalTable({ rows, canViewAll }) {
                 <tr key={row.id} className="border-t border-gray-100 align-top">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-gray-900">
-                      {row.factureReference || row.preorderNumber || row.id}
+                      {row.parcelNumber || row.factureReference || row.preorderNumber || row.id}
                     </div>
                     <div className="text-xs text-gray-500">{row.fboNomComplet || "—"}</div>
                   </td>

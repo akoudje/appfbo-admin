@@ -146,6 +146,7 @@ export default function OrderDetailPage() {
   const [packingNote, setPackingNote] = useState("");
 
   const [deliveryTracking, setDeliveryTracking] = useState("");
+  const [pickupCode, setPickupCode] = useState("");
   const [fulfillNote, setFulfillNote] = useState("");
 
   const [cancelReason, setCancelReason] = useState("");
@@ -184,6 +185,7 @@ export default function OrderDetailPage() {
 
       setPackingNote(data?.packingNote || "");
       setDeliveryTracking(data?.deliveryTracking || "");
+      setPickupCode("");
 
       setVerifyNote("");
       setCashNote("");
@@ -658,6 +660,7 @@ const doInvoice = async () => {
 
       const result = await ordersService.fulfill(id, {
         deliveryTracking: normalizeStr(deliveryTracking) || undefined,
+        pickupCode: normalizeStr(pickupCode) || undefined,
         note: normalizeStr(fulfillNote) || undefined,
       });
 
@@ -963,6 +966,8 @@ const doInvoice = async () => {
               canFulfill={canFulfill}
               deliveryTracking={deliveryTracking}
               setDeliveryTracking={setDeliveryTracking}
+              pickupCode={pickupCode}
+              setPickupCode={setPickupCode}
               fulfillNote={fulfillNote}
               setFulfillNote={setFulfillNote}
               onFulfill={doFulfill}

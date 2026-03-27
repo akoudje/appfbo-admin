@@ -338,6 +338,11 @@ export default function OrderPreparationTab({
           <p className="mt-1">
             Le stock a été décrémenté et les mouvements sont visibles ci-dessous.
           </p>
+          {order?.parcelNumber ? (
+            <p className="mt-2">
+              Numéro de colis : <strong>{order.parcelNumber}</strong>
+            </p>
+          ) : null}
           {order?.pickupSecretCode ? (
             <p className="mt-2">
               Code secret de retrait : <strong>{order.pickupSecretCode}</strong>

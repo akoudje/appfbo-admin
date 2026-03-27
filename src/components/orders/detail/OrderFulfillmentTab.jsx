@@ -164,6 +164,8 @@ export default function OrderFulfillmentTab({
   canFulfill,
   deliveryTracking,
   setDeliveryTracking,
+  pickupCode,
+  setPickupCode,
   fulfillNote,
   setFulfillNote,
   onFulfill,
@@ -172,6 +174,8 @@ export default function OrderFulfillmentTab({
   const isReady = status === "READY";
   const isFulfilled = status === "FULFILLED";
   const canBeFulfilled = isReady && !isFulfilled;
+  const isPickupOrder = order?.deliveryMode === "RETRAIT_SITE_FLP";
+  const missingPickupCode = isPickupOrder && !String(pickupCode || "").trim();
   const hasDeliveryInfo = Boolean(order?.deliveryTracking || order?.fulfilledBy || order?.fulfilledAt);
 
   // Rendu conditionnel des alertes
@@ -245,6 +249,13 @@ export default function OrderFulfillmentTab({
             tone="blue"
             icon="🔢"
           />
+          <StatCard
+            label="N° colis"
+            value={order?.parcelNumber || "—"}
+            subvalue={order?.parcelNumber ? "Référence colis" : "Généré au lancement préparation"}
+            tone="blue"
+            icon="📦"
+          />
         </div>
       </InfoSection>
 
@@ -281,6 +292,18 @@ export default function OrderFulfillmentTab({
             </Field>
           </div>
 
+          {isPickupOrder ? (
+            <Field label="Code secret présenté par le client">
+              <input
+                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                value={pickupCode}
+                onChange={(e) => setPickupCode(e.target.value)}
+                placeholder="Saisir le code secret communiqué par le client"
+                disabled={!canFulfill || saving}
+              />
+            </Field>
+          ) : null}
+
           <Field label="Note de clôture" optional>
             <textarea
               className="input w-full min-h-[120px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
@@ -294,12 +317,12 @@ export default function OrderFulfillmentTab({
           <div className="flex items-center gap-4 pt-2">
             <button
               className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
-                !canFulfill || saving
+                !canFulfill || saving || missingPickupCode
                   ? "opacity-50 cursor-not-allowed bg-gray-400"
                   : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow"
               }`}
               onClick={onFulfill}
-              disabled={!canFulfill || saving}
+              disabled={!canFulfill || saving || missingPickupCode}
             >
               {saving ? (
                 <span className="flex items-center gap-2">
@@ -315,9 +338,20 @@ export default function OrderFulfillmentTab({
 
             <div className="text-xs text-gray-500 flex items-center gap-1">
               <span className={`inline-block w-2 h-2 rounded-full ${canFulfill ? 'bg-emerald-400' : 'bg-gray-400'}`} />
-              {canFulfill ? "Prêt à clôturer" : "Statut READY requis"}
+              {canFulfill
+                ? missingPickupCode
+                  ? "Code retrait requis"
+                  : "Prêt à clôturer"
+                : "Statut READY requis"}
             </div>
           </div>
+
+          {isPickupOrder ? (
+            <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
+              Le retrait ne sera confirmé que si le code saisi correspond au code
+              secret enregistré pour ce colis.
+            </div>
+          ) : null}
 
           {/* Aide à la saisie */}
           <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded-lg">
@@ -331,6 +365,12 @@ export default function OrderFulfillmentTab({
         <InfoSection title="📋 Récapitulatif">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Row 
+              label="N° colis" 
+              value={order?.parcelNumber} 
+              copyable
+              highlight={Boolean(order?.parcelNumber)}
+            />
+            <Row 
               label="Tracking" 
               value={order?.deliveryTracking} 
               copyable
@@ -343,6 +383,11 @@ export default function OrderFulfillmentTab({
             <Row 
               label="Date de clôture" 
               value={formatDateTime(order?.fulfilledAt)} 
+            />
+            <Row
+              label="Code retrait vérifié le"
+              value={formatDateTime(order?.pickupCodeVerifiedAt)}
+              highlight={Boolean(order?.pickupCodeVerifiedAt)}
             />
           </div>
 
