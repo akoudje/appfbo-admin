@@ -235,6 +235,11 @@ function QueueTable(props) {
                     <div className="mt-2 text-xs text-gray-500">
                       Payé le {formatDateTime(row.paidAt)}
                     </div>
+                    {row.preparationLaunchedAt ? (
+                      <div className="mt-1 text-xs text-emerald-600">
+                        Transmise préparation le {formatDateTime(row.preparationLaunchedAt)}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <QueueRowActions row={row} {...actions} />
@@ -296,12 +301,12 @@ function JournalTable({ rows, canViewAll }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">
-                      {formatDateTime(row.preparedAt)}
+                      {formatDateTime(row.preparationLaunchedAt || row.preparedAt)}
                     </div>
                     <div className="text-xs text-gray-500">
                       {canViewAll
-                        ? `Par ${row.preparedBy?.fullName || "—"}`
-                        : "Validé pour préparation"}
+                        ? `Par ${row.preparationLaunchedBy?.fullName || "—"}`
+                        : "Transmis à la préparation"}
                     </div>
                   </td>
                 </tr>
@@ -396,10 +401,11 @@ export default function CashierWorkspacePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard title="À traiter" value={queueSummary.total || 0} hint="Précommandes préfacturées ou en attente d'encaissement" />
         <SummaryCard title="Espèces à encaisser" value={queueSummary.pendingCash || 0} hint="Modes espèces non encore confirmés" />
         <SummaryCard title="Prêtes préparation" value={queueSummary.readyToPrepare || 0} hint="Paiement confirmé, en attente de passage à READY" />
+        <SummaryCard title="Transmises stock" value={journal.filter((row) => row.status === "PAID").length} hint="Déjà lancées par la caisse" />
         <SummaryCard title="Journal" value={journalSummary.total || 0} hint={journalSummary.scope === "all" ? "Vue consolidée" : "Mon historique"} />
       </div>
 
@@ -500,7 +506,7 @@ export default function CashierWorkspacePage() {
               await cashierService.prepareForPacking(row.id, {
                 packingNote: "Commande validée par la caisse pour préparation",
               });
-              setInfo("Commande transmise à la préparation.");
+              setInfo("Commande transmise au préparateur et SMS client envoyé.");
             })
           }
           onSyncWave={(row) =>

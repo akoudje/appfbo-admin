@@ -86,14 +86,15 @@ export default function PreparationQueuePage() {
       return rows.filter((r) => r.status === "FULFILLED");
     }
 
-    return rows.filter((r) => r.status === "PAID");
+    return rows.filter((r) => r.status === "PAID" && r.preparationLaunchedAt);
   }, [rows, tab]);
 
   const stats = useMemo(() => {
     const all = Array.isArray(rows) ? rows : [];
 
     return {
-      toPrepare: all.filter((r) => r.status === "PAID").length,
+      toPrepare: all.filter((r) => r.status === "PAID" && r.preparationLaunchedAt)
+        .length,
       ready: all.filter((r) => r.status === "READY").length,
       fulfilled: all.filter((r) => r.status === "FULFILLED").length,
       total: all.length,
@@ -114,7 +115,7 @@ export default function PreparationQueuePage() {
         packingNote: "Préparée depuis la file de préparation",
       });
 
-      setInfo("Commande marquée comme prête.");
+      setInfo("Commande marquée comme prête et SMS client envoyé.");
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de préparer la commande");

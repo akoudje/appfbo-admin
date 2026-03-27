@@ -274,7 +274,7 @@ export default function OrderDetailPage() {
     ["PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "INVOICED"].includes(
       status,
     ) && paymentStatus !== "PAID";
-  const canPrepare = status === "PAID";
+  const canPrepare = status === "PAID" && Boolean(order?.preparationLaunchedAt);
   const canFulfill = status === "READY";
   const canCancel = !!status && !["FULFILLED", "CANCELLED"].includes(status);
   const canCashPay =

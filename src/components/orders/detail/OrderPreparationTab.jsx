@@ -207,9 +207,10 @@ export default function OrderPreparationTab({
 }) {
   const status = order?.status;
   const stockDebited = Boolean(order?.stockDeductedAt);
+  const preparationLaunchedAt = order?.preparationLaunchedAt || null;
   const isPaid = status === "PAID";
   const isReady = status === "READY";
-  const canBePrepared = isPaid && !stockDebited;
+  const canBePrepared = isPaid && Boolean(preparationLaunchedAt) && !stockDebited;
 
   const stockMovements = Array.isArray(order?.stockMovements)
     ? order.stockMovements
@@ -337,6 +338,11 @@ export default function OrderPreparationTab({
           <p className="mt-1">
             Le stock a été décrémenté et les mouvements sont visibles ci-dessous.
           </p>
+          {order?.pickupSecretCode ? (
+            <p className="mt-2">
+              Code secret de retrait : <strong>{order.pickupSecretCode}</strong>
+            </p>
+          ) : null}
         </Alert>
       );
     }
@@ -346,6 +352,16 @@ export default function OrderPreparationTab({
         <Alert tone="gray" title="Préparation non disponible">
           La préparation n'est possible que lorsque la commande est en statut{" "}
           <strong>PAYÉE</strong>. Statut actuel : <Badge tone="gray">{status}</Badge>
+        </Alert>
+      );
+    }
+
+    if (isPaid && !preparationLaunchedAt) {
+      return (
+        <Alert tone="amber" title="En attente de la caisse">
+          La caissière doit d'abord lancer la préparation après confirmation du
+          paiement. Tant que cette étape n'est pas faite, le stock ne doit pas
+          commencer à préparer le colis.
         </Alert>
       );
     }
@@ -380,7 +396,13 @@ export default function OrderPreparationTab({
           <StatCard
             label="Statut"
             value={status || "—"}
-            subvalue={stockDebited ? "Stock sorti" : "Stock disponible"}
+            subvalue={
+              preparationLaunchedAt
+                ? `Lancée le ${formatDate(preparationLaunchedAt)}`
+                : stockDebited
+                  ? "Stock sorti"
+                  : "En attente du lancement caisse"
+            }
             tone={isReady ? "emerald" : isPaid ? "blue" : "gray"}
           />
 

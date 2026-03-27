@@ -88,6 +88,7 @@ export default function PreparationQueueTable({
               <th className="px-4 py-3 font-medium">Commande</th>
               <th className="px-4 py-3 font-medium">Paiement</th>
               <th className="px-4 py-3 font-medium">Payée le</th>
+              <th className="px-4 py-3 font-medium">Lancée le</th>
               <th className="px-4 py-3 font-medium">Prête le</th>
               <th className="px-4 py-3 font-medium">Clôturée le</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -115,6 +116,8 @@ export default function PreparationQueueTable({
 
                 <td className="px-4 py-3">{formatDateTime(row.paidAt)}</td>
 
+                <td className="px-4 py-3">{formatDateTime(row.preparationLaunchedAt)}</td>
+
                 <td className="px-4 py-3">{formatDateTime(row.preparedAt)}</td>
 
                 <td className="px-4 py-3">{formatDateTime(row.fulfilledAt)}</td>
@@ -131,7 +134,7 @@ export default function PreparationQueueTable({
                       </button>
                     </RequirePermission>
 
-                    {row.status === "PAID" ? (
+                    {row.status === "PAID" && row.preparationLaunchedAt ? (
                       <RequirePermission permission={Permission.PREPARATION_UPDATE}>
                         <button
                           onClick={() => onPrepare(row)}
