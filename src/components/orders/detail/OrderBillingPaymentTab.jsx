@@ -317,7 +317,7 @@ function buildThermalReceiptHtml({
 <body>
   <div class="ticket">
     <div class="brand">
-      <img src="/logo-forever.png" alt="Forever" />
+      <img src="/forever-corporate-logo.png" alt="Forever" />
     </div>
     <div class="title">REÇU DE PAIEMENT</div>
     <div class="badge">PAIEMENT CONFIRMÉ</div>
