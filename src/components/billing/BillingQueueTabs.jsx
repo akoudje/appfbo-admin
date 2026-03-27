@@ -21,14 +21,15 @@ export default function BillingQueueTabs({ tab, setTab }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
       <div className="flex flex-wrap gap-2">
-        <TabButton active={tab === "my"} onClick={() => setTab("my")}>
-          Mes dossiers
-        </TabButton>
 
         <TabButton active={tab === "queue"} onClick={() => setTab("queue")}>
           File commune
         </TabButton>
 
+        <TabButton active={tab === "my"} onClick={() => setTab("my")}>
+          Mes dossiers
+        </TabButton>
+        
         <TabButton
           active={tab === "waiting-payment"}
           onClick={() => setTab("waiting-payment")}
