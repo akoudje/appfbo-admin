@@ -420,7 +420,28 @@ function buildThermalReceiptHtml({
     </div>
   </div>
   <script>
-    window.addEventListener("load", () => { setTimeout(() => window.print(), 150); });
+    function waitForImages() {
+      const images = Array.from(document.images || []);
+      if (!images.length) return Promise.resolve();
+
+      return Promise.all(
+        images.map((img) => {
+          if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+          return new Promise((resolve) => {
+            const done = () => resolve();
+            img.addEventListener("load", done, { once: true });
+            img.addEventListener("error", done, { once: true });
+            setTimeout(done, 1500);
+          });
+        }),
+      );
+    }
+
+    window.addEventListener("load", () => {
+      waitForImages().finally(() => {
+        setTimeout(() => window.print(), 350);
+      });
+    });
     window.addEventListener("afterprint", () => { setTimeout(() => window.close(), 150); });
   </script>
 </body>
