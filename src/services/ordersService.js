@@ -42,6 +42,13 @@ export const ordersService = {
   getMessages: async (id) =>
     (await api.get(`/admin/orders/${normalizeOrderId(id)}/messages`)).data,
 
+  getInvoicePreview: async (id, params = {}) =>
+    (
+      await api.get(`/admin/orders/${normalizeOrderId(id)}/invoice-preview`, {
+        params,
+      })
+    ).data,
+
   /* ============================
      Workflow commande
   ============================ */

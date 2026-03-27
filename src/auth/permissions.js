@@ -14,6 +14,7 @@ export const AdminRole = {
   MARKETING_ASSISTANT: "MARKETING_ASSISTANT",
   STOCK_MANAGER: "STOCK_MANAGER",
   COUNTER_MANAGER: "COUNTER_MANAGER",
+  CAISSIERE: "CAISSIERE",
   INVOICER: "INVOICER",
   ORDER_PREPARER: "ORDER_PREPARER",
 };
@@ -92,6 +93,12 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREORDER_READ,
     Permission.PREORDER_UPDATE_STATUS,
     Permission.INVOICE_CREATE,
+    Permission.PAYMENT_VALIDATE,
+  ],
+
+  [AdminRole.CAISSIERE]: [
+    Permission.COUNTRY_READ,
+    Permission.PREORDER_READ,
     Permission.PAYMENT_VALIDATE,
   ],
 

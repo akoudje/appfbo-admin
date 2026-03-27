@@ -36,6 +36,7 @@ function formatRoleLabel(role) {
     MARKETING_ASSISTANT: "Assistant marketing",
     STOCK_MANAGER: "Gestionnaire de stock",
     COUNTER_MANAGER: "Responsable comptoir",
+    CAISSIERE: "Caissière",
     INVOICER: "Facturier",
     ORDER_PREPARER: "Préparateur de commande",
   };

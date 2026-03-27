@@ -331,6 +331,8 @@ function BillingActionCard({
   setInvoiceWaTo,
   invoiceGrade,
   setInvoiceGrade,
+  invoicePreview,
+  invoicePreviewLoading,
   onInvoice,
   resolvedPaymentLink,
 }) {
@@ -376,7 +378,39 @@ function BillingActionCard({
         <div className="flex-1 min-w-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           Le facturier peut corriger ici le grade effectif constate dans l'AS400.
           Le montant et la remise utilises pour la prefacture et le lien de paiement
-          seront recalcules avec ce grade au clic sur <strong>Facturer + Paiement</strong>.
+          sont recalcules automatiquement avec ce grade.
+        </div>
+
+        <div className="flex-1 min-w-0 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+            Apercu facture
+          </div>
+          {invoicePreviewLoading ? (
+            <div className="mt-2 text-sm text-blue-700">Recalcul en cours...</div>
+          ) : invoicePreview ? (
+            <div className="mt-2 space-y-1 text-sm text-blue-900">
+              <div>
+                Remise appliquee :{" "}
+                <strong>{Number(invoicePreview.discountPercent || 0).toFixed(2)}%</strong>
+              </div>
+              <div>
+                Montant commande :{" "}
+                <strong>{formatFcfa(invoicePreview.totals?.totalFcfa || 0)}</strong>
+              </div>
+              <div>
+                Frais operateur :{" "}
+                <strong>{formatFcfa(invoicePreview.payment?.paymentServiceFeeFcfa || 0)}</strong>
+              </div>
+              <div>
+                Montant final a payer :{" "}
+                <strong>{formatFcfa(invoicePreview.payment?.amountToPayFcfa || 0)}</strong>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 text-sm text-blue-700">
+              Selectionne un grade pour voir le montant final.
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col justify-end gap-2">
@@ -825,6 +859,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceWaTo,
   invoiceGrade,
   setInvoiceGrade,
+  invoicePreview,
+  invoicePreviewLoading,
   paymentLink,
   onInvoice,
   onCopyWhatsApp,
@@ -900,6 +936,7 @@ export default function OrderBillingPaymentTab({
     null;
   const amountPaidValue =
     payment?.amountPaidFcfa ||
+    payment?.amountExpectedFcfa ||
     latestAttempt?.amountPaidFcfa ||
     order?.totalFcfa ||
     0;
@@ -1010,6 +1047,8 @@ export default function OrderBillingPaymentTab({
           setInvoiceWaTo={setInvoiceWaTo}
           invoiceGrade={invoiceGrade}
           setInvoiceGrade={setInvoiceGrade}
+          invoicePreview={invoicePreview}
+          invoicePreviewLoading={invoicePreviewLoading}
           onInvoice={onInvoice}
           resolvedPaymentLink={resolvedPaymentLink}
         />

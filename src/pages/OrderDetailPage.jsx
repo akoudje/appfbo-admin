@@ -133,6 +133,8 @@ export default function OrderDetailPage() {
   const [invoiceGrade, setInvoiceGrade] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
+  const [invoicePreview, setInvoicePreview] = useState(null);
+  const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
 
   const [proofUrl, setProofUrl] = useState("");
   const [proofRef, setProofRef] = useState("");
@@ -166,6 +168,7 @@ export default function OrderDetailPage() {
       setInvoiceWaTo(data?.factureWhatsappTo || "");
       setInvoiceGrade(data?.fboGrade || "");
       setPaymentLink(data?.paymentLink || "");
+      setInvoicePreview(null);
 
       setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
       setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
@@ -394,6 +397,40 @@ export default function OrderDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableTabs, activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!order?.id || !canAccessBilling || !invoiceGrade || status !== "SUBMITTED") {
+      setInvoicePreview(null);
+      setInvoicePreviewLoading(false);
+      return undefined;
+    }
+
+    setInvoicePreviewLoading(true);
+
+    ordersService
+      .getInvoicePreview(order.id, { fboGrade: invoiceGrade })
+      .then((data) => {
+        if (!cancelled) {
+          setInvoicePreview(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInvoicePreview(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setInvoicePreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessBilling, invoiceGrade, order?.id, status]);
 
   const handleActionResult = async (result, fallbackInfo) => {
     if (result?.alreadyDone) {
@@ -813,6 +850,8 @@ const doInvoice = async () => {
               setInvoiceWaTo={setInvoiceWaTo}
               invoiceGrade={invoiceGrade}
               setInvoiceGrade={setInvoiceGrade}
+              invoicePreview={invoicePreview}
+              invoicePreviewLoading={invoicePreviewLoading}
               paymentLink={paymentLink}
               setPaymentLink={setPaymentLink}
               invoiceNote={invoiceNote}
