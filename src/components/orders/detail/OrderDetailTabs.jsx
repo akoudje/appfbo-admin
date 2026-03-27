@@ -1,18 +1,29 @@
 // src/components/orders/detail/OrderDetailTabs.jsx
 // Composant de navigation par onglets pour la page de détail d'une commande, affichant les différentes sections (Aperçu, Workflow, Facturation, etc.) et gérant l'état de l'onglet actif.
 
-export default function OrderDetailTabs({ activeTab, onChange, order }) {
-  const tabs = [
-    { key: "overview", label: "Aperçu" },
-    { key: "workflow", label: "Workflow" },
-    { key: "billing", label: "Facturation" },
-    { key: "payment", label: "Paiement" },
-    { key: "preparation", label: "Préparation" },
-    { key: "fulfillment", label: "Clôture" },
-    { key: "history", label: "Historique" },
-  ];
+export default function OrderDetailTabs({
+  activeTab,
+  onChange,
+  order,
+  availableTabs = null,
+}) {
+  const tabs = (availableTabs && availableTabs.length
+    ? availableTabs
+    : [
+        { key: "overview", label: "Aperçu" },
+        { key: "workflow", label: "Workflow" },
+        { key: "billing", label: "Facturation" },
+        { key: "payment", label: "Paiement" },
+        { key: "preparation", label: "Préparation" },
+        { key: "fulfillment", label: "Clôture" },
+        { key: "history", label: "Historique" },
+      ]).slice();
 
-  if (order?.status !== "FULFILLED" && order?.status !== "CANCELLED") {
+  if (
+    !availableTabs &&
+    order?.status !== "FULFILLED" &&
+    order?.status !== "CANCELLED"
+  ) {
     tabs.push({ key: "cancel", label: "Annulation" });
   }
 

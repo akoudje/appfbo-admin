@@ -8,6 +8,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
 import RequirePermission from "../components/auth/RequirePermission";
 import { Permission } from "../auth/permissions";
+import { usePermission } from "../hooks/usePermission";
 
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
 import OrderOverviewTab from "../components/orders/detail/OrderOverviewTab";
@@ -129,6 +130,7 @@ export default function OrderDetailPage() {
 
   const [invoiceRef, setInvoiceRef] = useState("");
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
+  const [invoiceGrade, setInvoiceGrade] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
 
@@ -162,6 +164,7 @@ export default function OrderDetailPage() {
 
       setInvoiceRef(data?.factureReference || "");
       setInvoiceWaTo(data?.factureWhatsappTo || "");
+      setInvoiceGrade(data?.fboGrade || "");
       setPaymentLink(data?.paymentLink || "");
 
       setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
@@ -211,6 +214,10 @@ export default function OrderDetailPage() {
 
   const status = order?.status;
   const paymentStatus = order?.paymentStatus;
+  const canAccessBilling = usePermission(Permission.INVOICE_CREATE);
+  const canAccessPayment = usePermission(Permission.PAYMENT_VALIDATE);
+  const canAccessPreparation = usePermission(Permission.PREPARATION_UPDATE);
+  const canAccessCancel = usePermission(Permission.PREORDER_UPDATE_STATUS);
 
   const preorderNumber =
     order?.preorderNumber || (order?.id ? `#${order.id.slice(-8)}` : "—");
@@ -349,6 +356,45 @@ export default function OrderDetailPage() {
     );
   }, [messages]);
 
+  const availableTabs = useMemo(() => {
+    const tabs = [
+      { key: "overview", label: "Aperçu" },
+      { key: "workflow", label: "Workflow" },
+    ];
+
+    if (canAccessBilling) {
+      tabs.push({ key: "billing", label: "Facturation" });
+    }
+
+    if (canAccessPayment) {
+      tabs.push({ key: "payment", label: "Paiement" });
+    }
+
+    if (canAccessPreparation) {
+      tabs.push({ key: "preparation", label: "Préparation" });
+      tabs.push({ key: "fulfillment", label: "Clôture" });
+    }
+
+    tabs.push({ key: "history", label: "Historique" });
+
+    if (
+      canAccessCancel &&
+      order?.status !== "FULFILLED" &&
+      order?.status !== "CANCELLED"
+    ) {
+      tabs.push({ key: "cancel", label: "Annulation" });
+    }
+
+    return tabs;
+  }, [canAccessBilling, canAccessCancel, canAccessPayment, canAccessPreparation, order?.status]);
+
+  useEffect(() => {
+    if (!availableTabs.some((tab) => tab.key === activeTab)) {
+      setTab("overview");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableTabs, activeTab]);
+
   const handleActionResult = async (result, fallbackInfo) => {
     if (result?.alreadyDone) {
       setInfo(result?.message || fallbackInfo || "Action déjà effectuée.");
@@ -359,7 +405,7 @@ export default function OrderDetailPage() {
   };
 
   const handleResendWhatsApp = async () => {
-    setInfo("Fonction de renvoi WhatsApp bientôt disponible.");
+    setInfo("Fonction de renvoi SMS bientot disponible.");
   };
 
 const doInvoice = async () => {
@@ -371,6 +417,7 @@ const doInvoice = async () => {
     const body = {
       factureReference: normalizeStr(invoiceRef) || undefined,
       whatsappTo: normalizeStr(invoiceWaTo) || undefined,
+      fboGrade: normalizeStr(invoiceGrade) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
     };
 
@@ -379,9 +426,9 @@ const doInvoice = async () => {
     await load();
 
     if (!isCash && isWave) {
-      setInfo("Préfacture créée, paiement Wave initié et message WhatsApp envoyé.");
+      setInfo("Prefacture creee, paiement Wave initie et SMS envoye.");
     } else {
-      setInfo("Préfacture créée et envoyée.");
+      setInfo("Prefacture creee et SMS envoye.");
     }
   } catch (e) {
     setError(e?.response?.data?.message || "Impossible de facturer");
@@ -599,7 +646,7 @@ const doInvoice = async () => {
 
     try {
       await navigator.clipboard.writeText(text);
-      setInfo("Message WhatsApp copié.");
+      setInfo("Message SMS copie.");
     } catch {
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -607,7 +654,7 @@ const doInvoice = async () => {
       ta.select();
       document.execCommand("copy");
       document.body.removeChild(ta);
-      setInfo("Message WhatsApp copié.");
+      setInfo("Message SMS copie.");
     }
   };
 
@@ -721,6 +768,7 @@ const doInvoice = async () => {
           activeTab={activeTab}
           onChange={setTab}
           order={order}
+          availableTabs={availableTabs}
         />
 
         {activeTab === "overview" && (
@@ -763,6 +811,8 @@ const doInvoice = async () => {
               setInvoiceRef={setInvoiceRef}
               invoiceWaTo={invoiceWaTo}
               setInvoiceWaTo={setInvoiceWaTo}
+              invoiceGrade={invoiceGrade}
+              setInvoiceGrade={setInvoiceGrade}
               paymentLink={paymentLink}
               setPaymentLink={setPaymentLink}
               invoiceNote={invoiceNote}

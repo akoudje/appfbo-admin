@@ -3,6 +3,22 @@ import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import PaymentTimeline from "./PaymentTimeline";
 
+const GRADE_LABELS = {
+  CLIENT_PRIVILEGIE: "Client Privilégié",
+  ANIMATEUR_ADJOINT: "Animateur Adjoint",
+  ANIMATEUR: "Animateur",
+  MANAGER_ADJOINT: "Manager Adjoint",
+  MANAGER: "Manager",
+};
+
+const BILLING_GRADE_OPTIONS = [
+  "CLIENT_PRIVILEGIE",
+  "ANIMATEUR_ADJOINT",
+  "ANIMATEUR",
+  "MANAGER_ADJOINT",
+  "MANAGER",
+];
+
 function Field({ label, children, optional = false, className = "" }) {
   return (
     <label className={`block space-y-1 ${className}`}>
@@ -153,7 +169,7 @@ function PaymentMethodBadge({ isCash, isWaveFlow }) {
   );
 }
 
-function WhatsAppStatusBadge({ status }) {
+function MessageStatusBadge({ status }) {
   const config = {
     DRAFT: { tone: "gray", label: "Brouillon", icon: "📝" },
     QUEUED: { tone: "gray", label: "En attente", icon: "⏳" },
@@ -313,6 +329,8 @@ function BillingActionCard({
   setInvoiceRef,
   invoiceWaTo,
   setInvoiceWaTo,
+  invoiceGrade,
+  setInvoiceGrade,
   onInvoice,
   resolvedPaymentLink,
 }) {
@@ -329,26 +347,47 @@ function BillingActionCard({
               disabled={!canInvoice || saving}
             />
           </Field>
-          <Field label="WhatsApp destinataire" optional>
+          <Field label="Grade retenu pour la préfacture">
+            <select
+              className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 text-sm"
+              value={invoiceGrade || ""}
+              onChange={(e) => setInvoiceGrade?.(e.target.value)}
+              disabled={!canInvoice || saving}
+            >
+              <option value="">Sélectionner un grade</option>
+              {BILLING_GRADE_OPTIONS.map((grade) => (
+                <option key={grade} value={grade}>
+                  {GRADE_LABELS[grade] || grade}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Numero destinataire" optional className="mt-2">
             <input
               className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 text-sm"
               value={invoiceWaTo}
               onChange={(e) => setInvoiceWaTo?.(e.target.value)}
-              placeholder="+225 01 23 45 67"
+              placeholder="0701020304 ou +2250701020304"
               disabled={!canInvoice || saving}
             />
           </Field>
         </div>
 
+        <div className="flex-1 min-w-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          Le facturier peut corriger ici le grade effectif constate dans l'AS400.
+          Le montant et la remise utilises pour la prefacture et le lien de paiement
+          seront recalcules avec ce grade au clic sur <strong>Facturer + Paiement</strong>.
+        </div>
+
         <div className="flex flex-col justify-end gap-2">
           <button
             className={`px-5 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
-              !canInvoice || saving
+              !canInvoice || saving || !invoiceGrade
                 ? "opacity-50 cursor-not-allowed bg-gray-400"
                 : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
             }`}
             onClick={onInvoice}
-            disabled={!canInvoice || saving}
+            disabled={!canInvoice || saving || !invoiceGrade}
             type="button"
           >
             {saving ? "Traitement..." : isCash ? "💵 Facturer & envoyer" : "💳 Facturer + Paiement"}
@@ -613,7 +652,7 @@ function ManualPaymentCard({
               value={proofNote}
               onChange={(e) => setProofNote?.(e.target.value)}
               disabled={!canProof || saving || step1Completed}
-              placeholder="Capture reçue par WhatsApp..."
+              placeholder="Capture recue par SMS/WhatsApp..."
             />
           </Field>
           <div className="flex items-center justify-between gap-3 mt-3">
@@ -687,7 +726,7 @@ function ManualPaymentCard({
   );
 }
 
-function WhatsAppMessageCard({
+function SmsMessageCard({
   order,
   billingMessage,
   resolvedWhatsappStatus,
@@ -698,7 +737,7 @@ function WhatsAppMessageCard({
   saving,
 }) {
   return (
-    <CompactInfoCard title="📱 WhatsApp & Suivi">
+    <CompactInfoCard title="📱 SMS & Suivi">
       <div className="space-y-3">
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
           <div className="text-xs text-gray-500 uppercase mb-1">Message envoyé</div>
@@ -743,7 +782,7 @@ function WhatsAppMessageCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-          <Row label="Statut" value={<WhatsAppStatusBadge status={resolvedWhatsappStatus} />} />
+          <Row label="Statut" value={<MessageStatusBadge status={resolvedWhatsappStatus} />} />
           <Row label="Destinataire" value={billingMessage?.toPhone || order?.factureWhatsappTo || "—"} />
           <Row label="Envoyé le" value={formatDateTime(billingMessage?.sentAt)} />
           <Row label="Lien cliqué" value={order?.paymentLinkClickedAt ? `✅ ${formatDateTime(order.paymentLinkClickedAt)}` : "Non"} />
@@ -784,6 +823,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceRef,
   invoiceWaTo,
   setInvoiceWaTo,
+  invoiceGrade,
+  setInvoiceGrade,
   paymentLink,
   onInvoice,
   onCopyWhatsApp,
@@ -881,7 +922,7 @@ export default function OrderBillingPaymentTab({
   const isPaymentCancelled = normalizedPaymentStatus === "CANCELLED";
   const isPaymentFailed = normalizedPaymentStatus === "FAILED";
   const showBillingSection = variant !== "payment";
-  const showWhatsAppSection = variant !== "payment";
+  const showMessageSection = variant !== "payment";
   const syncWaveHandler = onRefreshWaveStatus || onSyncWave;
 
   const handlePrintReceipt = () => {
@@ -967,12 +1008,14 @@ export default function OrderBillingPaymentTab({
           setInvoiceRef={setInvoiceRef}
           invoiceWaTo={invoiceWaTo}
           setInvoiceWaTo={setInvoiceWaTo}
+          invoiceGrade={invoiceGrade}
+          setInvoiceGrade={setInvoiceGrade}
           onInvoice={onInvoice}
           resolvedPaymentLink={resolvedPaymentLink}
         />
       )}
 
-      <div className={`grid gap-4 ${showWhatsAppSection ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+      <div className={`grid gap-4 ${showMessageSection ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
         <WavePaymentCard
           paymentStatus={paymentStatus}
           paymentProvider={paymentProvider}
@@ -999,8 +1042,8 @@ export default function OrderBillingPaymentTab({
           onPrintReceipt={handlePrintReceipt}
         />
 
-        {showWhatsAppSection && (
-          <WhatsAppMessageCard
+        {showMessageSection && (
+          <SmsMessageCard
             order={order}
             billingMessage={billingMessage}
             resolvedWhatsappStatus={resolvedWhatsappStatus}

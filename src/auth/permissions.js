@@ -99,7 +99,6 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.COUNTRY_READ,
     Permission.PREORDER_READ,
     Permission.INVOICE_CREATE,
-    Permission.PAYMENT_VALIDATE,
   ],
 
   [AdminRole.ORDER_PREPARER]: [
