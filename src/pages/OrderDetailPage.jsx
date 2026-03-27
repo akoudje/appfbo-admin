@@ -131,6 +131,7 @@ export default function OrderDetailPage() {
   const [invoiceRef, setInvoiceRef] = useState("");
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
   const [invoiceGrade, setInvoiceGrade] = useState("");
+  const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
   const [invoicePreview, setInvoicePreview] = useState(null);
@@ -167,6 +168,11 @@ export default function OrderDetailPage() {
       setInvoiceRef(data?.factureReference || "");
       setInvoiceWaTo(data?.factureWhatsappTo || "");
       setInvoiceGrade(data?.fboGrade || "");
+      setInvoiceAmountFcfa(
+        data?.totalFcfa !== null && data?.totalFcfa !== undefined
+          ? String(data.totalFcfa)
+          : "",
+      );
       setPaymentLink(data?.paymentLink || "");
       setInvoicePreview(null);
 
@@ -401,7 +407,12 @@ export default function OrderDetailPage() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!order?.id || !canAccessBilling || !invoiceGrade || status !== "SUBMITTED") {
+    if (
+      !order?.id ||
+      !canAccessBilling ||
+      !invoiceGrade ||
+      status !== "SUBMITTED"
+    ) {
       setInvoicePreview(null);
       setInvoicePreviewLoading(false);
       return undefined;
@@ -410,7 +421,10 @@ export default function OrderDetailPage() {
     setInvoicePreviewLoading(true);
 
     ordersService
-      .getInvoicePreview(order.id, { fboGrade: invoiceGrade })
+      .getInvoicePreview(order.id, {
+        fboGrade: invoiceGrade,
+        invoiceAmountFcfa,
+      })
       .then((data) => {
         if (!cancelled) {
           setInvoicePreview(data);
@@ -430,7 +444,7 @@ export default function OrderDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [canAccessBilling, invoiceGrade, order?.id, status]);
+  }, [canAccessBilling, invoiceAmountFcfa, invoiceGrade, order?.id, status]);
 
   const handleActionResult = async (result, fallbackInfo) => {
     if (result?.alreadyDone) {
@@ -455,6 +469,7 @@ const doInvoice = async () => {
       factureReference: normalizeStr(invoiceRef) || undefined,
       whatsappTo: normalizeStr(invoiceWaTo) || undefined,
       fboGrade: normalizeStr(invoiceGrade) || undefined,
+      invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
     };
 
@@ -850,6 +865,8 @@ const doInvoice = async () => {
               setInvoiceWaTo={setInvoiceWaTo}
               invoiceGrade={invoiceGrade}
               setInvoiceGrade={setInvoiceGrade}
+              invoiceAmountFcfa={invoiceAmountFcfa}
+              setInvoiceAmountFcfa={setInvoiceAmountFcfa}
               invoicePreview={invoicePreview}
               invoicePreviewLoading={invoicePreviewLoading}
               paymentLink={paymentLink}

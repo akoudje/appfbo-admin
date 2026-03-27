@@ -464,6 +464,8 @@ function BillingActionCard({
   setInvoiceWaTo,
   invoiceGrade,
   setInvoiceGrade,
+  invoiceAmountFcfa,
+  setInvoiceAmountFcfa,
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
@@ -506,12 +508,23 @@ function BillingActionCard({
               disabled={!canInvoice || saving}
             />
           </Field>
+          <Field label="Montant final AS400 (FCFA)" className="mt-2">
+            <input
+              className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 text-sm"
+              value={invoiceAmountFcfa || ""}
+              onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
+              placeholder="Montant final confirmé par l'AS400"
+              inputMode="numeric"
+              disabled={!canInvoice || saving}
+            />
+          </Field>
         </div>
 
         <div className="flex-1 min-w-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           Le facturier peut corriger ici le grade effectif constate dans l'AS400.
-          Le montant et la remise utilises pour la prefacture et le lien de paiement
-          sont recalcules automatiquement avec ce grade.
+          Il peut aussi saisir le montant final transmis par l'AS400.
+          Le montant de prefacture et le lien de paiement utilisent cette valeur,
+          puis appliquent ensuite les frais operateur si le mode de paiement l'exige.
         </div>
 
         <div className="flex-1 min-w-0 rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -527,8 +540,12 @@ function BillingActionCard({
                 <strong>{Number(invoicePreview.discountPercent || 0).toFixed(2)}%</strong>
               </div>
               <div>
-                Montant commande :{" "}
-                <strong>{formatFcfa(invoicePreview.totals?.totalFcfa || 0)}</strong>
+                Montant calcule selon grade :{" "}
+                <strong>{formatFcfa(invoicePreview.pricingTotals?.totalFcfa || 0)}</strong>
+              </div>
+              <div>
+                Montant retenu pour facture :{" "}
+                <strong>{formatFcfa(invoicePreview.effectiveInvoiceTotalFcfa || 0)}</strong>
               </div>
               <div>
                 Frais operateur :{" "}
@@ -541,7 +558,7 @@ function BillingActionCard({
             </div>
           ) : (
             <div className="mt-2 text-sm text-blue-700">
-              Selectionne un grade pour voir le montant final.
+              Selectionne un grade et saisis le montant facture pour voir l'aperçu.
             </div>
           )}
         </div>
@@ -992,6 +1009,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceWaTo,
   invoiceGrade,
   setInvoiceGrade,
+  invoiceAmountFcfa,
+  setInvoiceAmountFcfa,
   invoicePreview,
   invoicePreviewLoading,
   paymentLink,
@@ -1187,6 +1206,8 @@ export default function OrderBillingPaymentTab({
           setInvoiceWaTo={setInvoiceWaTo}
           invoiceGrade={invoiceGrade}
           setInvoiceGrade={setInvoiceGrade}
+          invoiceAmountFcfa={invoiceAmountFcfa}
+          setInvoiceAmountFcfa={setInvoiceAmountFcfa}
           invoicePreview={invoicePreview}
           invoicePreviewLoading={invoicePreviewLoading}
           onInvoice={onInvoice}
