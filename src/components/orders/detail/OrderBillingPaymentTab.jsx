@@ -508,12 +508,12 @@ function BillingActionCard({
               disabled={!canInvoice || saving}
             />
           </Field>
-          <Field label="Montant final AS400 (FCFA)" className="mt-2">
+          <Field label="Montant total AS400 déjà remisé (FCFA)" className="mt-2">
             <input
               className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 text-sm"
               value={invoiceAmountFcfa || ""}
               onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
-              placeholder="Montant final confirmé par l'AS400"
+              placeholder="Montant net transmis par l'AS400"
               inputMode="numeric"
               disabled={!canInvoice || saving}
             />
@@ -522,9 +522,10 @@ function BillingActionCard({
 
         <div className="flex-1 min-w-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           Le facturier peut corriger ici le grade effectif constate dans l'AS400.
-          Il peut aussi saisir le montant final transmis par l'AS400.
-          Le montant de prefacture et le lien de paiement utilisent cette valeur,
-          puis appliquent ensuite les frais operateur si le mode de paiement l'exige.
+          Le montant saisi venant de l'AS400 est deja un montant net, avec la
+          remise du grade de facturation deja appliquee. La plateforme n'applique
+          pas une seconde remise sur ce montant et n'ajoute ensuite, si besoin,
+          que les frais operateur du moyen de paiement choisi.
         </div>
 
         <div className="flex-1 min-w-0 rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -544,7 +545,7 @@ function BillingActionCard({
                 <strong>{formatFcfa(invoicePreview.pricingTotals?.totalFcfa || 0)}</strong>
               </div>
               <div>
-                Montant retenu pour facture :{" "}
+                Montant AS400 retenu pour facture :{" "}
                 <strong>{formatFcfa(invoicePreview.effectiveInvoiceTotalFcfa || 0)}</strong>
               </div>
               <div>
