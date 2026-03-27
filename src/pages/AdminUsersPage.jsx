@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usersService } from "../services/usersService";
+import useAdminAuth from "../hooks/useAdminAuth";
 
 /* ============================================================================
    Config métier
@@ -95,6 +96,22 @@ const COUNTRY_OPTIONS = [
   { value: "BEN", label: "Bénin" },
   { value: "NER", label: "Niger" },
 ];
+
+const ROLE_ASSIGNMENT_MATRIX = {
+  SUPER_ADMIN: new Set(ROLE_OPTIONS.map((role) => role.value)),
+  TECH_ADMIN: new Set(
+    ROLE_OPTIONS.map((role) => role.value).filter((role) => role !== "SUPER_ADMIN"),
+  ),
+  OPERATIONS_DIRECTOR: new Set([
+    "BILLING_MANAGER",
+    "COUNTER_MANAGER",
+    "STOCK_MANAGER",
+    "MARKETING_ASSISTANT",
+    "INVOICER",
+    "CAISSIERE",
+    "ORDER_PREPARER",
+  ]),
+};
 
 /* ============================================================================
    Helpers
@@ -231,6 +248,7 @@ function UserFormModal({
   open,
   mode = "create",
   value,
+  manageableRoleGroups,
   onChange,
   onClose,
   onSubmit,
@@ -295,7 +313,7 @@ function UserFormModal({
                 disabled={saving}
               >
                 <option value="">Sélectionner un rôle</option>
-                {ROLE_GROUPS.map((group) => (
+                {manageableRoleGroups.map((group) => (
                   <optgroup key={group.label} label={group.label}>
                     {group.roles.map((role) => (
                       <option key={role.value} value={role.value}>
@@ -389,6 +407,7 @@ function UserFormModal({
 ============================================================================ */
 
 export default function AdminUsersPage() {
+  const { role: currentRole } = useAdminAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -432,6 +451,14 @@ export default function AdminUsersPage() {
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => users, [users]);
+  const manageableRoleGroups = useMemo(() => {
+    const allowedRoles = ROLE_ASSIGNMENT_MATRIX[currentRole] || new Set();
+
+    return ROLE_GROUPS.map((group) => ({
+      ...group,
+      roles: group.roles.filter((role) => allowedRoles.has(role.value)),
+    })).filter((group) => group.roles.length > 0);
+  }, [currentRole]);
 
   const openCreate = () => {
     setError("");
@@ -693,6 +720,9 @@ export default function AdminUsersPage() {
                         <div className="mt-1 text-sm text-gray-500">
                           {user.email || "—"}
                         </div>
+                        <div className="mt-1 text-xs text-gray-400">
+                          Dernière connexion: {formatDateTime(user.lastLoginAt)}
+                        </div>
                       </td>
 
                       <td className="border-b border-gray-100 px-4 py-4">
@@ -709,6 +739,13 @@ export default function AdminUsersPage() {
                         ) : (
                           <Badge tone="red">Inactif</Badge>
                         )}
+                        {user.lockedUntil ? (
+                          <div className="mt-2">
+                            <Badge tone="amber">
+                              Verrouillé jusqu’au {formatDateTime(user.lockedUntil)}
+                            </Badge>
+                          </div>
+                        ) : null}
                       </td>
 
                       <td className="border-b border-gray-100 px-4 py-4 text-sm text-gray-500">
@@ -760,6 +797,7 @@ export default function AdminUsersPage() {
         open={modalOpen}
         mode={modalMode}
         value={form}
+        manageableRoleGroups={manageableRoleGroups}
         onChange={setForm}
         onClose={() => !saving && setModalOpen(false)}
         onSubmit={handleSubmitForm}

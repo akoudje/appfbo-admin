@@ -157,7 +157,7 @@ export default function App() {
                   path="/settings/users"
                   element={
                     <RequirePermission
-                      permission={Permission.COUNTRY_WRITE}
+                      permission={Permission.USER_ADMIN}
                       fallback={<AccessDenied message="Accès refusé aux utilisateurs." />}
                     >
                       <AdminUsersPage />
