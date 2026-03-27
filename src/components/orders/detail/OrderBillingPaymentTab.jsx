@@ -920,6 +920,8 @@ export default function OrderBillingPaymentTab({
     "";
   const payerPhone =
     latestAttempt?.providerPayerPhone ||
+    latestAttempt?.requestPayloadJson?.restrictPayerMobile ||
+    latestAttempt?.normalizedPayloadJson?.providerPayerPhone ||
     latestAttempt?.payerPhone ||
     payment?.payerPhone ||
     payment?.customerPhone ||
