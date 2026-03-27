@@ -18,6 +18,7 @@ import ProductEdit from "./pages/ProductEdit.jsx";
 import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
+import CashierWorkspacePage from "./pages/CashierWorkspacePage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -76,6 +77,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à la file de facturation." />}
                     >
                       <BillingQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/cashier"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PAYMENT_VALIDATE}
+                      fallback={<AccessDenied message="Accès refusé à l’espace caisse." />}
+                    >
+                      <CashierWorkspacePage />
                     </RequirePermission>
                   }
                 />

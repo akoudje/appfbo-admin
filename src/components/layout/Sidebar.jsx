@@ -59,6 +59,22 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    to: "/cashier",
+    label: "Caisse",
+    permission: Permission.PAYMENT_VALIDATE,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 9V7a5 5 0 00-10 0v2M5 9h14v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9zm4 5h6"
+        />
+      </svg>
+    ),
+    badge: null,
+  },
+  {
     to: "/preparation",
     label: "Préparation",
     permission: Permission.PREPARATION_UPDATE,
