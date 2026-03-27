@@ -534,7 +534,7 @@ function WavePaymentCard({
                       target="_blank"
                       rel="noreferrer"
                     >
-                      🔗 Ouvrir
+                      🔗 Ouvrir page client
                     </a>
                   )}
                 </>
@@ -941,7 +941,11 @@ export default function OrderBillingPaymentTab({
     order?.totalFcfa ||
     0;
   const resolvedPaymentLink =
+    billingMessage?.paymentLinkTracked ||
+    billingMessage?.paymentLinkTarget ||
     paymentLink ||
+    order?.paymentLinkTarget ||
+    order?.trackedPaymentLink ||
     latestAttempt?.providerLaunchUrl ||
     latestAttempt?.checkoutUrl ||
     order?.paymentLink ||
