@@ -256,6 +256,18 @@ function buildReceiptQrUrl(payload) {
   )}`;
 }
 
+function buildPrintAssetUrl(assetPath) {
+  const normalizedPath = String(assetPath || "").trim();
+  if (!normalizedPath) return "";
+  if (/^https?:\/\//i.test(normalizedPath)) return normalizedPath;
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return new URL(normalizedPath, window.location.origin).toString();
+  }
+
+  return normalizedPath;
+}
+
 function resolveReceiptCountryLabel(order) {
   const explicitName = String(
     order?.country?.name || order?.countryName || "",
@@ -317,6 +329,7 @@ function buildThermalReceiptHtml({
     transactionRef,
     paidAt,
   });
+  const logoUrl = buildPrintAssetUrl("/forever-corporate-logo-black.png");
   const qrPayload = [
     `recu:${receiptNumber}`,
     `precommande:${preorderNumber || "-"}`,
@@ -380,7 +393,7 @@ function buildThermalReceiptHtml({
 <body>
   <div class="ticket">
     <div class="brand">
-      <img src="/forever-corporate-logo-black.png" alt="Forever" />
+      <img src="${escapeHtml(logoUrl)}" alt="Forever" />
     </div>
     <div class="title">REÇU DE PAIEMENT</div>
     <div class="receipt-no">N° REÇU ${escapeHtml(receiptNumber)}</div>
