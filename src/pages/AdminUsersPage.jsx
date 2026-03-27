@@ -8,19 +8,85 @@ import { usersService } from "../services/usersService";
    Config métier
 ============================================================================ */
 
-const ROLE_OPTIONS = [
-  { value: "SUPER_ADMIN", label: "Super Admin" },
-  { value: "TECH_ADMIN", label: "Admin technique" },
-  { value: "OPERATIONS_DIRECTOR", label: "Directeur des opérations" },
-  { value: "SALES_DIRECTOR", label: "Directeur commercial" },
-  { value: "BILLING_MANAGER", label: "Responsable facturation" },
-  { value: "MARKETING_ASSISTANT", label: "Assistant marketing" },
-  { value: "STOCK_MANAGER", label: "Gestionnaire de stock" },
-  { value: "COUNTER_MANAGER", label: "Responsable caisse" },
-  { value: "CAISSIERE", label: "Caissière" },
-  { value: "INVOICER", label: "Facturier" },
-  { value: "ORDER_PREPARER", label: "Préparateur de commande" },
+const ROLE_GROUPS = [
+  {
+    label: "Exécution métier",
+    roles: [
+      {
+        value: "INVOICER",
+        label: "Facturier",
+        help: "Contrôle les précommandes et émet les préfactures.",
+      },
+      {
+        value: "CAISSIERE",
+        label: "Caissière",
+        help: "Encaisse, contrôle les paiements et lance la préparation.",
+      },
+      {
+        value: "ORDER_PREPARER",
+        label: "Préparateur de commande",
+        help: "Prépare et clôture les commandes déjà validées.",
+      },
+    ],
+  },
+  {
+    label: "Supervision métier",
+    roles: [
+      {
+        value: "BILLING_MANAGER",
+        label: "Responsable facturation",
+        help: "Supervise la chaîne de facturation.",
+      },
+      {
+        value: "COUNTER_MANAGER",
+        label: "Responsable caisse",
+        help: "Supervise les caissières et la synthèse consolidée des caisses.",
+      },
+      {
+        value: "STOCK_MANAGER",
+        label: "Gestionnaire de stock",
+        help: "Pilote le stock et la préparation.",
+      },
+    ],
+  },
+  {
+    label: "Direction et support",
+    roles: [
+      {
+        value: "OPERATIONS_DIRECTOR",
+        label: "Directeur des opérations",
+        help: "Supervision transverse des opérations pays.",
+      },
+      {
+        value: "SALES_DIRECTOR",
+        label: "Directeur commercial",
+        help: "Pilotage commercial et visibilité commandes.",
+      },
+      {
+        value: "MARKETING_ASSISTANT",
+        label: "Assistant marketing",
+        help: "Consultation limitée marketing et exports.",
+      },
+    ],
+  },
+  {
+    label: "Administration plateforme",
+    roles: [
+      {
+        value: "SUPER_ADMIN",
+        label: "Super Admin",
+        help: "Accès total à la plateforme.",
+      },
+      {
+        value: "TECH_ADMIN",
+        label: "Admin technique",
+        help: "Administration technique et support avancé.",
+      },
+    ],
+  },
 ];
+
+const ROLE_OPTIONS = ROLE_GROUPS.flatMap((group) => group.roles);
 
 const COUNTRY_OPTIONS = [
   { value: "CIV", label: "Côte d’Ivoire" },
@@ -36,6 +102,10 @@ const COUNTRY_OPTIONS = [
 
 function getRoleLabel(role) {
   return ROLE_OPTIONS.find((r) => r.value === role)?.label || role || "—";
+}
+
+function getRoleHelp(role) {
+  return ROLE_OPTIONS.find((r) => r.value === role)?.help || "";
 }
 
 function getCountryLabel(code) {
@@ -127,6 +197,32 @@ function Field({ label, required, children }) {
   );
 }
 
+function RoleCatalog() {
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {ROLE_GROUPS.map((group) => (
+        <div
+          key={group.label}
+          className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+        >
+          <div className="text-sm font-semibold text-gray-900">{group.label}</div>
+          <div className="mt-3 space-y-3">
+            {group.roles.map((role) => (
+              <div
+                key={role.value}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-3"
+              >
+                <div className="text-sm font-medium text-gray-900">{role.label}</div>
+                <div className="mt-1 text-xs text-gray-500">{role.help}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ============================================================================
    Modal formulaire
 ============================================================================ */
@@ -199,12 +295,25 @@ function UserFormModal({
                 disabled={saving}
               >
                 <option value="">Sélectionner un rôle</option>
-                {ROLE_OPTIONS.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
+                {ROLE_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.roles.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
+              {value.role ? (
+                <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  {getRoleHelp(value.role)}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500">
+                  Sélectionne le rôle selon l’étape métier: facturation, caisse, préparation ou supervision.
+                </div>
+              )}
             </Field>
 
             <Field label="Pays">
@@ -467,6 +576,8 @@ export default function AdminUsersPage() {
             pays, statut actif et accès à l’admin.
           </Alert>
 
+          <RoleCatalog />
+
           {error ? <Alert tone="red">{error}</Alert> : null}
           {info ? <Alert tone="emerald">{info}</Alert> : null}
 
@@ -487,10 +598,14 @@ export default function AdminUsersPage() {
               onChange={(e) => setRoleFilter(e.target.value)}
             >
               <option value="">Tous les rôles</option>
-              {ROLE_OPTIONS.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
+              {ROLE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.roles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
 
