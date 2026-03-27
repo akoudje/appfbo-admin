@@ -256,9 +256,27 @@ function buildReceiptQrUrl(payload) {
   )}`;
 }
 
+function buildReceiptNumber({ factureReference, transactionRef, paidAt }) {
+  const paidDate = new Date(paidAt || Date.now());
+  const y = paidDate.getFullYear();
+  const m = String(paidDate.getMonth() + 1).padStart(2, "0");
+  const d = String(paidDate.getDate()).padStart(2, "0");
+  const factPart = String(factureReference || "REC")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .slice(-6)
+    .toUpperCase();
+  const txPart = String(transactionRef || "0000")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .slice(-6)
+    .toUpperCase();
+
+  return `RC-${y}${m}${d}-${factPart}-${txPart}`;
+}
+
 function buildThermalReceiptHtml({
   preorderNumber,
   factureReference,
+  countryName,
   customerName,
   fboNumero,
   clientRef,
@@ -268,9 +286,16 @@ function buildThermalReceiptHtml({
   paidAt,
   amountPaid,
 }) {
+  const receiptNumber = buildReceiptNumber({
+    factureReference,
+    transactionRef,
+    paidAt,
+  });
   const qrPayload = [
+    `recu:${receiptNumber}`,
     `precommande:${preorderNumber || "-"}`,
     `facture:${factureReference || "-"}`,
+    `pays:${countryName || "-"}`,
     `client:${customerName || "-"}`,
     `fbo:${fboNumero || "-"}`,
     `provider:${provider || "-"}`,
@@ -288,6 +313,13 @@ function buildThermalReceiptHtml({
     </div>
   `;
 
+  const paymentLine = (label, value) => `
+    <div class="payment-row">
+      <div class="payment-label">${escapeHtml(label)}</div>
+      <div class="payment-value">${escapeHtml(value || "—")}</div>
+    </div>
+  `;
+
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -297,20 +329,25 @@ function buildThermalReceiptHtml({
   <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; background: #fff; color: #111; font-family: "Courier New", Courier, monospace; }
-    .ticket { width: 80mm; margin: 0 auto; padding: 8mm 6mm; }
+    body { margin: 0; padding: 0; background: #fff; color: #000; font-family: "Courier New", Courier, monospace; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .ticket { width: 80mm; margin: 0 auto; padding: 7mm 5mm 8mm; }
     .brand { text-align: center; margin-bottom: 10px; }
-    .brand img { max-width: 40mm; height: auto; }
-    .title { text-align: center; font-size: 16px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 8px; }
-    .badge { border: 1px solid #111; text-align: center; font-size: 12px; font-weight: 700; padding: 6px 8px; margin-bottom: 10px; }
+    .brand img { display: block; width: 46mm; max-width: 100%; height: auto; margin: 0 auto; filter: brightness(0) saturate(100%); }
+    .title { text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.08em; margin-bottom: 8px; color: #000; }
+    .receipt-no { border: 1.5px solid #000; text-align: center; font-size: 13px; font-weight: 800; padding: 7px 8px; margin-bottom: 12px; color: #000; }
     .divider { border-top: 1px dashed #111; margin: 10px 0; }
-    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; margin-bottom: 4px; }
+    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; margin-bottom: 4px; color: #000; }
     .label { flex: 0 0 34%; font-weight: 700; }
     .value { flex: 1; text-align: right; word-break: break-word; }
+    .payment-box { border: 2px solid #000; padding: 8px 7px; margin: 12px 0; }
+    .payment-heading { text-align: center; font-size: 13px; font-weight: 800; margin-bottom: 8px; letter-spacing: 0.05em; }
+    .payment-row { margin-bottom: 6px; }
+    .payment-row:last-child { margin-bottom: 0; }
+    .payment-label { font-size: 11px; font-weight: 700; margin-bottom: 2px; color: #000; }
+    .payment-value { font-size: 15px; font-weight: 800; line-height: 1.25; color: #000; word-break: break-word; }
+    .payment-value.amount { font-size: 18px; }
     .qr { text-align: center; margin-top: 12px; }
-    .qr img { width: 30mm; height: 30mm; object-fit: contain; }
-    .qr-note { text-align: center; font-size: 10px; margin-top: 4px; color: #444; }
-    .footer { text-align: center; font-size: 11px; margin-top: 12px; }
+    .qr img { width: 28mm; height: 28mm; object-fit: contain; display: inline-block; }
     @page { size: 80mm auto; margin: 0; }
   </style>
 </head>
@@ -320,23 +357,28 @@ function buildThermalReceiptHtml({
       <img src="/forever-corporate-logo.png" alt="Forever" />
     </div>
     <div class="title">REÇU DE PAIEMENT</div>
-    <div class="badge">PAIEMENT CONFIRMÉ</div>
+    <div class="receipt-no">N° REÇU ${escapeHtml(receiptNumber)}</div>
+    ${line("Pays", countryName)}
     ${line("Précommande", preorderNumber)}
     ${line("Facture", factureReference)}
     ${line("Client", customerName)}
     ${line("N° FBO", fboNumero)}
     ${line("Client Ref", clientRef)}
-    ${line("Provider", provider)}
-    ${line("Numéro payeur", payerPhone)}
-    ${line("Transaction", transactionRef)}
-    ${line("Date paiement", paidAt)}
-    <div class="divider"></div>
-    ${line("Montant payé", amountPaid)}
+    <div class="payment-box">
+      <div class="payment-heading">INFORMATIONS PAIEMENT</div>
+      ${paymentLine("Provider", provider)}
+      ${paymentLine("Numéro payeur", payerPhone)}
+      ${paymentLine("Transaction", transactionRef)}
+      ${paymentLine("Date paiement", paidAt)}
+      <div class="divider"></div>
+      <div class="payment-row">
+        <div class="payment-label">Montant payé</div>
+        <div class="payment-value amount">${escapeHtml(amountPaid || "—")}</div>
+      </div>
+    </div>
     <div class="qr">
       <img src="${escapeHtml(qrUrl)}" alt="QR Code reçu paiement" />
     </div>
-    <div class="qr-note">QR de vérification du reçu</div>
-    <div class="footer">FOREVER BUSINESS OFFICE</div>
   </div>
   <script>
     window.addEventListener("load", () => { setTimeout(() => window.print(), 150); });
@@ -1010,6 +1052,7 @@ export default function OrderBillingPaymentTab({
       buildThermalReceiptHtml({
         preorderNumber: order?.preorderNumber || "—",
         factureReference: order?.factureReference || "—",
+        countryName: order?.country?.name || order?.country?.code || "—",
         customerName: order?.fboNomComplet || order?.fbo?.nomComplet || "—",
         fboNumero: order?.fboNumero || "—",
         clientRef: visibleClientRef || "—",
