@@ -166,6 +166,12 @@ export default function OrderFulfillmentTab({
   setDeliveryTracking,
   pickupCode,
   setPickupCode,
+  pickupPointLabel,
+  setPickupPointLabel,
+  deliveryCarrier,
+  setDeliveryCarrier,
+  fulfillmentMode,
+  setFulfillmentMode,
   fulfillNote,
   setFulfillNote,
   onFulfill,
@@ -266,6 +272,18 @@ export default function OrderFulfillmentTab({
       {!isFulfilled && (
         <InfoSection title="Informations de livraison / retrait">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Mode de remise">
+              <select
+                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                value={fulfillmentMode || (isPickupOrder ? "PICKUP" : "DELIVERY")}
+                onChange={(e) => setFulfillmentMode?.(e.target.value)}
+                disabled={!canFulfill || saving}
+              >
+                <option value="PICKUP">Retrait comptoir</option>
+                <option value="DELIVERY">Livraison</option>
+              </select>
+            </Field>
+
             <Field label="Numéro de tracking" optional>
               <input
                 className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
@@ -276,21 +294,26 @@ export default function OrderFulfillmentTab({
               />
             </Field>
 
-            <Field label="Opérateur de livraison" optional>
+            <Field label="Transporteur / opérateur" optional>
               <input
                 className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={fulfillNote?.split(' - ')[0] || ''}
-                onChange={(e) => {
-                  const operator = e.target.value;
-                  const currentNote = fulfillNote || '';
-                  const rest = currentNote.includes(' - ') ? currentNote.split(' - ').slice(1).join(' - ') : '';
-                  setFulfillNote(operator + (rest ? ` - ${rest}` : ''));
-                }}
-                placeholder="Ex: DHL, Chronopost, Retrait sur place..."
+                value={deliveryCarrier || ""}
+                onChange={(e) => setDeliveryCarrier?.(e.target.value)}
+                placeholder="Ex: DHL, Retrait comptoir principal..."
                 disabled={!canFulfill || saving}
               />
             </Field>
           </div>
+
+          <Field label="Point de retrait" optional>
+            <input
+              className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+              value={pickupPointLabel || ""}
+              onChange={(e) => setPickupPointLabel?.(e.target.value)}
+              placeholder="Ex: Comptoir Abidjan 1"
+              disabled={!canFulfill || saving}
+            />
+          </Field>
 
           {isPickupOrder ? (
             <Field label="Code secret présenté par le client">
@@ -389,6 +412,9 @@ export default function OrderFulfillmentTab({
               value={formatDateTime(order?.pickupCodeVerifiedAt)}
               highlight={Boolean(order?.pickupCodeVerifiedAt)}
             />
+            <Row label="Mode de remise" value={order?.fulfillmentMode || "—"} />
+            <Row label="Point de retrait" value={order?.pickupPointLabel || "—"} />
+            <Row label="Transporteur" value={order?.deliveryCarrier || "—"} />
           </div>
 
           {order?.fulfillNote && (

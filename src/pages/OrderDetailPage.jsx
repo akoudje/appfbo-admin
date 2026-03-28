@@ -132,6 +132,7 @@ export default function OrderDetailPage() {
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
   const [invoiceGrade, setInvoiceGrade] = useState("");
   const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
+  const [invoiceAdjustmentReason, setInvoiceAdjustmentReason] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
   const [invoicePreview, setInvoicePreview] = useState(null);
@@ -143,10 +144,16 @@ export default function OrderDetailPage() {
 
   const [verifyNote, setVerifyNote] = useState("");
   const [cashNote, setCashNote] = useState("");
+  const [cashReceiptNumber, setCashReceiptNumber] = useState("");
+  const [cashDeskLabel, setCashDeskLabel] = useState("");
+  const [cashAmountReceivedFcfa, setCashAmountReceivedFcfa] = useState("");
   const [packingNote, setPackingNote] = useState("");
 
   const [deliveryTracking, setDeliveryTracking] = useState("");
   const [pickupCode, setPickupCode] = useState("");
+  const [pickupPointLabel, setPickupPointLabel] = useState("");
+  const [deliveryCarrier, setDeliveryCarrier] = useState("");
+  const [fulfillmentMode, setFulfillmentMode] = useState("");
   const [fulfillNote, setFulfillNote] = useState("");
 
   const [cancelReason, setCancelReason] = useState("");
@@ -168,12 +175,14 @@ export default function OrderDetailPage() {
 
       setInvoiceRef(data?.factureReference || "");
       setInvoiceWaTo(data?.factureWhatsappTo || "");
-      setInvoiceGrade(data?.fboGrade || "");
+      setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
       setInvoiceAmountFcfa(
-        data?.totalFcfa !== null && data?.totalFcfa !== undefined
-          ? String(data.totalFcfa)
+        data?.as400InvoiceTotalFcfa !== null &&
+        data?.as400InvoiceTotalFcfa !== undefined
+          ? String(data.as400InvoiceTotalFcfa)
           : "",
       );
+      setInvoiceAdjustmentReason(data?.billingAdjustmentReason || "");
       setPaymentLink(data?.paymentLink || "");
       setInvoicePreview(null);
 
@@ -189,7 +198,13 @@ export default function OrderDetailPage() {
 
       setVerifyNote("");
       setCashNote("");
+      setCashReceiptNumber("");
+      setCashDeskLabel("");
+      setCashAmountReceivedFcfa("");
       setFulfillNote("");
+      setPickupPointLabel(data?.pickupPointLabel || "");
+      setDeliveryCarrier(data?.deliveryCarrier || "");
+      setFulfillmentMode(data?.fulfillmentMode || "");
       setInvoiceNote("");
       setCancelReason("");
     } catch (e) {
@@ -472,6 +487,8 @@ const doInvoice = async () => {
       whatsappTo: normalizeStr(invoiceWaTo) || undefined,
       fboGrade: normalizeStr(invoiceGrade) || undefined,
       invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
+      billingAdjustmentReason:
+        normalizeStr(invoiceAdjustmentReason) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
     };
 
@@ -542,6 +559,9 @@ const doInvoice = async () => {
 
       const result = await ordersService.pay(id, {
         note: normalizeStr(cashNote) || undefined,
+        receiptNumber: normalizeStr(cashReceiptNumber) || undefined,
+        cashDeskLabel: normalizeStr(cashDeskLabel) || undefined,
+        amountReceivedFcfa: normalizeStr(cashAmountReceivedFcfa) || undefined,
       });
 
       await handleActionResult(result, "Paiement espèces déjà enregistré.");
@@ -661,6 +681,9 @@ const doInvoice = async () => {
       const result = await ordersService.fulfill(id, {
         deliveryTracking: normalizeStr(deliveryTracking) || undefined,
         pickupCode: normalizeStr(pickupCode) || undefined,
+        pickupPointLabel: normalizeStr(pickupPointLabel) || undefined,
+        deliveryCarrier: normalizeStr(deliveryCarrier) || undefined,
+        fulfillmentMode: normalizeStr(fulfillmentMode) || undefined,
         note: normalizeStr(fulfillNote) || undefined,
       });
 
@@ -710,6 +733,72 @@ const doInvoice = async () => {
       document.execCommand("copy");
       document.body.removeChild(ta);
       setInfo("Message SMS copie.");
+    }
+  };
+
+  const doUpdatePreparationChecklistItem = async (itemId, checked) => {
+    try {
+      setSaving(true);
+      setError("");
+      await ordersService.updatePreparationChecklistItem(id, { itemId, checked });
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de mettre à jour la checklist de préparation",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doBulkUpdatePreparationChecklist = async (checked) => {
+    try {
+      setSaving(true);
+      setError("");
+      await ordersService.bulkUpdatePreparationChecklist(id, { checked });
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de mettre à jour la checklist de préparation",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doCreatePreparationAnomaly = async (body) => {
+    try {
+      setSaving(true);
+      setError("");
+      await ordersService.createPreparationAnomaly(id, body);
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible d'enregistrer l'anomalie de préparation",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doResolvePreparationAnomaly = async (anomalyId, resolutionNote) => {
+    try {
+      setSaving(true);
+      setError("");
+      await ordersService.resolvePreparationAnomaly(id, anomalyId, {
+        resolutionNote: normalizeStr(resolutionNote) || undefined,
+      });
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de résoudre l'anomalie de préparation",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -870,6 +959,8 @@ const doInvoice = async () => {
               setInvoiceGrade={setInvoiceGrade}
               invoiceAmountFcfa={invoiceAmountFcfa}
               setInvoiceAmountFcfa={setInvoiceAmountFcfa}
+              invoiceAdjustmentReason={invoiceAdjustmentReason}
+              setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
               invoicePreview={invoicePreview}
               invoicePreviewLoading={invoicePreviewLoading}
               paymentLink={paymentLink}
@@ -886,6 +977,12 @@ const doInvoice = async () => {
               setVerifyNote={setVerifyNote}
               cashNote={cashNote}
               setCashNote={setCashNote}
+              cashReceiptNumber={cashReceiptNumber}
+              setCashReceiptNumber={setCashReceiptNumber}
+              cashDeskLabel={cashDeskLabel}
+              setCashDeskLabel={setCashDeskLabel}
+              cashAmountReceivedFcfa={cashAmountReceivedFcfa}
+              setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
               onInvoice={doInvoice}
               onCopyWhatsApp={copyWhatsApp}
               onProof={doProof}
@@ -925,6 +1022,12 @@ const doInvoice = async () => {
               setVerifyNote={setVerifyNote}
               cashNote={cashNote}
               setCashNote={setCashNote}
+              cashReceiptNumber={cashReceiptNumber}
+              setCashReceiptNumber={setCashReceiptNumber}
+              cashDeskLabel={cashDeskLabel}
+              setCashDeskLabel={setCashDeskLabel}
+              cashAmountReceivedFcfa={cashAmountReceivedFcfa}
+              setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
               onProof={doProof}
               onVerify={doVerifyPayment} // ✅ FIX
               onCashPay={doCashPay}
@@ -949,6 +1052,11 @@ const doInvoice = async () => {
               packingNote={packingNote}
               setPackingNote={setPackingNote}
               onPrepare={doPrepare}
+              onToggleChecklistItem={doUpdatePreparationChecklistItem}
+              onBulkChecklist={doBulkUpdatePreparationChecklist}
+              onCreateAnomaly={doCreatePreparationAnomaly}
+              onResolveAnomaly={doResolvePreparationAnomaly}
+              stockSummary={stockSummary}
             />
           </RequirePermission>
         )}
@@ -968,6 +1076,12 @@ const doInvoice = async () => {
               setDeliveryTracking={setDeliveryTracking}
               pickupCode={pickupCode}
               setPickupCode={setPickupCode}
+              pickupPointLabel={pickupPointLabel}
+              setPickupPointLabel={setPickupPointLabel}
+              deliveryCarrier={deliveryCarrier}
+              setDeliveryCarrier={setDeliveryCarrier}
+              fulfillmentMode={fulfillmentMode}
+              setFulfillmentMode={setFulfillmentMode}
               fulfillNote={fulfillNote}
               setFulfillNote={setFulfillNote}
               onFulfill={doFulfill}

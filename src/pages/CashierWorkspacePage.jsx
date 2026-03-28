@@ -222,6 +222,11 @@ function QueueTable(props) {
                     <div className="text-xs text-gray-500">
                       Facturée le {formatDateTime(row.invoicedAt)}
                     </div>
+                    {row.cashierTransaction?.receiptNumber ? (
+                      <div className="text-xs text-gray-500">
+                        Reçu {row.cashierTransaction.receiptNumber}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
@@ -235,6 +240,11 @@ function QueueTable(props) {
                     <div className="mt-2 text-xs text-gray-500">
                       Payé le {formatDateTime(row.paidAt)}
                     </div>
+                    {row.cashierTransaction?.cashDeskLabel ? (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {row.cashierTransaction.cashDeskLabel}
+                      </div>
+                    ) : null}
                     {row.preparationLaunchedAt ? (
                       <div className="mt-1 text-xs text-emerald-600">
                         Transmise préparation le {formatDateTime(row.preparationLaunchedAt)}
@@ -298,6 +308,11 @@ function JournalTable({ rows, canViewAll }) {
                     <div className="text-xs text-gray-500">
                       Payé le {formatDateTime(row.paidAt)}
                     </div>
+                    {row.cashierTransaction?.receiptNumber ? (
+                      <div className="text-xs text-gray-500">
+                        Reçu {row.cashierTransaction.receiptNumber}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">
@@ -375,7 +390,7 @@ export default function CashierWorkspacePage() {
       await action();
       await load();
     } catch (e) {
-      setError(e?.response?.data?.message || "Action impossible.");
+      setError(e?.response?.data?.message || e?.message || "Action impossible.");
     } finally {
       setBusyId("");
     }
@@ -385,6 +400,32 @@ export default function CashierWorkspacePage() {
   const journal = workspace?.journal || [];
   const queueSummary = workspace?.queueSummary || {};
   const journalSummary = workspace?.journalSummary || {};
+
+  const askCashCollection = (row) => {
+    const receiptNumber = window.prompt(
+      "Numéro de reçu caisse",
+      row?.cashierTransaction?.receiptNumber || row?.factureReference || "",
+    );
+    if (!receiptNumber || !String(receiptNumber).trim()) return null;
+
+    const cashDeskLabel =
+      window.prompt(
+        "Poste de caisse",
+        row?.cashierTransaction?.cashDeskLabel || "Caisse principale",
+      ) || "";
+
+    const amountReceivedFcfa = window.prompt(
+      "Montant reçu (FCFA)",
+      String(row?.amountExpectedFcfa || row?.totalFcfa || ""),
+    );
+    if (!amountReceivedFcfa || !String(amountReceivedFcfa).trim()) return null;
+
+    return {
+      receiptNumber: String(receiptNumber).trim(),
+      cashDeskLabel: String(cashDeskLabel || "").trim() || undefined,
+      amountReceivedFcfa: String(amountReceivedFcfa).trim(),
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -486,9 +527,14 @@ export default function CashierWorkspacePage() {
           busyId={busyId}
           onCashPay={(row) =>
             runAction(row.id, async () => {
+              const payload = askCashCollection(row);
+              if (!payload) {
+                throw new Error("Encaissement annulé.");
+              }
               await ordersService.pay(row.id, {
                 reference: row.factureReference || row.preorderNumber || row.id,
                 note: "Encaissement espèces depuis l'espace caisse",
+                ...payload,
               });
               setInfo("Paiement espèces enregistré.");
             })

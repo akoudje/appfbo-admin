@@ -466,6 +466,8 @@ function BillingActionCard({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
+  invoiceAdjustmentReason,
+  setInvoiceAdjustmentReason,
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
@@ -475,12 +477,12 @@ function BillingActionCard({
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 min-w-0">
-          <Field label="Référence facture" optional className="mb-2">
+          <Field label="Référence AS400" className="mb-2">
             <input
               className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 text-sm"
               value={invoiceRef}
               onChange={(e) => setInvoiceRef?.(e.target.value)}
-              placeholder="PF-2026-00012"
+              placeholder="Référence de préfacture AS400"
               disabled={!canInvoice || saving}
             />
           </Field>
@@ -518,6 +520,15 @@ function BillingActionCard({
               disabled={!canInvoice || saving}
             />
           </Field>
+          <Field label="Motif d'ajustement" optional className="mt-2">
+            <textarea
+              className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 text-sm min-h-[80px]"
+              value={invoiceAdjustmentReason || ""}
+              onChange={(e) => setInvoiceAdjustmentReason?.(e.target.value)}
+              placeholder="Obligatoire si le grade retenu ou le montant AS400 diffère du calcul applicatif."
+              disabled={!canInvoice || saving}
+            />
+          </Field>
         </div>
 
         <div className="flex-1 min-w-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -536,6 +547,18 @@ function BillingActionCard({
             <div className="mt-2 text-sm text-blue-700">Recalcul en cours...</div>
           ) : invoicePreview ? (
             <div className="mt-2 space-y-1 text-sm text-blue-900">
+              <div>
+                Grade initial FBO :{" "}
+                <strong>{GRADE_LABELS[invoicePreview.previousGrade] || invoicePreview.previousGrade || "—"}</strong>
+              </div>
+              <div>
+                Grade retenu :{" "}
+                <strong>{GRADE_LABELS[invoicePreview.effectiveGrade] || invoicePreview.effectiveGrade || "—"}</strong>
+              </div>
+              <div>
+                Montant indicatif :{" "}
+                <strong>{formatFcfa(invoicePreview.indicativeTotalFcfa || 0)}</strong>
+              </div>
               <div>
                 Remise appliquee :{" "}
                 <strong>{Number(invoicePreview.discountPercent || 0).toFixed(2)}%</strong>
@@ -556,6 +579,11 @@ function BillingActionCard({
                 Montant final a payer :{" "}
                 <strong>{formatFcfa(invoicePreview.payment?.amountToPayFcfa || 0)}</strong>
               </div>
+              {invoicePreview.requiresAdjustmentReason ? (
+                <div className="pt-1 text-xs font-semibold text-red-700">
+                  Un motif d'ajustement est requis avant facturation.
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="mt-2 text-sm text-blue-700">
@@ -568,11 +596,20 @@ function BillingActionCard({
           <button
             className={`px-5 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
               !canInvoice || saving || !invoiceGrade
+              || !invoiceRef
+              || (invoicePreview?.requiresAdjustmentReason && !String(invoiceAdjustmentReason || "").trim())
                 ? "opacity-50 cursor-not-allowed bg-gray-400"
                 : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
             }`}
             onClick={onInvoice}
-            disabled={!canInvoice || saving || !invoiceGrade}
+            disabled={
+              !canInvoice ||
+              saving ||
+              !invoiceGrade ||
+              !invoiceRef ||
+              (invoicePreview?.requiresAdjustmentReason &&
+                !String(invoiceAdjustmentReason || "").trim())
+            }
             type="button"
           >
             {saving ? "Traitement..." : isCash ? "💵 Facturer & envoyer" : "💳 Facturer + Paiement"}
@@ -744,7 +781,20 @@ function WavePaymentCard({
   );
 }
 
-function CashPaymentCard({ canCashPay, saving, status, cashNote, setCashNote, onCashPay }) {
+function CashPaymentCard({
+  canCashPay,
+  saving,
+  status,
+  cashNote,
+  setCashNote,
+  cashReceiptNumber,
+  setCashReceiptNumber,
+  cashDeskLabel,
+  setCashDeskLabel,
+  cashAmountReceivedFcfa,
+  setCashAmountReceivedFcfa,
+  onCashPay,
+}) {
   const isPaid = status === "PAID";
 
   return (
@@ -761,15 +811,53 @@ function CashPaymentCard({ canCashPay, saving, status, cashNote, setCashNote, on
           placeholder="Ex: Paiement reçu au comptoir..."
         />
       </Field>
+      <Field label="N° reçu caisse" className="mt-2">
+        <input
+          className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 text-sm"
+          value={cashReceiptNumber || ""}
+          onChange={(e) => setCashReceiptNumber?.(e.target.value)}
+          disabled={!canCashPay || saving || isPaid}
+          placeholder="RC-CAISSE-0001"
+        />
+      </Field>
+      <Field label="Poste de caisse" optional className="mt-2">
+        <input
+          className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 text-sm"
+          value={cashDeskLabel || ""}
+          onChange={(e) => setCashDeskLabel?.(e.target.value)}
+          disabled={!canCashPay || saving || isPaid}
+          placeholder="Caisse principale"
+        />
+      </Field>
+      <Field label="Montant reçu (FCFA)" className="mt-2">
+        <input
+          className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 text-sm"
+          value={cashAmountReceivedFcfa || ""}
+          onChange={(e) => setCashAmountReceivedFcfa?.(e.target.value)}
+          disabled={!canCashPay || saving || isPaid}
+          placeholder="Montant encaissé"
+          inputMode="numeric"
+        />
+      </Field>
       <div className="flex items-center justify-between gap-3 mt-3">
         <button
           className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-            !canCashPay || saving || isPaid
+            !canCashPay ||
+            saving ||
+            isPaid ||
+            !String(cashReceiptNumber || "").trim() ||
+            !String(cashAmountReceivedFcfa || "").trim()
               ? "opacity-50 cursor-not-allowed bg-gray-400"
               : "bg-amber-600 hover:bg-amber-700 text-white"
           }`}
           onClick={onCashPay}
-          disabled={!canCashPay || saving || isPaid}
+          disabled={
+            !canCashPay ||
+            saving ||
+            isPaid ||
+            !String(cashReceiptNumber || "").trim() ||
+            !String(cashAmountReceivedFcfa || "").trim()
+          }
           type="button"
         >
           {saving ? "Traitement..." : "💰 Marquer encaissé"}
@@ -1012,6 +1100,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
+  invoiceAdjustmentReason,
+  setInvoiceAdjustmentReason,
   invoicePreview,
   invoicePreviewLoading,
   paymentLink,
@@ -1032,6 +1122,12 @@ export default function OrderBillingPaymentTab({
   canVerify,
   cashNote,
   setCashNote,
+  cashReceiptNumber,
+  setCashReceiptNumber,
+  cashDeskLabel,
+  setCashDeskLabel,
+  cashAmountReceivedFcfa,
+  setCashAmountReceivedFcfa,
   proofUrl,
   setProofUrl,
   proofRef,
@@ -1209,6 +1305,8 @@ export default function OrderBillingPaymentTab({
           setInvoiceGrade={setInvoiceGrade}
           invoiceAmountFcfa={invoiceAmountFcfa}
           setInvoiceAmountFcfa={setInvoiceAmountFcfa}
+          invoiceAdjustmentReason={invoiceAdjustmentReason}
+          setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
           invoicePreview={invoicePreview}
           invoicePreviewLoading={invoicePreviewLoading}
           onInvoice={onInvoice}
@@ -1265,6 +1363,12 @@ export default function OrderBillingPaymentTab({
             status={status}
             cashNote={cashNote}
             setCashNote={setCashNote}
+            cashReceiptNumber={cashReceiptNumber}
+            setCashReceiptNumber={setCashReceiptNumber}
+            cashDeskLabel={cashDeskLabel}
+            setCashDeskLabel={setCashDeskLabel}
+            cashAmountReceivedFcfa={cashAmountReceivedFcfa}
+            setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
             onCashPay={onCashPay}
           />
         </RequirePermission>

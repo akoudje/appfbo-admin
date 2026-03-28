@@ -106,22 +106,7 @@ export default function PreparationQueuePage() {
   };
 
   const handlePrepare = async (row) => {
-    try {
-      setActionLoadingId(row.id);
-      setError("");
-      setInfo("");
-
-      await ordersService.prepare(row.id, {
-        packingNote: "Préparée depuis la file de préparation",
-      });
-
-      setInfo("Commande marquée comme prête et SMS client envoyé.");
-      await load();
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de préparer la commande");
-    } finally {
-      setActionLoadingId("");
-    }
+    navigate(`/orders/${row.id}?tab=preparation`);
   };
 
   return (

@@ -76,6 +76,38 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/prepare`, body))
       .data,
 
+  updatePreparationChecklistItem: async (id, body) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/preparation/checklist`,
+        body,
+      )
+    ).data,
+
+  bulkUpdatePreparationChecklist: async (id, body) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/preparation/checklist/bulk`,
+        body,
+      )
+    ).data,
+
+  createPreparationAnomaly: async (id, body) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/preparation/anomalies`,
+        body,
+      )
+    ).data,
+
+  resolvePreparationAnomaly: async (id, anomalyId, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/preparation/anomalies/${anomalyId}/resolve`,
+        body,
+      )
+    ).data,
+
   fulfill: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/fulfill`, body))
       .data,

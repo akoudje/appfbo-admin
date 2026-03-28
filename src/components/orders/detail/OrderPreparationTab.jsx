@@ -1,69 +1,26 @@
-// src/components/orders/detail/OrderPreparationTab.jsx
+import { useMemo, useState } from "react";
 
-import { useEffect, useMemo, useState } from "react";
-
-// ============================================================================
-// Sous-composants
-// ============================================================================
-
-function Field({ label, children }) {
+function Field({ label, children, optional = false }) {
   return (
-    <label className="block">
-      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-        {label}
+    <label className="block space-y-1">
+      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        {label} {optional ? <span className="normal-case text-gray-400">(optionnel)</span> : null}
       </div>
       {children}
     </label>
   );
 }
 
-function Alert({ tone = "blue", title, children }) {
+function Alert({ tone = "blue", children }) {
   const tones = {
+    blue: "border-blue-200 bg-blue-50 text-blue-800",
     amber: "border-amber-200 bg-amber-50 text-amber-800",
     red: "border-red-200 bg-red-50 text-red-800",
-    blue: "border-blue-200 bg-blue-50 text-blue-800",
     emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
     gray: "border-gray-200 bg-gray-50 text-gray-700",
   };
 
-  const icons = {
-    amber: "⚠️",
-    red: "❌",
-    blue: "ℹ️",
-    emerald: "✅",
-    gray: "📌",
-  };
-
-  return (
-    <div className={`rounded-lg border p-4 ${tones[tone] || tones.blue}`}>
-      <div className="flex gap-3">
-        <span className="text-lg" role="img" aria-hidden="true">
-          {icons[tone] || icons.blue}
-        </span>
-        <div className="flex-1">
-          {title ? (
-            <div className="font-semibold text-sm mb-1 flex items-center gap-2">
-              {title}
-            </div>
-          ) : null}
-          <div className="text-sm leading-relaxed">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value, highlight = false }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm py-1 border-b border-gray-100 last:border-0">
-      <div className="text-gray-500">{label}</div>
-      <div
-        className={`font-medium text-right ${highlight ? "text-indigo-600" : ""}`}
-      >
-        {value ?? "—"}
-      </div>
-    </div>
-  );
+  return <div className={`rounded-lg border p-4 text-sm ${tones[tone]}`}>{children}</div>;
 }
 
 function Badge({ children, tone = "gray" }) {
@@ -73,128 +30,75 @@ function Badge({ children, tone = "gray" }) {
     emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
     blue: "bg-blue-100 text-blue-700 border-blue-200",
     red: "bg-red-100 text-red-700 border-red-200",
-    indigo: "bg-indigo-100 text-indigo-700 border-indigo-200",
   };
-
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-        tones[tone] || tones.gray
-      }`}
-    >
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${tones[tone]}`}>
       {children}
     </span>
   );
 }
 
-function StatCard({ label, value, subvalue, tone = "gray" }) {
-  const tones = {
-    gray: "bg-gray-50 border-gray-200",
-    amber: "bg-amber-50 border-amber-200",
-    emerald: "bg-emerald-50 border-emerald-200",
-    blue: "bg-blue-50 border-blue-200",
-    indigo: "bg-indigo-50 border-indigo-200",
-  };
-
-  return (
-    <div className={`rounded-lg border p-4 ${tones[tone] || tones.gray}`}>
-      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-        {label}
-      </div>
-      <div className="text-xl font-semibold mt-1">{value}</div>
-      {subvalue ? <div className="text-xs text-gray-500 mt-1">{subvalue}</div> : null}
-    </div>
-  );
+function formatDate(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
-function ProgressBar({ value = 0 }) {
-  const safe = Math.max(0, Math.min(100, Number(value || 0)));
-
-  return (
-    <div className="w-full">
-      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100 border border-gray-200">
-        <div
-          className="h-full rounded-full bg-indigo-600 transition-all duration-300"
-          style={{ width: `${safe}%` }}
-        />
-      </div>
-    </div>
-  );
+function formatFcfa(value) {
+  return `${new Intl.NumberFormat("fr-FR").format(Number(value || 0))} FCFA`;
 }
 
-function ProductChecklistItem({
-  item,
-  checked,
-  disabled,
-  onToggle,
-  formatFcfa,
-  safeNum,
-}) {
-  const qty = Number(item?.qty || 0);
-  const lineTotal = Number(item?.lineTotalFcfa || 0);
-  const cc = safeNum(item?.lineTotalCc || 0);
-  const poids = safeNum(item?.lineTotalPoids || 0);
+const ANOMALY_OPTIONS = [
+  { value: "MISSING_ITEM", label: "Article manquant" },
+  { value: "PARTIAL_QTY", label: "Quantité partielle" },
+  { value: "STOCK_MISMATCH", label: "Écart de stock" },
+  { value: "BLOCKED_PARCEL", label: "Colis bloqué" },
+];
 
+function ChecklistRow({ item, disabled, onToggle }) {
+  const checked = Boolean(item?.checked);
+  const line = item?.preorderItem || {};
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={() => onToggle(item)}
       disabled={disabled}
-      className={`w-full text-left rounded-xl border p-4 transition-all ${
+      className={`w-full rounded-xl border p-4 text-left transition ${
         checked
           ? "border-emerald-300 bg-emerald-50"
-          : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30"
+          : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
       } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
     >
       <div className="flex items-start gap-3">
-        <div className="pt-0.5">
-          <div
-            className={`flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${
-              checked
-                ? "border-emerald-600 bg-emerald-600 text-white"
-                : "border-gray-300 bg-white text-transparent"
-            }`}
-          >
-            ✓
-          </div>
+        <div
+          className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${
+            checked
+              ? "border-emerald-600 bg-emerald-600 text-white"
+              : "border-gray-300 bg-white text-transparent"
+          }`}
+        >
+          ✓
         </div>
-
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-gray-900">
-              {qty} × {item?.productNameSnapshot || item?.product?.nom || item?.nom || "Produit"}
+              {line?.qty || 0} × {line?.productNameSnapshot || line?.product?.nom || "Produit"}
             </span>
-
-            <Badge tone="gray">
-              SKU: {item?.productSkuSnapshot || item?.product?.sku || item?.sku || "—"}
-            </Badge>
-
-            {checked ? <Badge tone="emerald">Préparé</Badge> : <Badge tone="amber">À préparer</Badge>}
+            <Badge tone="gray">SKU: {line?.productSkuSnapshot || line?.product?.sku || "—"}</Badge>
+            {checked ? <Badge tone="emerald">Vérifié</Badge> : <Badge tone="amber">À vérifier</Badge>}
           </div>
-
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-600">
-            <div>
-              <span className="text-gray-500">Montant :</span>{" "}
-              <span className="font-medium">{formatFcfa(lineTotal)}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">CC :</span>{" "}
-              <span className="font-medium">{cc}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Poids :</span>{" "}
-              <span className="font-medium">{poids} kg</span>
-            </div>
+          <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-600 sm:grid-cols-3">
+            <div>Montant: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span></div>
+            <div>Dernière coche: <span className="font-medium">{formatDate(item?.checkedAt)}</span></div>
+            <div>Par: <span className="font-medium">{item?.checkedBy?.fullName || "—"}</span></div>
           </div>
+          {item?.note ? <div className="mt-2 rounded bg-white/70 p-2 text-xs text-gray-600">{item.note}</div> : null}
         </div>
       </div>
     </button>
   );
 }
-
-// ============================================================================
-// Composant principal
-// ============================================================================
 
 export default function OrderPreparationTab({
   order,
@@ -203,490 +107,339 @@ export default function OrderPreparationTab({
   packingNote,
   setPackingNote,
   onPrepare,
+  onToggleChecklistItem,
+  onBulkChecklist,
+  onCreateAnomaly,
+  onResolveAnomaly,
   stockSummary,
 }) {
+  const [anomalyKind, setAnomalyKind] = useState("MISSING_ITEM");
+  const [anomalyItemId, setAnomalyItemId] = useState("");
+  const [anomalyNote, setAnomalyNote] = useState("");
+  const [anomalyBlocking, setAnomalyBlocking] = useState(true);
+
   const status = order?.status;
   const stockDebited = Boolean(order?.stockDeductedAt);
   const preparationLaunchedAt = order?.preparationLaunchedAt || null;
-  const isPaid = status === "PAID";
-  const isReady = status === "READY";
-  const canBePrepared = isPaid && Boolean(preparationLaunchedAt) && !stockDebited;
+  const canBePrepared = status === "PAID" && Boolean(preparationLaunchedAt) && !stockDebited;
 
-  const stockMovements = Array.isArray(order?.stockMovements)
-    ? order.stockMovements
-    : [];
+  const preparationItems = Array.isArray(order?.preparationItems) ? order.preparationItems : [];
+  const unresolvedAnomalies = (Array.isArray(order?.preparationAnomalies) ? order.preparationAnomalies : []).filter(
+    (item) => !item.resolvedAt,
+  );
+  const resolvedAnomalies = (Array.isArray(order?.preparationAnomalies) ? order.preparationAnomalies : []).filter(
+    (item) => item.resolvedAt,
+  );
 
-  const items = Array.isArray(order?.items) ? order.items : [];
-
-  // --------------------------------------------------------------------------
-  // Checklist locale
-  // --------------------------------------------------------------------------
-
-  const [checkedMap, setCheckedMap] = useState({});
-
-  useEffect(() => {
-    const next = {};
-    for (const item of items) {
-      next[item.id] = false;
-    }
-    setCheckedMap(next);
-  }, [order?.id, items]);
-
-  const checkedCount = useMemo(() => {
-    return items.filter((item) => checkedMap[item.id]).length;
-  }, [items, checkedMap]);
-
-  const totalItems = items.length;
-
-  const totalUnits = useMemo(() => {
-    return items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
-  }, [items]);
-
-  const preparedUnits = useMemo(() => {
-    return items.reduce((sum, item) => {
-      return checkedMap[item.id] ? sum + Number(item.qty || 0) : sum;
-    }, 0);
-  }, [items, checkedMap]);
-
-  const allChecked = totalItems > 0 && checkedCount === totalItems;
-
+  const checkedCount = useMemo(
+    () => preparationItems.filter((item) => item.checked).length,
+    [preparationItems],
+  );
+  const totalItems = preparationItems.length;
+  const totalUnits = useMemo(
+    () =>
+      preparationItems.reduce(
+        (sum, item) => sum + Number(item?.preorderItem?.qty || 0),
+        0,
+      ),
+    [preparationItems],
+  );
+  const preparedUnits = useMemo(
+    () =>
+      preparationItems.reduce(
+        (sum, item) => sum + (item.checked ? Number(item?.preorderItem?.qty || 0) : 0),
+        0,
+      ),
+    [preparationItems],
+  );
   const progressPercent = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
+  const allChecked = totalItems > 0 && checkedCount === totalItems;
+  const hasBlockingAnomaly = unresolvedAnomalies.some((item) => item.blocking);
 
-  const toggleItem = (itemId) => {
-    if (!canBePrepared || saving) return;
-
-    setCheckedMap((prev) => ({
-      ...prev,
-      [itemId]: !prev[itemId],
-    }));
-  };
-
-  const checkAll = () => {
-    if (!canBePrepared || saving) return;
-
-    const next = {};
-    for (const item of items) {
-      next[item.id] = true;
-    }
-    setCheckedMap(next);
-  };
-
-  const uncheckAll = () => {
-    if (!canBePrepared || saving) return;
-
-    const next = {};
-    for (const item of items) {
-      next[item.id] = false;
-    }
-    setCheckedMap(next);
-  };
-
-  const handlePrepareClick = () => {
-    if (!canPrepare || saving) return;
-    if (!allChecked) return;
-    onPrepare?.();
-  };
-
-  // --------------------------------------------------------------------------
-  // Helpers
-  // --------------------------------------------------------------------------
-
-  const formatDate = (date) => {
-    if (!date) return null;
-    return new Date(date).toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
+  const handleCreateAnomaly = async () => {
+    if (!anomalyNote.trim()) return;
+    await onCreateAnomaly?.({
+      itemId: anomalyItemId || undefined,
+      kind: anomalyKind,
+      note: anomalyNote.trim(),
+      blocking: anomalyBlocking,
     });
+    setAnomalyNote("");
+    setAnomalyItemId("");
+    setAnomalyKind("MISSING_ITEM");
+    setAnomalyBlocking(true);
   };
-
-  const formatFcfa = (value) => {
-    return `${new Intl.NumberFormat("fr-FR").format(Number(value || 0))} FCFA`;
-  };
-
-  const safeNum = (n) => {
-    const v = Number(n || 0);
-    if (Number.isNaN(v)) return "0";
-    return v % 1 === 0 ? String(v) : v.toFixed(3);
-  };
-
-  // --------------------------------------------------------------------------
-  // Alertes contextuelles
-  // --------------------------------------------------------------------------
-
-  const renderAlert = () => {
-    if (canBePrepared) {
-      return (
-        <Alert tone="blue" title="Prêt pour la préparation">
-          <p>Le paiement est confirmé. En préparant cette commande :</p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Le statut passera à <strong>READY</strong></li>
-            <li>Le stock sera décrémenté</li>
-            <li>Les mouvements seront enregistrés</li>
-            <li>La checklist doit être terminée avant validation</li>
-          </ul>
-        </Alert>
-      );
-    }
-
-    if (isReady && stockDebited) {
-      return (
-        <Alert tone="emerald" title="Commande préparée">
-          <p>
-            Cette commande a déjà été préparée le{" "}
-            <strong>{formatDate(order.stockDeductedAt)}</strong>.
-          </p>
-          <p className="mt-1">
-            Le stock a été décrémenté et les mouvements sont visibles ci-dessous.
-          </p>
-          {order?.parcelNumber ? (
-            <p className="mt-2">
-              Numéro de colis : <strong>{order.parcelNumber}</strong>
-            </p>
-          ) : null}
-          {order?.pickupSecretCode ? (
-            <p className="mt-2">
-              Code secret de retrait : <strong>{order.pickupSecretCode}</strong>
-            </p>
-          ) : null}
-        </Alert>
-      );
-    }
-
-    if (!isPaid && !isReady) {
-      return (
-        <Alert tone="gray" title="Préparation non disponible">
-          La préparation n'est possible que lorsque la commande est en statut{" "}
-          <strong>PAYÉE</strong>. Statut actuel : <Badge tone="gray">{status}</Badge>
-        </Alert>
-      );
-    }
-
-    if (isPaid && !preparationLaunchedAt) {
-      return (
-        <Alert tone="amber" title="En attente de la caisse">
-          La caissière doit d'abord lancer la préparation après confirmation du
-          paiement. Tant que cette étape n'est pas faite, le stock ne doit pas
-          commencer à préparer le colis.
-        </Alert>
-      );
-    }
-
-    return null;
-  };
-
-  // --------------------------------------------------------------------------
-  // Rendu
-  // --------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
-      {/* En-tête avec synthèse */}
-      <div className="card p-6 space-y-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Préparation persistée</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              La checklist et les anomalies sont maintenant enregistrées en base et partagées entre les préparateurs.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge tone={stockDebited ? "emerald" : "gray"}>
+              {stockDebited ? "Stock sorti" : "Stock en attente"}
+            </Badge>
+            {hasBlockingAnomaly ? <Badge tone="red">Anomalie bloquante</Badge> : null}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="text-xs uppercase tracking-wide text-gray-500">Statut</div>
+            <div className="mt-1 text-xl font-semibold">{status || "—"}</div>
+            <div className="mt-1 text-xs text-gray-500">
+              {preparationLaunchedAt ? `Lancée le ${formatDate(preparationLaunchedAt)}` : "En attente caisse"}
+            </div>
+          </div>
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+            <div className="text-xs uppercase tracking-wide text-indigo-700">Progression</div>
+            <div className="mt-1 text-xl font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
+            <div className="mt-1 text-xs text-indigo-700">{progressPercent}% des lignes cochées</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="text-xs uppercase tracking-wide text-gray-500">Unités préparées</div>
+            <div className="mt-1 text-xl font-semibold">{preparedUnits}/{totalUnits}</div>
+            <div className="mt-1 text-xs text-gray-500">Quantités effectivement cochées</div>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="text-xs uppercase tracking-wide text-amber-700">Anomalies ouvertes</div>
+            <div className="mt-1 text-xl font-semibold text-amber-900">{unresolvedAnomalies.length}</div>
+            <div className="mt-1 text-xs text-amber-700">Bloquantes: {unresolvedAnomalies.filter((i) => i.blocking).length}</div>
+          </div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <div className="text-xs uppercase tracking-wide text-emerald-700">Stock</div>
+            <div className="mt-1 text-xl font-semibold text-emerald-900">
+              Débit {stockSummary?.debitQty || 0} / Crédit {stockSummary?.creditQty || 0}
+            </div>
+            <div className="mt-1 text-xs text-emerald-700">Dernière sortie: {formatDate(order?.stockDeductedAt)}</div>
+          </div>
+        </div>
+      </div>
+
+      {!canBePrepared && status !== "READY" ? (
+        <Alert tone="gray">
+          La préparation n'est disponible que pour une commande payée et explicitement lancée par la caisse.
+        </Alert>
+      ) : null}
+
+      {status === "READY" ? (
+        <Alert tone="emerald">
+          Cette commande est déjà marquée prête. La checklist reste consultable comme preuve de préparation.
+        </Alert>
+      ) : null}
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Préparation de commande
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Validation logistique, constitution du colis et mise à jour des stocks.
-            </p>
+            <h4 className="font-semibold text-gray-900">Checklist persistée</h4>
+            <p className="mt-1 text-sm text-gray-600">Chaque coche est enregistrée et visible par l'équipe stock.</p>
           </div>
-
-          <Badge tone={stockDebited ? "emerald" : "gray"}>
-            {stockDebited ? "Stock sorti" : "Stock en attente"}
-          </Badge>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-          <StatCard
-            label="Statut"
-            value={status || "—"}
-            subvalue={
-              preparationLaunchedAt
-                ? `Lancée le ${formatDate(preparationLaunchedAt)}`
-                : stockDebited
-                  ? "Stock sorti"
-                  : "En attente du lancement caisse"
-            }
-            tone={isReady ? "emerald" : isPaid ? "blue" : "gray"}
-          />
-
-          <StatCard
-            label="Progression"
-            value={`${checkedCount}/${totalItems}`}
-            subvalue={`${progressPercent}% des lignes cochées`}
-            tone={allChecked ? "emerald" : "indigo"}
-          />
-
-          <StatCard
-            label="Unités préparées"
-            value={`${preparedUnits}/${totalUnits}`}
-            subvalue="Quantités cochées"
-            tone={preparedUnits === totalUnits && totalUnits > 0 ? "emerald" : "gray"}
-          />
-
-          <StatCard
-            label="Date de sortie"
-            value={formatDate(order?.stockDeductedAt) || "—"}
-            subvalue={stockDebited ? "Stock décrémenté" : "Aucune sortie"}
-          />
-
-          <StatCard
-            label="Préparateur"
-            value={order?.preparedBy || "—"}
-            subvalue={order?.preparedBy ? "Préparateur assigné" : "Non assigné"}
-          />
-        </div>
-      </div>
-
-      {/* Alertes contextuelles */}
-      {renderAlert()}
-
-      {/* Checklist produits */}
-      <div className="card p-6 space-y-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h4 className="font-semibold text-gray-900">Checklist de préparation</h4>
-            <p className="text-sm text-gray-600 mt-1">
-              Coche chaque ligne lorsque le produit a bien été prélevé et vérifié.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Badge tone="blue">{totalItems} ligne{totalItems > 1 ? "s" : ""}</Badge>
-            <Badge tone="gray">{totalUnits} unité{totalUnits > 1 ? "s" : ""}</Badge>
-            {allChecked ? <Badge tone="emerald">Checklist terminée</Badge> : null}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              onClick={() => onBulkChecklist?.(true)}
+              disabled={!canBePrepared || saving || totalItems === 0}
+            >
+              Tout cocher
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              onClick={() => onBulkChecklist?.(false)}
+              disabled={!canBePrepared || saving || totalItems === 0}
+            >
+              Tout décocher
+            </button>
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-900">
-                Progression de préparation
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {checkedCount} / {totalItems} lignes cochées
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn"
-                onClick={checkAll}
-                disabled={!canBePrepared || saving || totalItems === 0}
-              >
-                Tout cocher
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={uncheckAll}
-                disabled={!canBePrepared || saving || totalItems === 0}
-              >
-                Tout décocher
-              </button>
-            </div>
-          </div>
-
-          <ProgressBar value={progressPercent} />
-
-          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
-            <span>
-              <strong>{preparedUnits}</strong> / <strong>{totalUnits}</strong> unités
-              préparées
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="inline-block w-2 h-2 rounded-full bg-indigo-500" />
-              Préparation en cours
-            </span>
-            {allChecked ? (
-              <span className="inline-flex items-center gap-1 text-emerald-700">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                Tous les produits sont vérifiés
-              </span>
-            ) : null}
-          </div>
+        <div className="mt-4 h-3 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+          <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
 
-        {items.length === 0 ? (
-          <Alert tone="amber" title="Aucun produit à préparer">
-            Cette commande ne contient actuellement aucune ligne produit.
-          </Alert>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <ProductChecklistItem
+        <div className="mt-4 space-y-3">
+          {preparationItems.length === 0 ? (
+            <Alert tone="amber">Aucune ligne de checklist n'est encore disponible pour cette commande.</Alert>
+          ) : (
+            preparationItems.map((item) => (
+              <ChecklistRow
                 key={item.id}
                 item={item}
-                checked={Boolean(checkedMap[item.id])}
                 disabled={!canBePrepared || saving}
-                onToggle={() => toggleItem(item.id)}
-                formatFcfa={formatFcfa}
-                safeNum={safeNum}
+                onToggle={(row) => onToggleChecklistItem?.(row.preorderItemId, !row.checked)}
               />
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Zone de préparation */}
-      <div className="card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <h4 className="font-semibold text-gray-900">Note de préparation</h4>
-          <span className="text-xs text-gray-500">(optionnel)</span>
-        </div>
-
-        <Field label="Instructions et détails colis">
-          <textarea
-            className="input min-h-[120px] w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            value={packingNote}
-            onChange={(e) => setPackingNote(e.target.value)}
-            placeholder="Ex : 1 carton + 1 sachet, fragile, vérification effectuée, emballage renforcé..."
-            disabled={!canPrepare || saving}
-          />
-        </Field>
-
-        {!allChecked && canBePrepared ? (
-          <Alert tone="amber" title="Checklist incomplète">
-            Tous les produits doivent être cochés avant de pouvoir marquer le colis
-            comme prêt.
-          </Alert>
-        ) : null}
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
-          <div className="text-xs text-gray-500 flex items-center gap-2">
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                canBePrepared ? "bg-indigo-500" : "bg-gray-300"
-              }`}
-            />
-            {canBePrepared
-              ? allChecked
-                ? "Checklist terminée, prêt à valider la préparation"
-                : "Préparation en cours, checklist à terminer"
-              : "Action non disponible"}
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+          <div>
+            <h4 className="font-semibold text-gray-900">Anomalies de préparation</h4>
+            <p className="mt-1 text-sm text-gray-600">
+              Enregistre ici les blocages et écarts constatés pendant le picking ou l'emballage.
+            </p>
           </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Type d'anomalie">
+              <select
+                className="input w-full rounded-lg border-gray-200 text-sm"
+                value={anomalyKind}
+                onChange={(e) => setAnomalyKind(e.target.value)}
+                disabled={saving}
+              >
+                {ANOMALY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Ligne concernée" optional>
+              <select
+                className="input w-full rounded-lg border-gray-200 text-sm"
+                value={anomalyItemId}
+                onChange={(e) => setAnomalyItemId(e.target.value)}
+                disabled={saving}
+              >
+                <option value="">Anomalie globale commande</option>
+                {preparationItems.map((item) => (
+                  <option key={item.id} value={item.preorderItemId}>
+                    {(item.preorderItem?.productNameSnapshot || item.preorderItem?.product?.nom || "Produit")} x {item.preorderItem?.qty || 0}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Description">
+            <textarea
+              className="input min-h-[100px] w-full rounded-lg border-gray-200 text-sm"
+              value={anomalyNote}
+              onChange={(e) => setAnomalyNote(e.target.value)}
+              disabled={saving}
+              placeholder="Décris précisément l'écart constaté."
+            />
+          </Field>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={anomalyBlocking}
+              onChange={(e) => setAnomalyBlocking(e.target.checked)}
+              disabled={saving}
+            />
+            Anomalie bloquante
+          </label>
 
           <button
-            className={`btn-primary px-6 py-2.5 rounded-lg font-medium transition-all ${
-              !canPrepare || saving || !allChecked
-                ? "opacity-50 cursor-not-allowed bg-gray-400"
-                : "bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow"
-            }`}
-            onClick={handlePrepareClick}
-            disabled={!canPrepare || saving || !allChecked}
+            type="button"
+            onClick={handleCreateAnomaly}
+            disabled={saving || !anomalyNote.trim()}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {saving ? (
-              <span className="flex items-center gap-2">
-                <span className="animate-spin">⚪</span>
-                Préparation en cours...
-              </span>
-            ) : (
-              "✅ Marquer colis prêt"
-            )}
+            Enregistrer l'anomalie
           </button>
-        </div>
-      </div>
-
-      {/* Synthèse stock */}
-      <div className="card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-semibold text-gray-900">Synthèse des stocks</h4>
-          <Badge tone="blue">Total mouvements : {stockMovements.length}</Badge>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-            <div className="text-sm text-gray-600">Sortie de stock</div>
-            <div className="text-xl font-semibold mt-1">
-              {formatDate(order?.stockDeductedAt) || "En attente"}
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
-            <div className="text-sm text-indigo-700">Lignes préparées</div>
-            <div className="text-xl font-semibold mt-1 text-indigo-800">
-              {checkedCount} / {totalItems}
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
-            <div className="text-sm text-amber-700">Débit total</div>
-            <div className="text-xl font-semibold mt-1 text-amber-800">
-              {stockSummary?.debitQty || 0}
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 border border-emerald-200">
-            <div className="text-sm text-emerald-700">Crédit total</div>
-            <div className="text-xl font-semibold mt-1 text-emerald-800">
-              {stockSummary?.creditQty || 0}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mouvements de stock */}
-      {stockMovements.length > 0 && (
-        <div className="card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-gray-900">Mouvements de stock</h4>
-            <span className="text-xs text-gray-500">
-              {stockMovements.length} mouvement{stockMovements.length > 1 ? "s" : ""}
-            </span>
-          </div>
 
           <div className="space-y-3">
-            {stockMovements.map((movement) => (
-              <div
-                key={movement.id}
-                className="rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <Badge tone={movement.type === "DEBIT" ? "amber" : "emerald"}>
-                        {movement.type === "DEBIT" ? "⬇️ Débit" : "⬆️ Crédit"}
-                      </Badge>
-
-                      <span className="font-medium text-gray-900">
-                        {movement.product?.sku || "—"}
+            {unresolvedAnomalies.length === 0 ? (
+              <Alert tone="emerald">Aucune anomalie ouverte.</Alert>
+            ) : (
+              unresolvedAnomalies.map((anomaly) => (
+                <div key={anomaly.id} className="rounded-lg border border-red-200 bg-red-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={anomaly.blocking ? "red" : "amber"}>
+                      {anomaly.blocking ? "Bloquante" : "Non bloquante"}
+                    </Badge>
+                    <Badge tone="gray">{anomaly.kind}</Badge>
+                    {anomaly.preorderItem ? (
+                      <span className="text-sm font-medium text-gray-800">
+                        {anomaly.preorderItem.productNameSnapshot || anomaly.preorderItem.product?.nom || "Produit"}
                       </span>
-
-                      <span className="text-sm text-gray-600">
-                        {movement.product?.nom || "Produit inconnu"}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Quantité :</span>{" "}
-                        <span className="font-medium">{movement.qty}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Raison :</span>{" "}
-                        <span className="font-medium">{movement.reason}</span>
-                      </div>
-                    </div>
-
-                    {movement.note ? (
-                      <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                        📝 {movement.note}
-                      </div>
                     ) : null}
                   </div>
-
-                  <div className="text-xs text-gray-400 whitespace-nowrap">
-                    {formatDate(movement.createdAt)}
+                  <div className="mt-2 text-sm text-gray-800">{anomaly.note}</div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Signalée par {anomaly.createdBy?.fullName || "—"} le {formatDate(anomaly.createdAt)}
+                  </div>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const resolutionNote = window.prompt("Note de résolution", "Anomalie traitée");
+                        if (resolutionNote !== null) {
+                          onResolveAnomaly?.(anomaly.id, resolutionNote);
+                        }
+                      }}
+                      disabled={saving}
+                      className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
+                    >
+                      Marquer résolue
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
-      )}
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+          <div>
+            <h4 className="font-semibold text-gray-900">Finaliser la préparation</h4>
+            <p className="mt-1 text-sm text-gray-600">
+              Le colis ne peut être marqué prêt que si toutes les lignes sont cochées et qu'aucune anomalie bloquante n'est ouverte.
+            </p>
+          </div>
+
+          <Field label="Note de préparation" optional>
+            <textarea
+              className="input min-h-[120px] w-full rounded-lg border-gray-200 text-sm"
+              value={packingNote}
+              onChange={(e) => setPackingNote(e.target.value)}
+              disabled={!canPrepare || saving}
+              placeholder="Ex: colis contrôlé, emballage renforcé, fragile..."
+            />
+          </Field>
+
+          {!allChecked && canBePrepared ? (
+            <Alert tone="amber">Toutes les lignes doivent être cochées avant validation.</Alert>
+          ) : null}
+          {hasBlockingAnomaly ? (
+            <Alert tone="red">Une ou plusieurs anomalies bloquantes doivent être résolues avant validation.</Alert>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onPrepare}
+            disabled={!canPrepare || saving || !allChecked || hasBlockingAnomaly}
+            className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {saving ? "Préparation en cours..." : "Marquer colis prêt"}
+          </button>
+
+          {resolvedAnomalies.length > 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 text-sm font-semibold text-gray-900">Anomalies résolues</div>
+              <div className="space-y-2">
+                {resolvedAnomalies.map((anomaly) => (
+                  <div key={anomaly.id} className="text-xs text-gray-600">
+                    <strong>{anomaly.kind}</strong> résolue le {formatDate(anomaly.resolvedAt)} par{" "}
+                    {anomaly.resolvedBy?.fullName || "—"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
