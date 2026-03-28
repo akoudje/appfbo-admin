@@ -31,22 +31,22 @@ export default function PreparationQueuePage() {
           pageSize: 100,
           status: "PAID",
           paymentStatus: "PAID",
-          sort: "paidAt",
+          sort: "preparationLaunchedAt",
           dir: "asc",
         }),
         ordersService.getAll({
           page: 1,
           pageSize: 100,
           status: "READY",
-          sort: "updatedAt",
-          dir: "desc",
+          sort: "preparedAt",
+          dir: "asc",
         }),
         ordersService.getAll({
           page: 1,
           pageSize: 100,
           status: "FULFILLED",
           sort: "fulfilledAt",
-          dir: "desc",
+          dir: "asc",
         }),
       ]);
 
@@ -102,22 +102,22 @@ export default function PreparationQueuePage() {
   }, [rows]);
 
   const handleOpen = (row) => {
-    navigate(`/orders/${row.id}?tab=preparation`);
+    const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
+    navigate(`/orders/${row.id}?tab=${targetTab}`);
   };
 
   const handlePrepare = async (row) => {
-    navigate(`/orders/${row.id}?tab=preparation`);
+    const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
+    navigate(`/orders/${row.id}?tab=${targetTab}`);
   };
 
   return (
     <div className="space-y-4">
-      <PreparationQueueHeader loading={loading} onRefresh={load} />
+      <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
 
       <PreparationQueueAlerts error={error} info={info} />
 
-      <PreparationQueueStats stats={stats} />
-
-      <PreparationQueueTabs tab={tab} setTab={setTab} />
+      <PreparationQueueTabs tab={tab} setTab={setTab} stats={stats} />
 
       <PreparationQueueTable
         rows={filteredRows}

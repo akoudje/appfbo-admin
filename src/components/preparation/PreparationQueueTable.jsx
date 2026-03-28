@@ -19,6 +19,17 @@ function formatDateTime(value) {
   return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
+function formatAge(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));
+  if (diffMinutes < 60) return `${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} h`;
+  return `${Math.floor(diffHours / 24)} j`;
+}
+
 function OrderStatusBadge({ status }) {
   const tones = {
     PAID: "bg-green-50 text-green-700 border-green-200",
@@ -59,8 +70,7 @@ export default function PreparationQueueTable({ rows, loading, onOpen, onPrepare
             <tr>
               <th className="px-4 py-3 font-medium">Colis / commande</th>
               <th className="px-4 py-3 font-medium">Client</th>
-              <th className="px-4 py-3 font-medium">Paiement</th>
-              <th className="px-4 py-3 font-medium">Progression</th>
+              <th className="px-4 py-3 font-medium">Repères</th>
               <th className="px-4 py-3 font-medium">État</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
@@ -88,13 +98,21 @@ export default function PreparationQueueTable({ rows, loading, onOpen, onPrepare
                   <div className="mt-1">
                     <OrderPaymentBadge status={row.paymentStatus} />
                   </div>
-                </td>
-
-                <td className="px-4 py-3">
-                  <div className="text-sm">Payée le {formatDateTime(row.paidAt)}</div>
                   <div className="text-xs text-gray-500">
-                    Lancement {formatDateTime(row.preparationLaunchedAt)}
+                    {row.status === "READY"
+                      ? `Prête depuis ${formatAge(row.preparedAt || row.updatedAt)}`
+                      : row.status === "FULFILLED"
+                        ? `Clôturée depuis ${formatAge(row.fulfilledAt || row.updatedAt)}`
+                        : `À préparer depuis ${formatAge(row.preparationLaunchedAt || row.paidAt)}`}
                   </div>
+                  <div className="text-xs text-gray-500">
+                    Paiée le {formatDateTime(row.paidAt)}
+                  </div>
+                  {row.preparationLaunchedAt ? (
+                    <div className="text-xs text-gray-500">
+                      Lancée le {formatDateTime(row.preparationLaunchedAt)}
+                    </div>
+                  ) : null}
                   {row.preparedAt ? (
                     <div className="text-xs text-gray-500">
                       Prête le {formatDateTime(row.preparedAt)}
@@ -112,17 +130,29 @@ export default function PreparationQueueTable({ rows, loading, onOpen, onPrepare
                       <RequirePermission permission={Permission.PREPARATION_UPDATE}>
                         <button
                           onClick={() => onPrepare(row)}
-                          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
                           type="button"
                         >
-                          Préparer
+                          Ouvrir checklist
+                        </button>
+                      </RequirePermission>
+                    ) : null}
+
+                    {row.status === "READY" ? (
+                      <RequirePermission permission={Permission.PREPARATION_UPDATE}>
+                        <button
+                          onClick={() => onOpen(row)}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          type="button"
+                        >
+                          Clôturer
                         </button>
                       </RequirePermission>
                     ) : null}
 
                     <RequirePermission permission={Permission.PREORDER_READ}>
                       <Link
-                        to={`/orders/${row.id}?tab=preparation`}
+                        to={`/orders/${row.id}?tab=${row.status === "READY" ? "fulfillment" : "preparation"}`}
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
                         Détail
