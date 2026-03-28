@@ -54,6 +54,31 @@ function SummaryCard({ title, value, hint }) {
   );
 }
 
+function TabButton({ active, children, onClick, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+        active
+          ? "bg-gray-900 text-white"
+          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      <span>{children}</span>
+      {typeof count === "number" ? (
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs ${
+            active ? "bg-white/15 text-white" : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {count}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function MetricList({ title, rows = [], emptyLabel }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -171,7 +196,7 @@ function QueueRowActions({
 }
 
 function QueueTable(props) {
-  const { rows, ...actions } = props;
+  const { rows, emptyLabel = "Aucune précommande à traiter.", ...actions } = props;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -191,7 +216,7 @@ function QueueTable(props) {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Aucune précommande à traiter.
+                  {emptyLabel}
                 </td>
               </tr>
             ) : (
@@ -347,6 +372,7 @@ export default function CashierWorkspacePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [journalScope, setJournalScope] = useState("my");
+  const [activeTab, setActiveTab] = useState("collect");
 
   const canViewConsolidated = useMemo(
     () =>
@@ -396,10 +422,13 @@ export default function CashierWorkspacePage() {
     }
   }
 
-  const queue = workspace?.queue || [];
+  const toCollect = workspace?.toCollect || [];
+  const toLaunchPreparation = workspace?.toLaunchPreparation || [];
   const journal = workspace?.journal || [];
-  const queueSummary = workspace?.queueSummary || {};
+  const collectionSummary = workspace?.collectionSummary || {};
+  const launchSummary = workspace?.launchSummary || {};
   const journalSummary = workspace?.journalSummary || {};
+  const financialSummary = workspace?.financialSummary || {};
 
   const askCashCollection = (row) => {
     const receiptNumber = window.prompt(
@@ -443,11 +472,41 @@ export default function CashierWorkspacePage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <SummaryCard title="À traiter" value={queueSummary.total || 0} hint="Précommandes préfacturées ou en attente d'encaissement" />
-        <SummaryCard title="Espèces à encaisser" value={queueSummary.pendingCash || 0} hint="Modes espèces non encore confirmés" />
-        <SummaryCard title="Prêtes préparation" value={queueSummary.readyToPrepare || 0} hint="Paiement confirmé, en attente de passage à READY" />
-        <SummaryCard title="Transmises stock" value={journal.filter((row) => row.status === "PAID").length} hint="Déjà lancées à la préparation" />
-        <SummaryCard title="Journal" value={journalSummary.total || 0} hint={journalSummary.scope === "all" ? "Vue consolidée" : "Mon historique"} />
+        <SummaryCard title="À encaisser" value={collectionSummary.total || 0} hint="Préfactures à encaisser ou paiements électroniques à contrôler" />
+        <SummaryCard title="Espèces" value={collectionSummary.pendingCash || 0} hint="Encaissements espèces en attente" />
+        <SummaryCard title="Électroniques" value={collectionSummary.pendingElectronic || 0} hint="Paiements électroniques à confirmer" />
+        <SummaryCard title="À lancer" value={launchSummary.total || 0} hint="Paiements confirmés, en attente de transmission au stock" />
+        <SummaryCard title="Total jour" value={formatFcfa(financialSummary.totalReceivedFcfa || 0)} hint={journalSummary.scope === "all" ? "Bilan consolidé" : "Mon bilan du jour"} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <TabButton
+          active={activeTab === "collect"}
+          count={collectionSummary.total || 0}
+          onClick={() => setActiveTab("collect")}
+        >
+          À encaisser
+        </TabButton>
+        <TabButton
+          active={activeTab === "launch"}
+          count={launchSummary.total || 0}
+          onClick={() => setActiveTab("launch")}
+        >
+          À lancer
+        </TabButton>
+        <TabButton
+          active={activeTab === "journal"}
+          count={journalSummary.total || 0}
+          onClick={() => setActiveTab("journal")}
+        >
+          Journal
+        </TabButton>
+        <TabButton
+          active={activeTab === "balance"}
+          onClick={() => setActiveTab("balance")}
+        >
+          Bilan
+        </TabButton>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -495,9 +554,21 @@ export default function CashierWorkspacePage() {
         </div>
 
         <MetricList
-          title="Répartition par mode"
-          rows={queueSummary.byPaymentMode || []}
-          emptyLabel="Aucune ligne en file de caisse."
+          title={
+            activeTab === "launch"
+              ? "Répartition à lancer"
+              : activeTab === "journal" || activeTab === "balance"
+                ? "Répartition journal"
+                : "Répartition à encaisser"
+          }
+          rows={
+            activeTab === "launch"
+              ? launchSummary.byPaymentMode || []
+              : activeTab === "journal" || activeTab === "balance"
+                ? journalSummary.byPaymentMode || []
+                : collectionSummary.byPaymentMode || []
+          }
+          emptyLabel="Aucune ligne pour cette vue."
         />
       </div>
 
@@ -513,87 +584,157 @@ export default function CashierWorkspacePage() {
         </div>
       ) : null}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
+      {activeTab === "collect" ? (
+        <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">File de caisse</h2>
+            <h2 className="text-lg font-semibold text-gray-900">À encaisser</h2>
             <p className="text-sm text-gray-500">
               Liste prioritaire des dossiers de caisse à traiter, du plus ancien au plus récent.
             </p>
           </div>
-        </div>
-        <QueueTable
-          rows={queue}
-          busyId={busyId}
-          onCashPay={(row) =>
-            runAction(row.id, async () => {
-              const payload = askCashCollection(row);
-              if (!payload) {
-                throw new Error("Encaissement annulé.");
-              }
-              await ordersService.pay(row.id, {
-                reference: row.factureReference || row.preorderNumber || row.id,
-                note: "Encaissement espèces depuis l'espace caisse",
-                ...payload,
-              });
-              setInfo("Paiement espèces enregistré.");
-            })
-          }
-          onVerify={(row) =>
-            runAction(row.id, async () => {
-              await ordersService.verifyPayment(row.id, {
-                note: "Paiement confirmé depuis l'espace caisse",
-              });
-              setInfo("Paiement confirmé.");
-            })
-          }
-          onPrepare={(row) =>
-            runAction(row.id, async () => {
-              await cashierService.prepareForPacking(row.id, {
-                packingNote: "Commande validée par la caisse pour préparation",
-              });
-              setInfo("Commande transmise au préparateur et SMS client envoyé.");
-            })
-          }
-          onSyncWave={(row) =>
-            runAction(row.id, async () => {
-              await ordersService.syncWavePaymentStatus(row.id);
-              setInfo("Statut Wave synchronisé.");
-            })
-          }
-          onPrint={(row) => navigate(`/orders/${row.id}?tab=payment`)}
-          onOpen={(row) => navigate(`/orders/${row.id}?tab=payment`)}
-        />
-      </section>
+          <QueueTable
+            rows={toCollect}
+            emptyLabel="Aucune précommande à encaisser."
+            busyId={busyId}
+            onCashPay={(row) =>
+              runAction(row.id, async () => {
+                const payload = askCashCollection(row);
+                if (!payload) {
+                  throw new Error("Encaissement annulé.");
+                }
+                await ordersService.pay(row.id, {
+                  reference: row.factureReference || row.preorderNumber || row.id,
+                  note: "Encaissement espèces depuis l'espace caisse",
+                  ...payload,
+                });
+                setInfo("Paiement espèces enregistré.");
+              })
+            }
+            onVerify={(row) =>
+              runAction(row.id, async () => {
+                await ordersService.verifyPayment(row.id, {
+                  note: "Paiement confirmé depuis l'espace caisse",
+                });
+                setInfo("Paiement confirmé.");
+              })
+            }
+            onPrepare={(row) =>
+              runAction(row.id, async () => {
+                await cashierService.prepareForPacking(row.id, {
+                  packingNote: "Commande validée par la caisse pour préparation",
+                });
+                setInfo("Commande transmise au préparateur et SMS client envoyé.");
+              })
+            }
+            onSyncWave={(row) =>
+              runAction(row.id, async () => {
+                await ordersService.syncWavePaymentStatus(row.id);
+                setInfo("Statut Wave synchronisé.");
+              })
+            }
+            onPrint={(row) => navigate(`/orders/${row.id}?tab=payment`)}
+            onOpen={(row) => navigate(`/orders/${row.id}?tab=payment`)}
+          />
+        </section>
+      ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-3">
+      {activeTab === "launch" ? (
+        <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Journal de transactions</h2>
+            <h2 className="text-lg font-semibold text-gray-900">À lancer en préparation</h2>
             <p className="text-sm text-gray-500">
-              {journalSummary.scope === "all"
-                ? "Historique consolidé des commandes validées pour préparation par toutes les caisses."
-                : "Historique des commandes que vous avez validées pour préparation."}
+              Commandes déjà payées, prêtes à être transmises au stock.
             </p>
           </div>
-          <JournalTable rows={journal} canViewAll={journalSummary.scope === "all"} />
-        </div>
-
-        <div className="space-y-4">
-          <MetricList
-            title="Journal par mode"
-            rows={journalSummary.byPaymentMode || []}
-            emptyLabel="Aucun règlement validé."
+          <QueueTable
+            rows={toLaunchPreparation}
+            emptyLabel="Aucune commande en attente de lancement préparation."
+            busyId={busyId}
+            onCashPay={() => {}}
+            onVerify={() => {}}
+            onPrepare={(row) =>
+              runAction(row.id, async () => {
+                await cashierService.prepareForPacking(row.id, {
+                  packingNote: "Commande validée par la caisse pour préparation",
+                });
+                setInfo("Commande transmise au préparateur et SMS client envoyé.");
+              })
+            }
+            onSyncWave={() => {}}
+            onPrint={(row) => navigate(`/orders/${row.id}?tab=payment`)}
+            onOpen={(row) => navigate(`/orders/${row.id}?tab=payment`)}
           />
-          {canViewConsolidated && journalSummary.scope === "all" ? (
+        </section>
+      ) : null}
+
+      {activeTab === "journal" ? (
+        <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Journal de transactions</h2>
+              <p className="text-sm text-gray-500">
+                {journalSummary.scope === "all"
+                  ? "Historique consolidé des paiements traités par toutes les caisses."
+                  : "Historique des paiements que vous avez traités."}
+              </p>
+            </div>
+            <JournalTable rows={journal} canViewAll={journalSummary.scope === "all"} />
+          </div>
+
+          <div className="space-y-4">
             <MetricList
-              title="Synthèse par caisse"
-              rows={journalSummary.byCashier || []}
-              emptyLabel="Aucune caisse consolidée."
+              title="Journal par mode"
+              rows={journalSummary.byPaymentMode || []}
+              emptyLabel="Aucun règlement validé."
             />
-          ) : null}
-        </div>
-      </section>
+            {canViewConsolidated && journalSummary.scope === "all" ? (
+              <MetricList
+                title="Synthèse par caisse"
+                rows={journalSummary.byCashier || []}
+                emptyLabel="Aucune caisse consolidée."
+              />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === "balance" ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Bilan financier</h2>
+            <p className="text-sm text-gray-500">
+              Vue synthétique des encaissements de la période sélectionnée.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard title="Transactions" value={financialSummary.transactionsCount || 0} hint="Paiements traités sur la période" />
+            <SummaryCard title="Montant attendu" value={formatFcfa(financialSummary.totalExpectedFcfa || 0)} hint="Total théorique des encaissements" />
+            <SummaryCard title="Montant encaissé" value={formatFcfa(financialSummary.totalReceivedFcfa || 0)} hint="Total effectivement saisi en caisse" />
+            <SummaryCard title="À transmettre" value={financialSummary.totalToLaunchPreparation || 0} hint="Commandes encore à lancer en préparation" />
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <MetricList
+              title="Encaissements par mode"
+              rows={journalSummary.byPaymentMode || []}
+              emptyLabel="Aucun encaissement sur la période."
+            />
+            {canViewConsolidated && journalSummary.scope === "all" ? (
+              <MetricList
+                title="Encaissements par caisse"
+                rows={journalSummary.byCashier || []}
+                emptyLabel="Aucune caisse consolidée."
+              />
+            ) : (
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <h3 className="text-sm font-semibold text-gray-900">Point d'attention</h3>
+                <div className="mt-3 text-sm text-gray-600">
+                  Utilise les filtres de dates et de mode de paiement pour suivre ton bilan journalier et préparer ta clôture de caisse.
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
