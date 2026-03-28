@@ -219,14 +219,9 @@ export default function OrderFulfillmentTab({
   };
 
   return (
-    <div className="space-y-6">
-      {/* En-tête avec synthèse */}
-      <InfoSection title="Clôture / Livraison">
-        <p className="text-sm text-gray-600">
-          Finalisation de la commande après retrait ou livraison effective.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-4">
+      <InfoSection title="Clôture">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatCard
             label="Statut"
             value={<StatusBadge status={status} fulfilled={isFulfilled} />}
@@ -235,32 +230,28 @@ export default function OrderFulfillmentTab({
             icon={isFulfilled ? "✅" : "📦"}
           />
           <StatCard
-            label="Clôturée par"
-            value={order?.fulfilledBy || "—"}
-            subvalue={order?.fulfilledBy ? "Opérateur" : "Non assigné"}
-            tone="gray"
-            icon="👤"
+            label="Colis"
+            value={order?.parcelNumber || "—"}
+            tone="blue"
+            icon="📦"
           />
           <StatCard
-            label="Date de clôture"
-            value={formatDateTime(order?.fulfilledAt) || "—"}
-            subvalue={order?.fulfilledAt ? "Finalisée" : "En attente"}
+            label="Code retrait"
+            value={isPickupOrder ? (order?.pickupSecretCode || "—") : "—"}
+            tone="amber"
+            icon="🔐"
+          />
+          <StatCard
+            label="Prête le"
+            value={formatDateTime(order?.preparedAt)}
             tone="gray"
             icon="📅"
           />
           <StatCard
-            label="Tracking"
-            value={order?.deliveryTracking || "—"}
-            subvalue={order?.deliveryTracking ? "Numéro de suivi" : "Non renseigné"}
-            tone="blue"
-            icon="🔢"
-          />
-          <StatCard
-            label="N° colis"
-            value={order?.parcelNumber || "—"}
-            subvalue={order?.parcelNumber ? "Référence colis" : "Généré au lancement préparation"}
-            tone="blue"
-            icon="📦"
+            label="Clôturée le"
+            value={formatDateTime(order?.fulfilledAt)}
+            tone="gray"
+            icon="✅"
           />
         </div>
       </InfoSection>
@@ -270,7 +261,7 @@ export default function OrderFulfillmentTab({
 
       {/* Formulaire de clôture (visible seulement si non clôturée) */}
       {!isFulfilled && (
-        <InfoSection title="Informations de livraison / retrait">
+        <InfoSection title="Confirmation finale">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Mode de remise">
               <select
@@ -329,7 +320,7 @@ export default function OrderFulfillmentTab({
 
           <Field label="Note de clôture" optional>
             <textarea
-              className="input w-full min-h-[120px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+              className="input w-full min-h-[90px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
               value={fulfillNote}
               onChange={(e) => setFulfillNote(e.target.value)}
               placeholder="Ex: Retiré sur site par le client - Tout est conforme. / Livré à l'adresse, colis en bon état..."
@@ -376,16 +367,11 @@ export default function OrderFulfillmentTab({
             </div>
           ) : null}
 
-          {/* Aide à la saisie */}
-          <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded-lg">
-            <span className="font-medium text-gray-500">💡 Astuce :</span> Tu peux indiquer le transporteur dans le premier champ et ajouter des détails dans la note.
-          </div>
         </InfoSection>
       )}
 
-      {/* Récapitulatif des informations (si disponibles) */}
       {hasDeliveryInfo && (
-        <InfoSection title="📋 Récapitulatif">
+        <InfoSection title="Récapitulatif">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Row 
               label="N° colis" 

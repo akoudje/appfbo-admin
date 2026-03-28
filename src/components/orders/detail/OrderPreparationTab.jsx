@@ -170,50 +170,49 @@ export default function OrderPreparationTab({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="space-y-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Préparation persistée</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Préparation</h3>
             <p className="mt-1 text-sm text-gray-600">
-              La checklist et les anomalies sont maintenant enregistrées en base et partagées entre les préparateurs.
+              Checklist, anomalies et validation finale.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Badge tone="blue">{status || "—"}</Badge>
             <Badge tone={stockDebited ? "emerald" : "gray"}>
               {stockDebited ? "Stock sorti" : "Stock en attente"}
             </Badge>
-            {hasBlockingAnomaly ? <Badge tone="red">Anomalie bloquante</Badge> : null}
+            {hasBlockingAnomaly ? <Badge tone="red">Blocage</Badge> : null}
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="text-xs uppercase tracking-wide text-gray-500">Statut</div>
-            <div className="mt-1 text-xl font-semibold">{status || "—"}</div>
-            <div className="mt-1 text-xs text-gray-500">
-              {preparationLaunchedAt ? `Lancée le ${formatDate(preparationLaunchedAt)}` : "En attente caisse"}
-            </div>
-          </div>
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-            <div className="text-xs uppercase tracking-wide text-indigo-700">Progression</div>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+            <div className="text-xs uppercase tracking-wide text-indigo-700">Checklist</div>
             <div className="mt-1 text-xl font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
-            <div className="mt-1 text-xs text-indigo-700">{progressPercent}% des lignes cochées</div>
           </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <div className="text-xs uppercase tracking-wide text-amber-700">Anomalies ouvertes</div>
-            <div className="mt-1 text-xl font-semibold text-amber-900">{unresolvedAnomalies.length}</div>
-            <div className="mt-1 text-xs text-amber-700">Bloquantes: {unresolvedAnomalies.filter((i) => i.blocking).length}</div>
-          </div>
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
             <div className="text-xs uppercase tracking-wide text-emerald-700">Unités</div>
-            <div className="mt-1 text-xl font-semibold text-emerald-900">
-              {preparedUnits}/{totalUnits}
-            </div>
-            <div className="mt-1 text-xs text-emerald-700">
-              {stockDebited ? `Sortie ${formatDate(order?.stockDeductedAt)}` : "Sortie après validation"}
-            </div>
+            <div className="mt-1 text-xl font-semibold text-emerald-900">{preparedUnits}/{totalUnits}</div>
           </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="text-xs uppercase tracking-wide text-amber-700">Anomalies</div>
+            <div className="mt-1 text-xl font-semibold text-amber-900">{unresolvedAnomalies.length}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="text-xs uppercase tracking-wide text-gray-500">Lancée</div>
+            <div className="mt-1 text-sm font-semibold text-gray-900">{formatDate(preparationLaunchedAt)}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="text-xs uppercase tracking-wide text-gray-500">Colis</div>
+            <div className="mt-1 text-sm font-semibold text-gray-900">{order?.parcelNumber || "—"}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 h-3 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+          <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
 
@@ -240,11 +239,11 @@ export default function OrderPreparationTab({
         </Alert>
       ) : null}
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h4 className="font-semibold text-gray-900">Checklist persistée</h4>
-            <p className="mt-1 text-sm text-gray-600">Chaque coche est enregistrée et visible par l'équipe stock.</p>
+            <p className="mt-1 text-sm text-gray-600">Coche tout avant validation.</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -266,11 +265,7 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="mt-4 h-3 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
-          <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progressPercent}%` }} />
-        </div>
-
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-2">
           {preparationItems.length === 0 ? (
             <Alert tone="amber">Aucune ligne de checklist n'est encore disponible pour cette commande.</Alert>
           ) : (
@@ -287,12 +282,10 @@ export default function OrderPreparationTab({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
           <div>
             <h4 className="font-semibold text-gray-900">Anomalies de préparation</h4>
-            <p className="mt-1 text-sm text-gray-600">
-              Enregistre ici les blocages et écarts constatés pendant le picking ou l'emballage.
-            </p>
+            <p className="mt-1 text-sm text-gray-600">Déclare ici un blocage ou un écart.</p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -329,7 +322,7 @@ export default function OrderPreparationTab({
 
           <Field label="Description">
             <textarea
-              className="input min-h-[100px] w-full rounded-lg border-gray-200 text-sm"
+              className="input min-h-[80px] w-full rounded-lg border-gray-200 text-sm"
               value={anomalyNote}
               onChange={(e) => setAnomalyNote(e.target.value)}
               disabled={saving}
@@ -398,9 +391,9 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
           <div>
-            <h4 className="font-semibold text-gray-900">Finaliser la préparation</h4>
+            <h4 className="font-semibold text-gray-900">Action finale</h4>
             <p className="mt-1 text-sm text-gray-600">
               Le colis ne peut être marqué prêt que si toutes les lignes sont cochées et qu'aucune anomalie bloquante n'est ouverte.
             </p>
@@ -408,7 +401,7 @@ export default function OrderPreparationTab({
 
           <Field label="Note de préparation" optional>
             <textarea
-              className="input min-h-[120px] w-full rounded-lg border-gray-200 text-sm"
+              className="input min-h-[90px] w-full rounded-lg border-gray-200 text-sm"
               value={packingNote}
               onChange={(e) => setPackingNote(e.target.value)}
               disabled={!canPrepare || saving}
