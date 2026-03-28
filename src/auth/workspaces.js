@@ -83,6 +83,7 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
     case AdminRole.STOCK_MANAGER:
       return [
         { key: "preparation", label: "Préparation" },
+        { key: "fulfillment", label: "Clôture" },
         { key: "history", label: "Historique" },
       ];
     default:

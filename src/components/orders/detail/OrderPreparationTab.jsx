@@ -109,6 +109,7 @@ export default function OrderPreparationTab({
   onBulkChecklist,
   onCreateAnomaly,
   onResolveAnomaly,
+  onGoToFulfillment,
   stockSummary,
 }) {
   const [anomalyKind, setAnomalyKind] = useState("MISSING_ITEM");
@@ -224,7 +225,18 @@ export default function OrderPreparationTab({
 
       {status === "READY" ? (
         <Alert tone="emerald">
-          Cette commande est déjà marquée prête. La checklist reste consultable comme preuve de préparation.
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              Cette commande est déjà marquée prête. La checklist reste consultable comme preuve de préparation.
+            </div>
+            <button
+              type="button"
+              onClick={() => onGoToFulfillment?.()}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+            >
+              Aller à la clôture
+            </button>
+          </div>
         </Alert>
       ) : null}
 

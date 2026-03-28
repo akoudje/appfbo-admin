@@ -1037,6 +1037,7 @@ const doInvoice = async () => {
               onBulkChecklist={doBulkUpdatePreparationChecklist}
               onCreateAnomaly={doCreatePreparationAnomaly}
               onResolveAnomaly={doResolvePreparationAnomaly}
+              onGoToFulfillment={() => setTab("fulfillment")}
               stockSummary={stockSummary}
             />
           </RequirePermission>
