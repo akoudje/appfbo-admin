@@ -65,6 +65,7 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
     case AdminRole.INVOICER:
     case AdminRole.BILLING_MANAGER:
       return [
+        { key: "overview", label: "Aperçu" },
         { key: "workflow", label: "Workflow" },
         { key: "billing", label: "Facturation" },
         { key: "history", label: "Historique" },
