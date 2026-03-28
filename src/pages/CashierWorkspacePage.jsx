@@ -446,7 +446,7 @@ export default function CashierWorkspacePage() {
         <SummaryCard title="À traiter" value={queueSummary.total || 0} hint="Précommandes préfacturées ou en attente d'encaissement" />
         <SummaryCard title="Espèces à encaisser" value={queueSummary.pendingCash || 0} hint="Modes espèces non encore confirmés" />
         <SummaryCard title="Prêtes préparation" value={queueSummary.readyToPrepare || 0} hint="Paiement confirmé, en attente de passage à READY" />
-        <SummaryCard title="Transmises stock" value={journal.filter((row) => row.status === "PAID").length} hint="Déjà lancées par la caisse" />
+        <SummaryCard title="Transmises stock" value={journal.filter((row) => row.status === "PAID").length} hint="Déjà lancées à la préparation" />
         <SummaryCard title="Journal" value={journalSummary.total || 0} hint={journalSummary.scope === "all" ? "Vue consolidée" : "Mon historique"} />
       </div>
 
@@ -518,7 +518,7 @@ export default function CashierWorkspacePage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">File de caisse</h2>
             <p className="text-sm text-gray-500">
-              Toutes les précommandes préfacturées avec leur mode de paiement, leur état et les actions utiles.
+              Liste prioritaire des dossiers de caisse à traiter, du plus ancien au plus récent.
             </p>
           </div>
         </div>

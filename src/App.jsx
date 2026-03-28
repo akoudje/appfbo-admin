@@ -1,11 +1,13 @@
 // admin-app/src/App.jsx
 // Point d'entrée de l'application, définissant les routes principales et intégrant le layout admin.
 
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RequirePermission from "./components/auth/RequirePermission";
 import { Permission } from "./auth/permissions";
+import useAdminAuth from "./hooks/useAdminAuth";
+import { getDefaultWorkspaceRoute, shouldShowDashboard } from "./auth/workspaces";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -30,6 +32,19 @@ function AccessDenied({ message = "Accès refusé." }) {
   );
 }
 
+function WorkspaceHome() {
+  const { role } = useAdminAuth();
+  return <Navigate to={getDefaultWorkspaceRoute(role)} replace />;
+}
+
+function DashboardHome() {
+  const { role } = useAdminAuth();
+  if (!shouldShowDashboard(role)) {
+    return <Navigate to={getDefaultWorkspaceRoute(role)} replace />;
+  }
+  return <Dashboard />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -43,7 +58,8 @@ export default function App() {
           element={
             <AdminLayout>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<WorkspaceHome />} />
+                <Route path="/dashboard" element={<DashboardHome />} />
 
                 <Route
                   path="/orders"

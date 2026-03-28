@@ -1,12 +1,9 @@
-// admin-app/src/components/billing/BillingQueueTable.jsx
-// Tableau de la file de facturation.
-
 import OrderBillingBadge from "../orders/OrderBillingBadge";
 import RequirePermission from "../auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
 
 function formatFcfa(value) {
-  return new Intl.NumberFormat("fr-FR", { 
+  return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "XOF",
     minimumFractionDigits: 0,
@@ -18,11 +15,7 @@ function formatDateTime(value) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-
-  return d.toLocaleString("fr-FR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
 function PriorityBadge({ priority }) {
@@ -34,11 +27,7 @@ function PriorityBadge({ priority }) {
   };
 
   return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${
-        tones[priority] || tones.NORMAL
-      }`}
-    >
+    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${tones[priority] || tones.NORMAL}`}>
       {priority || "—"}
     </span>
   );
@@ -56,11 +45,7 @@ function OrderStatusBadge({ status }) {
   };
 
   return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${
-        tones[status] || "bg-gray-100 text-gray-700 border-gray-200"
-      }`}
-    >
+    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${tones[status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
       {status || "—"}
     </span>
   );
@@ -98,15 +83,11 @@ export default function BillingQueueTable({
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
               <th className="px-4 py-3 font-medium">Priorité</th>
-              <th className="px-4 py-3 font-medium">FBO</th>
-              <th className="px-4 py-3 font-medium">N° FBO</th>
-              <th className="px-4 py-3 font-medium">Point de vente</th>
+              <th className="px-4 py-3 font-medium">Dossier</th>
               <th className="px-4 py-3 font-medium">Montant</th>
-              <th className="px-4 py-3 font-medium">Commande</th>
-              <th className="px-4 py-3 font-medium">Facturation</th>
+              <th className="px-4 py-3 font-medium">État</th>
               <th className="px-4 py-3 font-medium">Assigné à</th>
-              <th className="px-4 py-3 font-medium">Entrée queue</th>
-              <th className="px-4 py-3 font-medium">SLA</th>
+              <th className="px-4 py-3 font-medium">Ancienneté</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -114,8 +95,7 @@ export default function BillingQueueTable({
           <tbody>
             {rows.map((row) => {
               const isMine =
-                Boolean(currentAdminId) &&
-                row?.assignedInvoicerId === currentAdminId;
+                Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
               const isActiveBilling = [
                 "ASSIGNED",
                 "IN_PROGRESS",
@@ -125,39 +105,50 @@ export default function BillingQueueTable({
               const canStart = isMine && ["ASSIGNED", "IN_PROGRESS"].includes(row?.billingWorkStatus);
               const canRelease = isMine && isActiveBilling;
               const canEscalate = isActiveBilling && row?.billingWorkStatus !== "ESCALATED";
-
               const assignedName =
-                row?.assignedInvoicer?.fullName ||
-                row?.assignedInvoicer?.email ||
-                "—";
+                row?.assignedInvoicer?.fullName || row?.assignedInvoicer?.email || "—";
 
               return (
-                <tr key={row.id} className="border-t border-gray-100 text-gray-800">
+                <tr key={row.id} className="border-t border-gray-100 text-gray-800 align-top">
                   <td className="px-4 py-3">
-                    <PriorityBadge priority={row.billingPriority} />
-                  </td>
-
-                  <td className="px-4 py-3 font-medium">{row.fboNomComplet || "—"}</td>
-
-                  <td className="px-4 py-3">{row.fboNumero || "—"}</td>
-
-                  <td className="px-4 py-3">{row.pointDeVente || "—"}</td>
-
-                  <td className="px-4 py-3">{formatFcfa(row.totalFcfa)}</td>
-
-                  <td className="px-4 py-3">
-                    <OrderStatusBadge status={row.status} />
+                    <div className="space-y-2">
+                      <PriorityBadge priority={row.billingPriority} />
+                      <div className="text-xs text-gray-500">{row.pointDeVente || "—"}</div>
+                    </div>
                   </td>
 
                   <td className="px-4 py-3">
-                    <OrderBillingBadge status={row.billingWorkStatus} />
+                    <div className="font-medium">{row.fboNomComplet || "—"}</div>
+                    <div className="text-xs text-gray-500">FBO {row.fboNumero || "—"}</div>
+                    <div className="text-xs text-gray-500">
+                      {row.factureReference || row.preorderNumber || row.id}
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{formatFcfa(row.totalFcfa)}</div>
+                    {row.indicativeTotalFcfa ? (
+                      <div className="text-xs text-gray-500">
+                        Indicatif: {formatFcfa(row.indicativeTotalFcfa)}
+                      </div>
+                    ) : null}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <div className="space-y-2">
+                      <OrderBillingBadge status={row.billingWorkStatus} />
+                      <OrderStatusBadge status={row.status} />
+                    </div>
                   </td>
 
                   <td className="px-4 py-3">{assignedName}</td>
 
-                  <td className="px-4 py-3">{formatDateTime(row.billingQueueEnteredAt)}</td>
-
-                  <td className="px-4 py-3">{formatDateTime(row.billingSlaDeadlineAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm">{formatDateTime(row.billingQueueEnteredAt)}</div>
+                    <div className="text-xs text-gray-500">
+                      SLA {formatDateTime(row.billingSlaDeadlineAt)}
+                    </div>
+                  </td>
 
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap justify-end gap-2">
@@ -167,7 +158,7 @@ export default function BillingQueueTable({
                           className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                           type="button"
                         >
-                          Ouvrir
+                          Traiter
                         </button>
                       </RequirePermission>
 

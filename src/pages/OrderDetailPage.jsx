@@ -9,6 +9,8 @@ import { ordersService } from "../services/ordersService";
 import RequirePermission from "../components/auth/RequirePermission";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
+import useAdminAuth from "../hooks/useAdminAuth";
+import { getDefaultOrderTabForRole, getOrderTabsForRole } from "../auth/workspaces";
 
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
 import OrderOverviewTab from "../components/orders/detail/OrderOverviewTab";
@@ -116,6 +118,7 @@ function AccessDeniedPanel({ message }) {
 export default function OrderDetailPage() {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { role } = useAdminAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,7 +128,7 @@ export default function OrderDetailPage() {
   const [info, setInfo] = useState("");
 
   const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") || "overview",
+    searchParams.get("tab") || getDefaultOrderTabForRole(role),
   );
 
   const [invoiceRef, setInvoiceRef] = useState("");
@@ -383,43 +386,21 @@ export default function OrderDetailPage() {
   }, [messages]);
 
   const availableTabs = useMemo(() => {
-    const tabs = [
-      { key: "overview", label: "Aperçu" },
-      { key: "workflow", label: "Workflow" },
-    ];
-
-    if (canAccessBilling) {
-      tabs.push({ key: "billing", label: "Facturation" });
-    }
-
-    if (canAccessPayment) {
-      tabs.push({ key: "payment", label: "Paiement" });
-    }
-
-    if (canAccessPreparation) {
-      tabs.push({ key: "preparation", label: "Préparation" });
-      tabs.push({ key: "fulfillment", label: "Clôture" });
-    }
-
-    tabs.push({ key: "history", label: "Historique" });
-
-    if (
-      canAccessCancel &&
-      order?.status !== "FULFILLED" &&
-      order?.status !== "CANCELLED"
-    ) {
-      tabs.push({ key: "cancel", label: "Annulation" });
-    }
-
-    return tabs;
-  }, [canAccessBilling, canAccessCancel, canAccessPayment, canAccessPreparation, order?.status]);
+    return getOrderTabsForRole(role, canAccessCancel, order?.status).filter((tab) => {
+      if (tab.key === "billing") return canAccessBilling;
+      if (tab.key === "payment") return canAccessPayment;
+      if (tab.key === "preparation" || tab.key === "fulfillment") return canAccessPreparation;
+      if (tab.key === "cancel") return canAccessCancel;
+      return true;
+    });
+  }, [role, canAccessBilling, canAccessCancel, canAccessPayment, canAccessPreparation, order?.status]);
 
   useEffect(() => {
     if (!availableTabs.some((tab) => tab.key === activeTab)) {
-      setTab("overview");
+      setTab(getDefaultOrderTabForRole(role));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableTabs, activeTab]);
+  }, [availableTabs, activeTab, role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1096,7 +1077,7 @@ const doInvoice = async () => {
               <AccessDeniedPanel message="Accès refusé à l’historique." />
             }
           >
-            <OrderHistoryTab {...commonTabProps} messages={messages} />
+            <OrderHistoryTab {...commonTabProps} messages={messages} logs={order?.logs} role={role} />
           </RequirePermission>
         )}
 

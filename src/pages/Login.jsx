@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { setAdminToken, setAdminUser } from "../services/auth";
+import { getDefaultWorkspaceRoute } from "../auth/workspaces";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = location.state?.from || "/";
+  const redirectTo = location.state?.from || null;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,7 +67,10 @@ export default function Login() {
       setAdminUser(user);
 
       // Redirection
-      navigate(redirectTo, { replace: true });
+      navigate(
+        redirectTo && redirectTo !== "/" ? redirectTo : getDefaultWorkspaceRoute(user?.role),
+        { replace: true },
+      );
     } catch (e) {
       const msg = 
         e?.response?.data?.message ||

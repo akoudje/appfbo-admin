@@ -7,11 +7,13 @@ import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { Permission, hasPermission } from "../../auth/permissions";
+import { getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
 
 // Navigation principale
 const NAV_ITEMS = [
   {
-    to: "/",
+    key: "dashboard",
+    to: "/dashboard",
     label: "Dashboard",
     permission: Permission.EXPORT_READ,
     icon: (
@@ -27,6 +29,7 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    key: "orders",
     to: "/orders",
     label: "Commandes",
     permission: Permission.PREORDER_READ,
@@ -43,6 +46,7 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    key: "billing",
     to: "/billing",
     label: "Queue de facturation",
     permission: Permission.INVOICE_CREATE,
@@ -59,6 +63,7 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    key: "cashier",
     to: "/cashier",
     label: "Caisse",
     permission: Permission.PAYMENT_VALIDATE,
@@ -75,6 +80,7 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    key: "preparation",
     to: "/preparation",
     label: "Préparation",
     permission: Permission.PREPARATION_UPDATE,
@@ -91,6 +97,7 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    key: "products",
     to: "/products",
     label: "Produits",
     permission: Permission.PRODUCT_READ,
@@ -197,9 +204,19 @@ function NavItem({ item, collapsed = false, onClick }) {
 }
 
 function filterItems(items, role, permissions) {
-  return items.filter((item) =>
-    !item.permission || hasPermission(role, item.permission, permissions),
-  );
+  const allowedKeys = getWorkspaceNavKeys(role);
+
+  return items.filter((item) => {
+    if (item.key === "dashboard" && !shouldShowDashboard(role)) {
+      return false;
+    }
+
+    if (item.key && !allowedKeys.has(item.key)) {
+      return false;
+    }
+
+    return !item.permission || hasPermission(role, item.permission, permissions);
+  });
 }
 
 export function DesktopSidebar({ collapsed, onToggle }) {

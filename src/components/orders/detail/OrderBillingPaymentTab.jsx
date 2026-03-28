@@ -1215,6 +1215,9 @@ export default function OrderBillingPaymentTab({
   const isPaymentFailed = normalizedPaymentStatus === "FAILED";
   const showBillingSection = variant !== "payment";
   const showMessageSection = variant !== "payment";
+  const showSummaryCards = true;
+  const showTraceability = variant === "payment";
+  const showTimeline = variant === "payment";
   const syncWaveHandler = onRefreshWaveStatus || onSyncWave;
 
   const handlePrintReceipt = () => {
@@ -1259,36 +1262,40 @@ export default function OrderBillingPaymentTab({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          label="Commande"
-          value={status || "—"}
-          subvalue={hasInvoice ? "Facturée" : "À facturer"}
-          tone={hasInvoice ? "emerald" : "gray"}
-          icon="📦"
-        />
-        <StatCard
-          label="Montant"
-          value={formatFcfa(order?.totalFcfa)}
-          subvalue="Total TTC"
-          tone="blue"
-          icon="💰"
-        />
-        <StatCard
-          label="Paiement"
-          value={<PaymentMethodBadge isCash={isCash} isWaveFlow={isWaveFlow} />}
-          subvalue={paymentProvider || order?.paymentMode || order?.preorderPaymentMode || "—"}
-          tone={isCash ? "amber" : isWaveFlow ? "blue" : "gray"}
-          icon={isCash ? "💵" : "💳"}
-        />
-        <StatCard
-          label="Facture"
-          value={order?.factureReference || "—"}
-          subvalue={hasInvoice ? "Générée" : "À générer"}
-          tone={hasInvoice ? "emerald" : "gray"}
-          icon="📄"
-        />
-      </div>
+      {showSummaryCards ? (
+        <div className={`grid gap-3 ${variant === "payment" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+          <StatCard
+            label={variant === "payment" ? "État paiement" : "Commande"}
+            value={variant === "payment" ? <PaymentStatusBadge status={paymentStatus || status} /> : status || "—"}
+            subvalue={variant === "payment" ? "Statut courant" : hasInvoice ? "Facturée" : "À facturer"}
+            tone={hasInvoice ? "emerald" : "gray"}
+            icon={variant === "payment" ? "💳" : "📦"}
+          />
+          <StatCard
+            label={variant === "payment" ? "Montant attendu" : "Montant"}
+            value={formatFcfa(order?.activePayment?.amountExpectedFcfa || order?.totalFcfa)}
+            subvalue={variant === "payment" ? "A régler" : "Total facture"}
+            tone="blue"
+            icon="💰"
+          />
+          <StatCard
+            label={variant === "payment" ? "Mode" : "Paiement"}
+            value={<PaymentMethodBadge isCash={isCash} isWaveFlow={isWaveFlow} />}
+            subvalue={paymentProvider || order?.paymentMode || order?.preorderPaymentMode || "—"}
+            tone={isCash ? "amber" : isWaveFlow ? "blue" : "gray"}
+            icon={isCash ? "💵" : "💳"}
+          />
+          {variant !== "payment" ? (
+            <StatCard
+              label="Facture"
+              value={order?.factureReference || "—"}
+              subvalue={hasInvoice ? "Générée" : "À générer"}
+              tone={hasInvoice ? "emerald" : "gray"}
+              icon="📄"
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {statusMessage && <Alert tone={statusMessage.tone}>{statusMessage.text}</Alert>}
 
@@ -1396,17 +1403,19 @@ export default function OrderBillingPaymentTab({
         </RequirePermission>
       )}
 
-      <TraceabilityCard
-        order={order}
-        status={status}
-        paymentProvider={paymentProvider}
-        paymentSessionId={paymentSessionId}
-        paymentTxnId={paymentTxnId}
-        paidAtValue={paidAtValue}
-        amountPaidValue={amountPaidValue}
-      />
+      {showTraceability ? (
+        <TraceabilityCard
+          order={order}
+          status={status}
+          paymentProvider={paymentProvider}
+          paymentSessionId={paymentSessionId}
+          paymentTxnId={paymentTxnId}
+          paidAtValue={paidAtValue}
+          amountPaidValue={amountPaidValue}
+        />
+      ) : null}
 
-      <PaymentTimeline items={paymentTimelineItems} />
+      {showTimeline ? <PaymentTimeline items={paymentTimelineItems} /> : null}
     </div>
   );
 }

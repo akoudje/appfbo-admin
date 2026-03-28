@@ -14,14 +14,16 @@ import BillingQueueTable from "../../components/billing/BillingQueueTable";
 
 export default function BillingQueuePage() {
   const navigate = useNavigate();
-  const { admin } = useAdminAuth();
+  const { admin, role } = useAdminAuth();
   const currentAdminId = admin?.id || null;
 
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [tab, setTab] = useState("my");
+  const [tab, setTab] = useState(
+    role === "BILLING_MANAGER" ? "queue" : "my",
+  );
   const [rows, setRows] = useState([]);
 
   const load = async () => {
@@ -48,15 +50,15 @@ export default function BillingQueuePage() {
           page: 1,
           pageSize: 100,
           billingWorkStatus: "WAITING_PAYMENT",
-          sort: "updatedAt",
-          dir: "desc",
+          sort: "billingLastActivityAt",
+          dir: "asc",
         }),
         ordersService.getAll({
           page: 1,
           pageSize: 100,
           billingWorkStatus: "ESCALATED",
-          sort: "updatedAt",
-          dir: "desc",
+          sort: "billingEscalatedAt",
+          dir: "asc",
         }),
       ]);
 
@@ -132,7 +134,7 @@ export default function BillingQueuePage() {
   }, [rows, currentAdminId]);
 
   const handleOpen = (row) => {
-    navigate(`/orders/${row.id}?tab=workflow`);
+    navigate(`/orders/${row.id}?tab=billing`);
   };
 
   const handleClaimNext = async () => {
@@ -146,7 +148,7 @@ export default function BillingQueuePage() {
       if (result?.ok && result?.preorder?.id) {
         setInfo("Dossier attribué avec succès.");
         await load();
-        navigate(`/orders/${result.preorder.id}?tab=workflow`);
+        navigate(`/orders/${result.preorder.id}?tab=billing`);
         return;
       }
 
