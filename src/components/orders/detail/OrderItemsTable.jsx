@@ -48,9 +48,8 @@ export default function OrderItemsTable({ items, totalFcfa }) {
               <th className="p-3">SKU</th>
               <th className="p-3">Produit</th>
               <th className="p-3">Qty</th>
-              <th className="p-3">PU catalogue</th>
               <th className="p-3">Remise</th>
-              <th className="p-3">PU net</th>
+              <th className="p-3">PU</th>
               <th className="p-3">Total</th>
             </tr>
           </thead>
@@ -70,10 +69,6 @@ export default function OrderItemsTable({ items, totalFcfa }) {
                     <td className="p-3">{getItemName(it)}</td>
 
                     <td className="p-3 whitespace-nowrap">{it.qty}</td>
-
-                    <td className="p-3 whitespace-nowrap">
-                      {formatFcfa(it.prixCatalogueFcfa ?? it.prixUnitaireFcfa ?? 0)}
-                    </td>
 
                     <td className="p-3 whitespace-nowrap">
                       <span
@@ -99,7 +94,7 @@ export default function OrderItemsTable({ items, totalFcfa }) {
               })
             ) : (
               <tr>
-                <td className="p-3" colSpan={7}>
+                <td className="p-3" colSpan={6}>
                   Aucun item
                 </td>
               </tr>

@@ -15,27 +15,28 @@ export default function OrderSummaryCards({ order }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
       <div className="card p-4 space-y-3">
-        <div className="font-semibold">Client FBO</div>
+        <div className="font-semibold">Client</div>
         <Row label="Numéro FBO" value={order?.fboNumero || "—"} />
         <Row label="Nom" value={order?.fboNomComplet || "—"} />
-        <Row label="Grade" value={order?.fboGrade || "—"} />
+        <Row label="Grade" value={order?.billingGrade || order?.fboGrade || "—"} />
         <Row label="Point de vente" value={order?.pointDeVente || "—"} />
       </div>
 
       <div className="card p-4 space-y-3">
-        <div className="font-semibold">Paiement & dates</div>
+        <div className="font-semibold">Commande</div>
+        <Row label="Précommande" value={order?.preorderNumber || "—"} />
         <Row label="Référence facture" value={order?.factureReference || "—"} />
-        <Row label="Référence paiement" value={order?.paymentRef || "—"} />
+        <Row label="Paiement" value={order?.preorderPaymentMode || "—"} />
         <Row label="Soumise" value={formatDateTime(order?.submittedAt)} />
-        <Row label="Payée" value={formatDateTime(order?.paidAt)} />
+        <Row label="Facturée" value={formatDateTime(order?.invoicedAt)} />
       </div>
 
       <div className="card p-4 space-y-3">
         <div className="font-semibold">Totaux</div>
-        <Row label="Produits" value={formatFcfa(order?.totalProduitsFcfa || 0)} />
-        <Row label="Livraison" value={formatFcfa(order?.fraisLivraisonFcfa || 0)} />
-        <Row label="Total" value={formatFcfa(order?.totalFcfa || 0)} />
-        <Row label="Total CC" value={String(order?.totalCc || "0")} />
+        <Row label="Indicatif" value={formatFcfa(order?.indicativeTotalFcfa || order?.totalFcfa || 0)} />
+        <Row label="AS400" value={formatFcfa(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0)} />
+        <Row label="Frais livraison" value={formatFcfa(order?.fraisLivraisonFcfa || 0)} />
+        <Row label="Final" value={formatFcfa(order?.activePayment?.amountExpectedFcfa || order?.totalFcfa || 0)} />
       </div>
     </div>
   );
