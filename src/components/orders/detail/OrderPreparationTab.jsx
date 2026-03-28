@@ -85,12 +85,14 @@ function ChecklistRow({ item, disabled, onToggle }) {
             <span className="font-semibold text-gray-900">
               {line?.qty || 0} × {line?.productNameSnapshot || line?.product?.nom || "Produit"}
             </span>
-            <Badge tone="gray">SKU: {line?.productSkuSnapshot || line?.product?.sku || "—"}</Badge>
             {checked ? <Badge tone="emerald">Vérifié</Badge> : <Badge tone="amber">À vérifier</Badge>}
           </div>
-          <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-600 sm:grid-cols-2">
-            <div>Montant: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span></div>
-            <div>Dernière coche: <span className="font-medium">{formatDate(item?.checkedAt)}</span></div>
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-600">
+            <div>SKU: <span className="font-medium">{line?.productSkuSnapshot || line?.product?.sku || "—"}</span></div>
+            <div>Total: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span></div>
+            {item?.checkedAt ? (
+              <div>Coché: <span className="font-medium">{formatDate(item?.checkedAt)}</span></div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -188,24 +190,24 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-5">
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
             <div className="text-xs uppercase tracking-wide text-indigo-700">Checklist</div>
-            <div className="mt-1 text-xl font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
+            <div className="mt-1 text-lg font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
           </div>
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
             <div className="text-xs uppercase tracking-wide text-emerald-700">Unités</div>
-            <div className="mt-1 text-xl font-semibold text-emerald-900">{preparedUnits}/{totalUnits}</div>
+            <div className="mt-1 text-lg font-semibold text-emerald-900">{preparedUnits}/{totalUnits}</div>
           </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
             <div className="text-xs uppercase tracking-wide text-amber-700">Anomalies</div>
-            <div className="mt-1 text-xl font-semibold text-amber-900">{unresolvedAnomalies.length}</div>
+            <div className="mt-1 text-lg font-semibold text-amber-900">{unresolvedAnomalies.length}</div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5">
             <div className="text-xs uppercase tracking-wide text-gray-500">Lancée</div>
             <div className="mt-1 text-sm font-semibold text-gray-900">{formatDate(preparationLaunchedAt)}</div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5">
             <div className="text-xs uppercase tracking-wide text-gray-500">Colis</div>
             <div className="mt-1 text-sm font-semibold text-gray-900">{order?.parcelNumber || "—"}</div>
           </div>
@@ -265,7 +267,7 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-2">
           {preparationItems.length === 0 ? (
             <Alert tone="amber">Aucune ligne de checklist n'est encore disponible pour cette commande.</Alert>
           ) : (

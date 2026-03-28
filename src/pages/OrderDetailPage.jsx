@@ -721,8 +721,19 @@ const doInvoice = async () => {
     try {
       setSaving(true);
       setError("");
-      await ordersService.updatePreparationChecklistItem(id, { itemId, checked });
-      await load();
+      const saved = await ordersService.updatePreparationChecklistItem(id, { itemId, checked });
+      setOrder((prev) => {
+        if (!prev) return prev;
+        const nextItems = Array.isArray(prev.preparationItems)
+          ? prev.preparationItems.map((item) =>
+              item.preorderItemId === itemId ? { ...item, ...saved } : item,
+            )
+          : [saved];
+        return {
+          ...prev,
+          preparationItems: nextItems,
+        };
+      });
     } catch (e) {
       setError(
         e?.response?.data?.message ||
@@ -738,7 +749,20 @@ const doInvoice = async () => {
       setSaving(true);
       setError("");
       await ordersService.bulkUpdatePreparationChecklist(id, { checked });
-      await load();
+      setOrder((prev) => {
+        if (!prev) return prev;
+        const now = new Date().toISOString();
+        return {
+          ...prev,
+          preparationItems: Array.isArray(prev.preparationItems)
+            ? prev.preparationItems.map((item) => ({
+                ...item,
+                checked: Boolean(checked),
+                checkedAt: checked ? now : null,
+              }))
+            : prev.preparationItems,
+        };
+      });
     } catch (e) {
       setError(
         e?.response?.data?.message ||
@@ -753,8 +777,19 @@ const doInvoice = async () => {
     try {
       setSaving(true);
       setError("");
-      await ordersService.createPreparationAnomaly(id, body);
-      await load();
+      const created = await ordersService.createPreparationAnomaly(id, body);
+      setOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          preparationAnomalies: [
+            created,
+            ...(Array.isArray(prev.preparationAnomalies)
+              ? prev.preparationAnomalies
+              : []),
+          ],
+        };
+      });
     } catch (e) {
       setError(
         e?.response?.data?.message ||
@@ -769,10 +804,20 @@ const doInvoice = async () => {
     try {
       setSaving(true);
       setError("");
-      await ordersService.resolvePreparationAnomaly(id, anomalyId, {
+      const saved = await ordersService.resolvePreparationAnomaly(id, anomalyId, {
         resolutionNote: normalizeStr(resolutionNote) || undefined,
       });
-      await load();
+      setOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          preparationAnomalies: Array.isArray(prev.preparationAnomalies)
+            ? prev.preparationAnomalies.map((item) =>
+                item.id === anomalyId ? { ...item, ...saved } : item,
+              )
+            : prev.preparationAnomalies,
+        };
+      });
     } catch (e) {
       setError(
         e?.response?.data?.message ||
