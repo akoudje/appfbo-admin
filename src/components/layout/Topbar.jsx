@@ -1,15 +1,12 @@
 // src/components/layout/Topbar.jsx
-// Topbar avec titre, date/heure, indicateurs, CountrySelector et menu profil admin.
+// Topbar recentrée sur le contexte métier courant, le pays actif et le profil admin.
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import CountrySelector from "../CountrySelector";
 import { getCountryCode } from "../../services/api";
 import { clearAdminSession, getAdminUser } from "../../services/auth";
-
-/* ============================================================================
-   Helpers
-============================================================================ */
+import useAdminAuth from "../../hooks/useAdminAuth";
 
 function getInitials(fullName, email) {
   const source = String(fullName || "").trim();
@@ -41,41 +38,65 @@ function formatRoleLabel(role) {
     ORDER_PREPARER: "Préparateur de commande",
   };
 
-  return (
-    map[String(role || "").trim().toUpperCase()] ||
-    role ||
-    "Administrateur"
-  );
+  return map[String(role || "").trim().toUpperCase()] || role || "Administrateur";
 }
 
-/* ============================================================================
-   Titre de page
-============================================================================ */
+function getWorkspaceLabel(role) {
+  const normalized = String(role || "").trim().toUpperCase();
+
+  if (["INVOICER", "BILLING_MANAGER"].includes(normalized)) return "Facturation";
+  if (["CAISSIERE", "COUNTER_MANAGER"].includes(normalized)) return "Caisse";
+  if (["ORDER_PREPARER", "STOCK_MANAGER"].includes(normalized)) return "Préparation";
+  return "Administration";
+}
 
 function getPageTitle(pathname) {
-  if (pathname === "/") return "Tableau de bord";
+  if (pathname === "/" || pathname === "/dashboard") return "Tableau de bord";
   if (pathname === "/orders") return "Commandes";
   if (pathname.startsWith("/orders/")) return "Détail commande";
+  if (pathname === "/billing") return "Espace Facturation";
   if (pathname === "/cashier") return "Espace Caisse";
-
+  if (pathname === "/preparation") return "Espace Préparation";
   if (pathname === "/products") return "Produits";
   if (pathname === "/products/new") return "Nouveau produit";
   if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier produit";
-
-  if (pathname === "/users") return "Utilisateurs";
-  if (pathname === "/settings") return "Paramètres";
+  if (pathname === "/settings" || pathname === "/settings/") return "Paramètres";
+  if (pathname === "/settings/users" || pathname === "/users") return "Utilisateurs";
   if (pathname === "/settings/grade-discounts") return "Remises par grade";
-
   return "PRECOMMANDE FOREVER Admin Panel";
 }
 
-/* ============================================================================
-   Composant principal
-============================================================================ */
+function getPageSubtitle(pathname, role) {
+  const workspaceLabel = getWorkspaceLabel(role);
+
+  if (pathname === "/billing") {
+    return "Traitez les dossiers du plus ancien au plus récent.";
+  }
+  if (pathname === "/cashier") {
+    return "Encaissement, contrôle des paiements et lancement de la préparation.";
+  }
+  if (pathname === "/preparation") {
+    return "Checklist, anomalies et clôture des colis prêts.";
+  }
+  if (pathname.startsWith("/orders/")) {
+    return `Vue métier : ${workspaceLabel}`;
+  }
+  if (pathname === "/products") {
+    return "Catalogue interne et disponibilité des articles.";
+  }
+  if (pathname === "/settings/users" || pathname === "/users") {
+    return "Gestion des comptes, rôles et affectations.";
+  }
+  if (pathname === "/settings/grade-discounts") {
+    return "Pilotage des remises utilisées pour la facturation.";
+  }
+  return `Espace ${workspaceLabel}`;
+}
 
 export default function Topbar({ onMenuClick = () => {} }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { role } = useAdminAuth();
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showProfile, setShowProfile] = useState(false);
@@ -104,10 +125,12 @@ export default function Topbar({ onMenuClick = () => {} }) {
     };
   }, []);
 
-  const pageTitle = useMemo(
-    () => getPageTitle(location.pathname),
-    [location.pathname],
+  const pageTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
+  const pageSubtitle = useMemo(
+    () => getPageSubtitle(location.pathname, role),
+    [location.pathname, role],
   );
+  const workspaceLabel = useMemo(() => getWorkspaceLabel(role), [role]);
 
   const formattedTime = useMemo(
     () =>
@@ -128,9 +151,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
     [currentTime],
   );
 
-  const adminDisplayName =
-    adminUser?.fullName || adminUser?.email || "Administrateur";
-
+  const adminDisplayName = adminUser?.fullName || adminUser?.email || "Administrateur";
   const adminRoleLabel = formatRoleLabel(adminUser?.role);
   const initials = getInitials(adminUser?.fullName, adminUser?.email);
 
@@ -141,13 +162,13 @@ export default function Topbar({ onMenuClick = () => {} }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+    <header className="sticky top-0 z-30 border-b border-[#e8dfc9] bg-white/94 backdrop-blur-lg">
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex h-16 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <button
               onClick={onMenuClick}
-              className="rounded-lg p-2 transition-colors hover:bg-gray-100 lg:hidden"
+              className="rounded-xl border border-[#e8dfc9] bg-[#fcfbf7] p-2 transition-colors hover:bg-[#f8f4e7] lg:hidden"
               aria-label="Menu"
             >
               <svg
@@ -165,25 +186,28 @@ export default function Topbar({ onMenuClick = () => {} }) {
               </svg>
             </button>
 
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">{pageTitle}</h1>
-              <p className="hidden text-xs text-gray-500 sm:block">
-                {formattedDate}
-              </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-lg font-semibold text-gray-900">{pageTitle}</h1>
+                <span className="hidden rounded-full border border-[#e4d395] bg-[#fff7df] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c5715] md:inline-flex">
+                  {workspaceLabel}
+                </span>
+              </div>
+              <p className="hidden truncate text-xs text-[#6f6a60] sm:block">{pageSubtitle}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 sm:flex">
               <CountrySelector />
-              <span className="hidden rounded-lg bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 md:inline-flex">
+              <span className="hidden rounded-xl border border-[#ece4d1] bg-[#fcfbf7] px-2.5 py-1.5 text-xs font-semibold text-[#5f5b54] md:inline-flex">
                 {countryCode}
               </span>
             </div>
 
-            <div className="hidden items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 sm:flex">
+            <div className="hidden items-center gap-2 rounded-xl border border-[#ece4d1] bg-[#fcfbf7] px-3 py-2 sm:flex">
               <svg
-                className="h-4 w-4 text-gray-500"
+                className="h-4 w-4 text-[#8d7a5c]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -195,47 +219,24 @@ export default function Topbar({ onMenuClick = () => {} }) {
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span className="text-sm font-medium text-gray-700">
-                {formattedTime}
+              <span className="text-sm font-medium text-[#5f5b54]">
+                {formattedDate} • {formattedTime}
               </span>
             </div>
-
-            <button
-              className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
-              aria-label="Notifications"
-              type="button"
-            >
-              <svg
-                className="h-5 w-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-            </button>
 
             <div className="relative">
               <button
                 onClick={() => setShowProfile((v) => !v)}
-                className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-gray-100"
+                className="flex items-center gap-2 rounded-2xl border border-[#e8dfc9] bg-white px-2 py-1.5 transition-colors hover:bg-[#fcfbf7]"
                 type="button"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black">
                   <span className="text-sm font-medium text-white">{initials}</span>
                 </div>
 
                 <div className="hidden text-left lg:block">
-                  <p className="text-sm font-medium text-gray-900">
-                    {adminDisplayName}
-                  </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium text-gray-900">{adminDisplayName}</p>
+                  <p className="text-xs text-[#6f6a60]">
                     {adminRoleLabel} • {countryCode}
                   </p>
                 </div>
@@ -257,31 +258,24 @@ export default function Topbar({ onMenuClick = () => {} }) {
 
               {showProfile && (
                 <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowProfile(false)}
-                  />
+                  <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)} />
 
-                  <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {adminDisplayName}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {adminUser?.email || "—"}
-                      </p>
+                  <div className="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-[#e8dfc9] bg-white py-2 shadow-[0_18px_40px_rgba(0,0,0,0.12)]">
+                    <div className="border-b border-[#f0ebe1] px-4 py-3">
+                      <p className="text-sm font-semibold text-gray-900">{adminDisplayName}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">{adminUser?.email || "—"}</p>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                        <span className="rounded-full bg-[#fff7df] px-2 py-1 text-xs font-medium text-[#6c5715]">
                           {adminRoleLabel}
                         </span>
-                        <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                        <span className="rounded-full bg-[#fcfbf7] px-2 py-1 text-xs font-medium text-[#5f5b54]">
                           {countryCode}
                         </span>
                       </div>
                     </div>
 
                     <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#fcfbf7]"
                       onClick={() => setShowProfile(false)}
                       type="button"
                     >
@@ -302,7 +296,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                     </button>
 
                     <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#fcfbf7]"
                       onClick={() => {
                         setShowProfile(false);
                         navigate("/settings");
@@ -332,10 +326,10 @@ export default function Topbar({ onMenuClick = () => {} }) {
                     </button>
 
                     <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#fcfbf7]"
                       onClick={() => {
                         setShowProfile(false);
-                        navigate("/users");
+                        navigate("/settings/users");
                       }}
                       type="button"
                     >
@@ -355,7 +349,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                       Utilisateurs
                     </button>
 
-                    <div className="my-1 border-t border-gray-100" />
+                    <div className="my-1 border-t border-[#f0ebe1]" />
 
                     <button
                       onClick={handleLogout}
@@ -386,10 +380,12 @@ export default function Topbar({ onMenuClick = () => {} }) {
 
         <div className="pb-3 sm:hidden">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-xs text-gray-500">{formattedDate}</div>
+            <div className="text-xs text-[#6f6a60]">
+              {workspaceLabel} • {formattedDate}
+            </div>
             <div className="flex items-center gap-2">
               <CountrySelector className="w-28" />
-              <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+              <span className="rounded-xl border border-[#ece4d1] bg-[#fcfbf7] px-2 py-1 text-xs font-semibold text-[#5f5b54]">
                 {countryCode}
               </span>
             </div>
