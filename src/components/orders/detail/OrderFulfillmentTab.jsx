@@ -259,115 +259,129 @@ export default function OrderFulfillmentTab({
       {/* Alertes contextuelles */}
       {renderAlert()}
 
-      {/* Formulaire de clôture (visible seulement si non clôturée) */}
       {!isFulfilled && (
-        <InfoSection title="Confirmation finale">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Mode de remise">
-              <select
-                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={fulfillmentMode || (isPickupOrder ? "PICKUP" : "DELIVERY")}
-                onChange={(e) => setFulfillmentMode?.(e.target.value)}
-                disabled={!canFulfill || saving}
-              >
-                <option value="PICKUP">Retrait comptoir</option>
-                <option value="DELIVERY">Livraison</option>
-              </select>
-            </Field>
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <InfoSection title="Saisie utile">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Mode de remise">
+                <select
+                  className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={fulfillmentMode || (isPickupOrder ? "PICKUP" : "DELIVERY")}
+                  onChange={(e) => setFulfillmentMode?.(e.target.value)}
+                  disabled={!canFulfill || saving}
+                >
+                  <option value="PICKUP">Retrait comptoir</option>
+                  <option value="DELIVERY">Livraison</option>
+                </select>
+              </Field>
 
-            <Field label="Numéro de tracking" optional>
-              <input
-                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={deliveryTracking}
-                onChange={(e) => setDeliveryTracking(e.target.value)}
-                placeholder="Ex: TRACK123, COLIS-456..."
-                disabled={!canFulfill || saving}
-              />
-            </Field>
-
-            <Field label="Transporteur / opérateur" optional>
-              <input
-                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={deliveryCarrier || ""}
-                onChange={(e) => setDeliveryCarrier?.(e.target.value)}
-                placeholder="Ex: DHL, Retrait comptoir principal..."
-                disabled={!canFulfill || saving}
-              />
-            </Field>
-          </div>
-
-          <Field label="Point de retrait" optional>
-            <input
-              className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-              value={pickupPointLabel || ""}
-              onChange={(e) => setPickupPointLabel?.(e.target.value)}
-              placeholder="Ex: Comptoir Abidjan 1"
-              disabled={!canFulfill || saving}
-            />
-          </Field>
-
-          {isPickupOrder ? (
-            <Field label="Code secret présenté par le client">
-              <input
-                className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-                value={pickupCode}
-                onChange={(e) => setPickupCode(e.target.value)}
-                placeholder="Saisir le code secret communiqué par le client"
-                disabled={!canFulfill || saving}
-              />
-            </Field>
-          ) : null}
-
-          <Field label="Note de clôture" optional>
-            <textarea
-              className="input w-full min-h-[90px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
-              value={fulfillNote}
-              onChange={(e) => setFulfillNote(e.target.value)}
-              placeholder="Ex: Retiré sur site par le client - Tout est conforme. / Livré à l'adresse, colis en bon état..."
-              disabled={!canFulfill || saving}
-            />
-          </Field>
-
-          <div className="flex items-center gap-4 pt-2">
-            <button
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
-                !canFulfill || saving || missingPickupCode
-                  ? "opacity-50 cursor-not-allowed bg-gray-400"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow"
-              }`}
-              onClick={onFulfill}
-              disabled={!canFulfill || saving || missingPickupCode}
-            >
-              {saving ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin">⚪</span>
-                  Clôture en cours...
-                </span>
+              {isPickupOrder ? (
+                <Field label="Code secret client">
+                  <input
+                    className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                    value={pickupCode}
+                    onChange={(e) => setPickupCode(e.target.value)}
+                    placeholder="Code présenté au comptoir"
+                    disabled={!canFulfill || saving}
+                  />
+                </Field>
               ) : (
-                <span className="flex items-center gap-2">
-                  ✅ Confirmer la clôture
-                </span>
+                <Field label="Numéro de tracking" optional>
+                  <input
+                    className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                    value={deliveryTracking}
+                    onChange={(e) => setDeliveryTracking(e.target.value)}
+                    placeholder="Ex: TRACK123"
+                    disabled={!canFulfill || saving}
+                  />
+                </Field>
               )}
-            </button>
 
-            <div className="text-xs text-gray-500 flex items-center gap-1">
-              <span className={`inline-block w-2 h-2 rounded-full ${canFulfill ? 'bg-emerald-400' : 'bg-gray-400'}`} />
-              {canFulfill
-                ? missingPickupCode
-                  ? "Code retrait requis"
-                  : "Prêt à clôturer"
-                : "Statut READY requis"}
+              <Field label={isPickupOrder ? "Point de retrait" : "Transporteur"} optional>
+                <input
+                  className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={isPickupOrder ? pickupPointLabel || "" : deliveryCarrier || ""}
+                  onChange={(e) =>
+                    isPickupOrder
+                      ? setPickupPointLabel?.(e.target.value)
+                      : setDeliveryCarrier?.(e.target.value)
+                  }
+                  placeholder={isPickupOrder ? "Ex: Comptoir Abidjan 1" : "Ex: DHL"}
+                  disabled={!canFulfill || saving}
+                />
+              </Field>
+
+              {!isPickupOrder ? (
+                <Field label="Point de remise" optional>
+                  <input
+                    className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                    value={pickupPointLabel || ""}
+                    onChange={(e) => setPickupPointLabel?.(e.target.value)}
+                    placeholder="Ex: Adresse client / dépôt"
+                    disabled={!canFulfill || saving}
+                  />
+                </Field>
+              ) : null}
             </div>
-          </div>
 
-          {isPickupOrder ? (
-            <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
-              Le retrait ne sera confirmé que si le code saisi correspond au code
-              secret enregistré pour ce colis.
+            <Field label="Note" optional>
+              <textarea
+                className="input w-full min-h-[88px] rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                value={fulfillNote}
+                onChange={(e) => setFulfillNote(e.target.value)}
+                placeholder="Observation utile sur la remise"
+                disabled={!canFulfill || saving}
+              />
+            </Field>
+          </InfoSection>
+
+          <InfoSection title="Action finale">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
+                  <span className="text-gray-500">Colis</span>
+                  <span className="font-semibold text-gray-900">{order?.parcelNumber || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-gray-200 py-2">
+                  <span className="text-gray-500">Client</span>
+                  <span className="font-semibold text-gray-900">{order?.fboNomComplet || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <span className="text-gray-500">Mode</span>
+                  <span className="font-semibold text-gray-900">
+                    {fulfillmentMode || (isPickupOrder ? "PICKUP" : "DELIVERY")}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                className={`w-full px-6 py-3 rounded-lg font-medium transition-all ${
+                  !canFulfill || saving || missingPickupCode
+                    ? "opacity-50 cursor-not-allowed bg-gray-400"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow"
+                }`}
+                onClick={onFulfill}
+                disabled={!canFulfill || saving || missingPickupCode}
+              >
+                {saving ? "Clôture en cours..." : "Confirmer la clôture"}
+              </button>
+
+              <div className="text-xs text-gray-500">
+                {canFulfill
+                  ? missingPickupCode
+                    ? "Code retrait requis avant validation."
+                    : "La clôture enverra automatiquement un SMS de confirmation au client."
+                  : "Statut READY requis pour clôturer."}
+              </div>
+
+              {isPickupOrder ? (
+                <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                  Le retrait ne sera validé que si le code saisi correspond au colis.
+                </div>
+              ) : null}
             </div>
-          ) : null}
-
-        </InfoSection>
+          </InfoSection>
+        </div>
       )}
 
       {hasDeliveryInfo && (
