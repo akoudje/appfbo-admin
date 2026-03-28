@@ -64,7 +64,7 @@ function ChecklistRow({ item, disabled, onToggle }) {
       type="button"
       onClick={() => onToggle(item)}
       disabled={disabled}
-      className={`w-full rounded-xl border p-4 text-left transition ${
+      className={`w-full rounded-xl border p-3 text-left transition ${
         checked
           ? "border-emerald-300 bg-emerald-50"
           : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
@@ -88,12 +88,10 @@ function ChecklistRow({ item, disabled, onToggle }) {
             <Badge tone="gray">SKU: {line?.productSkuSnapshot || line?.product?.sku || "—"}</Badge>
             {checked ? <Badge tone="emerald">Vérifié</Badge> : <Badge tone="amber">À vérifier</Badge>}
           </div>
-          <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-600 sm:grid-cols-3">
+          <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-600 sm:grid-cols-2">
             <div>Montant: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span></div>
             <div>Dernière coche: <span className="font-medium">{formatDate(item?.checkedAt)}</span></div>
-            <div>Par: <span className="font-medium">{item?.checkedBy?.fullName || "—"}</span></div>
           </div>
-          {item?.note ? <div className="mt-2 rounded bg-white/70 p-2 text-xs text-gray-600">{item.note}</div> : null}
         </div>
       </div>
     </button>
@@ -172,7 +170,7 @@ export default function OrderPreparationTab({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Préparation persistée</h3>
@@ -188,7 +186,7 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div className="text-xs uppercase tracking-wide text-gray-500">Statut</div>
             <div className="mt-1 text-xl font-semibold">{status || "—"}</div>
@@ -201,22 +199,19 @@ export default function OrderPreparationTab({
             <div className="mt-1 text-xl font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
             <div className="mt-1 text-xs text-indigo-700">{progressPercent}% des lignes cochées</div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="text-xs uppercase tracking-wide text-gray-500">Unités préparées</div>
-            <div className="mt-1 text-xl font-semibold">{preparedUnits}/{totalUnits}</div>
-            <div className="mt-1 text-xs text-gray-500">Quantités effectivement cochées</div>
-          </div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
             <div className="text-xs uppercase tracking-wide text-amber-700">Anomalies ouvertes</div>
             <div className="mt-1 text-xl font-semibold text-amber-900">{unresolvedAnomalies.length}</div>
             <div className="mt-1 text-xs text-amber-700">Bloquantes: {unresolvedAnomalies.filter((i) => i.blocking).length}</div>
           </div>
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-xs uppercase tracking-wide text-emerald-700">Stock</div>
+            <div className="text-xs uppercase tracking-wide text-emerald-700">Unités</div>
             <div className="mt-1 text-xl font-semibold text-emerald-900">
-              Débit {stockSummary?.debitQty || 0} / Crédit {stockSummary?.creditQty || 0}
+              {preparedUnits}/{totalUnits}
             </div>
-            <div className="mt-1 text-xs text-emerald-700">Dernière sortie: {formatDate(order?.stockDeductedAt)}</div>
+            <div className="mt-1 text-xs text-emerald-700">
+              {stockDebited ? `Sortie ${formatDate(order?.stockDeductedAt)}` : "Sortie après validation"}
+            </div>
           </div>
         </div>
       </div>
@@ -279,7 +274,7 @@ export default function OrderPreparationTab({
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
           <div>
             <h4 className="font-semibold text-gray-900">Anomalies de préparation</h4>
@@ -426,16 +421,8 @@ export default function OrderPreparationTab({
           </button>
 
           {resolvedAnomalies.length > 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="mb-2 text-sm font-semibold text-gray-900">Anomalies résolues</div>
-              <div className="space-y-2">
-                {resolvedAnomalies.map((anomaly) => (
-                  <div key={anomaly.id} className="text-xs text-gray-600">
-                    <strong>{anomaly.kind}</strong> résolue le {formatDate(anomaly.resolvedAt)} par{" "}
-                    {anomaly.resolvedBy?.fullName || "—"}
-                  </div>
-                ))}
-              </div>
+            <div className="text-xs text-gray-500">
+              {resolvedAnomalies.length} anomalie(s) déjà résolue(s).
             </div>
           ) : null}
         </div>

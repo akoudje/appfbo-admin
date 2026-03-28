@@ -1216,8 +1216,8 @@ export default function OrderBillingPaymentTab({
   const showBillingSection = variant !== "payment";
   const showMessageSection = variant !== "payment";
   const showSummaryCards = true;
-  const showTraceability = variant === "payment";
-  const showTimeline = variant === "payment";
+  const showTraceability = false;
+  const showTimeline = false;
   const syncWaveHandler = onRefreshWaveStatus || onSyncWave;
 
   const handlePrintReceipt = () => {
