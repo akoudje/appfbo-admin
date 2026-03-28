@@ -21,6 +21,19 @@ function formatDateTime(value) {
   return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
+function formatAge(value) {
+  if (!value) return "—";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "—";
+  const diffMs = Date.now() - dt.getTime();
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+  if (diffMinutes < 60) return `${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} h`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} j`;
+}
+
 function humanizeEnum(value) {
   if (!value) return "—";
   return String(value)
@@ -75,6 +88,22 @@ function TabButton({ active, children, onClick, count }) {
           {count}
         </span>
       ) : null}
+    </button>
+  );
+}
+
+function QuickFilterButton({ active, children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+        active
+          ? "bg-blue-600 text-white"
+          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      {children}
     </button>
   );
 }
@@ -208,6 +237,7 @@ function QueueTable(props) {
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Montant</th>
+              <th className="px-4 py-3">Ancienneté</th>
               <th className="px-4 py-3">État</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -215,7 +245,7 @@ function QueueTable(props) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                   {emptyLabel}
                 </td>
               </tr>
@@ -252,6 +282,14 @@ function QueueTable(props) {
                         Reçu {row.cashierTransaction.receiptNumber}
                       </div>
                     ) : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-gray-900">
+                      {formatAge(row.preparationLaunchedAt || row.paidAt || row.invoicedAt || row.createdAt)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      depuis {formatDateTime(row.preparationLaunchedAt || row.paidAt || row.invoicedAt || row.createdAt)}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
@@ -300,12 +338,13 @@ function JournalTable({ rows, canViewAll }) {
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Montant</th>
               <th className="px-4 py-3">Préparation</th>
+              <th className="px-4 py-3">Ancienneté</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
                   Aucun paiement validé pour préparation sur cette période.
                 </td>
               </tr>
@@ -349,6 +388,14 @@ function JournalTable({ rows, canViewAll }) {
                         : "Transmis à la préparation"}
                     </div>
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-gray-900">
+                      {formatAge(row.preparationLaunchedAt || row.paidAt || row.createdAt)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      depuis {formatDateTime(row.preparationLaunchedAt || row.paidAt || row.createdAt)}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -373,6 +420,7 @@ export default function CashierWorkspacePage() {
   const [dateTo, setDateTo] = useState("");
   const [journalScope, setJournalScope] = useState("my");
   const [activeTab, setActiveTab] = useState("collect");
+  const [quickMode, setQuickMode] = useState("ALL");
 
   const canViewConsolidated = useMemo(
     () =>
@@ -429,6 +477,42 @@ export default function CashierWorkspacePage() {
   const launchSummary = workspace?.launchSummary || {};
   const journalSummary = workspace?.journalSummary || {};
   const financialSummary = workspace?.financialSummary || {};
+
+  const filteredToCollect = useMemo(() => {
+    if (quickMode === "ALL") return toCollect;
+    if (quickMode === "ELECTRONIC") {
+      return toCollect.filter(
+        (row) => String(row.preorderPaymentMode || "").toUpperCase() !== "ESPECES",
+      );
+    }
+    return toCollect.filter(
+      (row) => String(row.preorderPaymentMode || "").toUpperCase() === quickMode,
+    );
+  }, [quickMode, toCollect]);
+
+  const filteredToLaunchPreparation = useMemo(() => {
+    if (quickMode === "ALL") return toLaunchPreparation;
+    if (quickMode === "ELECTRONIC") {
+      return toLaunchPreparation.filter(
+        (row) => String(row.preorderPaymentMode || "").toUpperCase() !== "ESPECES",
+      );
+    }
+    return toLaunchPreparation.filter(
+      (row) => String(row.preorderPaymentMode || "").toUpperCase() === quickMode,
+    );
+  }, [quickMode, toLaunchPreparation]);
+
+  const filteredJournal = useMemo(() => {
+    if (quickMode === "ALL") return journal;
+    if (quickMode === "ELECTRONIC") {
+      return journal.filter(
+        (row) => String(row.preorderPaymentMode || "").toUpperCase() !== "ESPECES",
+      );
+    }
+    return journal.filter(
+      (row) => String(row.preorderPaymentMode || "").toUpperCase() === quickMode,
+    );
+  }, [quickMode, journal]);
 
   const askCashCollection = (row) => {
     const receiptNumber = window.prompt(
@@ -507,6 +591,24 @@ export default function CashierWorkspacePage() {
         >
           Bilan
         </TabButton>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <QuickFilterButton active={quickMode === "ALL"} onClick={() => setQuickMode("ALL")}>
+          Tous
+        </QuickFilterButton>
+        <QuickFilterButton active={quickMode === "ESPECES"} onClick={() => setQuickMode("ESPECES")}>
+          Espèces
+        </QuickFilterButton>
+        <QuickFilterButton active={quickMode === "WAVE"} onClick={() => setQuickMode("WAVE")}>
+          Wave
+        </QuickFilterButton>
+        <QuickFilterButton active={quickMode === "ORANGE_MONEY"} onClick={() => setQuickMode("ORANGE_MONEY")}>
+          Orange Money
+        </QuickFilterButton>
+        <QuickFilterButton active={quickMode === "ELECTRONIC"} onClick={() => setQuickMode("ELECTRONIC")}>
+          Électroniques
+        </QuickFilterButton>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -593,7 +695,7 @@ export default function CashierWorkspacePage() {
             </p>
           </div>
           <QueueTable
-            rows={toCollect}
+            rows={filteredToCollect}
             emptyLabel="Aucune précommande à encaisser."
             busyId={busyId}
             onCashPay={(row) =>
@@ -647,7 +749,7 @@ export default function CashierWorkspacePage() {
             </p>
           </div>
           <QueueTable
-            rows={toLaunchPreparation}
+            rows={filteredToLaunchPreparation}
             emptyLabel="Aucune commande en attente de lancement préparation."
             busyId={busyId}
             onCashPay={() => {}}
@@ -678,7 +780,7 @@ export default function CashierWorkspacePage() {
                   : "Historique des paiements que vous avez traités."}
               </p>
             </div>
-            <JournalTable rows={journal} canViewAll={journalSummary.scope === "all"} />
+            <JournalTable rows={filteredJournal} canViewAll={journalSummary.scope === "all"} />
           </div>
 
           <div className="space-y-4">
