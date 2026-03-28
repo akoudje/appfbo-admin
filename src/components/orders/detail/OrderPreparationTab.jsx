@@ -64,15 +64,15 @@ function ChecklistRow({ item, disabled, onToggle }) {
       type="button"
       onClick={() => onToggle(item)}
       disabled={disabled}
-      className={`w-full rounded-xl border p-3 text-left transition ${
+      className={`w-full rounded-xl border px-3 py-2 text-left transition ${
         checked
           ? "border-emerald-300 bg-emerald-50"
           : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
       } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <div
-          className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
             checked
               ? "border-emerald-600 bg-emerald-600 text-white"
               : "border-gray-300 bg-white text-transparent"
@@ -81,18 +81,22 @@ function ChecklistRow({ item, disabled, onToggle }) {
           ✓
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-gray-900">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="truncate font-semibold text-gray-900">
               {line?.qty || 0} × {line?.productNameSnapshot || line?.product?.nom || "Produit"}
             </span>
-            {checked ? <Badge tone="emerald">Vérifié</Badge> : <Badge tone="amber">À vérifier</Badge>}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-600">
-            <div>SKU: <span className="font-medium">{line?.productSkuSnapshot || line?.product?.sku || "—"}</span></div>
-            <div>Total: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span></div>
+            <span className="text-xs text-gray-600">
+              SKU: <span className="font-medium">{line?.productSkuSnapshot || line?.product?.sku || "—"}</span>
+            </span>
+            <span className="text-xs text-gray-600">
+              Total: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span>
+            </span>
             {item?.checkedAt ? (
-              <div>Coché: <span className="font-medium">{formatDate(item?.checkedAt)}</span></div>
+              <span className="text-xs text-gray-600">
+                Cochée: <span className="font-medium">{formatDate(item?.checkedAt)}</span>
+              </span>
             ) : null}
+            {checked ? <Badge tone="emerald">Vérifié</Badge> : <Badge tone="amber">À vérifier</Badge>}
           </div>
         </div>
       </div>
@@ -173,13 +177,11 @@ export default function OrderPreparationTab({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Préparation</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Checklist, anomalies et validation finale.
-            </p>
+            <h3 className="text-base font-semibold text-gray-900">Préparation</h3>
+            <p className="mt-1 text-xs text-gray-600">Checklist, anomalies, validation.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone="blue">{status || "—"}</Badge>
@@ -190,7 +192,7 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-5">
+        <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-5">
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
             <div className="text-xs uppercase tracking-wide text-indigo-700">Checklist</div>
             <div className="mt-1 text-lg font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
@@ -213,7 +215,7 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="mt-4 h-3 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+        <div className="mt-3 h-2 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
           <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
@@ -241,16 +243,16 @@ export default function OrderPreparationTab({
         </Alert>
       ) : null}
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h4 className="font-semibold text-gray-900">Checklist persistée</h4>
-            <p className="mt-1 text-sm text-gray-600">Coche tout avant validation.</p>
+            <p className="mt-1 text-xs text-gray-600">Une ligne par article. Coche tout avant validation.</p>
           </div>
           <div className="flex gap-2">
             <button
               type="button"
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
               onClick={() => onBulkChecklist?.(true)}
               disabled={!canBePrepared || saving || totalItems === 0}
             >
@@ -258,7 +260,7 @@ export default function OrderPreparationTab({
             </button>
             <button
               type="button"
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
               onClick={() => onBulkChecklist?.(false)}
               disabled={!canBePrepared || saving || totalItems === 0}
             >

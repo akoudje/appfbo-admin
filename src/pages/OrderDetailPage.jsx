@@ -854,9 +854,9 @@ const doInvoice = async () => {
       }
     >
       <div className="space-y-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 break-all">
                   Précommande {preorderNumber}
@@ -864,35 +864,43 @@ const doInvoice = async () => {
                 <StatusBadge status={order?.status} />
               </div>
 
-              <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-                <SummaryRow
-                  label="Numéro métier"
-                  value={order?.preorderNumber || "—"}
-                />
-                <SummaryRow label="FBO" value={order?.fboNomComplet || "—"} />
-                <SummaryRow
-                  label="Numéro FBO"
-                  value={order?.fboNumero || "—"}
-                />
-                <SummaryRow
-                  label="Mode paiement"
-                  value={humanizeEnum(
-                    order?.preorderPaymentMode || order?.paymentMode,
-                  )}
-                />
-                <SummaryRow
-                  label="Montant"
-                  value={formatFcfa(order?.totalFcfa)}
-                />
-                <SummaryRow
-                  label="Créée le"
-                  value={formatDateTime(order?.createdAt)}
-                />
-                <SummaryRow
-                  label="Livraison"
-                  value={humanizeEnum(order?.deliveryMode)}
-                />
-                <SummaryRow label="ID technique" value={order?.id || "—"} />
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Client</div>
+                  <div className="mt-1 text-sm font-semibold text-gray-900">{order?.fboNomComplet || "—"}</div>
+                  <div className="text-xs text-gray-600">FBO {order?.fboNumero || "—"}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Commande</div>
+                  <div className="mt-1 text-sm font-semibold text-gray-900">{order?.preorderNumber || "—"}</div>
+                  <div className="text-xs text-gray-600">{formatDateTime(order?.createdAt)}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Paiement</div>
+                  <div className="mt-1 text-sm font-semibold text-gray-900">
+                    {humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)}
+                  </div>
+                  <div className="text-xs text-gray-600">{formatFcfa(order?.totalFcfa)}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Livraison</div>
+                  <div className="mt-1 text-sm font-semibold text-gray-900">{humanizeEnum(order?.deliveryMode)}</div>
+                  <div className="text-xs text-gray-600">{order?.parcelNumber || "Colis non généré"}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Préparation</div>
+                  <div className="mt-1 text-sm font-semibold text-gray-900">
+                    {order?.preparationLaunchedAt ? formatDateTime(order?.preparationLaunchedAt) : "En attente caisse"}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {order?.preparedAt ? `Prêt le ${formatDateTime(order?.preparedAt)}` : "Non finalisée"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Référence</div>
+                  <div className="mt-1 text-sm font-semibold text-gray-900">{order?.factureReference || "—"}</div>
+                  <div className="text-xs text-gray-600">{order?.id || "—"}</div>
+                </div>
               </div>
             </div>
 
