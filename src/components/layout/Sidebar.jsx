@@ -139,6 +139,21 @@ const SETTINGS_ITEMS = [
     ),
   },
   {
+    to: "/marketing/campaigns",
+    label: "Campagnes marketing",
+    permission: Permission.COUNTRY_WRITE,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M11 5h2m-1-1v2m0 12a4 4 0 100-8 4 4 0 000 8zm0 0v3m0-15V3m8 9h-3M6 12H3m14.95 4.95l-2.12-2.12M8.17 8.17L6.05 6.05m11.9 0l-2.12 2.12M8.17 15.83l-2.12 2.12"
+        />
+      </svg>
+    ),
+  },
+  {
     to: "/settings/users",
     label: "Utilisateurs",
     permission: Permission.USER_ADMIN,

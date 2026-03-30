@@ -1,62 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
-const STORAGE_KEY = "appfbo-admin-settings-draft";
+const STORAGE_KEY = "appfbo-admin-general-settings-draft";
 
 const TABS = [
-  { key: "overview", label: "Vue d’ensemble" },
-  { key: "slides", label: "Slides homepage" },
-  { key: "side-panels", label: "Panneaux latéraux" },
-  { key: "publishing", label: "Publication" },
+  { key: "countries", label: "Pays" },
+  { key: "commercial", label: "Règles commerciales" },
+  { key: "users", label: "Utilisateurs" },
+  { key: "theme", label: "Thème" },
 ];
 
 const DEFAULT_SETTINGS = {
-  slides: [
-    {
-      id: "slide-1",
-      title: "Slide 1",
-      image: "/Slide1.png",
-      link: "",
-      active: true,
-      note: "Slide principal du catalogue FBO.",
-    },
-    {
-      id: "slide-2",
-      title: "Slide 2",
-      image: "/Slide2.png",
-      link: "",
-      active: true,
-      note: "Slide secondaire du catalogue FBO.",
-    },
-    {
-      id: "slide-3",
-      title: "Slide 3",
-      image: "/Slide3.png",
-      link: "",
-      active: true,
-      note: "Slide tertiaire du catalogue FBO.",
-    },
-  ],
-  sidePanels: {
-    left: {
-      title: "Panneau gauche",
-      image: "",
-      link: "",
-      active: false,
-      note: "Zone desktop pour future campagne.",
-    },
-    right: {
-      title: "Panneau droit",
-      image: "",
-      link: "",
-      active: false,
-      note: "Zone desktop pour future campagne.",
-    },
+  countries: {
+    defaultCountryCode: "CIV",
+    supportPhone: "",
+    pickupAddress: "",
+    enableWave: true,
+    enableOrangeMoney: true,
+    enableCash: true,
+    enableDelivery: true,
+    enablePickup: true,
   },
-  publishing: {
-    frontendTarget: "frontend",
-    environment: "preview",
-    lastUpdatedBy: "",
-    releaseNote: "",
+  commercial: {
+    minCartTotalFcfa: 100,
+    currencyLabel: "FCFA",
+    pricingDisclaimer:
+      "Les prix affichés sont indicatifs. Le montant final est confirmé par le facturier à partir de l'AS400.",
+  },
+  theme: {
+    primaryColor: "#FFC600",
+    secondaryColor: "#74AA50",
+    darkColor: "#000000",
+    logoPath: "/logo-forever.png",
+    sliderEnabled: true,
+    sidePanelsEnabled: true,
   },
 };
 
@@ -65,15 +42,7 @@ function loadInitialState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      sidePanels: {
-        ...DEFAULT_SETTINGS.sidePanels,
-        ...(parsed?.sidePanels || {}),
-      },
-    };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -124,161 +93,35 @@ function TextArea(props) {
   );
 }
 
-function StatusBadge({ active }) {
+function ToggleCard({ label, hint, checked, onChange }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
-        active
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-gray-200 bg-gray-100 text-gray-600"
-      }`}
-    >
-      {active ? "Actif" : "Inactif"}
-    </span>
+    <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <div>
+        <div className="text-sm font-medium text-gray-900">{label}</div>
+        <div className="text-xs text-gray-500">{hint}</div>
+      </div>
+    </label>
   );
 }
 
-function SlideEditor({ slide, onChange }) {
+function QuickLinkCard({ title, body, to, actionLabel }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-gray-900">{slide.title}</div>
-          <div className="text-xs text-gray-500">{slide.id}</div>
-        </div>
-        <StatusBadge active={slide.active} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {slide.image ? (
-            <img
-              src={slide.image}
-              alt={slide.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full min-h-[120px] items-center justify-center text-sm text-gray-400">
-              Aperçu image
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Titre interne">
-            <TextInput
-              value={slide.title}
-              onChange={(e) => onChange({ ...slide, title: e.target.value })}
-            />
-          </Field>
-
-          <Field label="Image" hint="Ex: /Slide1.png">
-            <TextInput
-              value={slide.image}
-              onChange={(e) => onChange({ ...slide, image: e.target.value })}
-            />
-          </Field>
-
-          <Field label="Lien cible" hint="Optionnel">
-            <TextInput
-              value={slide.link}
-              onChange={(e) => onChange({ ...slide, link: e.target.value })}
-              placeholder="https://..."
-            />
-          </Field>
-
-          <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <input
-              type="checkbox"
-              checked={slide.active}
-              onChange={(e) => onChange({ ...slide, active: e.target.checked })}
-            />
-            <div>
-              <div className="text-sm font-medium text-gray-900">Slide actif</div>
-              <div className="text-xs text-gray-500">
-                Visible dans le slider du catalogue frontend.
-              </div>
-            </div>
-          </label>
-
-          <div className="md:col-span-2">
-            <Field label="Note interne">
-              <TextArea
-                rows={3}
-                value={slide.note}
-                onChange={(e) => onChange({ ...slide, note: e.target.value })}
-                placeholder="Usage de campagne, message interne, dates..."
-              />
-            </Field>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SidePanelEditor({ title, value, onChange }) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-gray-900">{title}</div>
-        <StatusBadge active={value.active} />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Titre interne">
-          <TextInput
-            value={value.title}
-            onChange={(e) => onChange({ ...value, title: e.target.value })}
-          />
-        </Field>
-
-        <Field label="Image / visuel" hint="Ex: /campaign-left.png">
-          <TextInput
-            value={value.image}
-            onChange={(e) => onChange({ ...value, image: e.target.value })}
-          />
-        </Field>
-
-        <Field label="Lien cible" hint="Optionnel">
-          <TextInput
-            value={value.link}
-            onChange={(e) => onChange({ ...value, link: e.target.value })}
-            placeholder="https://..."
-          />
-        </Field>
-
-        <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-          <input
-            type="checkbox"
-            checked={value.active}
-            onChange={(e) => onChange({ ...value, active: e.target.checked })}
-          />
-          <div>
-            <div className="text-sm font-medium text-gray-900">Panneau actif</div>
-            <div className="text-xs text-gray-500">
-              Affiché sur desktop à côté de la grille produit.
-            </div>
-          </div>
-        </label>
-
-        <div className="md:col-span-2">
-          <Field label="Note interne">
-            <TextArea
-              rows={3}
-              value={value.note}
-              onChange={(e) => onChange({ ...value, note: e.target.value })}
-              placeholder="Campagne, période, remarque métier..."
-            />
-          </Field>
-        </div>
-      </div>
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <div className="text-base font-semibold text-gray-900">{title}</div>
+      <p className="mt-2 text-sm text-gray-500">{body}</p>
+      <Link
+        to={to}
+        className="mt-4 inline-flex rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900"
+      >
+        {actionLabel}
+      </Link>
     </div>
   );
 }
 
 export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("countries");
   const [settings, setSettings] = useState(loadInitialState);
   const [saved, setSaved] = useState(false);
 
@@ -289,23 +132,16 @@ export default function AdminSettingsPage() {
     return () => window.clearTimeout(timer);
   }, [settings]);
 
-  const activeSlides = useMemo(
-    () => settings.slides.filter((slide) => slide.active).length,
-    [settings.slides],
-  );
-
-  const activePanels = useMemo(
-    () =>
-      Number(Boolean(settings.sidePanels.left.active)) +
-      Number(Boolean(settings.sidePanels.right.active)),
-    [settings.sidePanels],
+  const commercialSummary = useMemo(
+    () => `${settings.commercial.minCartTotalFcfa} ${settings.commercial.currencyLabel}`,
+    [settings.commercial],
   );
 
   return (
     <div className="space-y-6">
       <Card
         title="Paramètres"
-        description="Pilote ici les contenus frontend à fort impact visuel: slider catalogue, panneaux latéraux desktop et informations de publication."
+        description="Configure ici les éléments variables selon les pays, les règles commerciales, les accès administrateurs et l’habillage général de l’application."
         actions={
           <div className="flex items-center gap-3">
             {saved ? (
@@ -341,148 +177,281 @@ export default function AdminSettingsPage() {
             ))}
           </div>
 
-          {activeTab === "overview" ? (
-            <div className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <div className="text-sm text-gray-500">Slides actifs</div>
-                  <div className="mt-2 text-3xl font-semibold text-gray-900">
-                    {activeSlides}/3
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <div className="text-sm text-gray-500">Panneaux actifs</div>
-                  <div className="mt-2 text-3xl font-semibold text-gray-900">
-                    {activePanels}/2
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <div className="text-sm text-gray-500">Cible frontend</div>
-                  <div className="mt-2 text-3xl font-semibold text-gray-900">
-                    {settings.publishing.environment}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-blue-50 p-5 text-sm text-blue-800">
-                Cette page structure les contenus marketing du frontend user.
-                Elle est prête à être branchée ensuite sur une API de publication
-                centralisée.
-              </div>
-            </div>
-          ) : null}
-
-          {activeTab === "slides" ? (
-            <div className="space-y-4">
-              {settings.slides.map((slide, index) => (
-                <SlideEditor
-                  key={slide.id}
-                  slide={slide}
-                  onChange={(nextSlide) =>
-                    setSettings((prev) => {
-                      const slides = [...prev.slides];
-                      slides[index] = nextSlide;
-                      return { ...prev, slides };
-                    })
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-
-          {activeTab === "side-panels" ? (
+          {activeTab === "countries" ? (
             <div className="grid gap-4 xl:grid-cols-2">
-              <SidePanelEditor
-                title="Panneau gauche"
-                value={settings.sidePanels.left}
-                onChange={(next) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    sidePanels: { ...prev.sidePanels, left: next },
-                  }))
-                }
-              />
-              <SidePanelEditor
-                title="Panneau droit"
-                value={settings.sidePanels.right}
-                onChange={(next) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    sidePanels: { ...prev.sidePanels, right: next },
-                  }))
-                }
-              />
-            </div>
-          ) : null}
-
-          {activeTab === "publishing" ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="Projet cible">
-                <TextInput
-                  value={settings.publishing.frontendTarget}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      publishing: {
-                        ...prev.publishing,
-                        frontendTarget: e.target.value,
-                      },
-                    }))
-                  }
-                />
-              </Field>
-
-              <Field label="Environnement">
+              <Field label="Pays actif par défaut">
                 <select
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                  value={settings.publishing.environment}
+                  value={settings.countries.defaultCountryCode}
                   onChange={(e) =>
                     setSettings((prev) => ({
                       ...prev,
-                      publishing: {
-                        ...prev.publishing,
-                        environment: e.target.value,
-                      },
+                      countries: { ...prev.countries, defaultCountryCode: e.target.value },
                     }))
                   }
                 >
-                  <option value="preview">Preview</option>
-                  <option value="production">Production</option>
+                  <option value="CIV">Côte d’Ivoire</option>
+                  <option value="BFA">Burkina Faso</option>
+                  <option value="TGO">Togo</option>
+                  <option value="BEN">Bénin</option>
+                  <option value="NER">Niger</option>
                 </select>
               </Field>
 
-              <Field label="Dernière mise à jour par">
+              <Field label="Téléphone support">
                 <TextInput
-                  value={settings.publishing.lastUpdatedBy}
+                  value={settings.countries.supportPhone}
                   onChange={(e) =>
                     setSettings((prev) => ({
                       ...prev,
-                      publishing: {
-                        ...prev.publishing,
-                        lastUpdatedBy: e.target.value,
-                      },
+                      countries: { ...prev.countries, supportPhone: e.target.value },
                     }))
                   }
-                  placeholder="Nom de l’opérateur"
+                  placeholder="+225 07 00 00 00 00"
                 />
               </Field>
 
-              <Field label="Note de publication">
-                <TextArea
-                  rows={5}
-                  value={settings.publishing.releaseNote}
+              <div className="xl:col-span-2">
+                <Field label="Adresse de retrait">
+                  <TextArea
+                    rows={3}
+                    value={settings.countries.pickupAddress}
+                    onChange={(e) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        countries: { ...prev.countries, pickupAddress: e.target.value },
+                      }))
+                    }
+                    placeholder="Adresse ou point de retrait par défaut"
+                  />
+                </Field>
+              </div>
+
+              <ToggleCard
+                label="Wave disponible"
+                hint="Active ou masque ce mode de paiement."
+                checked={settings.countries.enableWave}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    countries: { ...prev.countries, enableWave: checked },
+                  }))
+                }
+              />
+              <ToggleCard
+                label="Orange Money disponible"
+                hint="Active ou masque ce mode de paiement."
+                checked={settings.countries.enableOrangeMoney}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    countries: { ...prev.countries, enableOrangeMoney: checked },
+                  }))
+                }
+              />
+              <ToggleCard
+                label="Paiement espèces disponible"
+                hint="Utile pour les pays où la caisse physique est active."
+                checked={settings.countries.enableCash}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    countries: { ...prev.countries, enableCash: checked },
+                  }))
+                }
+              />
+              <ToggleCard
+                label="Livraison disponible"
+                hint="Active le mode livraison côté frontend user."
+                checked={settings.countries.enableDelivery}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    countries: { ...prev.countries, enableDelivery: checked },
+                  }))
+                }
+              />
+              <ToggleCard
+                label="Retrait disponible"
+                hint="Active le retrait site / point de retrait."
+                checked={settings.countries.enablePickup}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    countries: { ...prev.countries, enablePickup: checked },
+                  }))
+                }
+              />
+            </div>
+          ) : null}
+
+          {activeTab === "commercial" ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Field label="Panier minimum d’achat">
+                <TextInput
+                  type="number"
+                  min="0"
+                  value={settings.commercial.minCartTotalFcfa}
                   onChange={(e) =>
                     setSettings((prev) => ({
                       ...prev,
-                      publishing: {
-                        ...prev.publishing,
-                        releaseNote: e.target.value,
+                      commercial: {
+                        ...prev.commercial,
+                        minCartTotalFcfa: Number(e.target.value || 0),
                       },
                     }))
                   }
-                  placeholder="Résumé de la campagne ou de la mise en avant."
                 />
               </Field>
+
+              <Field label="Devise affichée">
+                <TextInput
+                  value={settings.commercial.currencyLabel}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      commercial: { ...prev.commercial, currencyLabel: e.target.value },
+                    }))
+                  }
+                />
+              </Field>
+
+              <div className="xl:col-span-2">
+                <Field label="Disclaimer prix / AS400">
+                  <TextArea
+                    rows={4}
+                    value={settings.commercial.pricingDisclaimer}
+                    onChange={(e) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        commercial: {
+                          ...prev.commercial,
+                          pricingDisclaimer: e.target.value,
+                        },
+                      }))
+                    }
+                  />
+                </Field>
+              </div>
+
+              <QuickLinkCard
+                title="Remises par grade"
+                body="Gère la grille des remises utilisée par la facturation, avec ses règles métier existantes."
+                to="/settings/grade-discounts"
+                actionLabel="Ouvrir les remises"
+              />
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                <div className="text-base font-semibold text-gray-900">Résumé actuel</div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Panier minimum configuré: <span className="font-semibold text-gray-900">{commercialSummary}</span>
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "users" ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <QuickLinkCard
+                title="Gestion des utilisateurs"
+                body="Crée, modifie et active les comptes administrateurs par rôle et par pays."
+                to="/settings/users"
+                actionLabel="Ouvrir les utilisateurs"
+              />
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                <div className="text-base font-semibold text-gray-900">Organisation recommandée</div>
+                <ul className="mt-3 space-y-2 text-sm text-gray-600">
+                  <li>Facturier, Caissière, Préparateur pour l’exécution.</li>
+                  <li>Responsables pour la supervision métier.</li>
+                  <li>Limiter les rôles techniques aux profils habilités.</li>
+                </ul>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "theme" ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Field label="Couleur principale">
+                <TextInput
+                  value={settings.theme.primaryColor}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      theme: { ...prev.theme, primaryColor: e.target.value },
+                    }))
+                  }
+                />
+              </Field>
+
+              <Field label="Couleur secondaire">
+                <TextInput
+                  value={settings.theme.secondaryColor}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      theme: { ...prev.theme, secondaryColor: e.target.value },
+                    }))
+                  }
+                />
+              </Field>
+
+              <Field label="Couleur sombre">
+                <TextInput
+                  value={settings.theme.darkColor}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      theme: { ...prev.theme, darkColor: e.target.value },
+                    }))
+                  }
+                />
+              </Field>
+
+              <Field label="Logo principal">
+                <TextInput
+                  value={settings.theme.logoPath}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      theme: { ...prev.theme, logoPath: e.target.value },
+                    }))
+                  }
+                />
+              </Field>
+
+              <ToggleCard
+                label="Slider actif"
+                hint="Affiche ou masque le slider marketing du catalogue frontend."
+                checked={settings.theme.sliderEnabled}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    theme: { ...prev.theme, sliderEnabled: checked },
+                  }))
+                }
+              />
+
+              <ToggleCard
+                label="Panneaux latéraux actifs"
+                hint="Affiche ou masque les panneaux desktop du catalogue frontend."
+                checked={settings.theme.sidePanelsEnabled}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    theme: { ...prev.theme, sidePanelsEnabled: checked },
+                  }))
+                }
+              />
+
+              <div className="xl:col-span-2">
+                <QuickLinkCard
+                  title="Campagnes marketing"
+                  body="Les slides et panneaux latéraux sont maintenant gérés dans une page dédiée de l’admin."
+                  to="/marketing/campaigns"
+                  actionLabel="Ouvrir les campagnes"
+                />
+              </div>
             </div>
           ) : null}
         </div>

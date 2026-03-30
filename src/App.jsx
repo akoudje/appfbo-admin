@@ -22,6 +22,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
+import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -190,6 +191,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux paramètres." />}
                     >
                       <AdminSettingsPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/marketing/campaigns"
+                  element={
+                    <RequirePermission
+                      permission={Permission.COUNTRY_WRITE}
+                      fallback={<AccessDenied message="Accès refusé aux campagnes marketing." />}
+                    >
+                      <MarketingCampaignsPage />
                     </RequirePermission>
                   }
                 />

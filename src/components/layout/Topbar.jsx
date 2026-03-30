@@ -61,6 +61,7 @@ function getPageTitle(pathname) {
   if (pathname === "/products/new") return "Nouveau produit";
   if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier produit";
   if (pathname === "/settings" || pathname === "/settings/") return "Paramètres";
+  if (pathname === "/marketing/campaigns") return "Campagnes marketing";
   if (pathname === "/settings/users" || pathname === "/users") return "Utilisateurs";
   if (pathname === "/settings/grade-discounts") return "Remises par grade";
   return "PRECOMMANDE FOREVER Admin Panel";
@@ -86,6 +87,9 @@ function getPageSubtitle(pathname, role) {
   }
   if (pathname === "/settings/users" || pathname === "/users") {
     return "Gestion des comptes, rôles et affectations.";
+  }
+  if (pathname === "/marketing/campaigns") {
+    return "Gestion des slides, panneaux latéraux et contenus de communication frontend.";
   }
   if (pathname === "/settings/grade-discounts") {
     return "Pilotage des remises utilisées pour la facturation.";
