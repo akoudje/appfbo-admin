@@ -87,18 +87,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(255,198,0,0.22),_transparent_28%),linear-gradient(180deg,#0b0b0b_0%,#171717_55%,#0b0b0b_100%)] p-4">
       <div className="w-full max-w-md">
-        {/* Logo ou marque (optionnel) */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-900 text-white text-2xl font-bold mb-2">
-            A
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900">Backoffice</h2>
-          <p className="text-sm text-gray-500">Précommande Forever</p>
+          <img
+            src="/logo-forever-home.png"
+            alt="Forever"
+            className="mx-auto h-20 w-auto object-contain"
+          />
+          <h2 className="mt-4 text-2xl font-bold text-white">Backoffice Forever</h2>
+          <p className="text-sm text-[#FFC600]">Connexion à l’espace d’administration</p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-lg">
+        <div className="rounded-2xl border border-[#2e2e2e] bg-white p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
           {err && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-shake">
               <div className="flex items-start">
@@ -124,7 +125,7 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={handleKeyDown}
                 autoComplete="email"
-                className="w-full h-11 px-3 rounded-lg border border-gray-200 bg-white focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                className="w-full h-11 px-3 rounded-lg border border-gray-200 bg-white focus:border-[#FFC600] focus:ring-2 focus:ring-[#FFC600]/35 transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500"
                 placeholder="exemple@forever.ci"
                 disabled={loading}
                 required
@@ -145,7 +146,7 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
                   autoComplete="current-password"
-                  className="w-full h-11 px-3 rounded-lg border border-gray-200 bg-white focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full h-11 px-3 rounded-lg border border-gray-200 bg-white focus:border-[#FFC600] focus:ring-2 focus:ring-[#FFC600]/35 transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500"
                   placeholder="••••••••"
                   disabled={loading}
                   required
@@ -175,7 +176,7 @@ export default function Login() {
               ref={submitButtonRef}
               type="submit"
               disabled={loading}
-              className="w-full h-11 px-4 rounded-lg bg-gray-900 font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors relative"
+              className="w-full h-11 px-4 rounded-lg bg-[#FFC600] font-medium text-black hover:bg-[#e6b200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/50 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors relative"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -193,13 +194,13 @@ export default function Login() {
 
           {/* Lien "Mot de passe oublié" (optionnel) */}
           <div className="mt-4 text-center">
-            <a href="#" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+            <a href="#" className="text-sm text-gray-500 hover:text-black transition-colors">
               Mot de passe oublié ?
             </a>
           </div>
         </div>
 
-        <p className="mt-4 text-xs text-center text-gray-400">
+        <p className="mt-4 text-xs text-center text-white/50">
           © 2024 Forever. Tous droits réservés.
         </p>
       </div>

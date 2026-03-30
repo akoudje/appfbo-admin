@@ -199,7 +199,9 @@ function NavItem({ item, collapsed = false, onClick }) {
       onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-          isActive ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"
+          isActive
+            ? "bg-[#FFC600] text-black shadow-sm"
+            : "text-white/80 hover:bg-white/10 hover:text-white"
         } ${collapsed ? "justify-center" : ""}`
       }
     >
@@ -242,31 +244,38 @@ export function DesktopSidebar({ collapsed, onToggle }) {
 
   return (
     <aside
-      className={`h-full bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${
+      className={`h-full bg-[#000000] border-r border-[#1f1f1f] transition-all duration-300 flex flex-col ${
         collapsed ? "w-20" : "w-72"
       }`}
     >
       <div
-        className={`flex items-center h-16 px-4 border-b border-gray-200 ${
+        className={`flex items-center h-20 px-4 border-b border-[#1f1f1f] ${
           collapsed ? "justify-center" : "justify-between"
         }`}
       >
         {!collapsed ? (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">A</span>
+            <img
+              src="/logo-forever-home.png"
+              alt="Forever"
+              className="h-10 w-auto object-contain"
+            />
+            <div>
+              <div className="text-sm font-semibold text-white">Forever Admin</div>
+              <div className="text-xs text-[#FFC600]">Backoffice</div>
             </div>
-            <span className="font-semibold text-gray-900">Admin Panel</span>
           </div>
         ) : (
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">A</span>
-          </div>
+          <img
+            src="/logo-forever-home.png"
+            alt="Forever"
+            className="h-9 w-auto object-contain"
+          />
         )}
 
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/70"
           type="button"
         >
           <svg
@@ -291,7 +300,7 @@ export function DesktopSidebar({ collapsed, onToggle }) {
         ))}
 
         {!collapsed && visibleSettingsItems.length > 0 ? (
-          <div className="my-4 border-t border-gray-200" />
+          <div className="my-4 border-t border-white/10" />
         ) : null}
 
         {visibleSettingsItems.map((item) => (
@@ -300,18 +309,18 @@ export function DesktopSidebar({ collapsed, onToggle }) {
       </nav>
 
       {!collapsed && (
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-white/10 bg-[#0c0c0c]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-600">
+            <div className="w-8 h-8 bg-[#FFC600] rounded-full flex items-center justify-center">
+              <span className="text-sm font-medium text-black">
                 {(fullName || email || "AD").slice(0, 2).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-white truncate">
                 {fullName || "Admin User"}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-white/60 truncate">
                 {email || "admin@example.com"}
               </p>
             </div>
@@ -335,20 +344,25 @@ export function MobileSidebar({ isOpen, onClose }) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 lg:hidden ${
+        className={`fixed top-0 left-0 h-full w-72 bg-[#000000] shadow-xl z-50 transform transition-transform duration-300 lg:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+        <div className="flex items-center justify-between h-20 px-4 border-b border-[#1f1f1f]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">A</span>
+            <img
+              src="/logo-forever-home.png"
+              alt="Forever"
+              className="h-10 w-auto object-contain"
+            />
+            <div>
+              <div className="text-sm font-semibold text-white">Forever Admin</div>
+              <div className="text-xs text-[#FFC600]">Backoffice</div>
             </div>
-            <span className="font-semibold text-gray-900">Admin Panel</span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/70"
             type="button"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -362,7 +376,7 @@ export function MobileSidebar({ isOpen, onClose }) {
             <NavItem key={item.to} item={item} onClick={onClose} />
           ))}
 
-          {visibleSettingsItems.length > 0 ? <div className="my-4 border-t border-gray-200" /> : null}
+          {visibleSettingsItems.length > 0 ? <div className="my-4 border-t border-white/10" /> : null}
 
           {visibleSettingsItems.map((item) => (
             <NavItem key={item.to} item={item} onClick={onClose} />
