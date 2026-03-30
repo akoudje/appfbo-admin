@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-
-const STORAGE_KEY = "appfbo-admin-marketing-campaigns-draft";
+import { marketingCampaignsService } from "../services/marketingCampaignsService";
 
 const DEFAULT_SETTINGS = {
   slides: [
@@ -53,23 +52,13 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-function loadInitialState() {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      sidePanels: {
-        ...DEFAULT_SETTINGS.sidePanels,
-        ...(parsed?.sidePanels || {}),
-      },
-    };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function Card({ title, description, actions, children }) {
@@ -132,6 +121,21 @@ function StatusBadge({ active }) {
 }
 
 function SlideEditor({ slide, onChange }) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      onChange({ ...slide, image: dataUrl });
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -162,10 +166,22 @@ function SlideEditor({ slide, onChange }) {
           </Field>
 
           <Field label="Image" hint="Ex: /Slide1.png">
-            <TextInput
-              value={slide.image}
-              onChange={(e) => onChange({ ...slide, image: e.target.value })}
-            />
+            <div className="space-y-2">
+              <TextInput
+                value={slide.image}
+                onChange={(e) => onChange({ ...slide, image: e.target.value })}
+              />
+              <label className="inline-flex cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                {uploading ? "Import en cours..." : "Uploader une image"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+              </label>
+            </div>
           </Field>
 
           <Field label="Lien cible" hint="Optionnel">
@@ -206,6 +222,21 @@ function SlideEditor({ slide, onChange }) {
 }
 
 function SidePanelEditor({ title, value, onChange }) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      onChange({ ...value, image: dataUrl });
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -222,10 +253,22 @@ function SidePanelEditor({ title, value, onChange }) {
         </Field>
 
         <Field label="Image / visuel" hint="Ex: /campaign-left.png">
-          <TextInput
-            value={value.image}
-            onChange={(e) => onChange({ ...value, image: e.target.value })}
-          />
+          <div className="space-y-2">
+            <TextInput
+              value={value.image}
+              onChange={(e) => onChange({ ...value, image: e.target.value })}
+            />
+            <label className="inline-flex cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              {uploading ? "Import en cours..." : "Uploader une image"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleFileChange}
+                disabled={uploading}
+              />
+            </label>
+          </div>
         </Field>
 
         <Field label="Lien cible" hint="Optionnel">
@@ -265,15 +308,45 @@ function SidePanelEditor({ title, value, onChange }) {
 }
 
 export default function MarketingCampaignsPage() {
-  const [settings, setSettings] = useState(loadInitialState);
-  const [saved, setSaved] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [info, setInfo] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    setSaved(true);
-    const timer = window.setTimeout(() => setSaved(false), 1800);
-    return () => window.clearTimeout(timer);
-  }, [settings]);
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await marketingCampaignsService.get();
+        setSettings({
+          slides: Array.isArray(data?.slides) ? data.slides : DEFAULT_SETTINGS.slides,
+          sidePanels: data?.sidePanels || DEFAULT_SETTINGS.sidePanels,
+          publishing: data?.publishing || DEFAULT_SETTINGS.publishing,
+        });
+      } catch (e) {
+        setError(e?.response?.data?.message || "Impossible de charger les campagnes.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  async function handleSave() {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+      await marketingCampaignsService.save(settings);
+      setInfo("Campagnes enregistrées.");
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d’enregistrer les campagnes.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const activeSlides = useMemo(
     () => settings.slides.filter((slide) => slide.active).length,
@@ -294,21 +367,27 @@ export default function MarketingCampaignsPage() {
         description="Gère ici les visuels promotionnels du frontend utilisateur: slider catalogue, panneaux latéraux desktop et préparation de publication."
         actions={
           <div className="flex items-center gap-3">
-            {saved ? (
+            {info ? (
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                Brouillon sauvegardé
+                {info}
               </span>
             ) : null}
             <button
               type="button"
-              onClick={() => setSettings(DEFAULT_SETTINGS)}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
             >
-              Réinitialiser
+              {saving ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         }
       >
+        {error ? (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
             <div className="text-sm text-gray-500">Slides actifs</div>

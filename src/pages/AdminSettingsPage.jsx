@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-
-const STORAGE_KEY = "appfbo-admin-general-settings-draft";
+import AdminUsersPage from "./AdminUsersPage";
+import AdminGradeDiscountsPage from "./AdminGradeDiscountsPage";
+import { settingsService } from "../services/settingsService";
 
 const TABS = [
   { key: "countries", label: "Pays" },
   { key: "commercial", label: "Règles commerciales" },
   { key: "users", label: "Utilisateurs" },
+  { key: "discounts", label: "Remises" },
   { key: "theme", label: "Thème" },
 ];
 
 const DEFAULT_SETTINGS = {
   countries: {
-    defaultCountryCode: "CIV",
     supportPhone: "",
     pickupAddress: "",
     enableWave: true,
@@ -36,17 +36,6 @@ const DEFAULT_SETTINGS = {
     sidePanelsEnabled: true,
   },
 };
-
-function loadInitialState() {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
 
 function Card({ title, description, actions, children }) {
   return (
@@ -105,32 +94,90 @@ function ToggleCard({ label, hint, checked, onChange }) {
   );
 }
 
-function QuickLinkCard({ title, body, to, actionLabel }) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-      <div className="text-base font-semibold text-gray-900">{title}</div>
-      <p className="mt-2 text-sm text-gray-500">{body}</p>
-      <Link
-        to={to}
-        className="mt-4 inline-flex rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900"
-      >
-        {actionLabel}
-      </Link>
-    </div>
-  );
-}
-
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState("countries");
-  const [settings, setSettings] = useState(loadInitialState);
-  const [saved, setSaved] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [info, setInfo] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    setSaved(true);
-    const timer = window.setTimeout(() => setSaved(false), 1800);
-    return () => window.clearTimeout(timer);
-  }, [settings]);
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await settingsService.getCountrySettings();
+        setSettings((prev) => ({
+          ...prev,
+          countries: {
+            ...prev.countries,
+            supportPhone: data.supportPhone || "",
+            pickupAddress: data.pickupAddress || "",
+            enableWave: Boolean(data.enableWave),
+            enableOrangeMoney: Boolean(data.enableOrangeMoney),
+            enableCash: Boolean(data.enableCash),
+            enableDelivery: Boolean(data.enableDelivery),
+            enablePickup: Boolean(data.enablePickup),
+          },
+          commercial: {
+            ...prev.commercial,
+            minCartTotalFcfa: data.minCartFcfa ?? prev.commercial.minCartTotalFcfa,
+            currencyLabel: data.currencyLabel || prev.commercial.currencyLabel,
+            pricingDisclaimer:
+              data.pricingDisclaimer || prev.commercial.pricingDisclaimer,
+          },
+          theme: {
+            ...prev.theme,
+            primaryColor: data.themePrimaryColor || prev.theme.primaryColor,
+            secondaryColor: data.themeSecondaryColor || prev.theme.secondaryColor,
+            darkColor: data.themeDarkColor || prev.theme.darkColor,
+            logoPath: data.themeLogoPath || prev.theme.logoPath,
+            sliderEnabled:
+              data.themeSliderEnabled ?? prev.theme.sliderEnabled,
+            sidePanelsEnabled:
+              data.themeSidePanelsEnabled ?? prev.theme.sidePanelsEnabled,
+          },
+        }));
+      } catch (e) {
+        setError(e?.response?.data?.message || "Impossible de charger les paramètres.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  async function handleSave() {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+      await settingsService.updateCountrySettings({
+        minCartFcfa: settings.commercial.minCartTotalFcfa,
+        supportPhone: settings.countries.supportPhone,
+        pickupAddress: settings.countries.pickupAddress,
+        enableWave: settings.countries.enableWave,
+        enableOrangeMoney: settings.countries.enableOrangeMoney,
+        enableCash: settings.countries.enableCash,
+        enableDelivery: settings.countries.enableDelivery,
+        enablePickup: settings.countries.enablePickup,
+        currencyLabel: settings.commercial.currencyLabel,
+        pricingDisclaimer: settings.commercial.pricingDisclaimer,
+        themePrimaryColor: settings.theme.primaryColor,
+        themeSecondaryColor: settings.theme.secondaryColor,
+        themeDarkColor: settings.theme.darkColor,
+        themeLogoPath: settings.theme.logoPath,
+        themeSliderEnabled: settings.theme.sliderEnabled,
+        themeSidePanelsEnabled: settings.theme.sidePanelsEnabled,
+      });
+      setInfo("Paramètres enregistrés.");
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d’enregistrer les paramètres.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const commercialSummary = useMemo(
     () => `${settings.commercial.minCartTotalFcfa} ${settings.commercial.currencyLabel}`,
@@ -144,22 +191,28 @@ export default function AdminSettingsPage() {
         description="Configure ici les éléments variables selon les pays, les règles commerciales, les accès administrateurs et l’habillage général de l’application."
         actions={
           <div className="flex items-center gap-3">
-            {saved ? (
+            {info ? (
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                Brouillon sauvegardé
+                {info}
               </span>
             ) : null}
             <button
               type="button"
-              onClick={() => setSettings(DEFAULT_SETTINGS)}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
             >
-              Réinitialiser
+              {saving ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         }
       >
         <div className="space-y-6">
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-4">
             {TABS.map((tab) => (
               <button
@@ -179,25 +232,6 @@ export default function AdminSettingsPage() {
 
           {activeTab === "countries" ? (
             <div className="grid gap-4 xl:grid-cols-2">
-              <Field label="Pays actif par défaut">
-                <select
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                  value={settings.countries.defaultCountryCode}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      countries: { ...prev.countries, defaultCountryCode: e.target.value },
-                    }))
-                  }
-                >
-                  <option value="CIV">Côte d’Ivoire</option>
-                  <option value="BFA">Burkina Faso</option>
-                  <option value="TGO">Togo</option>
-                  <option value="BEN">Bénin</option>
-                  <option value="NER">Niger</option>
-                </select>
-              </Field>
-
               <Field label="Téléphone support">
                 <TextInput
                   value={settings.countries.supportPhone}
@@ -334,13 +368,6 @@ export default function AdminSettingsPage() {
                 </Field>
               </div>
 
-              <QuickLinkCard
-                title="Remises par grade"
-                body="Gère la grille des remises utilisée par la facturation, avec ses règles métier existantes."
-                to="/settings/grade-discounts"
-                actionLabel="Ouvrir les remises"
-              />
-
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
                 <div className="text-base font-semibold text-gray-900">Résumé actuel</div>
                 <p className="mt-2 text-sm text-gray-500">
@@ -351,23 +378,11 @@ export default function AdminSettingsPage() {
           ) : null}
 
           {activeTab === "users" ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              <QuickLinkCard
-                title="Gestion des utilisateurs"
-                body="Crée, modifie et active les comptes administrateurs par rôle et par pays."
-                to="/settings/users"
-                actionLabel="Ouvrir les utilisateurs"
-              />
+            <AdminUsersPage />
+          ) : null}
 
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                <div className="text-base font-semibold text-gray-900">Organisation recommandée</div>
-                <ul className="mt-3 space-y-2 text-sm text-gray-600">
-                  <li>Facturier, Caissière, Préparateur pour l’exécution.</li>
-                  <li>Responsables pour la supervision métier.</li>
-                  <li>Limiter les rôles techniques aux profils habilités.</li>
-                </ul>
-              </div>
-            </div>
+          {activeTab === "discounts" ? (
+            <AdminGradeDiscountsPage />
           ) : null}
 
           {activeTab === "theme" ? (
@@ -444,14 +459,6 @@ export default function AdminSettingsPage() {
                 }
               />
 
-              <div className="xl:col-span-2">
-                <QuickLinkCard
-                  title="Campagnes marketing"
-                  body="Les slides et panneaux latéraux sont maintenant gérés dans une page dédiée de l’admin."
-                  to="/marketing/campaigns"
-                  actionLabel="Ouvrir les campagnes"
-                />
-              </div>
             </div>
           ) : null}
         </div>
