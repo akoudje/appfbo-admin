@@ -63,12 +63,12 @@ function fileToDataUrl(file) {
 
 function Card({ title, description, actions, children }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-6 py-5">
+    <section className="border border-[#e7dec8] bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#efe7d7] px-6 py-5">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-[#000000]">{title}</h2>
           {description ? (
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">{description}</p>
+            <p className="mt-1 max-w-2xl text-sm text-[#6f6a60]">{description}</p>
           ) : null}
         </div>
         {actions}
@@ -81,9 +81,9 @@ function Card({ title, description, actions, children }) {
 function Field({ label, hint, children }) {
   return (
     <label className="block space-y-1.5">
-      <div className="text-sm font-medium text-gray-700">{label}</div>
+      <div className="text-sm font-medium text-[#5D4B3C]">{label}</div>
       {children}
-      {hint ? <div className="text-xs text-gray-500">{hint}</div> : null}
+      {hint ? <div className="text-xs text-[#8d7a5c]">{hint}</div> : null}
     </label>
   );
 }
@@ -92,7 +92,7 @@ function TextInput(props) {
   return (
     <input
       {...props}
-      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+      className="w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
     />
   );
 }
@@ -101,7 +101,7 @@ function TextArea(props) {
   return (
     <textarea
       {...props}
-      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+      className="w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
     />
   );
 }
@@ -109,10 +109,10 @@ function TextArea(props) {
 function StatusBadge({ active }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
+      className={`inline-flex items-center border px-2.5 py-1 text-xs font-medium ${
         active
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-gray-200 bg-gray-100 text-gray-600"
+          ? "border-[#bad6a7] bg-[#eef7e8] text-[#587f34]"
+          : "border-[#e7dec8] bg-[#fcfbf7] text-[#8d7a5c]"
       }`}
     >
       {active ? "Actif" : "Inactif"}
@@ -137,21 +137,21 @@ function SlideEditor({ slide, onChange }) {
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+    <div className="border border-[#e7dec8] bg-[#fcfbf7] p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-gray-900">{slide.title}</div>
-          <div className="text-xs text-gray-500">{slide.id}</div>
+          <div className="text-sm font-semibold text-[#000000]">{slide.title}</div>
+          <div className="text-xs text-[#8d7a5c]">{slide.id}</div>
         </div>
         <StatusBadge active={slide.active} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-hidden border border-[#e7dec8] bg-white">
           {slide.image ? (
             <img src={slide.image} alt={slide.title} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full min-h-[120px] items-center justify-center text-sm text-gray-400">
+            <div className="flex h-full min-h-[120px] items-center justify-center text-sm text-[#8d7a5c]">
               Aperçu image
             </div>
           )}
@@ -171,7 +171,7 @@ function SlideEditor({ slide, onChange }) {
                 value={slide.image}
                 onChange={(e) => onChange({ ...slide, image: e.target.value })}
               />
-              <label className="inline-flex cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <label className="inline-flex cursor-pointer border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fff7df]">
                 {uploading ? "Import en cours..." : "Uploader une image"}
                 <input
                   type="file"
@@ -192,15 +192,15 @@ function SlideEditor({ slide, onChange }) {
             />
           </Field>
 
-          <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <label className="flex items-center gap-3 border border-[#e7dec8] bg-white px-4 py-3">
             <input
               type="checkbox"
               checked={slide.active}
               onChange={(e) => onChange({ ...slide, active: e.target.checked })}
             />
             <div>
-              <div className="text-sm font-medium text-gray-900">Slide actif</div>
-              <div className="text-xs text-gray-500">
+              <div className="text-sm font-medium text-[#000000]">Slide actif</div>
+              <div className="text-xs text-[#8d7a5c]">
                 Visible dans le slider du catalogue frontend.
               </div>
             </div>
@@ -238,9 +238,9 @@ function SidePanelEditor({ title, value, onChange }) {
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+    <div className="border border-[#e7dec8] bg-[#fcfbf7] p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-gray-900">{title}</div>
+        <div className="text-sm font-semibold text-[#000000]">{title}</div>
         <StatusBadge active={value.active} />
       </div>
 
@@ -258,7 +258,7 @@ function SidePanelEditor({ title, value, onChange }) {
               value={value.image}
               onChange={(e) => onChange({ ...value, image: e.target.value })}
             />
-            <label className="inline-flex cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <label className="inline-flex cursor-pointer border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fff7df]">
               {uploading ? "Import en cours..." : "Uploader une image"}
               <input
                 type="file"
@@ -279,15 +279,15 @@ function SidePanelEditor({ title, value, onChange }) {
           />
         </Field>
 
-        <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <label className="flex items-center gap-3 border border-[#e7dec8] bg-white px-4 py-3">
           <input
             type="checkbox"
             checked={value.active}
             onChange={(e) => onChange({ ...value, active: e.target.checked })}
           />
           <div>
-            <div className="text-sm font-medium text-gray-900">Panneau actif</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm font-medium text-[#000000]">Panneau actif</div>
+            <div className="text-xs text-[#8d7a5c]">
               Affiché sur desktop à côté de la grille produit.
             </div>
           </div>
@@ -368,7 +368,7 @@ export default function MarketingCampaignsPage() {
         actions={
           <div className="flex items-center gap-3">
             {info ? (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              <span className="border border-[#bad6a7] bg-[#eef7e8] px-3 py-1 text-xs font-medium text-[#587f34]">
                 {info}
               </span>
             ) : null}
@@ -376,7 +376,7 @@ export default function MarketingCampaignsPage() {
               type="button"
               onClick={handleSave}
               disabled={saving || loading}
-              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+              className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
             >
               {saving ? "Enregistrement..." : "Enregistrer"}
             </button>
@@ -384,22 +384,22 @@ export default function MarketingCampaignsPage() {
         }
       >
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         ) : null}
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-            <div className="text-sm text-gray-500">Slides actifs</div>
-            <div className="mt-2 text-3xl font-semibold text-gray-900">{activeSlides}/3</div>
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-5">
+            <div className="text-sm text-[#8d7a5c]">Slides actifs</div>
+            <div className="mt-2 text-3xl font-semibold text-[#000000]">{activeSlides}/3</div>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-            <div className="text-sm text-gray-500">Panneaux actifs</div>
-            <div className="mt-2 text-3xl font-semibold text-gray-900">{activePanels}/2</div>
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-5">
+            <div className="text-sm text-[#8d7a5c]">Panneaux actifs</div>
+            <div className="mt-2 text-3xl font-semibold text-[#000000]">{activePanels}/2</div>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-            <div className="text-sm text-gray-500">Environnement</div>
-            <div className="mt-2 text-3xl font-semibold text-gray-900">
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-5">
+            <div className="text-sm text-[#8d7a5c]">Environnement</div>
+            <div className="mt-2 text-3xl font-semibold text-[#000000]">
               {settings.publishing.environment}
             </div>
           </div>
@@ -474,7 +474,7 @@ export default function MarketingCampaignsPage() {
 
           <Field label="Environnement">
             <select
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+              className="w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
               value={settings.publishing.environment}
               onChange={(e) =>
                 setSettings((prev) => ({

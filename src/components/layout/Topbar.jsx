@@ -166,13 +166,13 @@ export default function Topbar({ onMenuClick = () => {} }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#e8dfc9] bg-white/94 backdrop-blur-lg">
+    <header className="sticky top-0 z-30 border-b border-[#e8dfc9] bg-[#fcfbf7]/96 backdrop-blur-lg">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <button
               onClick={onMenuClick}
-              className="rounded-xl border border-[#e8dfc9] bg-[#fcfbf7] p-2 transition-colors hover:bg-[#f8f4e7] lg:hidden"
+              className="border border-[#e8dfc9] bg-[#fff7df] p-2 transition-colors hover:bg-[#ffe79a] lg:hidden"
               aria-label="Menu"
             >
               <svg
@@ -192,8 +192,8 @@ export default function Topbar({ onMenuClick = () => {} }) {
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-lg font-semibold text-gray-900">{pageTitle}</h1>
-                <span className="hidden rounded-full border border-[#e4d395] bg-[#fff7df] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c5715] md:inline-flex">
+                <h1 className="truncate text-lg font-semibold text-[#000000]">{pageTitle}</h1>
+                <span className="hidden border border-[#e4d395] bg-[#fff7df] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c5715] md:inline-flex">
                   {workspaceLabel}
                 </span>
               </div>
@@ -204,12 +204,12 @@ export default function Topbar({ onMenuClick = () => {} }) {
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 sm:flex">
               <CountrySelector />
-              <span className="hidden rounded-xl border border-[#ece4d1] bg-[#fcfbf7] px-2.5 py-1.5 text-xs font-semibold text-[#5f5b54] md:inline-flex">
+              <span className="hidden border border-[#ece4d1] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#5D4B3C] md:inline-flex">
                 {countryCode}
               </span>
             </div>
 
-            <div className="hidden items-center gap-2 rounded-xl border border-[#ece4d1] bg-[#fcfbf7] px-3 py-2 sm:flex">
+            <div className="hidden items-center gap-2 border border-[#ece4d1] bg-white px-3 py-2 sm:flex">
               <svg
                 className="h-4 w-4 text-[#8d7a5c]"
                 fill="none"
@@ -231,22 +231,22 @@ export default function Topbar({ onMenuClick = () => {} }) {
             <div className="relative">
               <button
                 onClick={() => setShowProfile((v) => !v)}
-                className="flex items-center gap-2 rounded-2xl border border-[#e8dfc9] bg-white px-2 py-1.5 transition-colors hover:bg-[#fcfbf7]"
+                className="flex items-center gap-2 border border-[#e8dfc9] bg-white px-2 py-1.5 transition-colors hover:bg-[#fff7df]"
                 type="button"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black">
-                  <span className="text-sm font-medium text-white">{initials}</span>
+                <div className="flex h-9 w-9 items-center justify-center bg-[#FFC600]">
+                  <span className="text-sm font-medium text-black">{initials}</span>
                 </div>
 
                 <div className="hidden text-left lg:block">
-                  <p className="text-sm font-medium text-gray-900">{adminDisplayName}</p>
+                  <p className="text-sm font-medium text-[#000000]">{adminDisplayName}</p>
                   <p className="text-xs text-[#6f6a60]">
                     {adminRoleLabel} • {countryCode}
                   </p>
                 </div>
 
                 <svg
-                  className="hidden h-4 w-4 text-gray-500 lg:block"
+                  className="hidden h-4 w-4 text-[#5D4B3C] lg:block"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -264,22 +264,22 @@ export default function Topbar({ onMenuClick = () => {} }) {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)} />
 
-                  <div className="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-[#e8dfc9] bg-white py-2 shadow-[0_18px_40px_rgba(0,0,0,0.12)]">
+                  <div className="absolute right-0 z-50 mt-2 w-64 border border-[#e8dfc9] bg-white py-2 shadow-[0_18px_40px_rgba(0,0,0,0.12)]">
                     <div className="border-b border-[#f0ebe1] px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">{adminDisplayName}</p>
-                      <p className="mt-0.5 text-xs text-gray-500">{adminUser?.email || "—"}</p>
+                      <p className="text-sm font-semibold text-[#000000]">{adminDisplayName}</p>
+                      <p className="mt-0.5 text-xs text-[#6f6a60]">{adminUser?.email || "—"}</p>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="rounded-full bg-[#fff7df] px-2 py-1 text-xs font-medium text-[#6c5715]">
+                        <span className="bg-[#fff7df] px-2 py-1 text-xs font-medium text-[#6c5715]">
                           {adminRoleLabel}
                         </span>
-                        <span className="rounded-full bg-[#fcfbf7] px-2 py-1 text-xs font-medium text-[#5f5b54]">
+                        <span className="bg-[#fcfbf7] px-2 py-1 text-xs font-medium text-[#5f5b54]">
                           {countryCode}
                         </span>
                       </div>
                     </div>
 
                     <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#fcfbf7]"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#5D4B3C] hover:bg-[#fff7df]"
                       onClick={() => setShowProfile(false)}
                       type="button"
                     >
@@ -300,7 +300,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                     </button>
 
                     <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#fcfbf7]"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#5D4B3C] hover:bg-[#fff7df]"
                       onClick={() => {
                         setShowProfile(false);
                         navigate("/settings");
@@ -330,7 +330,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
                     </button>
 
                     <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#fcfbf7]"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#5D4B3C] hover:bg-[#fff7df]"
                       onClick={() => {
                         setShowProfile(false);
                         navigate("/settings/users");
@@ -389,7 +389,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
             </div>
             <div className="flex items-center gap-2">
               <CountrySelector className="w-28" />
-              <span className="rounded-xl border border-[#ece4d1] bg-[#fcfbf7] px-2 py-1 text-xs font-semibold text-[#5f5b54]">
+              <span className="border border-[#ece4d1] bg-white px-2 py-1 text-xs font-semibold text-[#5f5b54]">
                 {countryCode}
               </span>
             </div>

@@ -39,12 +39,12 @@ const DEFAULT_SETTINGS = {
 
 function Card({ title, description, actions, children }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-6 py-5">
+    <section className="border border-[#e7dec8] bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#efe7d7] px-6 py-5">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-[#000000]">{title}</h2>
           {description ? (
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">{description}</p>
+            <p className="mt-1 max-w-2xl text-sm text-[#6f6a60]">{description}</p>
           ) : null}
         </div>
         {actions}
@@ -57,9 +57,9 @@ function Card({ title, description, actions, children }) {
 function Field({ label, hint, children }) {
   return (
     <label className="block space-y-1.5">
-      <div className="text-sm font-medium text-gray-700">{label}</div>
+      <div className="text-sm font-medium text-[#5D4B3C]">{label}</div>
       {children}
-      {hint ? <div className="text-xs text-gray-500">{hint}</div> : null}
+      {hint ? <div className="text-xs text-[#8d7a5c]">{hint}</div> : null}
     </label>
   );
 }
@@ -68,7 +68,7 @@ function TextInput(props) {
   return (
     <input
       {...props}
-      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+      className="w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
     />
   );
 }
@@ -77,18 +77,18 @@ function TextArea(props) {
   return (
     <textarea
       {...props}
-      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+      className="w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
     />
   );
 }
 
 function ToggleCard({ label, hint, checked, onChange }) {
   return (
-    <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+    <label className="flex items-center gap-3 border border-[#e7dec8] bg-white px-4 py-3">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <div>
-        <div className="text-sm font-medium text-gray-900">{label}</div>
-        <div className="text-xs text-gray-500">{hint}</div>
+        <div className="text-sm font-medium text-[#000000]">{label}</div>
+        <div className="text-xs text-[#8d7a5c]">{hint}</div>
       </div>
     </label>
   );
@@ -192,7 +192,7 @@ export default function AdminSettingsPage() {
         actions={
           <div className="flex items-center gap-3">
             {info ? (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              <span className="border border-[#bad6a7] bg-[#eef7e8] px-3 py-1 text-xs font-medium text-[#587f34]">
                 {info}
               </span>
             ) : null}
@@ -200,7 +200,7 @@ export default function AdminSettingsPage() {
               type="button"
               onClick={handleSave}
               disabled={saving || loading}
-              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+              className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
             >
               {saving ? "Enregistrement..." : "Enregistrer"}
             </button>
@@ -209,7 +209,7 @@ export default function AdminSettingsPage() {
       >
         <div className="space-y-6">
           {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           ) : null}
@@ -219,10 +219,10 @@ export default function AdminSettingsPage() {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors ${
+                className={`border px-4 py-3 text-left text-sm font-medium transition-colors ${
                   activeTab === tab.key
-                    ? "border-blue-300 bg-blue-50 text-blue-700"
-                    : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    ? "border-[#e4d395] bg-[#fff7df] text-[#6c5715]"
+                    : "border-[#e7dec8] bg-white text-[#5D4B3C] hover:bg-[#fcfbf7]"
                 }`}
               >
                 {tab.label}
@@ -368,10 +368,10 @@ export default function AdminSettingsPage() {
                 </Field>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                <div className="text-base font-semibold text-gray-900">Résumé actuel</div>
-                <p className="mt-2 text-sm text-gray-500">
-                  Panier minimum configuré: <span className="font-semibold text-gray-900">{commercialSummary}</span>
+              <div className="border border-[#e7dec8] bg-[#fcfbf7] p-5">
+                <div className="text-base font-semibold text-[#000000]">Résumé actuel</div>
+                <p className="mt-2 text-sm text-[#6f6a60]">
+                  Panier minimum configuré: <span className="font-semibold text-[#000000]">{commercialSummary}</span>
                 </p>
               </div>
             </div>
