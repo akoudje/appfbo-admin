@@ -21,6 +21,7 @@ import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
+import AdminSettingsPage from "./pages/AdminSettingsPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -188,7 +189,7 @@ export default function App() {
                       permission={Permission.COUNTRY_WRITE}
                       fallback={<AccessDenied message="Accès refusé aux paramètres." />}
                     >
-                      <div className="p-6">Paramètres</div>
+                      <AdminSettingsPage />
                     </RequirePermission>
                   }
                 />
