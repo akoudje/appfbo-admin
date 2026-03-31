@@ -154,6 +154,23 @@ function formatDateTime(value) {
   }
 }
 
+function formatFcfa(value) {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "XOF",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function getItemSku(item) {
+  return item?.productSkuSnapshot || item?.product?.sku || "—";
+}
+
+function getItemName(item) {
+  return item?.productNameSnapshot || item?.product?.nom || "Produit";
+}
+
 // ============================================================================
 // Composant principal
 // ============================================================================
@@ -183,6 +200,79 @@ export default function OrderFulfillmentTab({
   const isPickupOrder = order?.deliveryMode === "RETRAIT_SITE_FLP";
   const missingPickupCode = isPickupOrder && !String(pickupCode || "").trim();
   const hasDeliveryInfo = Boolean(order?.deliveryTracking || order?.fulfilledBy || order?.fulfilledAt);
+  const orderItems = Array.isArray(order?.items) ? order.items : [];
+  const totalUnits = orderItems.reduce((sum, item) => sum + Number(item?.qty || 0), 0);
+
+  const handlePrintDeliveryNote = () => {
+    const popup = window.open("", "_blank", "width=980,height=720");
+    if (!popup) return;
+
+    const rows = orderItems
+      .map((item) => {
+        const sku = getItemSku(item);
+        const name = getItemName(item);
+        const qty = Number(item?.qty || 0);
+        return `
+          <tr>
+            <td>${sku}</td>
+            <td>${name}</td>
+            <td>${qty}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Bon de livraison ${order?.parcelNumber || order?.preorderNumber || order?.id || ""}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
+          h1 { font-size: 20px; margin: 0 0 8px; }
+          .meta { margin-bottom: 18px; font-size: 13px; }
+          .meta div { margin: 3px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #ddd; padding: 8px; font-size: 13px; text-align: left; }
+          th { background: #f5f5f5; }
+          .footer { margin-top: 18px; font-size: 12px; color: #444; }
+        </style>
+      </head>
+      <body>
+        <h1>Bon de livraison</h1>
+        <div class="meta">
+          <div><strong>N° colis:</strong> ${order?.parcelNumber || "—"}</div>
+          <div><strong>N° précommande:</strong> ${order?.preorderNumber || order?.id || "—"}</div>
+          <div><strong>Client:</strong> ${order?.fboNomComplet || "—"} (FBO ${order?.fboNumero || "—"})</div>
+          <div><strong>Date impression:</strong> ${formatDateTime(new Date().toISOString())}</div>
+          <div><strong>Mode remise:</strong> ${order?.fulfillmentMode || (isPickupOrder ? "PICKUP" : "DELIVERY")}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Produit</th>
+              <th>Quantité</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="3">Aucun produit</td></tr>'}
+          </tbody>
+        </table>
+        <div class="footer">
+          Total lignes: ${orderItems.length} • Total unités: ${totalUnits}
+        </div>
+      </body>
+      </html>
+    `;
+
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+  };
 
   // Rendu conditionnel des alertes
   const renderAlert = () => {
@@ -258,6 +348,54 @@ export default function OrderFulfillmentTab({
 
       {/* Alertes contextuelles */}
       {renderAlert()}
+
+      <InfoSection title="Produits à remettre au client">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+          <div className="text-gray-700">
+            <strong>{orderItems.length}</strong> ligne(s) • <strong>{totalUnits}</strong> unité(s)
+          </div>
+          <div className="font-semibold text-gray-900">{formatFcfa(order?.totalFcfa || 0)}</div>
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-3 py-2">SKU</th>
+                <th className="px-3 py-2">Produit</th>
+                <th className="px-3 py-2">Qté</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderItems.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-3 py-4 text-center text-gray-500">
+                    Aucun produit sur la commande.
+                  </td>
+                </tr>
+              ) : (
+                orderItems.map((item) => (
+                  <tr key={item.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2 font-mono text-xs">{getItemSku(item)}</td>
+                    <td className="px-3 py-2">{getItemName(item)}</td>
+                    <td className="px-3 py-2 font-semibold">{Number(item?.qty || 0)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={handlePrintDeliveryNote}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Imprimer bon de livraison
+          </button>
+        </div>
+      </InfoSection>
 
       {!isFulfilled && (
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">

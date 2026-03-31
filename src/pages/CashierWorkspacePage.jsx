@@ -785,16 +785,16 @@ export default function CashierWorkspacePage() {
 
       <div className="flex flex-wrap gap-2">
         <QuickFilterButton active={quickPreset === "ALL"} onClick={() => applyQuickPreset("ALL")}>
-          Preset: Tous
+          Tous
         </QuickFilterButton>
         <QuickFilterButton active={quickPreset === "TODAY"} onClick={() => applyQuickPreset("TODAY")}>
-          Preset: Aujourd'hui
+          Aujourd'hui
         </QuickFilterButton>
         <QuickFilterButton active={quickPreset === "CASH"} onClick={() => applyQuickPreset("CASH")}>
-          Preset: Espèces
+          Espèces
         </QuickFilterButton>
         <QuickFilterButton active={quickPreset === "WAVE"} onClick={() => applyQuickPreset("WAVE")}>
-          Preset: Wave
+          Wave
         </QuickFilterButton>
       </div>
 
