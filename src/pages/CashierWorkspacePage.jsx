@@ -1,9 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { AdminRole } from "../auth/permissions";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
+
+const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v1";
+
+function getTodayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function safeReadStorage(key, fallback = "ALL") {
+  try {
+    return window.localStorage.getItem(key) || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function safeWriteStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (_) {
+    // Ignore storage failures (private mode, quota, etc.).
+  }
+}
 
 function formatFcfa(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -409,6 +431,7 @@ function JournalTable({ rows, canViewAll }) {
 export default function CashierWorkspacePage() {
   const navigate = useNavigate();
   const { admin, role } = useAdminAuth();
+  const searchDebounceInitializedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -421,6 +444,11 @@ export default function CashierWorkspacePage() {
   const [journalScope, setJournalScope] = useState("my");
   const [activeTab, setActiveTab] = useState("collect");
   const [quickMode, setQuickMode] = useState("ALL");
+  const [quickPreset, setQuickPreset] = useState("ALL");
+  const presetStorageKey = useMemo(
+    () => `${CASHIER_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`,
+    [role],
+  );
 
   const canViewConsolidated = useMemo(
     () =>
@@ -433,16 +461,21 @@ export default function CashierWorkspacePage() {
     [role],
   );
 
-  async function load() {
+  async function load(overrides = {}) {
     try {
       setLoading(true);
       setError("");
+      const queryValue = overrides.query ?? query;
+      const paymentModeValue = overrides.paymentMode ?? paymentMode;
+      const dateFromValue = overrides.dateFrom ?? dateFrom;
+      const dateToValue = overrides.dateTo ?? dateTo;
+      const journalScopeValue = overrides.journalScope ?? journalScope;
       const data = await cashierService.getWorkspace({
-        q: query || undefined,
-        paymentMode: paymentMode || undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        journalScope: canViewConsolidated ? journalScope : "my",
+        q: queryValue || undefined,
+        paymentMode: paymentModeValue || undefined,
+        dateFrom: dateFromValue || undefined,
+        dateTo: dateToValue || undefined,
+        journalScope: canViewConsolidated ? journalScopeValue : "my",
       });
       setWorkspace(data);
     } catch (e) {
@@ -455,6 +488,145 @@ export default function CashierWorkspacePage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!searchDebounceInitializedRef.current) {
+        searchDebounceInitializedRef.current = true;
+        return;
+      }
+      load({ query });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const savedPreset = safeReadStorage(presetStorageKey, "ALL");
+    const today = getTodayIsoDate();
+
+    if (savedPreset === "TODAY") {
+      setQuickPreset("TODAY");
+      setPaymentMode("");
+      setDateFrom(today);
+      setDateTo(today);
+      setQuickMode("ALL");
+      setJournalScope("my");
+      load({
+        paymentMode: "",
+        dateFrom: today,
+        dateTo: today,
+        journalScope: "my",
+      });
+      return;
+    }
+
+    if (savedPreset === "CASH") {
+      setQuickPreset("CASH");
+      setPaymentMode("ESPECES");
+      setDateFrom("");
+      setDateTo("");
+      setQuickMode("ESPECES");
+      load({
+        paymentMode: "ESPECES",
+        dateFrom: "",
+        dateTo: "",
+      });
+      return;
+    }
+
+    if (savedPreset === "WAVE") {
+      setQuickPreset("WAVE");
+      setPaymentMode("WAVE");
+      setDateFrom("");
+      setDateTo("");
+      setQuickMode("WAVE");
+      load({
+        paymentMode: "WAVE",
+        dateFrom: "",
+        dateTo: "",
+      });
+      return;
+    }
+
+    setQuickPreset("ALL");
+    setPaymentMode("");
+    setDateFrom("");
+    setDateTo("");
+    setQuickMode("ALL");
+    setJournalScope("my");
+    load({
+      paymentMode: "",
+      dateFrom: "",
+      dateTo: "",
+      journalScope: "my",
+    });
+  }, [presetStorageKey]);
+
+  useEffect(() => {
+    safeWriteStorage(presetStorageKey, quickPreset);
+  }, [presetStorageKey, quickPreset]);
+
+  function applyQuickPreset(preset) {
+    const today = getTodayIsoDate();
+
+    if (preset === "TODAY") {
+      setQuickPreset("TODAY");
+      setPaymentMode("");
+      setDateFrom(today);
+      setDateTo(today);
+      setQuickMode("ALL");
+      setJournalScope("my");
+      load({
+        paymentMode: "",
+        dateFrom: today,
+        dateTo: today,
+        journalScope: "my",
+      });
+      return;
+    }
+
+    if (preset === "CASH") {
+      setQuickPreset("CASH");
+      setPaymentMode("ESPECES");
+      setDateFrom("");
+      setDateTo("");
+      setQuickMode("ESPECES");
+      load({
+        paymentMode: "ESPECES",
+        dateFrom: "",
+        dateTo: "",
+      });
+      return;
+    }
+
+    if (preset === "WAVE") {
+      setQuickPreset("WAVE");
+      setPaymentMode("WAVE");
+      setDateFrom("");
+      setDateTo("");
+      setQuickMode("WAVE");
+      load({
+        paymentMode: "WAVE",
+        dateFrom: "",
+        dateTo: "",
+      });
+      return;
+    }
+
+    setQuickPreset("ALL");
+    setPaymentMode("");
+    setDateFrom("");
+    setDateTo("");
+    setJournalScope("my");
+    setQuickMode("ALL");
+    load({
+      paymentMode: "",
+      dateFrom: "",
+      dateTo: "",
+      journalScope: "my",
+    });
+  }
 
   async function runAction(orderId, action) {
     try {
@@ -611,13 +783,28 @@ export default function CashierWorkspacePage() {
         </QuickFilterButton>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <QuickFilterButton active={quickPreset === "ALL"} onClick={() => applyQuickPreset("ALL")}>
+          Preset: Tous
+        </QuickFilterButton>
+        <QuickFilterButton active={quickPreset === "TODAY"} onClick={() => applyQuickPreset("TODAY")}>
+          Preset: Aujourd'hui
+        </QuickFilterButton>
+        <QuickFilterButton active={quickPreset === "CASH"} onClick={() => applyQuickPreset("CASH")}>
+          Preset: Espèces
+        </QuickFilterButton>
+        <QuickFilterButton active={quickPreset === "WAVE"} onClick={() => applyQuickPreset("WAVE")}>
+          Preset: Wave
+        </QuickFilterButton>
+      </div>
+
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="FBO, facture, précommande"
+              placeholder="FBO, facture, précommande, colis, téléphone, reçu"
               className="rounded-xl border border-gray-300 px-3 py-2 text-sm xl:col-span-2"
             />
             <select
@@ -651,6 +838,29 @@ export default function CashierWorkspacePage() {
               className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {loading ? "Chargement..." : "Actualiser"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickPreset("ALL");
+                setQuery("");
+                setPaymentMode("");
+                setDateFrom("");
+                setDateTo("");
+                setJournalScope("my");
+                setQuickMode("ALL");
+                load({
+                  query: "",
+                  paymentMode: "",
+                  dateFrom: "",
+                  dateTo: "",
+                  journalScope: "my",
+                });
+              }}
+              disabled={loading}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Réinitialiser
             </button>
           </div>
         </div>

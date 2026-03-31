@@ -2,7 +2,7 @@
 // Page d'affichage de la file de facturation, avec les stats, les onglets et le tableau. 
 // Gère les actions de prise en charge, démarrage, libération et escalade des dossiers de facturation.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ordersService } from "../../services/ordersService";
 import useAdminAuth from "../../hooks/useAdminAuth";
@@ -12,10 +12,37 @@ import BillingQueueStats from "../../components/billing/BillingQueueStats";
 import BillingQueueTabs from "../../components/billing/BillingQueueTabs";
 import BillingQueueTable from "../../components/billing/BillingQueueTable";
 
+const BILLING_PRESET_STORAGE_PREFIX = "billing_queue_preset_v1";
+
+function getTodayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function safeReadStorage(key, fallback = "ALL") {
+  try {
+    return window.localStorage.getItem(key) || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function safeWriteStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (_) {
+    // Ignore storage failures (private mode, quota, etc.).
+  }
+}
+
 export default function BillingQueuePage() {
   const navigate = useNavigate();
   const { admin, role } = useAdminAuth();
   const currentAdminId = admin?.id || null;
+  const searchDebounceInitializedRef = useRef(false);
+  const presetStorageKey = useMemo(
+    () => `${BILLING_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`,
+    [role],
+  );
 
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -25,37 +52,50 @@ export default function BillingQueuePage() {
     role === "BILLING_MANAGER" ? "queue" : "my",
   );
   const [rows, setRows] = useState([]);
+  const [query, setQuery] = useState("");
+  const [priority, setPriority] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [quickPreset, setQuickPreset] = useState("ALL");
 
-  const load = async () => {
+  const load = async (overrides = {}) => {
     try {
       setLoading(true);
       setError("");
+      const qValue = overrides.query ?? query;
+      const priorityValue = overrides.priority ?? priority;
+      const dateFromValue = overrides.dateFrom ?? dateFrom;
+      const dateToValue = overrides.dateTo ?? dateTo;
+      const commonFilters = {
+        page: 1,
+        pageSize: 100,
+        q: qValue || undefined,
+        billingPriority: priorityValue || undefined,
+        dateFrom: dateFromValue || undefined,
+        dateTo: dateToValue || undefined,
+      };
 
       const [myData, queueData, waitingPaymentData, escalatedData] = await Promise.all([
         ordersService.getAll({
-          page: 1,
-          pageSize: 100,
+          ...commonFilters,
           assignedToMe: true,
           sort: "billingSlaDeadlineAt",
           dir: "asc",
         }),
         ordersService.getAll({
-          page: 1,
-          pageSize: 100,
+          ...commonFilters,
           billingWorkStatus: "QUEUED",
           sort: "billingQueueEnteredAt",
           dir: "asc",
         }),
         ordersService.getAll({
-          page: 1,
-          pageSize: 100,
+          ...commonFilters,
           billingWorkStatus: "WAITING_PAYMENT",
           sort: "billingLastActivityAt",
           dir: "asc",
         }),
         ordersService.getAll({
-          page: 1,
-          pageSize: 100,
+          ...commonFilters,
           billingWorkStatus: "ESCALATED",
           sort: "billingEscalatedAt",
           dir: "asc",
@@ -87,6 +127,87 @@ export default function BillingQueuePage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!searchDebounceInitializedRef.current) {
+        searchDebounceInitializedRef.current = true;
+        return;
+      }
+      load({ query });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const savedPreset = safeReadStorage(presetStorageKey, "ALL");
+    if (savedPreset === "URGENT") {
+      setQuickPreset("URGENT");
+      setPriority("URGENT");
+      setDateFrom("");
+      setDateTo("");
+      load({ priority: "URGENT", dateFrom: "", dateTo: "" });
+      return;
+    }
+    if (savedPreset === "TODAY") {
+      const today = getTodayIsoDate();
+      setQuickPreset("TODAY");
+      setPriority("");
+      setDateFrom(today);
+      setDateTo(today);
+      load({ priority: "", dateFrom: today, dateTo: today });
+      return;
+    }
+    setQuickPreset("ALL");
+    setPriority("");
+    setDateFrom("");
+    setDateTo("");
+    load({ priority: "", dateFrom: "", dateTo: "" });
+  }, [presetStorageKey]);
+
+  useEffect(() => {
+    safeWriteStorage(presetStorageKey, quickPreset);
+  }, [presetStorageKey, quickPreset]);
+
+  const applyQuickPreset = (preset) => {
+    const today = getTodayIsoDate();
+    if (preset === "URGENT") {
+      setQuickPreset("URGENT");
+      setPriority("URGENT");
+      setDateFrom("");
+      setDateTo("");
+      load({ priority: "URGENT", dateFrom: "", dateTo: "" });
+      return;
+    }
+    if (preset === "TODAY") {
+      setQuickPreset("TODAY");
+      setPriority("");
+      setDateFrom(today);
+      setDateTo(today);
+      load({ priority: "", dateFrom: today, dateTo: today });
+      return;
+    }
+    setQuickPreset("ALL");
+    setPriority("");
+    setDateFrom("");
+    setDateTo("");
+    load({ priority: "", dateFrom: "", dateTo: "" });
+  };
+
+  const handleClearFilters = () => {
+    setQuickPreset("ALL");
+    setQuery("");
+    setPriority("");
+    setDateFrom("");
+    setDateTo("");
+    load({
+      query: "",
+      priority: "",
+      dateFrom: "",
+      dateTo: "",
+    });
+  };
 
   const filteredRows = useMemo(() => {
     if (!Array.isArray(rows)) return [];
@@ -224,6 +345,94 @@ export default function BillingQueuePage() {
       />
 
       <BillingQueueAlerts error={error} info={info} />
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="N° colis, précommande, FBO ou facture"
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm xl:col-span-2"
+          />
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Toutes priorités</option>
+            <option value="LOW">Low</option>
+            <option value="NORMAL">Normal</option>
+            <option value="HIGH">High</option>
+            <option value="URGENT">Urgent</option>
+          </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => applyQuickPreset("ALL")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              quickPreset === "ALL"
+                ? "bg-gray-900 text-white"
+                : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+            type="button"
+          >
+            Tous
+          </button>
+          <button
+            onClick={() => applyQuickPreset("URGENT")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              quickPreset === "URGENT"
+                ? "bg-red-600 text-white"
+                : "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+            }`}
+            type="button"
+          >
+            Urgent
+          </button>
+          <button
+            onClick={() => applyQuickPreset("TODAY")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              quickPreset === "TODAY"
+                ? "bg-blue-600 text-white"
+                : "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            }`}
+            type="button"
+          >
+            Aujourd'hui
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={load}
+            disabled={loading || claiming}
+            className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            type="button"
+          >
+            {loading ? "Chargement..." : "Appliquer"}
+          </button>
+          <button
+            onClick={handleClearFilters}
+            disabled={loading || claiming}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            type="button"
+          >
+            Réinitialiser
+          </button>
+        </div>
+      </div>
 
       <BillingQueueStats stats={stats} />
 
