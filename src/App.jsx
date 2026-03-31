@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
+import StockWorkspacePage from "./pages/stock/StockWorkspacePage";
 import Products from "./pages/Products";
 import ProductCreate from "./pages/ProductCreate.jsx";
 import ProductEdit from "./pages/ProductEdit.jsx";
@@ -119,6 +120,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à la file de préparation." />}
                     >
                       <PreparationQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/stock"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PRODUCT_READ}
+                      fallback={<AccessDenied message="Accès refusé à l’espace stock." />}
+                    >
+                      <StockWorkspacePage />
                     </RequirePermission>
                   }
                 />

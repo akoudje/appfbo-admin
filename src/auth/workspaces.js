@@ -16,8 +16,9 @@ export function getDefaultWorkspaceRoute(role) {
     case AdminRole.COUNTER_MANAGER:
       return "/cashier";
     case AdminRole.ORDER_PREPARER:
-    case AdminRole.STOCK_MANAGER:
       return "/preparation";
+    case AdminRole.STOCK_MANAGER:
+      return "/stock";
     default:
       return "/dashboard";
   }
@@ -38,9 +39,9 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.ORDER_PREPARER:
       return new Set(["preparation"]);
     case AdminRole.STOCK_MANAGER:
-      return new Set(["preparation", "products"]);
+      return new Set(["stock"]);
     default:
-      return new Set(["dashboard", "orders", "billing", "cashier", "preparation", "products"]);
+      return new Set(["dashboard", "orders", "billing", "cashier", "preparation", "stock", "products"]);
   }
 }
 

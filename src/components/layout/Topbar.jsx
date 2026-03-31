@@ -46,7 +46,8 @@ function getWorkspaceLabel(role) {
 
   if (["INVOICER", "BILLING_MANAGER"].includes(normalized)) return "Facturation";
   if (["CAISSIERE", "COUNTER_MANAGER"].includes(normalized)) return "Caisse";
-  if (["ORDER_PREPARER", "STOCK_MANAGER"].includes(normalized)) return "Préparation";
+  if (["ORDER_PREPARER"].includes(normalized)) return "Préparation";
+  if (["STOCK_MANAGER"].includes(normalized)) return "Stock";
   return "Administration";
 }
 
@@ -57,6 +58,7 @@ function getPageTitle(pathname) {
   if (pathname === "/billing") return "Espace Facturation";
   if (pathname === "/cashier") return "Espace Caisse";
   if (pathname === "/preparation") return "Espace Préparation";
+  if (pathname === "/stock") return "Espace Stock";
   if (pathname === "/products") return "Produits";
   if (pathname === "/products/new") return "Nouveau produit";
   if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier produit";
@@ -78,6 +80,9 @@ function getPageSubtitle(pathname, role) {
   }
   if (pathname === "/preparation") {
     return "Checklist, anomalies et clôture des colis prêts.";
+  }
+  if (pathname === "/stock") {
+    return "Pilotage des niveaux, ajustements et journal des mouvements.";
   }
   if (pathname.startsWith("/orders/")) {
     return `Vue métier : ${workspaceLabel}`;
