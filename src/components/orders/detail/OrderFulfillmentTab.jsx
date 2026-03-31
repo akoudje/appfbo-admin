@@ -192,6 +192,7 @@ export default function OrderFulfillmentTab({
   fulfillNote,
   setFulfillNote,
   onFulfill,
+  onDownloadDeliveryNote,
 }) {
   const status = order?.status;
   const isReady = status === "READY";
@@ -389,10 +390,16 @@ export default function OrderFulfillmentTab({
         <div>
           <button
             type="button"
-            onClick={handlePrintDeliveryNote}
+            onClick={() => {
+              if (typeof onDownloadDeliveryNote === "function") {
+                onDownloadDeliveryNote();
+                return;
+              }
+              handlePrintDeliveryNote();
+            }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            Imprimer bon de livraison
+            Télécharger bon de livraison (PDF)
           </button>
         </div>
       </InfoSection>

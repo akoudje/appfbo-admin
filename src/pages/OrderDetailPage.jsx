@@ -717,6 +717,28 @@ const doInvoice = async () => {
     }
   };
 
+  const doDownloadDeliveryNote = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      const response = await ordersService.downloadDeliveryNotePdf(id);
+      const blob = response?.data instanceof Blob ? response.data : new Blob([response?.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const parcelRef = order?.parcelNumber || order?.preorderNumber || id;
+      link.href = url;
+      link.download = `bon-livraison-${parcelRef}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de générer le bon de livraison");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const doUpdatePreparationChecklistItem = async (itemId, checked) => {
     try {
       setSaving(true);
@@ -1120,6 +1142,7 @@ const doInvoice = async () => {
               fulfillNote={fulfillNote}
               setFulfillNote={setFulfillNote}
               onFulfill={doFulfill}
+              onDownloadDeliveryNote={doDownloadDeliveryNote}
             />
           </RequirePermission>
         )}

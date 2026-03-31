@@ -49,6 +49,11 @@ export const ordersService = {
       })
     ).data,
 
+  downloadDeliveryNotePdf: async (id) =>
+    await api.get(`/admin/orders/${normalizeOrderId(id)}/delivery-note.pdf`, {
+      responseType: "blob",
+    }),
+
   /* ============================
      Workflow commande
   ============================ */
