@@ -291,7 +291,11 @@ export default function OrderDetailPage() {
   }, [status, isWave, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
-  const canReplaceBillingItems = canAccessBilling && status === "SUBMITTED";
+  const canReplaceBillingItems =
+    canAccessBilling &&
+    ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
+      status,
+    );
   const canProof =
     status === "INVOICED" && !isCash && !isWave && !isAutoPayment;
   const canVerify =
@@ -389,6 +393,28 @@ export default function OrderDetailPage() {
     );
   }, [messages]);
 
+  const showReinvoiceHint = useMemo(() => {
+    if (status !== "SUBMITTED") return false;
+    const logs = Array.isArray(order?.logs) ? order.logs : [];
+    const replacementLog = logs.find(
+      (log) =>
+        log?.action === "BILLING_ITEM_REPLACED" &&
+        Boolean(log?.meta?.requiresReinvoice),
+    );
+    if (!replacementLog) return false;
+
+    const replacementAt = new Date(replacementLog.createdAt || 0).getTime();
+    if (!Number.isFinite(replacementAt)) return true;
+
+    const hasNewerInvoice = logs.some((log) => {
+      if (log?.action !== "INVOICE") return false;
+      const invoiceAt = new Date(log.createdAt || 0).getTime();
+      return Number.isFinite(invoiceAt) && invoiceAt > replacementAt;
+    });
+
+    return !hasNewerInvoice;
+  }, [order?.logs, status]);
+
   const availableTabs = useMemo(() => {
     return getOrderTabsForRole(role, canAccessCancel, order?.status).filter((tab) => {
       if (tab.key === "billing") return canAccessBilling;
@@ -481,7 +507,27 @@ export default function OrderDetailPage() {
   };
 
   const handleResendWhatsApp = async () => {
-    setInfo("Fonction de renvoi SMS bientot disponible.");
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.resendInvoiceSms(id);
+      if (result?.sent) {
+        setInfo(`SMS renvoyé au ${result?.toPhone || "client"}.`);
+      } else {
+        setInfo(
+          result?.errorMessage ||
+            "Le renvoi SMS a été lancé, mais le fournisseur ne confirme pas l'envoi.",
+        );
+      }
+
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de renvoyer le SMS");
+    } finally {
+      setSaving(false);
+    }
   };
 
 const doInvoice = async () => {
@@ -884,11 +930,18 @@ const doInvoice = async () => {
       setError("");
       setInfo("");
 
-      await ordersService.replaceBillingItem(id, itemId, {
+      const result = await ordersService.replaceBillingItem(id, itemId, {
         replacementProductId: normalizeStr(nextProductId),
       });
 
-      setInfo("Produit remplacé. Les totaux de la commande ont été recalculés.");
+      const nextStatus = result?.order?.status;
+      if (nextStatus === "SUBMITTED" && status !== "SUBMITTED") {
+        setInfo(
+          "Produit remplacé. La commande est repassée en SOUMISE: veuillez régénérer la facture puis renvoyer le SMS.",
+        );
+      } else {
+        setInfo("Produit remplacé. Les totaux de la commande ont été recalculés.");
+      }
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de remplacer le produit");
@@ -983,6 +1036,17 @@ const doInvoice = async () => {
               >
                 Rafraîchir
               </button>
+
+              {canReplaceBillingItems ? (
+                <button
+                  onClick={() => setTab("overview")}
+                  disabled={saving || waveLoading}
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                  type="button"
+                >
+                  Modifier produits
+                </button>
+              ) : null}
 
               <RequirePermission permission={Permission.PREORDER_UPDATE_STATUS}>
                 {canCancel ? (
@@ -1105,6 +1169,7 @@ const doInvoice = async () => {
               onSimulateWave={doSimulateWave}
               waveLoading={waveLoading}
               showWaveDevTools={true}
+              showReinvoiceHint={showReinvoiceHint}
               reload={load}
             />
           </RequirePermission>

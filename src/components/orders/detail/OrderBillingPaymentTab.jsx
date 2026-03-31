@@ -1140,6 +1140,7 @@ export default function OrderBillingPaymentTab({
   onProof,
   onVerify,
   reload,
+  showReinvoiceHint = false,
   variant = "billing",
 }) {
   const status = order?.status;
@@ -1298,6 +1299,12 @@ export default function OrderBillingPaymentTab({
       ) : null}
 
       {statusMessage && <Alert tone={statusMessage.tone}>{statusMessage.text}</Alert>}
+
+      {showReinvoiceHint ? (
+        <Alert tone="amber">
+          Produit remplacé après facturation: refacturez cette commande puis renvoyez le SMS client.
+        </Alert>
+      ) : null}
 
       {showBillingSection && (
         <BillingActionCard

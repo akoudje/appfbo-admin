@@ -70,6 +70,10 @@ export const ordersService = {
       )
     ).data,
 
+  resendInvoiceSms: async (id) =>
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/resend-invoice-sms`))
+      .data,
+
   proof: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/proof`, body))
       .data,
