@@ -130,6 +130,11 @@ export default function OrderOverviewTab({
   steps,
   stockDebited,
   stockRestored,
+  canReplaceBillingItems = false,
+  replacementProducts = [],
+  replacingItemId = "",
+  saving = false,
+  onReplaceBillingItem = null,
 }) {
   const status = order?.status;
   const isCancelled = status === "CANCELLED";
@@ -243,6 +248,11 @@ export default function OrderOverviewTab({
       <OrderItemsTable
         items={order?.items || []}
         totalFcfa={order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0}
+        canReplace={canReplaceBillingItems}
+        replacementProducts={replacementProducts}
+        replacingItemId={replacingItemId}
+        saving={saving}
+        onReplaceItem={onReplaceBillingItem}
       />
     </div>
   );

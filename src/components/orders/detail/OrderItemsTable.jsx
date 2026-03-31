@@ -1,5 +1,6 @@
 // src/components/orders/detail/OrderItemsTable.jsx
 
+import { useEffect, useMemo, useState } from "react";
 
 import { formatFcfa } from "../../../lib/format";
 
@@ -33,7 +34,30 @@ function formatPercent(value) {
   return `${value.toFixed(2).replace(".", ",")} %`;
 }
 
-export default function OrderItemsTable({ items, totalFcfa }) {
+export default function OrderItemsTable({
+  items,
+  totalFcfa,
+  canReplace = false,
+  replacementProducts = [],
+  replacingItemId = "",
+  saving = false,
+  onReplaceItem = null,
+}) {
+  const [replaceByItemId, setReplaceByItemId] = useState({});
+
+  const replacementMap = useMemo(() => {
+    const map = new Map();
+    for (const p of replacementProducts || []) {
+      if (!p?.id) continue;
+      map.set(p.id, p);
+    }
+    return map;
+  }, [replacementProducts]);
+
+  useEffect(() => {
+    setReplaceByItemId({});
+  }, [items, replacementProducts]);
+
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b">
@@ -51,6 +75,7 @@ export default function OrderItemsTable({ items, totalFcfa }) {
               <th className="p-3">Remise</th>
               <th className="p-3">PU</th>
               <th className="p-3">Total</th>
+              {canReplace ? <th className="p-3 text-right">Action</th> : null}
             </tr>
           </thead>
 
@@ -89,12 +114,54 @@ export default function OrderItemsTable({ items, totalFcfa }) {
                     <td className="p-3 font-semibold whitespace-nowrap">
                       {formatFcfa(it.lineTotalFcfa || 0)}
                     </td>
+
+                    {canReplace ? (
+                      <td className="p-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <select
+                            value={replaceByItemId[it.id] || ""}
+                            onChange={(e) =>
+                              setReplaceByItemId((prev) => ({
+                                ...prev,
+                                [it.id]: e.target.value,
+                              }))
+                            }
+                            disabled={saving || replacingItemId === it.id}
+                            className="w-[210px] rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-[#f0cf57] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/35 disabled:opacity-60"
+                          >
+                            <option value="">Choisir remplacement</option>
+                            {(replacementProducts || [])
+                              .filter((p) => p?.id && p.id !== it.productId)
+                              .map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {(p.sku || "—") + " - " + (p.nom || "Produit")}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            disabled={
+                              saving ||
+                              replacingItemId === it.id ||
+                              !replaceByItemId[it.id] ||
+                              !replacementMap.has(replaceByItemId[it.id])
+                            }
+                            onClick={() =>
+                              onReplaceItem?.(it.id, replaceByItemId[it.id])
+                            }
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {replacingItemId === it.id ? "..." : "Remplacer"}
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td className="p-3" colSpan={6}>
+                <td className="p-3" colSpan={canReplace ? 7 : 6}>
                   Aucun item
                 </td>
               </tr>

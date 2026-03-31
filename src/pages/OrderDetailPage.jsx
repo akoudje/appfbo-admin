@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
+import { list as listProducts } from "../services/productsService";
 import RequirePermission from "../components/auth/RequirePermission";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
@@ -162,6 +163,8 @@ export default function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
 
   const [messages, setMessages] = useState([]);
+  const [replacementProducts, setReplacementProducts] = useState([]);
+  const [replacingItemId, setReplacingItemId] = useState("");
 
   const load = async () => {
     try {
@@ -288,6 +291,7 @@ export default function OrderDetailPage() {
   }, [status, isWave, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
+  const canReplaceBillingItems = canAccessBilling && status === "SUBMITTED";
   const canProof =
     status === "INVOICED" && !isCash && !isWave && !isAutoPayment;
   const canVerify =
@@ -443,6 +447,29 @@ export default function OrderDetailPage() {
       cancelled = true;
     };
   }, [canAccessBilling, invoiceAmountFcfa, invoiceGrade, order?.id, status]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!canReplaceBillingItems) {
+      setReplacementProducts([]);
+      return undefined;
+    }
+
+    listProducts({ actif: true, take: 500 })
+      .then((rows) => {
+        if (cancelled) return;
+        setReplacementProducts(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReplacementProducts([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canReplaceBillingItems]);
 
   const handleActionResult = async (result, fallbackInfo) => {
     if (result?.alreadyDone) {
@@ -850,6 +877,27 @@ const doInvoice = async () => {
     }
   };
 
+  const doReplaceBillingItem = async (itemId, nextProductId) => {
+    try {
+      setReplacingItemId(itemId);
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      await ordersService.replaceBillingItem(id, itemId, {
+        replacementProductId: normalizeStr(nextProductId),
+      });
+
+      setInfo("Produit remplacé. Les totaux de la commande ont été recalculés.");
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de remplacer le produit");
+    } finally {
+      setSaving(false);
+      setReplacingItemId("");
+    }
+  };
+
   if (loading) {
     return <div className="text-sm text-gray-500">Chargement…</div>;
   }
@@ -979,6 +1027,11 @@ const doInvoice = async () => {
             stockSummary={stockSummary}
             stockDebited={stockDebited}
             stockRestored={stockRestored}
+            canReplaceBillingItems={canReplaceBillingItems}
+            replacementProducts={replacementProducts}
+            replacingItemId={replacingItemId}
+            saving={saving}
+            onReplaceBillingItem={doReplaceBillingItem}
           />
         )}
 

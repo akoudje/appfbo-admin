@@ -62,6 +62,14 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/invoice`, body))
       .data,
 
+  replaceBillingItem: async (id, itemId, body) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/billing/items/${itemId}/replace`,
+        body,
+      )
+    ).data,
+
   proof: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/proof`, body))
       .data,
