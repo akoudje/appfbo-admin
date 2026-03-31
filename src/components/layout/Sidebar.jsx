@@ -272,22 +272,11 @@ export function DesktopSidebar({ collapsed, onToggle }) {
       >
         {!collapsed ? (
           <div className="flex flex-1 flex-col items-start justify-center">
-            <img
-              src="/logo-forever-home.png"
-              alt="Forever"
-              className="h-16 w-auto object-contain"
-            />
-            <div className="mt-2">
-              <div className="text-lg font-semibold tracking-[0.08em] text-white">Forever</div>
-              <div className="text-sm font-medium text-[#FFC600]">Admin Backoffice</div>
-            </div>
+            <div className="text-lg font-semibold tracking-[0.08em] text-white">Forever</div>
+            <div className="text-sm font-medium text-[#FFC600]">Admin Backoffice</div>
           </div>
         ) : (
-          <img
-            src="/logo-forever-home.png"
-            alt="Forever"
-            className="h-12 w-auto object-contain"
-          />
+          <div className="text-sm font-semibold tracking-[0.08em] text-white">Forever</div>
         )}
 
         <button
@@ -367,11 +356,6 @@ export function MobileSidebar({ isOpen, onClose }) {
       >
         <div className="flex items-center justify-between h-20 px-4 border-b border-[#1f1f1f]">
           <div className="flex items-center gap-2">
-            <img
-              src="/logo-forever-home.png"
-              alt="Forever"
-              className="h-14 w-auto object-contain"
-            />
             <div>
               <div className="text-lg font-semibold tracking-[0.08em] text-white">Forever</div>
               <div className="text-sm font-medium text-[#FFC600]">Admin Backoffice</div>
