@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
-import { AdminRole } from "../auth/permissions";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
 
-const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v1";
+const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v2";
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -14,7 +13,7 @@ function getTodayIsoDate() {
 function safeReadStorage(key, fallback = "ALL") {
   try {
     return window.localStorage.getItem(key) || fallback;
-  } catch (_) {
+  } catch {
     return fallback;
   }
 }
@@ -22,8 +21,8 @@ function safeReadStorage(key, fallback = "ALL") {
 function safeWriteStorage(key, value) {
   try {
     window.localStorage.setItem(key, value);
-  } catch (_) {
-    // Ignore storage failures (private mode, quota, etc.).
+  } catch {
+    // Ignore storage failures.
   }
 }
 
@@ -37,52 +36,32 @@ function formatFcfa(value) {
 }
 
 function formatDateTime(value) {
-  if (!value) return "—";
+  if (!value) return "-";
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
-function formatAge(value) {
-  if (!value) return "—";
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return "—";
-  const diffMs = Date.now() - dt.getTime();
-  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
-  if (diffMinutes < 60) return `${diffMinutes} min`;
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours} h`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} j`;
-}
-
 function humanizeEnum(value) {
-  if (!value) return "—";
+  if (!value) return "-";
   return String(value)
     .toLowerCase()
     .replaceAll("_", " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-function StatusPill({ children, tone = "gray" }) {
-  const tones = {
-    green: "bg-green-100 text-green-800",
-    amber: "bg-amber-100 text-amber-800",
-    blue: "bg-blue-100 text-blue-800",
-    gray: "bg-gray-100 text-gray-800",
-  };
-
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone] || tones.gray}`}>
-      {children}
-    </span>
-  );
+function mergeRowsById(groups = []) {
+  const map = new Map();
+  groups.flat().forEach((row) => {
+    if (row?.id) map.set(row.id, row);
+  });
+  return Array.from(map.values());
 }
 
-function SummaryCard({ title, value, hint }) {
+function SummaryCard({ label, value, hint }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</div>
       <div className="mt-2 text-2xl font-bold text-gray-900">{value}</div>
       {hint ? <div className="mt-1 text-xs text-gray-500">{hint}</div> : null}
     </div>
@@ -102,11 +81,7 @@ function TabButton({ active, children, onClick, count }) {
     >
       <span>{children}</span>
       {typeof count === "number" ? (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs ${
-            active ? "bg-white/15 text-white" : "bg-gray-100 text-gray-700"
-          }`}
-        >
+        <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-white/15" : "bg-gray-100"}`}>
           {count}
         </span>
       ) : null}
@@ -114,7 +89,7 @@ function TabButton({ active, children, onClick, count }) {
   );
 }
 
-function QuickFilterButton({ active, children, onClick }) {
+function QuickButton({ active, children, onClick }) {
   return (
     <button
       type="button"
@@ -130,214 +105,145 @@ function QuickFilterButton({ active, children, onClick }) {
   );
 }
 
-function MetricList({ title, rows = [], emptyLabel }) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-      <div className="mt-3 space-y-2">
-        {rows.length === 0 ? (
-          <div className="text-sm text-gray-500">{emptyLabel}</div>
-        ) : (
-          rows.map((row) => (
-            <div
-              key={`${title}-${row.paymentMode || row.cashierId || row.cashierName}`}
-              className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-gray-900">
-                  {row.paymentMode ? humanizeEnum(row.paymentMode) : row.cashierName}
-                </div>
-                <div className="text-xs text-gray-500">{row.count} opération(s)</div>
-              </div>
-              <div className="text-sm font-semibold text-gray-900">
-                {formatFcfa(row.amountFcfa)}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
+function statusTone(status) {
+  const s = String(status || "").toUpperCase();
+  if (["PAID", "READY", "FULFILLED"].includes(s)) return "bg-emerald-100 text-emerald-700";
+  if (["PAYMENT_PENDING", "INVOICED"].includes(s)) return "bg-amber-100 text-amber-700";
+  if (s === "CANCELLED") return "bg-red-100 text-red-700";
+  return "bg-gray-100 text-gray-700";
 }
 
-function QueueRowActions({
-  row,
-  busyId,
-  onCashPay,
-  onVerify,
-  onPrepare,
-  onSyncWave,
-  onPrint,
-  onOpen,
-}) {
-  const paymentMode = String(row.preorderPaymentMode || "").toUpperCase();
-  const isCash = paymentMode.includes("ESPE") || paymentMode.includes("CASH");
-  const isWave = String(row.paymentProvider || "").toUpperCase() === "WAVE";
-  const canCashPay = isCash && row.paymentStatus !== "PAID";
-  const canVerify =
-    !isCash && !isWave && row.status === "PAYMENT_PENDING" && row.paymentStatus !== "PAID";
-  const canPrepare = row.status === "PAID";
-  const canPrint = row.paymentStatus === "PAID";
-  const canSyncWave =
-    String(row.paymentProvider || "").toUpperCase() === "WAVE" &&
-    row.paymentStatus !== "PAID";
-  const disabled = busyId === row.id;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {canCashPay ? (
-        <button
-          type="button"
-          onClick={() => onCashPay(row)}
-          disabled={disabled}
-          className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-        >
-          Encaisser espèces
-        </button>
-      ) : null}
-      {canVerify ? (
-        <button
-          type="button"
-          onClick={() => onVerify(row)}
-          disabled={disabled}
-          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-        >
-          Confirmer paiement
-        </button>
-      ) : null}
-      {canSyncWave ? (
-        <button
-          type="button"
-          onClick={() => onSyncWave(row)}
-          disabled={disabled}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50"
-        >
-          Synchroniser
-        </button>
-      ) : null}
-      {canPrepare ? (
-        <button
-          type="button"
-          onClick={() => onPrepare(row)}
-          disabled={disabled}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-        >
-          Lancer préparation
-        </button>
-      ) : null}
-      {canPrint ? (
-        <button
-          type="button"
-          onClick={() => onPrint(row)}
-          disabled={disabled}
-          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
-        >
-          Imprimer reçu
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => onOpen(row)}
-        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700"
-      >
-        Ouvrir
-      </button>
-    </div>
-  );
-}
-
-function QueueTable(props) {
-  const { rows, emptyLabel = "Aucune précommande à traiter.", ...actions } = props;
-
+function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncWave, onOpenDetails }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">Précommande</th>
+              <th className="px-4 py-3">Commande</th>
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Montant</th>
-              <th className="px-4 py-3">Ancienneté</th>
-              <th className="px-4 py-3">État</th>
+              <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                  {emptyLabel}
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  Aucune commande.
                 </td>
+              </tr>
+            ) : (
+              rows.map((row) => {
+                const paymentMode = String(row.preorderPaymentMode || "").toUpperCase();
+                const isCash = paymentMode.includes("ESPE") || paymentMode.includes("CASH");
+                const isWave = String(row.paymentProvider || "").toUpperCase() === "WAVE";
+                const canCashPay = isCash && row.paymentStatus !== "PAID";
+                const canVerify = !isCash && !isWave && row.status === "PAYMENT_PENDING" && row.paymentStatus !== "PAID";
+                const canPrepare = row.status === "PAID";
+                const canSyncWave = isWave && row.paymentStatus !== "PAID";
+                const disabled = busyId === row.id;
+
+                return (
+                  <tr key={row.id} className="border-t border-gray-100 align-top">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.factureReference || row.id}</div>
+                      <div className="text-xs text-gray-500">{row.factureReference || "-"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
+                      <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
+                      <div className="text-xs text-gray-500">{row.paymentProvider || "-"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-gray-900">{formatFcfa(row.amountExpectedFcfa || row.totalFcfa)}</div>
+                      <div className="text-xs text-gray-500">Facturée le {formatDateTime(row.invoicedAt)}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(row.paymentStatus || row.status)}`}>
+                        {humanizeEnum(row.paymentStatus || row.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {canCashPay ? (
+                          <button type="button" onClick={() => onCashPay(row)} disabled={disabled} className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Encaisser</button>
+                        ) : null}
+                        {canVerify ? (
+                          <button type="button" onClick={() => onVerify(row)} disabled={disabled} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Confirmer</button>
+                        ) : null}
+                        {canSyncWave ? (
+                          <button type="button" onClick={() => onSyncWave(row)} disabled={disabled} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">Sync Wave</button>
+                        ) : null}
+                        {canPrepare ? (
+                          <button type="button" onClick={() => onPrepare(row)} disabled={disabled} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Lancer prep</button>
+                        ) : null}
+                        <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Détails</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Commande</th>
+              <th className="px-4 py-3">Client</th>
+              <th className="px-4 py-3">Paiement</th>
+              <th className="px-4 py-3">Montant</th>
+              <th className="px-4 py-3">Dates</th>
+              <th className="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">{emptyLabel}</td>
               </tr>
             ) : (
               rows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100 align-top">
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">
-                      {row.parcelNumber || row.preorderNumber || row.factureReference || row.id}
-                    </div>
-                    <div className="text-xs text-gray-500">{row.factureReference || "—"}</div>
+                    <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.factureReference || row.id}</div>
+                    <div className="text-xs text-gray-500">{humanizeEnum(row.status)}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{row.fboNomComplet || "—"}</div>
-                    <div className="text-xs text-gray-500">
-                      FBO {row.fboNumero || "—"} • {row.payerPhone || "N° payeur non saisi"}
-                    </div>
+                    <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
+                    <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">
-                      {humanizeEnum(row.preorderPaymentMode)}
-                    </div>
-                    <div className="text-xs text-gray-500">{row.paymentProvider || "—"}</div>
+                    <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
+                    <div className="text-xs text-gray-500">{humanizeEnum(row.paymentStatus)} / {row.paymentProvider || "-"}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">
-                      {formatFcfa(row.amountExpectedFcfa)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Facturée le {formatDateTime(row.invoicedAt)}
-                    </div>
-                    {row.cashierTransaction?.receiptNumber ? (
-                      <div className="text-xs text-gray-500">
-                        Reçu {row.cashierTransaction.receiptNumber}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">
-                      {formatAge(row.preparationLaunchedAt || row.paidAt || row.invoicedAt || row.createdAt)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      depuis {formatDateTime(row.preparationLaunchedAt || row.paidAt || row.invoicedAt || row.createdAt)}
-                    </div>
+                  <td className="px-4 py-3 font-semibold text-gray-900">{formatFcfa(row.totalFcfa)}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500">
+                    <div>Créée: {formatDateTime(row.createdAt)}</div>
+                    <div>Payée: {formatDateTime(row.paidAt)}</div>
+                    <div>Prête: {formatDateTime(row.preparedAt)}</div>
+                    <div>Clôturée: {formatDateTime(row.fulfilledAt)}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <StatusPill tone={row.paymentStatus === "PAID" ? "green" : row.status === "PAID" ? "blue" : "amber"}>
-                        {humanizeEnum(row.paymentStatus || row.status)}
-                      </StatusPill>
-                      <StatusPill tone={row.status === "PAID" ? "green" : "gray"}>
-                        {humanizeEnum(row.status)}
-                      </StatusPill>
+                      <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Détails</button>
+                      <button type="button" onClick={() => onOpenOrder(row.id)} className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white">Fiche</button>
                     </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      Payé le {formatDateTime(row.paidAt)}
-                    </div>
-                    {row.cashierTransaction?.cashDeskLabel ? (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {row.cashierTransaction.cashDeskLabel}
-                      </div>
-                    ) : null}
-                    {row.preparationLaunchedAt ? (
-                      <div className="mt-1 text-xs text-emerald-600">
-                        Transmise préparation le {formatDateTime(row.preparationLaunchedAt)}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <QueueRowActions row={row} {...actions} />
                   </td>
                 </tr>
               ))
@@ -349,81 +255,89 @@ function QueueTable(props) {
   );
 }
 
-function JournalTable({ rows, canViewAll }) {
+function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
+  if (!open) return null;
+
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const attempt = order?.activePayment?.attempts?.[0] || null;
+  const cashierTx = order?.cashierTransactions?.[0] || null;
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Reçu / Commande</th>
-              <th className="px-4 py-3">Paiement</th>
-              <th className="px-4 py-3">Montant</th>
-              <th className="px-4 py-3">Préparation</th>
-              <th className="px-4 py-3">Ancienneté</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Aucun paiement validé pour préparation sur cette période.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="border-t border-gray-100 align-top">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">
-                      {row.parcelNumber || row.factureReference || row.preorderNumber || row.id}
-                    </div>
-                    <div className="text-xs text-gray-500">{row.fboNomComplet || "—"}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">
-                      {humanizeEnum(row.preorderPaymentMode)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {row.paymentProvider || "—"} • {row.payerPhone || "—"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">
-                      {formatFcfa(row.amountExpectedFcfa)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Payé le {formatDateTime(row.paidAt)}
-                    </div>
-                    {row.cashierTransaction?.receiptNumber ? (
-                      <div className="text-xs text-gray-500">
-                        Reçu {row.cashierTransaction.receiptNumber}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">
-                      {formatDateTime(row.preparationLaunchedAt || row.preparedAt)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {canViewAll
-                        ? `Par ${row.preparationLaunchedBy?.fullName || "—"}`
-                        : "Transmis à la préparation"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">
-                      {formatAge(row.preparationLaunchedAt || row.paidAt || row.createdAt)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      depuis {formatDateTime(row.preparationLaunchedAt || row.paidAt || row.createdAt)}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="fixed inset-0 z-40">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Détail commande caisse</h3>
+            <div className="text-xs text-gray-500">Consultation complète après encaissement incluse</div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm">Fermer</button>
+        </div>
+
+        {loading ? (
+          <div className="p-4 text-sm text-gray-500">Chargement...</div>
+        ) : !order ? (
+          <div className="p-4 text-sm text-gray-500">Aucune donnée.</div>
+        ) : (
+          <div className="space-y-4 p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <SummaryCard label="Commande" value={order.parcelNumber || order.preorderNumber || order.id} />
+              <SummaryCard label="Montant" value={formatFcfa(order.totalFcfa)} />
+            </div>
+
+            <div className="rounded-xl border border-gray-200 p-4 text-sm">
+              <div className="grid gap-2 md:grid-cols-2">
+                <div><strong>Client:</strong> {order.fboNomComplet || "-"} (FBO {order.fboNumero || "-"})</div>
+                <div><strong>Statut:</strong> {humanizeEnum(order.status)} / {humanizeEnum(order.paymentStatus)}</div>
+                <div><strong>Mode paiement:</strong> {humanizeEnum(order.preorderPaymentMode)} ({order.paymentProvider || "-"})</div>
+                <div><strong>Téléphone payeur:</strong> {attempt?.providerPayerPhone || "-"}</div>
+                <div><strong>N° reçu caisse:</strong> {cashierTx?.receiptNumber || "-"}</div>
+                <div><strong>Poste caisse:</strong> {cashierTx?.cashDeskLabel || "-"}</div>
+                <div><strong>Facture:</strong> {order.factureReference || "-"}</div>
+                <div><strong>Paiement confirmé:</strong> {formatDateTime(order.paidAt)}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200">
+              <div className="border-b bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">Produits de la commande</div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2">SKU</th>
+                      <th className="px-3 py-2">Produit</th>
+                      <th className="px-3 py-2">Qté</th>
+                      <th className="px-3 py-2">Total ligne</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-4 text-center text-gray-500">Aucun produit</td>
+                      </tr>
+                    ) : (
+                      items.map((item) => (
+                        <tr key={item.id} className="border-t border-gray-100">
+                          <td className="px-3 py-2 font-mono text-xs">{item.productSkuSnapshot || item.product?.sku || "-"}</td>
+                          <td className="px-3 py-2">{item.productNameSnapshot || item.product?.nom || "Produit"}</td>
+                          <td className="px-3 py-2 font-semibold">{Number(item.qty || 0)}</td>
+                          <td className="px-3 py-2">{formatFcfa(item.lineTotalFcfa)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => onOpenOrder(order.id)} className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white">
+                Ouvrir la fiche complète
+              </button>
+            </div>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }
@@ -431,62 +345,72 @@ function JournalTable({ rows, canViewAll }) {
 export default function CashierWorkspacePage() {
   const navigate = useNavigate();
   const { admin, role } = useAdminAuth();
+  const presetStorageKey = useMemo(() => `${CASHIER_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`, [role]);
   const searchDebounceInitializedRef = useRef(false);
+
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [workspace, setWorkspace] = useState(null);
+
+  const [activeTab, setActiveTab] = useState("processing");
+  const [quickPreset, setQuickPreset] = useState("ALL");
+
   const [query, setQuery] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [journalScope, setJournalScope] = useState("my");
-  const [activeTab, setActiveTab] = useState("collect");
-  const [quickMode, setQuickMode] = useState("ALL");
-  const [quickPreset, setQuickPreset] = useState("ALL");
-  const presetStorageKey = useMemo(
-    () => `${CASHIER_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`,
-    [role],
-  );
 
-  const canViewConsolidated = useMemo(
-    () =>
-      [
-        AdminRole.SUPER_ADMIN,
-        AdminRole.TECH_ADMIN,
-        AdminRole.OPERATIONS_DIRECTOR,
-        AdminRole.COUNTER_MANAGER,
-      ].includes(role),
-    [role],
-  );
+  const [workspace, setWorkspace] = useState(null);
+  const [completedRows, setCompletedRows] = useState([]);
+  const [searchRows, setSearchRows] = useState([]);
 
-  async function load(overrides = {}) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [drawerOrder, setDrawerOrder] = useState(null);
+
+  const toCollect = workspace?.toCollect || [];
+  const toLaunchPreparation = workspace?.toLaunchPreparation || [];
+
+  const load = async (overrides = {}) => {
     try {
       setLoading(true);
       setError("");
-      const queryValue = overrides.query ?? query;
+      const qValue = overrides.query ?? query;
       const paymentModeValue = overrides.paymentMode ?? paymentMode;
-      const dateFromValue = overrides.dateFrom ?? dateFrom;
-      const dateToValue = overrides.dateTo ?? dateTo;
-      const journalScopeValue = overrides.journalScope ?? journalScope;
-      const data = await cashierService.getWorkspace({
-        q: queryValue || undefined,
+      const fromValue = overrides.dateFrom ?? dateFrom;
+      const toValue = overrides.dateTo ?? dateTo;
+
+      const common = {
+        q: qValue || undefined,
         paymentMode: paymentModeValue || undefined,
-        dateFrom: dateFromValue || undefined,
-        dateTo: dateToValue || undefined,
-        journalScope: canViewConsolidated ? journalScopeValue : "my",
-      });
-      setWorkspace(data);
+        dateFrom: fromValue || undefined,
+        dateTo: toValue || undefined,
+      };
+
+      const [workspaceRes, paidRes, readyRes, fulfilledRes, searchRes] = await Promise.all([
+        cashierService.getWorkspace(common),
+        ordersService.getAll({ ...common, status: "PAID", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
+        ordersService.getAll({ ...common, status: "READY", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
+        ordersService.getAll({ ...common, status: "FULFILLED", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
+        qValue?.trim()
+          ? ordersService.getAll({ ...common, page: 1, pageSize: 80, sort: "updatedAt", dir: "desc" })
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      setWorkspace(workspaceRes);
+      setCompletedRows(mergeRowsById([paidRes?.data || [], readyRes?.data || [], fulfilledRes?.data || []]));
+      setSearchRows(Array.isArray(searchRes?.data) ? searchRes.data : []);
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger l'espace caisse.");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -497,138 +421,83 @@ export default function CashierWorkspacePage() {
       }
       load({ query });
     }, 350);
-
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   useEffect(() => {
     const savedPreset = safeReadStorage(presetStorageKey, "ALL");
     const today = getTodayIsoDate();
-
     if (savedPreset === "TODAY") {
       setQuickPreset("TODAY");
       setPaymentMode("");
       setDateFrom(today);
       setDateTo(today);
-      setQuickMode("ALL");
-      setJournalScope("my");
-      load({
-        paymentMode: "",
-        dateFrom: today,
-        dateTo: today,
-        journalScope: "my",
-      });
+      load({ paymentMode: "", dateFrom: today, dateTo: today });
       return;
     }
-
     if (savedPreset === "CASH") {
       setQuickPreset("CASH");
       setPaymentMode("ESPECES");
       setDateFrom("");
       setDateTo("");
-      setQuickMode("ESPECES");
-      load({
-        paymentMode: "ESPECES",
-        dateFrom: "",
-        dateTo: "",
-      });
+      load({ paymentMode: "ESPECES", dateFrom: "", dateTo: "" });
       return;
     }
-
     if (savedPreset === "WAVE") {
       setQuickPreset("WAVE");
       setPaymentMode("WAVE");
       setDateFrom("");
       setDateTo("");
-      setQuickMode("WAVE");
-      load({
-        paymentMode: "WAVE",
-        dateFrom: "",
-        dateTo: "",
-      });
+      load({ paymentMode: "WAVE", dateFrom: "", dateTo: "" });
       return;
     }
-
     setQuickPreset("ALL");
     setPaymentMode("");
     setDateFrom("");
     setDateTo("");
-    setQuickMode("ALL");
-    setJournalScope("my");
-    load({
-      paymentMode: "",
-      dateFrom: "",
-      dateTo: "",
-      journalScope: "my",
-    });
+    load({ paymentMode: "", dateFrom: "", dateTo: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetStorageKey]);
 
   useEffect(() => {
     safeWriteStorage(presetStorageKey, quickPreset);
   }, [presetStorageKey, quickPreset]);
 
-  function applyQuickPreset(preset) {
+  const applyPreset = (preset) => {
     const today = getTodayIsoDate();
-
     if (preset === "TODAY") {
       setQuickPreset("TODAY");
       setPaymentMode("");
       setDateFrom(today);
       setDateTo(today);
-      setQuickMode("ALL");
-      setJournalScope("my");
-      load({
-        paymentMode: "",
-        dateFrom: today,
-        dateTo: today,
-        journalScope: "my",
-      });
+      load({ paymentMode: "", dateFrom: today, dateTo: today });
       return;
     }
-
     if (preset === "CASH") {
       setQuickPreset("CASH");
       setPaymentMode("ESPECES");
       setDateFrom("");
       setDateTo("");
-      setQuickMode("ESPECES");
-      load({
-        paymentMode: "ESPECES",
-        dateFrom: "",
-        dateTo: "",
-      });
+      load({ paymentMode: "ESPECES", dateFrom: "", dateTo: "" });
       return;
     }
-
     if (preset === "WAVE") {
       setQuickPreset("WAVE");
       setPaymentMode("WAVE");
       setDateFrom("");
       setDateTo("");
-      setQuickMode("WAVE");
-      load({
-        paymentMode: "WAVE",
-        dateFrom: "",
-        dateTo: "",
-      });
+      load({ paymentMode: "WAVE", dateFrom: "", dateTo: "" });
       return;
     }
-
     setQuickPreset("ALL");
     setPaymentMode("");
     setDateFrom("");
     setDateTo("");
-    setJournalScope("my");
-    setQuickMode("ALL");
-    load({
-      paymentMode: "",
-      dateFrom: "",
-      dateTo: "",
-      journalScope: "my",
-    });
-  }
+    load({ paymentMode: "", dateFrom: "", dateTo: "" });
+  };
 
-  async function runAction(orderId, action) {
+  const runAction = async (orderId, action) => {
     try {
       setBusyId(orderId);
       setError("");
@@ -640,69 +509,15 @@ export default function CashierWorkspacePage() {
     } finally {
       setBusyId("");
     }
-  }
-
-  const toCollect = workspace?.toCollect || [];
-  const toLaunchPreparation = workspace?.toLaunchPreparation || [];
-  const journal = workspace?.journal || [];
-  const collectionSummary = workspace?.collectionSummary || {};
-  const launchSummary = workspace?.launchSummary || {};
-  const journalSummary = workspace?.journalSummary || {};
-  const financialSummary = workspace?.financialSummary || {};
-
-  const filteredToCollect = useMemo(() => {
-    if (quickMode === "ALL") return toCollect;
-    if (quickMode === "ELECTRONIC") {
-      return toCollect.filter(
-        (row) => String(row.preorderPaymentMode || "").toUpperCase() !== "ESPECES",
-      );
-    }
-    return toCollect.filter(
-      (row) => String(row.preorderPaymentMode || "").toUpperCase() === quickMode,
-    );
-  }, [quickMode, toCollect]);
-
-  const filteredToLaunchPreparation = useMemo(() => {
-    if (quickMode === "ALL") return toLaunchPreparation;
-    if (quickMode === "ELECTRONIC") {
-      return toLaunchPreparation.filter(
-        (row) => String(row.preorderPaymentMode || "").toUpperCase() !== "ESPECES",
-      );
-    }
-    return toLaunchPreparation.filter(
-      (row) => String(row.preorderPaymentMode || "").toUpperCase() === quickMode,
-    );
-  }, [quickMode, toLaunchPreparation]);
-
-  const filteredJournal = useMemo(() => {
-    if (quickMode === "ALL") return journal;
-    if (quickMode === "ELECTRONIC") {
-      return journal.filter(
-        (row) => String(row.preorderPaymentMode || "").toUpperCase() !== "ESPECES",
-      );
-    }
-    return journal.filter(
-      (row) => String(row.preorderPaymentMode || "").toUpperCase() === quickMode,
-    );
-  }, [quickMode, journal]);
+  };
 
   const askCashCollection = (row) => {
-    const receiptNumber = window.prompt(
-      "Numéro de reçu caisse",
-      row?.cashierTransaction?.receiptNumber || row?.factureReference || "",
-    );
+    const receiptNumber = window.prompt("Numéro de reçu caisse", row?.cashierTransaction?.receiptNumber || row?.factureReference || "");
     if (!receiptNumber || !String(receiptNumber).trim()) return null;
 
-    const cashDeskLabel =
-      window.prompt(
-        "Poste de caisse",
-        row?.cashierTransaction?.cashDeskLabel || "Caisse principale",
-      ) || "";
+    const cashDeskLabel = window.prompt("Poste de caisse", row?.cashierTransaction?.cashDeskLabel || "Caisse principale") || "";
 
-    const amountReceivedFcfa = window.prompt(
-      "Montant reçu (FCFA)",
-      String(row?.amountExpectedFcfa || row?.totalFcfa || ""),
-    );
+    const amountReceivedFcfa = window.prompt("Montant reçu (FCFA)", String(row?.amountExpectedFcfa || row?.totalFcfa || ""));
     if (!amountReceivedFcfa || !String(amountReceivedFcfa).trim()) return null;
 
     return {
@@ -712,14 +527,25 @@ export default function CashierWorkspacePage() {
     };
   };
 
+  const openDetails = async (orderId) => {
+    try {
+      setDrawerOpen(true);
+      setDrawerLoading(true);
+      const data = await ordersService.getById(orderId);
+      setDrawerOrder(data);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de charger le détail commande.");
+    } finally {
+      setDrawerLoading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Espace Caisse</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            File d'encaissement, validation des paiements et suivi des commandes prêtes à lancer en préparation.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Interface simplifiée: traiter, consulter les terminées, rechercher toute commande.</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
           <div className="font-semibold text-gray-900">{admin?.fullName || "Caissière"}</div>
@@ -727,326 +553,161 @@ export default function CashierWorkspacePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <SummaryCard title="À encaisser" value={collectionSummary.total || 0} hint="Préfactures à encaisser ou paiements électroniques à contrôler" />
-        <SummaryCard title="Espèces" value={collectionSummary.pendingCash || 0} hint="Encaissements espèces en attente" />
-        <SummaryCard title="Électroniques" value={collectionSummary.pendingElectronic || 0} hint="Paiements électroniques à confirmer" />
-        <SummaryCard title="À lancer" value={launchSummary.total || 0} hint="Paiements confirmés, en attente de transmission au stock" />
-        <SummaryCard title="Total jour" value={formatFcfa(financialSummary.totalReceivedFcfa || 0)} hint={journalSummary.scope === "all" ? "Bilan consolidé" : "Mon bilan du jour"} />
+      <div className="grid gap-4 md:grid-cols-3">
+        <SummaryCard label="À encaisser" value={workspace?.collectionSummary?.total || 0} hint="Paiements à traiter" />
+        <SummaryCard label="À lancer préparation" value={workspace?.launchSummary?.total || 0} hint="Déjà payées" />
+        <SummaryCard label="Terminées" value={completedRows.length} hint="Payées, prêtes, clôturées" />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <TabButton
-          active={activeTab === "collect"}
-          count={collectionSummary.total || 0}
-          onClick={() => setActiveTab("collect")}
-        >
-          À encaisser
-        </TabButton>
-        <TabButton
-          active={activeTab === "launch"}
-          count={launchSummary.total || 0}
-          onClick={() => setActiveTab("launch")}
-        >
-          À lancer
-        </TabButton>
-        <TabButton
-          active={activeTab === "journal"}
-          count={journalSummary.total || 0}
-          onClick={() => setActiveTab("journal")}
-        >
-          Journal
-        </TabButton>
-        <TabButton
-          active={activeTab === "balance"}
-          onClick={() => setActiveTab("balance")}
-        >
-          Bilan
-        </TabButton>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <QuickFilterButton active={quickMode === "ALL"} onClick={() => setQuickMode("ALL")}>
-          Tous
-        </QuickFilterButton>
-        <QuickFilterButton active={quickMode === "ESPECES"} onClick={() => setQuickMode("ESPECES")}>
-          Espèces
-        </QuickFilterButton>
-        <QuickFilterButton active={quickMode === "WAVE"} onClick={() => setQuickMode("WAVE")}>
-          Wave
-        </QuickFilterButton>
-        <QuickFilterButton active={quickMode === "ORANGE_MONEY"} onClick={() => setQuickMode("ORANGE_MONEY")}>
-          Orange Money
-        </QuickFilterButton>
-        <QuickFilterButton active={quickMode === "ELECTRONIC"} onClick={() => setQuickMode("ELECTRONIC")}>
-          Électroniques
-        </QuickFilterButton>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <QuickFilterButton active={quickPreset === "ALL"} onClick={() => applyQuickPreset("ALL")}>
-          Tous
-        </QuickFilterButton>
-        <QuickFilterButton active={quickPreset === "TODAY"} onClick={() => applyQuickPreset("TODAY")}>
-          Aujourd'hui
-        </QuickFilterButton>
-        <QuickFilterButton active={quickPreset === "CASH"} onClick={() => applyQuickPreset("CASH")}>
-          Espèces
-        </QuickFilterButton>
-        <QuickFilterButton active={quickPreset === "WAVE"} onClick={() => applyQuickPreset("WAVE")}>
-          Wave
-        </QuickFilterButton>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="FBO, facture, précommande, colis, téléphone, reçu"
-              className="rounded-xl border border-gray-300 px-3 py-2 text-sm xl:col-span-2"
-            />
-            <select
-              value={paymentMode}
-              onChange={(e) => setPaymentMode(e.target.value)}
-              className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="">Tous les paiements</option>
-              <option value="ESPECES">Espèces</option>
-              <option value="WAVE">Wave</option>
-              <option value="ORANGE_MONEY">Orange Money</option>
-            </select>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {canViewConsolidated ? (
-              <select
-                value={journalScope}
-                onChange={(e) => setJournalScope(e.target.value)}
-                className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
-              >
-                <option value="my">Mon journal</option>
-                <option value="all">Toutes les caisses</option>
-              </select>
-            ) : null}
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading}
-              className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {loading ? "Chargement..." : "Actualiser"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setQuickPreset("ALL");
-                setQuery("");
-                setPaymentMode("");
-                setDateFrom("");
-                setDateTo("");
-                setJournalScope("my");
-                setQuickMode("ALL");
-                load({
-                  query: "",
-                  paymentMode: "",
-                  dateFrom: "",
-                  dateTo: "",
-                  journalScope: "my",
-                });
-              }}
-              disabled={loading}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        </div>
-
-        <MetricList
-          title={
-            activeTab === "launch"
-              ? "Répartition à lancer"
-              : activeTab === "journal" || activeTab === "balance"
-                ? "Répartition journal"
-                : "Répartition à encaisser"
-          }
-          rows={
-            activeTab === "launch"
-              ? launchSummary.byPaymentMode || []
-              : activeTab === "journal" || activeTab === "balance"
-                ? journalSummary.byPaymentMode || []
-                : collectionSummary.byPaymentMode || []
-          }
-          emptyLabel="Aucune ligne pour cette vue."
-        />
-      </div>
-
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
-      {info ? (
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {info}
-        </div>
-      ) : null}
-
-      {activeTab === "collect" ? (
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">À encaisser</h2>
-            <p className="text-sm text-gray-500">
-              Liste prioritaire des dossiers de caisse à traiter, du plus ancien au plus récent.
-            </p>
-          </div>
-          <QueueTable
-            rows={filteredToCollect}
-            emptyLabel="Aucune précommande à encaisser."
-            busyId={busyId}
-            onCashPay={(row) =>
-              runAction(row.id, async () => {
-                const payload = askCashCollection(row);
-                if (!payload) {
-                  throw new Error("Encaissement annulé.");
-                }
-                await ordersService.pay(row.id, {
-                  reference: row.factureReference || row.preorderNumber || row.id,
-                  note: "Encaissement espèces depuis l'espace caisse",
-                  ...payload,
-                });
-                setInfo("Paiement espèces enregistré.");
-              })
-            }
-            onVerify={(row) =>
-              runAction(row.id, async () => {
-                await ordersService.verifyPayment(row.id, {
-                  note: "Paiement confirmé depuis l'espace caisse",
-                });
-                setInfo("Paiement confirmé.");
-              })
-            }
-            onPrepare={(row) =>
-              runAction(row.id, async () => {
-                await cashierService.prepareForPacking(row.id, {
-                  packingNote: "Commande validée par la caisse pour préparation",
-                });
-                setInfo("Commande transmise au préparateur et SMS client envoyé.");
-              })
-            }
-            onSyncWave={(row) =>
-              runAction(row.id, async () => {
-                await ordersService.syncWavePaymentStatus(row.id);
-                setInfo("Statut Wave synchronisé.");
-              })
-            }
-            onPrint={(row) => navigate(`/orders/${row.id}?tab=payment`)}
-            onOpen={(row) => navigate(`/orders/${row.id}?tab=payment`)}
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Nom, facture, précommande, colis, téléphone, reçu"
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm xl:col-span-2"
           />
-        </section>
-      ) : null}
+          <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm">
+            <option value="">Tous paiements</option>
+            <option value="ESPECES">Espèces</option>
+            <option value="WAVE">Wave</option>
+            <option value="ORANGE_MONEY">Orange Money</option>
+          </select>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
+          <input type="date" min={dateFrom || undefined} value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
+        </div>
 
-      {activeTab === "launch" ? (
-        <section className="space-y-3">
-          <div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <QuickButton active={quickPreset === "ALL"} onClick={() => applyPreset("ALL")}>Tous</QuickButton>
+          <QuickButton active={quickPreset === "TODAY"} onClick={() => applyPreset("TODAY")}>Aujourd'hui</QuickButton>
+          <QuickButton active={quickPreset === "CASH"} onClick={() => applyPreset("CASH")}>Espèces</QuickButton>
+          <QuickButton active={quickPreset === "WAVE"} onClick={() => applyPreset("WAVE")}>Wave</QuickButton>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" onClick={load} disabled={loading} className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{loading ? "Chargement..." : "Actualiser"}</button>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setPaymentMode("");
+              setDateFrom("");
+              setDateTo("");
+              setQuickPreset("ALL");
+              load({ query: "", paymentMode: "", dateFrom: "", dateTo: "" });
+            }}
+            disabled={loading}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Réinitialiser
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <TabButton active={activeTab === "processing"} onClick={() => setActiveTab("processing")} count={toCollect.length + toLaunchPreparation.length}>À traiter</TabButton>
+        <TabButton active={activeTab === "completed"} onClick={() => setActiveTab("completed")} count={completedRows.length}>Terminées</TabButton>
+        <TabButton active={activeTab === "search"} onClick={() => setActiveTab("search")} count={searchRows.length}>Recherche</TabButton>
+      </div>
+
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {info ? <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">{info}</div> : null}
+
+      {activeTab === "processing" ? (
+        <div className="space-y-4">
+          <section className="space-y-2">
+            <h2 className="text-lg font-semibold text-gray-900">À encaisser / confirmer</h2>
+            <ProcessingTable
+              rows={toCollect}
+              busyId={busyId}
+              onOpenDetails={openDetails}
+              onCashPay={(row) =>
+                runAction(row.id, async () => {
+                  const payload = askCashCollection(row);
+                  if (!payload) throw new Error("Encaissement annulé.");
+                  await ordersService.pay(row.id, {
+                    reference: row.factureReference || row.preorderNumber || row.id,
+                    note: "Encaissement espèces depuis l'espace caisse",
+                    ...payload,
+                  });
+                  setInfo("Paiement espèces enregistré.");
+                })
+              }
+              onVerify={(row) =>
+                runAction(row.id, async () => {
+                  await ordersService.verifyPayment(row.id, {
+                    note: "Paiement confirmé depuis l'espace caisse",
+                  });
+                  setInfo("Paiement confirmé.");
+                })
+              }
+              onPrepare={(row) =>
+                runAction(row.id, async () => {
+                  await cashierService.prepareForPacking(row.id, {
+                    packingNote: "Commande validée par la caisse pour préparation",
+                  });
+                  setInfo("Commande transmise au préparateur.");
+                })
+              }
+              onSyncWave={(row) =>
+                runAction(row.id, async () => {
+                  await ordersService.syncWavePaymentStatus(row.id);
+                  setInfo("Statut Wave synchronisé.");
+                })
+              }
+            />
+          </section>
+
+          <section className="space-y-2">
             <h2 className="text-lg font-semibold text-gray-900">À lancer en préparation</h2>
-            <p className="text-sm text-gray-500">
-              Commandes déjà payées, prêtes à être transmises au stock.
-            </p>
-          </div>
-          <QueueTable
-            rows={filteredToLaunchPreparation}
-            emptyLabel="Aucune commande en attente de lancement préparation."
-            busyId={busyId}
-            onCashPay={() => {}}
-            onVerify={() => {}}
-            onPrepare={(row) =>
-              runAction(row.id, async () => {
-                await cashierService.prepareForPacking(row.id, {
-                  packingNote: "Commande validée par la caisse pour préparation",
-                });
-                setInfo("Commande transmise au préparateur et SMS client envoyé.");
-              })
-            }
-            onSyncWave={() => {}}
-            onPrint={(row) => navigate(`/orders/${row.id}?tab=payment`)}
-            onOpen={(row) => navigate(`/orders/${row.id}?tab=payment`)}
-          />
-        </section>
-      ) : null}
-
-      {activeTab === "journal" ? (
-        <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-          <div className="space-y-3">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Journal de transactions</h2>
-              <p className="text-sm text-gray-500">
-                {journalSummary.scope === "all"
-                  ? "Historique consolidé des paiements traités par toutes les caisses."
-                  : "Historique des paiements que vous avez traités."}
-              </p>
-            </div>
-            <JournalTable rows={filteredJournal} canViewAll={journalSummary.scope === "all"} />
-          </div>
-
-          <div className="space-y-4">
-            <MetricList
-              title="Journal par mode"
-              rows={journalSummary.byPaymentMode || []}
-              emptyLabel="Aucun règlement validé."
+            <ProcessingTable
+              rows={toLaunchPreparation}
+              busyId={busyId}
+              onOpenDetails={openDetails}
+              onCashPay={() => {}}
+              onVerify={() => {}}
+              onPrepare={(row) =>
+                runAction(row.id, async () => {
+                  await cashierService.prepareForPacking(row.id, {
+                    packingNote: "Commande validée par la caisse pour préparation",
+                  });
+                  setInfo("Commande transmise au préparateur.");
+                })
+              }
+              onSyncWave={() => {}}
             />
-            {canViewConsolidated && journalSummary.scope === "all" ? (
-              <MetricList
-                title="Synthèse par caisse"
-                rows={journalSummary.byCashier || []}
-                emptyLabel="Aucune caisse consolidée."
-              />
-            ) : null}
-          </div>
-        </section>
+          </section>
+        </div>
       ) : null}
 
-      {activeTab === "balance" ? (
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Bilan financier</h2>
-            <p className="text-sm text-gray-500">
-              Vue synthétique des encaissements de la période sélectionnée.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard title="Transactions" value={financialSummary.transactionsCount || 0} hint="Paiements traités sur la période" />
-            <SummaryCard title="Montant attendu" value={formatFcfa(financialSummary.totalExpectedFcfa || 0)} hint="Total théorique des encaissements" />
-            <SummaryCard title="Montant encaissé" value={formatFcfa(financialSummary.totalReceivedFcfa || 0)} hint="Total effectivement saisi en caisse" />
-            <SummaryCard title="À transmettre" value={financialSummary.totalToLaunchPreparation || 0} hint="Commandes encore à lancer en préparation" />
-          </div>
-          <div className="grid gap-4 xl:grid-cols-2">
-            <MetricList
-              title="Encaissements par mode"
-              rows={journalSummary.byPaymentMode || []}
-              emptyLabel="Aucun encaissement sur la période."
-            />
-            {canViewConsolidated && journalSummary.scope === "all" ? (
-              <MetricList
-                title="Encaissements par caisse"
-                rows={journalSummary.byCashier || []}
-                emptyLabel="Aucune caisse consolidée."
-              />
-            ) : (
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <h3 className="text-sm font-semibold text-gray-900">Point d'attention</h3>
-                <div className="mt-3 text-sm text-gray-600">
-                  Utilise les filtres de dates et de mode de paiement pour suivre ton bilan journalier et préparer ta clôture de caisse.
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+      {activeTab === "completed" ? (
+        <ArchiveTable
+          rows={completedRows}
+          emptyLabel="Aucune commande terminée avec ces filtres."
+          onOpenDetails={openDetails}
+          onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+        />
       ) : null}
+
+      {activeTab === "search" ? (
+        <ArchiveTable
+          rows={searchRows}
+          emptyLabel={query?.trim() ? "Aucun résultat pour cette recherche." : "Saisis une recherche pour interroger toutes les commandes."}
+          onOpenDetails={openDetails}
+          onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+        />
+      ) : null}
+
+      <OrderDrawer
+        open={drawerOpen}
+        loading={drawerLoading}
+        order={drawerOrder}
+        onClose={() => {
+          setDrawerOpen(false);
+          setDrawerOrder(null);
+        }}
+        onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+      />
     </div>
   );
 }
