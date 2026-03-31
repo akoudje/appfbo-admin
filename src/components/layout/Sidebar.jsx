@@ -215,7 +215,7 @@ function NavItem({ item, collapsed = false, onClick }) {
       to={item.to}
       onClick={onClick}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+        `flex items-center gap-3 px-3 py-3 transition-all ${
           isActive
             ? "bg-[#FFC600] text-black shadow-sm"
             : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -225,7 +225,7 @@ function NavItem({ item, collapsed = false, onClick }) {
       <span>{item.icon}</span>
       {!collapsed && (
         <>
-          <span className="flex-1 text-sm font-medium">{item.label}</span>
+          <span className="flex-1 text-base font-medium">{item.label}</span>
           {item.badge && (
             <span className="px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
               {item.badge}
@@ -271,22 +271,22 @@ export function DesktopSidebar({ collapsed, onToggle }) {
         }`}
       >
         {!collapsed ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-1 flex-col items-start justify-center">
             <img
               src="/logo-forever-home.png"
               alt="Forever"
-              className="h-10 w-auto object-contain"
+              className="h-16 w-auto object-contain"
             />
-            <div>
-              <div className="text-sm font-semibold text-white">Forever Admin</div>
-              <div className="text-xs text-[#FFC600]">Backoffice</div>
+            <div className="mt-2">
+              <div className="text-lg font-semibold tracking-[0.08em] text-white">Forever</div>
+              <div className="text-sm font-medium text-[#FFC600]">Admin Backoffice</div>
             </div>
           </div>
         ) : (
           <img
             src="/logo-forever-home.png"
             alt="Forever"
-            className="h-9 w-auto object-contain"
+            className="h-12 w-auto object-contain"
           />
         )}
 
@@ -370,11 +370,11 @@ export function MobileSidebar({ isOpen, onClose }) {
             <img
               src="/logo-forever-home.png"
               alt="Forever"
-              className="h-10 w-auto object-contain"
+              className="h-14 w-auto object-contain"
             />
             <div>
-              <div className="text-sm font-semibold text-white">Forever Admin</div>
-              <div className="text-xs text-[#FFC600]">Backoffice</div>
+              <div className="text-lg font-semibold tracking-[0.08em] text-white">Forever</div>
+              <div className="text-sm font-medium text-[#FFC600]">Admin Backoffice</div>
             </div>
           </div>
           <button

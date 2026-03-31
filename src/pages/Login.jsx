@@ -93,7 +93,7 @@ export default function Login() {
           <img
             src="/logo-forever-home.png"
             alt="Forever"
-            className="mx-auto h-20 w-auto object-contain"
+            className="mx-auto h-28 w-auto object-contain sm:h-32"
           />
           <h2 className="mt-4 text-2xl font-bold text-white">Backoffice Forever</h2>
           <p className="text-sm text-[#FFC600]">Connexion à l’espace d’administration</p>
