@@ -398,7 +398,7 @@ export default function OrderDetailPage() {
     const logs = Array.isArray(order?.logs) ? order.logs : [];
     const replacementLog = logs.find(
       (log) =>
-        log?.action === "BILLING_ITEM_REPLACED" &&
+        log?.action === "REPRICE" &&
         Boolean(log?.meta?.requiresReinvoice),
     );
     if (!replacementLog) return false;
