@@ -1318,6 +1318,7 @@ const doInvoice = async () => {
               onFulfill={doFulfill}
               onDownloadDeliveryNote={doDownloadDeliveryNote}
               onResendConfirmationSms={doResendConfirmationSms}
+              canResendConfirmationSms={isGlobalAdmin}
             />
           </RequirePermission>
         )}
