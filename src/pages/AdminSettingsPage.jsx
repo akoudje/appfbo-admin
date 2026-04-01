@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   },
   commercial: {
     minCartTotalFcfa: 100,
+    maxQtyPerProduct: 10,
     currencyLabel: "FCFA",
     pricingDisclaimer:
       "Les prix affichés sont indicatifs. Le montant final est confirmé par le facturier à partir de l'AS400.",
@@ -123,6 +124,8 @@ export default function AdminSettingsPage() {
           commercial: {
             ...prev.commercial,
             minCartTotalFcfa: data.minCartFcfa ?? prev.commercial.minCartTotalFcfa,
+            maxQtyPerProduct:
+              data.maxQtyPerProduct ?? prev.commercial.maxQtyPerProduct,
             currencyLabel: data.currencyLabel || prev.commercial.currencyLabel,
             pricingDisclaimer:
               data.pricingDisclaimer || prev.commercial.pricingDisclaimer,
@@ -155,6 +158,7 @@ export default function AdminSettingsPage() {
       setInfo("");
       await settingsService.updateCountrySettings({
         minCartFcfa: settings.commercial.minCartTotalFcfa,
+        maxQtyPerProduct: settings.commercial.maxQtyPerProduct,
         supportPhone: settings.countries.supportPhone,
         pickupAddress: settings.countries.pickupAddress,
         enableWave: settings.countries.enableWave,
@@ -213,21 +217,23 @@ export default function AdminSettingsPage() {
               {error}
             </div>
           ) : null}
-          <div className="grid gap-3 md:grid-cols-4">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`border px-4 py-3 text-left text-sm font-medium transition-colors ${
-                  activeTab === tab.key
-                    ? "border-[#e4d395] bg-[#fff7df] text-[#6c5715]"
-                    : "border-[#e7dec8] bg-white text-[#5D4B3C] hover:bg-[#fcfbf7]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <div className="flex min-w-max gap-3">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`whitespace-nowrap border px-4 py-3 text-left text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? "border-[#e4d395] bg-[#fff7df] text-[#6c5715]"
+                      : "border-[#e7dec8] bg-white text-[#5D4B3C] hover:bg-[#fcfbf7]"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {activeTab === "countries" ? (
@@ -350,6 +356,24 @@ export default function AdminSettingsPage() {
                 />
               </Field>
 
+              <Field label="Quantité maximum par produit">
+                <TextInput
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={settings.commercial.maxQtyPerProduct}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      commercial: {
+                        ...prev.commercial,
+                        maxQtyPerProduct: Number(e.target.value || 1),
+                      },
+                    }))
+                  }
+                />
+              </Field>
+
               <div className="xl:col-span-2">
                 <Field label="Disclaimer prix / AS400">
                   <TextArea
@@ -372,6 +396,12 @@ export default function AdminSettingsPage() {
                 <div className="text-base font-semibold text-[#000000]">Résumé actuel</div>
                 <p className="mt-2 text-sm text-[#6f6a60]">
                   Panier minimum configuré: <span className="font-semibold text-[#000000]">{commercialSummary}</span>
+                </p>
+                <p className="mt-1 text-sm text-[#6f6a60]">
+                  Quantité max/produit:{" "}
+                  <span className="font-semibold text-[#000000]">
+                    {settings.commercial.maxQtyPerProduct}
+                  </span>
                 </p>
               </div>
             </div>
