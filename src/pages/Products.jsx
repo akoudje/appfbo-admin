@@ -644,35 +644,35 @@ export default function Products() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="flex-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                placeholder="Rechercher par nom ou SKU..."
-                value={q}
-                onChange={(e) => onSearchChange(e.target.value)}
-                disabled={loading}
-              />
-              {q && (
-                <button
-                  onClick={() => onSearchChange("")}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+              <div className="relative lg:col-span-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </button>
-              )}
-            </div>
+                </div>
+                <input
+                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="Rechercher par nom ou SKU..."
+                  value={q}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  disabled={loading}
+                />
+                {q && (
+                  <button
+                    onClick={() => onSearchChange("")}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
               <select
-                className="w-full lg:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 value={actifFilter}
                 onChange={(e) => onActifChange(e.target.value)}
                 disabled={loading}
@@ -683,7 +683,7 @@ export default function Products() {
               </select>
 
               <select
-                className="w-full lg:w-52 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 value={categoryFilter}
                 onChange={(e) => onCategoryChange(e.target.value)}
                 disabled={loading}
@@ -696,7 +696,7 @@ export default function Products() {
               </select>
 
               <select
-                className="w-full lg:w-44 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 value={stockFilter}
                 onChange={(e) => onStockChange(e.target.value)}
                 disabled={loading}
@@ -707,15 +707,17 @@ export default function Products() {
               </select>
             </div>
 
-            {filtersActive && (
-              <button
-                onClick={resetAll}
-                disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Réinitialiser
-              </button>
-            )}
+            <div className="flex justify-end">
+              {filtersActive && (
+                <button
+                  onClick={resetAll}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
           </div>
 
           {error && (

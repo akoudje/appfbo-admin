@@ -261,10 +261,27 @@ export default function StockWorkspacePage() {
 
       {tab === "inventory" ? (
         <div className="space-y-4">
-          <div className="grid gap-3 border border-[#eadfb9] bg-white p-4 lg:grid-cols-[1.3fr_220px_220px]">
-            <input value={inventoryFilters.q} onChange={(e) => setInventoryFilters((v) => ({ ...v, q: e.target.value }))} placeholder="Produit ou SKU" className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]" />
-            <select value={inventoryFilters.category} onChange={(e) => setInventoryFilters((v) => ({ ...v, category: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]">{CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-            <select value={inventoryFilters.stock} onChange={(e) => setInventoryFilters((v) => ({ ...v, stock: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous niveaux</option><option value="in">En stock</option><option value="out">Rupture</option></select>
+          <div className="space-y-3 border border-[#eadfb9] bg-white p-4">
+            <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7a6541]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input value={inventoryFilters.q} onChange={(e) => setInventoryFilters((v) => ({ ...v, q: e.target.value }))} placeholder="Produit ou SKU" className="w-full border border-[#d6c8aa] bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-[#FFC600]" />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <select value={inventoryFilters.category} onChange={(e) => setInventoryFilters((v) => ({ ...v, category: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]">{CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+              <select value={inventoryFilters.stock} onChange={(e) => setInventoryFilters((v) => ({ ...v, stock: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous niveaux</option><option value="in">En stock</option><option value="out">Rupture</option></select>
+            </div>
           </div>
           <div className="overflow-x-auto border border-[#eadfb9] bg-white">
             <table className="min-w-full">
@@ -289,11 +306,28 @@ export default function StockWorkspacePage() {
 
       {tab === "movements" ? (
         <div className="space-y-4">
-          <div className="grid gap-3 border border-[#eadfb9] bg-white p-4 lg:grid-cols-[1.2fr_180px_220px_160px]">
-            <input value={movementFilters.q} onChange={(e) => setMovementFilters((v) => ({ ...v, q: e.target.value }))} placeholder="Produit, SKU ou référence" className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]" />
-            <select value={movementFilters.type} onChange={(e) => setMovementFilters((v) => ({ ...v, type: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous types</option><option value="CREDIT">Entrées</option><option value="DEBIT">Sorties</option></select>
-            <select value={movementFilters.reason} onChange={(e) => setMovementFilters((v) => ({ ...v, reason: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous motifs</option><option value="MANUAL_ADJUSTMENT">Ajustement manuel</option><option value="PREPARE_ORDER">Préparation commande</option><option value="CANCEL_ORDER">Annulation commande</option></select>
-            <select value={movementFilters.days} onChange={(e) => setMovementFilters((v) => ({ ...v, days: Number(e.target.value || 30) }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value={7}>7 jours</option><option value={30}>30 jours</option><option value={90}>90 jours</option><option value={180}>180 jours</option></select>
+          <div className="space-y-3 border border-[#eadfb9] bg-white p-4">
+            <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7a6541]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input value={movementFilters.q} onChange={(e) => setMovementFilters((v) => ({ ...v, q: e.target.value }))} placeholder="Produit, SKU ou référence" className="w-full border border-[#d6c8aa] bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-[#FFC600]" />
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <select value={movementFilters.type} onChange={(e) => setMovementFilters((v) => ({ ...v, type: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous types</option><option value="CREDIT">Entrées</option><option value="DEBIT">Sorties</option></select>
+              <select value={movementFilters.reason} onChange={(e) => setMovementFilters((v) => ({ ...v, reason: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous motifs</option><option value="MANUAL_ADJUSTMENT">Ajustement manuel</option><option value="PREPARE_ORDER">Préparation commande</option><option value="CANCEL_ORDER">Annulation commande</option></select>
+              <select value={movementFilters.days} onChange={(e) => setMovementFilters((v) => ({ ...v, days: Number(e.target.value || 30) }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value={7}>7 jours</option><option value={30}>30 jours</option><option value={90}>90 jours</option><option value={180}>180 jours</option></select>
+            </div>
           </div>
           <div className="overflow-x-auto border border-[#eadfb9] bg-white">
             <table className="min-w-full">

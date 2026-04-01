@@ -348,12 +348,27 @@ export default function BillingQueuePage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="N° colis, précommande, FBO ou facture"
-            className="rounded-xl border border-gray-300 px-3 py-2 text-sm xl:col-span-2"
-          />
+          <div className="relative xl:col-span-2">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="N° colis, précommande, FBO ou facture"
+              className="w-full rounded-xl border border-gray-300 pl-9 pr-3 py-2 text-sm"
+            />
+          </div>
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
@@ -379,58 +394,60 @@ export default function BillingQueuePage() {
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => applyQuickPreset("ALL")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              quickPreset === "ALL"
-                ? "bg-gray-900 text-white"
-                : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            type="button"
-          >
-            Tous
-          </button>
-          <button
-            onClick={() => applyQuickPreset("URGENT")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              quickPreset === "URGENT"
-                ? "bg-red-600 text-white"
-                : "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-            }`}
-            type="button"
-          >
-            Urgent
-          </button>
-          <button
-            onClick={() => applyQuickPreset("TODAY")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              quickPreset === "TODAY"
-                ? "bg-blue-600 text-white"
-                : "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-            }`}
-            type="button"
-          >
-            Aujourd'hui
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={load}
-            disabled={loading || claiming}
-            className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            type="button"
-          >
-            {loading ? "Chargement..." : "Appliquer"}
-          </button>
-          <button
-            onClick={handleClearFilters}
-            disabled={loading || claiming}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            type="button"
-          >
-            Réinitialiser
-          </button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => applyQuickPreset("ALL")}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                quickPreset === "ALL"
+                  ? "bg-gray-900 text-white"
+                  : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+              type="button"
+            >
+              Tous
+            </button>
+            <button
+              onClick={() => applyQuickPreset("URGENT")}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                quickPreset === "URGENT"
+                  ? "bg-red-600 text-white"
+                  : "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+              }`}
+              type="button"
+            >
+              Urgent
+            </button>
+            <button
+              onClick={() => applyQuickPreset("TODAY")}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                quickPreset === "TODAY"
+                  ? "bg-blue-600 text-white"
+                  : "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              }`}
+              type="button"
+            >
+              Aujourd'hui
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={load}
+              disabled={loading || claiming}
+              className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              type="button"
+            >
+              {loading ? "Chargement..." : "Appliquer"}
+            </button>
+            <button
+              onClick={handleClearFilters}
+              disabled={loading || claiming}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              type="button"
+            >
+              Réinitialiser
+            </button>
+          </div>
         </div>
       </div>
 

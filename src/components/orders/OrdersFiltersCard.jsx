@@ -126,25 +126,38 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="space-y-4">
-        <div className="relative">
-          <input
-            className="block w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Rechercher par numéro FBO, nom, facture..."
-            value={localQ}
-            onChange={(e) => setLocalQ(e.target.value)}
-          />
-          {localQ && (
-            <button
-              onClick={() => setLocalQ("")}
-              className="absolute inset-y-0 right-0 pr-3 text-gray-400 hover:text-gray-600"
-              type="button"
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="relative">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              ✕
-            </button>
-          )}
-        </div>
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              className="block w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Rechercher par numéro FBO, nom, facture..."
+              value={localQ}
+              onChange={(e) => setLocalQ(e.target.value)}
+            />
+            {localQ && (
+              <button
+                onClick={() => setLocalQ("")}
+                className="absolute inset-y-0 right-0 pr-3 text-gray-400 hover:text-gray-600"
+                type="button"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <select
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             value={filters.status || ""}
@@ -194,7 +207,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
           </select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
           <input
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             type="date"
@@ -230,64 +243,69 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             <option value="desc">Décroissant</option>
             <option value="asc">Croissant</option>
           </select>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={!!filters.assignedOnly}
-              onChange={(e) =>
-                onFilterChange({
-                  assignedOnly: e.target.checked,
-                  ...(e.target.checked ? { hasAssignee: false, invoicerId: "" } : {}),
-                })
-              }
-            />
-            Mes dossiers
-          </label>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={!!filters.assignedOnly}
+                onChange={(e) =>
+                  onFilterChange({
+                    assignedOnly: e.target.checked,
+                    ...(e.target.checked ? { hasAssignee: false, invoicerId: "" } : {}),
+                  })
+                }
+              />
+              Mes dossiers
+            </label>
 
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={!!filters.hasAssignee}
-              onChange={(e) =>
-                onFilterChange({
-                  hasAssignee: e.target.checked,
-                  ...(e.target.checked ? { assignedOnly: false } : {}),
-                })
-              }
-            />
-            Seulement assignées
-          </label>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={!!filters.hasAssignee}
+                onChange={(e) =>
+                  onFilterChange({
+                    hasAssignee: e.target.checked,
+                    ...(e.target.checked ? { assignedOnly: false } : {}),
+                  })
+                }
+              />
+              Assignées
+            </label>
 
-          <div className="flex gap-2 ml-auto">
             <button
               onClick={() => handleQuickDate("today")}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
               type="button"
             >
               Aujourd&apos;hui
             </button>
             <button
               onClick={() => handleQuickDate("week")}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
               type="button"
             >
               7 jours
             </button>
             <button
               onClick={() => handleQuickDate("month")}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
               type="button"
             >
               30 jours
+            </button>
+            <button
+              onClick={onClear}
+              className="ml-auto text-xs text-gray-500 hover:text-gray-700"
+              type="button"
+            >
+              Effacer tout
             </button>
           </div>
         </div>
 
         {hasActiveFilters && (
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center pt-2">
             <div className="flex flex-wrap gap-2">
               {filters.status && (
                 <FilterChip onRemove={() => onFilterChange({ status: "" })}>
@@ -346,14 +364,6 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                 </FilterChip>
               )}
             </div>
-
-            <button
-              onClick={onClear}
-              className="text-sm text-gray-500 hover:text-gray-700"
-              type="button"
-            >
-              Effacer tout
-            </button>
           </div>
         )}
       </div>
