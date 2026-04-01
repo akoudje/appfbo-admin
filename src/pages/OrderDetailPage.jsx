@@ -522,11 +522,12 @@ export default function OrderDetailPage() {
 
       const result = await ordersService.resendInvoiceSms(id);
       if (result?.sent) {
-        setInfo(`SMS renvoyé au ${result?.toPhone || "client"}.`);
+        const channel = String(result?.channel || "SMS").toUpperCase();
+        setInfo(`Notification renvoyée via ${channel} au ${result?.toPhone || "client"}.`);
       } else {
         setInfo(
           result?.errorMessage ||
-            "Le renvoi SMS a été lancé, mais le fournisseur ne confirme pas l'envoi.",
+            "Le renvoi de notification a été lancé, mais aucun canal n'a confirmé l'envoi.",
         );
       }
 
@@ -761,11 +762,12 @@ const doInvoice = async () => {
 
       const result = await ordersService.resendConfirmationSms(id);
       if (result?.sent) {
-        setInfo(`SMS de confirmation renvoyé au ${result?.toPhone || "client"}.`);
+        const channel = String(result?.channel || "SMS").toUpperCase();
+        setInfo(`Notification de confirmation renvoyée via ${channel} au ${result?.toPhone || "client"}.`);
       } else {
         setInfo(
           result?.errorMessage ||
-            "Le renvoi SMS a été lancé, mais le fournisseur ne confirme pas l'envoi.",
+            "Le renvoi de notification a été lancé, mais aucun canal n'a confirmé l'envoi.",
         );
       }
 
