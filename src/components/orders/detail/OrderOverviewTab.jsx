@@ -1,5 +1,6 @@
 // src/components/orders/detail/OrderOverviewTab.jsx
 
+import { useState } from "react";
 import OrderTimeline from "./OrderTimeline";
 import OrderSummaryCards from "./OrderSummaryCards";
 import OrderItemsTable from "./OrderItemsTable";
@@ -44,11 +45,29 @@ function Alert({ tone = "amber", title, children }) {
   );
 }
 
-function InfoCard({ title, children, className = "" }) {
+function InfoCard({
+  title,
+  children,
+  className = "",
+  collapsible = false,
+  open = true,
+  onToggle = null,
+}) {
   return (
     <div className={`card p-4 space-y-3 ${className}`}>
-      <h4 className="font-semibold text-gray-900">{title}</h4>
-      {children}
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="font-semibold text-gray-900">{title}</h4>
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            {open ? "Replier" : "Déplier"}
+          </button>
+        ) : null}
+      </div>
+      {open ? children : null}
     </div>
   );
 }
@@ -140,6 +159,8 @@ export default function OrderOverviewTab({
   const isCancelled = status === "CANCELLED";
   const isPaid = status === "PAID";
   const isReady = status === "READY";
+  const [showInfoPanel, setShowInfoPanel] = useState(true);
+  const [showBillingPanel, setShowBillingPanel] = useState(true);
 
   const renderAlert = () => {
     if (emptyOrder) {
@@ -216,7 +237,12 @@ export default function OrderOverviewTab({
       <OrderSummaryCards order={order} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <InfoCard title="Informations utiles">
+        <InfoCard
+          title="Informations utiles"
+          collapsible
+          open={showInfoPanel}
+          onToggle={() => setShowInfoPanel((prev) => !prev)}
+        >
           <div className="space-y-2">
             <Row label="Précommande" value={order?.preorderNumber || "—"} copyable />
             <Row label="Numéro FBO" value={order?.fboNumero || "—"} copyable />
@@ -229,7 +255,12 @@ export default function OrderOverviewTab({
           </div>
         </InfoCard>
 
-        <InfoCard title="Facturation utile">
+        <InfoCard
+          title="Facturation utile"
+          collapsible
+          open={showBillingPanel}
+          onToggle={() => setShowBillingPanel((prev) => !prev)}
+        >
           <div className="space-y-2">
             <Row label="Référence AS400" value={order?.factureReference || "—"} copyable />
             <Row label="Montant indicatif" value={formatFcfa(order?.indicativeTotalFcfa || order?.totalFcfa || 0)} />
