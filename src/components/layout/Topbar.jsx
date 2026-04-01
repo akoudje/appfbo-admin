@@ -7,6 +7,10 @@ import CountrySelector from "../CountrySelector";
 import { getCountryCode } from "../../services/api";
 import { clearAdminSession, getAdminUser } from "../../services/auth";
 import useAdminAuth from "../../hooks/useAdminAuth";
+import {
+  isSoundSessionUnlocked,
+  unlockGlobalSoundSession,
+} from "../../lib/soundEngine";
 
 function getInitials(fullName, email) {
   const source = String(fullName || "").trim();
@@ -111,6 +115,8 @@ export default function Topbar({ onMenuClick = () => {} }) {
   const [showProfile, setShowProfile] = useState(false);
   const [countryCode, setCountryCode] = useState(() => getCountryCode());
   const [adminUser, setAdminUserState] = useState(() => getAdminUser());
+  const [soundUnlocked, setSoundUnlocked] = useState(() => isSoundSessionUnlocked());
+  const [soundUnlocking, setSoundUnlocking] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
@@ -121,6 +127,7 @@ export default function Topbar({ onMenuClick = () => {} }) {
     const refreshTopbarContext = () => {
       setCountryCode(getCountryCode());
       setAdminUserState(getAdminUser());
+      setSoundUnlocked(isSoundSessionUnlocked());
     };
 
     refreshTopbarContext();
@@ -170,6 +177,16 @@ export default function Topbar({ onMenuClick = () => {} }) {
     navigate("/login", { replace: true });
   }
 
+  async function handleUnlockSoundSession() {
+    try {
+      setSoundUnlocking(true);
+      const ok = await unlockGlobalSoundSession();
+      if (ok) setSoundUnlocked(true);
+    } finally {
+      setSoundUnlocking(false);
+    }
+  }
+
   return (
     <header className="sticky top-0 z-30 border-b border-[#e8dfc9] bg-[#fcfbf7]/96 backdrop-blur-lg">
       <div className="px-4 sm:px-6 lg:px-8">
@@ -207,6 +224,18 @@ export default function Topbar({ onMenuClick = () => {} }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {!soundUnlocked ? (
+              <button
+                type="button"
+                onClick={handleUnlockSoundSession}
+                disabled={soundUnlocking}
+                className="hidden rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50 lg:inline-flex"
+                title="Active les alertes sonores pour toute la session"
+              >
+                {soundUnlocking ? "Activation..." : "Activer alertes sonores"}
+              </button>
+            ) : null}
+
             <div className="hidden items-center gap-2 sm:flex">
               <CountrySelector />
               <span className="hidden border border-[#ece4d1] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#5D4B3C] md:inline-flex">
@@ -393,6 +422,16 @@ export default function Topbar({ onMenuClick = () => {} }) {
               {workspaceLabel} • {formattedDate}
             </div>
             <div className="flex items-center gap-2">
+              {!soundUnlocked ? (
+                <button
+                  type="button"
+                  onClick={handleUnlockSoundSession}
+                  disabled={soundUnlocking}
+                  className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 disabled:opacity-50"
+                >
+                  {soundUnlocking ? "..." : "Activer son"}
+                </button>
+              ) : null}
               <CountrySelector className="w-28" />
               <span className="border border-[#ece4d1] bg-white px-2 py-1 text-xs font-semibold text-[#5f5b54]">
                 {countryCode}

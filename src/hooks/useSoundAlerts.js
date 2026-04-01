@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getOrCreateSharedAudioContext,
+  isSoundSessionUnlocked,
+  unlockGlobalSoundSession,
+} from "../lib/soundEngine";
 
 const STORAGE_PREFIX = "workspace_sound_alert_v1";
 
@@ -23,6 +28,18 @@ function safeWriteStorage(key, value) {
 
 function eventPattern(eventKey) {
   const key = String(eventKey || "").toLowerCase();
+  if (key.includes("cashier")) {
+    return [
+      { freq: 560, duration: 0.1, gap: 0.06 },
+      { freq: 620, duration: 0.1, gap: 0.06 },
+    ];
+  }
+  if (key.includes("preparation")) {
+    return [
+      { freq: 520, duration: 0.08, gap: 0.05 },
+      { freq: 680, duration: 0.1, gap: 0.06 },
+    ];
+  }
   if (key.includes("escalated")) {
     return [
       { freq: 980, duration: 0.12, gap: 0.06 },
@@ -81,7 +98,7 @@ export function useSoundAlerts(workspaceKey) {
   const [enabled, setEnabled] = useState(true);
   const [volume, setVolume] = useState(0.6);
   const [mutedUntil, setMutedUntil] = useState(0);
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => isSoundSessionUnlocked());
 
   const audioContextRef = useRef(null);
   const cooldownRef = useRef(new Map());
@@ -107,12 +124,10 @@ export function useSoundAlerts(workspaceKey) {
   }, [storageKey, enabled, volume, mutedUntil]);
 
   const ensureAudioContext = useCallback(async () => {
-    if (typeof window === "undefined") return null;
     if (!audioContextRef.current) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return null;
-      audioContextRef.current = new Ctx();
+      audioContextRef.current = getOrCreateSharedAudioContext();
     }
+    if (!audioContextRef.current) return null;
     if (audioContextRef.current.state === "suspended") {
       await audioContextRef.current.resume();
     }
@@ -121,6 +136,8 @@ export function useSoundAlerts(workspaceKey) {
 
   const unlockSound = useCallback(async () => {
     try {
+      const ok = await unlockGlobalSoundSession();
+      if (!ok) return false;
       const ctx = await ensureAudioContext();
       if (!ctx) return false;
       setUnlocked(true);
@@ -206,4 +223,3 @@ export function useSoundAlerts(workspaceKey) {
 }
 
 export default useSoundAlerts;
-
