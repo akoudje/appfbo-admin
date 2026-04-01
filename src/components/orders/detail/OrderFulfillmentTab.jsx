@@ -193,6 +193,7 @@ export default function OrderFulfillmentTab({
   setFulfillNote,
   onFulfill,
   onDownloadDeliveryNote,
+  onResendConfirmationSms,
 }) {
   const status = order?.status;
   const isReady = status === "READY";
@@ -518,6 +519,17 @@ export default function OrderFulfillmentTab({
                     : "La clôture enverra automatiquement un SMS de confirmation au client."
                   : "Statut READY requis pour clôturer."}
               </div>
+
+              {typeof onResendConfirmationSms === "function" ? (
+                <button
+                  type="button"
+                  onClick={onResendConfirmationSms}
+                  disabled={saving || !["READY", "FULFILLED"].includes(String(status || "").toUpperCase())}
+                  className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Renvoyer SMS de confirmation
+                </button>
+              ) : null}
 
               {isPickupOrder ? (
                 <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">

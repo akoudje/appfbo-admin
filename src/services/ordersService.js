@@ -81,6 +81,13 @@ export const ordersService = {
       )
     ).data,
 
+  resendConfirmationSms: async (id) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/resend-confirmation-sms`,
+      )
+    ).data,
+
   proof: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/proof`, body))
       .data,

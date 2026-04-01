@@ -753,6 +753,33 @@ const doInvoice = async () => {
     }
   };
 
+  const doResendConfirmationSms = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.resendConfirmationSms(id);
+      if (result?.sent) {
+        setInfo(`SMS de confirmation renvoyé au ${result?.toPhone || "client"}.`);
+      } else {
+        setInfo(
+          result?.errorMessage ||
+            "Le renvoi SMS a été lancé, mais le fournisseur ne confirme pas l'envoi.",
+        );
+      }
+
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de renvoyer le SMS de confirmation",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const doFulfill = async () => {
     try {
       setSaving(true);
@@ -1290,6 +1317,7 @@ const doInvoice = async () => {
               setFulfillNote={setFulfillNote}
               onFulfill={doFulfill}
               onDownloadDeliveryNote={doDownloadDeliveryNote}
+              onResendConfirmationSms={doResendConfirmationSms}
             />
           </RequirePermission>
         )}
