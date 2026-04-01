@@ -74,6 +74,13 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/resend-invoice-sms`))
       .data,
 
+  switchPaymentToManual: async (id) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/switch-payment-to-manual`,
+      )
+    ).data,
+
   proof: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/proof`, body))
       .data,

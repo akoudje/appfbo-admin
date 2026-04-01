@@ -471,6 +471,8 @@ function BillingActionCard({
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
+  canSwitchToManualPayment = false,
+  onSwitchToManualPayment = null,
   resolvedPaymentLink,
 }) {
   return (
@@ -618,6 +620,16 @@ function BillingActionCard({
             <span className={`inline-block w-2 h-2 rounded-full ${canInvoice ? "bg-green-400" : "bg-gray-400"}`} />
             {canInvoice ? " Prêt à facturer" : " Statut SUBMITTED requis"}
           </div>
+          {canSwitchToManualPayment ? (
+            <button
+              type="button"
+              onClick={onSwitchToManualPayment}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 disabled:opacity-50"
+            >
+              Basculer en paiement caisse
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1141,6 +1153,8 @@ export default function OrderBillingPaymentTab({
   onVerify,
   reload,
   showReinvoiceHint = false,
+  canSwitchToManualPayment = false,
+  onSwitchToManualPayment = null,
   variant = "billing",
 }) {
   const status = order?.status;
@@ -1324,6 +1338,8 @@ export default function OrderBillingPaymentTab({
           invoicePreview={invoicePreview}
           invoicePreviewLoading={invoicePreviewLoading}
           onInvoice={onInvoice}
+          canSwitchToManualPayment={canSwitchToManualPayment}
+          onSwitchToManualPayment={onSwitchToManualPayment}
           resolvedPaymentLink={resolvedPaymentLink}
         />
       )}

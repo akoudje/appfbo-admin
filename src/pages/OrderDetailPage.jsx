@@ -8,7 +8,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
 import { list as listProducts } from "../services/productsService";
 import RequirePermission from "../components/auth/RequirePermission";
-import { Permission } from "../auth/permissions";
+import { AdminRole, Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { getDefaultOrderTabForRole, getOrderTabsForRole } from "../auth/workspaces";
@@ -276,6 +276,14 @@ export default function OrderDetailPage() {
     paymentModeRaw.includes("MOMO");
 
   const isAutoPayment = !isCash && isWave;
+  const isGlobalAdmin =
+    role === AdminRole.SUPER_ADMIN || role === AdminRole.TECH_ADMIN;
+  const canSwitchWaveToManual =
+    isGlobalAdmin &&
+    isWave &&
+    ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
+      status,
+    );
 
   useEffect(() => {
     if (!order) return;
@@ -703,6 +711,25 @@ const doInvoice = async () => {
       );
     } finally {
       setWaveLoading(false);
+    }
+  };
+
+  const doSwitchPaymentToManual = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      await ordersService.switchPaymentToManual(id);
+      setInfo("Mode de paiement basculé en paiement à la caisse.");
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de basculer le mode de paiement en caisse",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1170,6 +1197,8 @@ const doInvoice = async () => {
               waveLoading={waveLoading}
               showWaveDevTools={true}
               showReinvoiceHint={showReinvoiceHint}
+              canSwitchToManualPayment={canSwitchWaveToManual}
+              onSwitchToManualPayment={doSwitchPaymentToManual}
               reload={load}
             />
           </RequirePermission>
