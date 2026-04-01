@@ -11,6 +11,8 @@ import BillingQueueAlerts from "../../components/billing/BillingQueueAlerts";
 import BillingQueueStats from "../../components/billing/BillingQueueStats";
 import BillingQueueTabs from "../../components/billing/BillingQueueTabs";
 import BillingQueueTable from "../../components/billing/BillingQueueTable";
+import SoundAlertControls from "../../components/common/SoundAlertControls";
+import useSoundAlerts from "../../hooks/useSoundAlerts";
 
 const BILLING_PRESET_STORAGE_PREFIX = "billing_queue_preset_v1";
 
@@ -39,10 +41,14 @@ export default function BillingQueuePage() {
   const { admin, role } = useAdminAuth();
   const currentAdminId = admin?.id || null;
   const searchDebounceInitializedRef = useRef(false);
+  const loadRef = useRef(null);
+  const firstAlertLoadRef = useRef(true);
+  const previousAlertSnapshotRef = useRef(null);
   const presetStorageKey = useMemo(
     () => `${BILLING_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`,
     [role],
   );
+  const sound = useSoundAlerts("billing");
 
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -59,8 +65,9 @@ export default function BillingQueuePage() {
   const [quickPreset, setQuickPreset] = useState("ALL");
 
   const load = async (overrides = {}) => {
+    const silent = Boolean(overrides.silent);
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
       const qValue = overrides.query ?? query;
       const priorityValue = overrides.priority ?? priority;
@@ -114,18 +121,75 @@ export default function BillingQueuePage() {
         uniqueMap.set(row.id, row);
       });
 
-      setRows(Array.from(uniqueMap.values()));
+      const nextRows = Array.from(uniqueMap.values());
+      const defaultScope =
+        !qValue && !priorityValue && !dateFromValue && !dateToValue;
+
+      if (!defaultScope) {
+        firstAlertLoadRef.current = true;
+        previousAlertSnapshotRef.current = null;
+      } else {
+        const snapshot = {
+          queue: new Set(
+            nextRows
+              .filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus))
+              .map((r) => r.id),
+          ),
+          escalated: new Set(
+            nextRows
+              .filter((r) => r.billingWorkStatus === "ESCALATED")
+              .map((r) => r.id),
+          ),
+        };
+
+        if (!firstAlertLoadRef.current && previousAlertSnapshotRef.current) {
+          const prev = previousAlertSnapshotRef.current;
+          const newQueueCount = [...snapshot.queue].filter((id) => !prev.queue.has(id)).length;
+          const newEscalatedCount = [...snapshot.escalated].filter(
+            (id) => !prev.escalated.has(id),
+          ).length;
+
+          if (newEscalatedCount > 0) {
+            sound.notify("billing_escalated_new", {
+              signature: `esc:${newEscalatedCount}:${snapshot.escalated.size}`,
+              cooldownMs: 30000,
+            });
+          } else if (newQueueCount > 0) {
+            sound.notify("billing_queue_new", {
+              signature: `queue:${newQueueCount}:${snapshot.queue.size}`,
+              cooldownMs: 45000,
+            });
+          }
+        }
+
+        firstAlertLoadRef.current = false;
+        previousAlertSnapshotRef.current = snapshot;
+      }
+
+      setRows(nextRows);
     } catch (e) {
       setError(
         e?.response?.data?.message || "Impossible de charger la file de facturation",
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      loadRef.current?.({ silent: true });
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -345,6 +409,12 @@ export default function BillingQueuePage() {
       />
 
       <BillingQueueAlerts error={error} info={info} />
+
+      <SoundAlertControls
+        title="Alertes sonores facturation"
+        description="Alerte sur nouveaux dossiers en file et sur escalades."
+        sound={sound}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

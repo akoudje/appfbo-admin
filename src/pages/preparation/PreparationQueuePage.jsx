@@ -10,6 +10,8 @@ import PreparationQueueStats from "../../components/preparation/PreparationQueue
 import PreparationQueueTabs from "../../components/preparation/PreparationQueueTabs";
 import PreparationQueueTable from "../../components/preparation/PreparationQueueTable";
 import useAdminAuth from "../../hooks/useAdminAuth";
+import SoundAlertControls from "../../components/common/SoundAlertControls";
+import useSoundAlerts from "../../hooks/useSoundAlerts";
 
 const PREPARATION_PRESET_STORAGE_PREFIX = "preparation_queue_preset_v1";
 
@@ -37,10 +39,14 @@ export default function PreparationQueuePage() {
   const navigate = useNavigate();
   const { role } = useAdminAuth();
   const searchDebounceInitializedRef = useRef(false);
+  const loadRef = useRef(null);
+  const firstAlertLoadRef = useRef(true);
+  const previousAlertSnapshotRef = useRef(null);
   const presetStorageKey = useMemo(
     () => `${PREPARATION_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`,
     [role],
   );
+  const sound = useSoundAlerts("preparation");
 
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
@@ -55,8 +61,9 @@ export default function PreparationQueuePage() {
   const [quickPreset, setQuickPreset] = useState("ALL");
 
   const load = async (overrides = {}) => {
+    const silent = Boolean(overrides.silent);
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
       const qValue = overrides.query ?? query;
       const paymentModeValue = overrides.paymentMode ?? paymentMode;
@@ -104,18 +111,63 @@ export default function PreparationQueuePage() {
         uniqueMap.set(row.id, row);
       });
 
-      setRows(Array.from(uniqueMap.values()));
+      const nextRows = Array.from(uniqueMap.values());
+      const defaultScope = !qValue && !paymentModeValue && !dateFromValue && !dateToValue;
+
+      if (!defaultScope) {
+        firstAlertLoadRef.current = true;
+        previousAlertSnapshotRef.current = null;
+      } else {
+        const snapshot = {
+          toPrepare: new Set(
+            nextRows
+              .filter((r) => r.status === "PAID" && r.preparationLaunchedAt)
+              .map((r) => r.id),
+          ),
+        };
+
+        if (!firstAlertLoadRef.current && previousAlertSnapshotRef.current) {
+          const prev = previousAlertSnapshotRef.current;
+          const newToPrepareCount = [...snapshot.toPrepare].filter(
+            (id) => !prev.toPrepare.has(id),
+          ).length;
+
+          if (newToPrepareCount > 0) {
+            sound.notify("preparation_queue_new", {
+              signature: `prep:${newToPrepareCount}:${snapshot.toPrepare.size}`,
+              cooldownMs: 35000,
+            });
+          }
+        }
+
+        firstAlertLoadRef.current = false;
+        previousAlertSnapshotRef.current = snapshot;
+      }
+
+      setRows(nextRows);
     } catch (e) {
       setError(
         e?.response?.data?.message || "Impossible de charger la file de préparation",
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      loadRef.current?.({ silent: true });
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -258,6 +310,12 @@ export default function PreparationQueuePage() {
       <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
 
       <PreparationQueueAlerts error={error} info={info} />
+
+      <SoundAlertControls
+        title="Alertes sonores préparation"
+        description="Alerte lorsqu'une nouvelle commande entre dans la file à préparer."
+        sound={sound}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

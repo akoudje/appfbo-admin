@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
+import SoundAlertControls from "../components/common/SoundAlertControls";
+import useSoundAlerts from "../hooks/useSoundAlerts";
 
 const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v2";
 
@@ -347,6 +349,10 @@ export default function CashierWorkspacePage() {
   const { admin, role } = useAdminAuth();
   const presetStorageKey = useMemo(() => `${CASHIER_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`, [role]);
   const searchDebounceInitializedRef = useRef(false);
+  const loadRef = useRef(null);
+  const firstAlertLoadRef = useRef(true);
+  const previousAlertSnapshotRef = useRef(null);
+  const sound = useSoundAlerts("cashier");
 
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -373,8 +379,9 @@ export default function CashierWorkspacePage() {
   const toLaunchPreparation = workspace?.toLaunchPreparation || [];
 
   const load = async (overrides = {}) => {
+    const silent = Boolean(overrides.silent);
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
       const qValue = overrides.query ?? query;
       const paymentModeValue = overrides.paymentMode ?? paymentMode;
@@ -398,19 +405,64 @@ export default function CashierWorkspacePage() {
           : Promise.resolve({ data: [] }),
       ]);
 
+      const defaultScope = !qValue && !paymentModeValue && !fromValue && !toValue;
+
+      if (!defaultScope) {
+        firstAlertLoadRef.current = true;
+        previousAlertSnapshotRef.current = null;
+      } else {
+        const snapshot = {
+          toCollect: new Set((workspaceRes?.toCollect || []).map((row) => row.id)),
+          toLaunch: new Set((workspaceRes?.toLaunchPreparation || []).map((row) => row.id)),
+        };
+
+        if (!firstAlertLoadRef.current && previousAlertSnapshotRef.current) {
+          const prev = previousAlertSnapshotRef.current;
+          const newCollectCount = [...snapshot.toCollect].filter((id) => !prev.toCollect.has(id)).length;
+          const newLaunchCount = [...snapshot.toLaunch].filter((id) => !prev.toLaunch.has(id)).length;
+
+          if (newLaunchCount > 0) {
+            sound.notify("cashier_launch_new", {
+              signature: `launch:${newLaunchCount}:${snapshot.toLaunch.size}`,
+              cooldownMs: 30000,
+            });
+          } else if (newCollectCount > 0) {
+            sound.notify("cashier_collect_new", {
+              signature: `collect:${newCollectCount}:${snapshot.toCollect.size}`,
+              cooldownMs: 45000,
+            });
+          }
+        }
+
+        firstAlertLoadRef.current = false;
+        previousAlertSnapshotRef.current = snapshot;
+      }
+
       setWorkspace(workspaceRes);
       setCompletedRows(mergeRowsById([paidRes?.data || [], readyRes?.data || [], fulfilledRes?.data || []]));
       setSearchRows(Array.isArray(searchRes?.data) ? searchRes.data : []);
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger l'espace caisse.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      loadRef.current?.({ silent: true });
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -558,6 +610,12 @@ export default function CashierWorkspacePage() {
         <SummaryCard label="À lancer préparation" value={workspace?.launchSummary?.total || 0} hint="Déjà payées" />
         <SummaryCard label="Terminées" value={completedRows.length} hint="Payées, prêtes, clôturées" />
       </div>
+
+      <SoundAlertControls
+        title="Alertes sonores caisse"
+        description="Alerte sur nouvelles commandes à encaisser et à transmettre en préparation."
+        sound={sound}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
