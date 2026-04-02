@@ -155,6 +155,7 @@ export default function ProductForm({
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [pendingImageFile, setPendingImageFile] = useState(null);
   const [revealUrl, setRevealUrl] = useState(false);
 
   // ✅ Feedback UI
@@ -200,7 +201,16 @@ export default function ProductForm({
     setTouched({});
     setRevealUrl(false);
     setBanner(null);
+    setPendingImageFile(null);
   }, [isEdit, initialValues]);
+
+  useEffect(() => {
+    return () => {
+      if (form.imageUrl?.startsWith?.("blob:")) {
+        URL.revokeObjectURL(form.imageUrl);
+      }
+    };
+  }, [form.imageUrl]);
 
   const validateForm = useMemo(() => {
     return {
@@ -277,10 +287,17 @@ export default function ProductForm({
         cc: String(form.cc),
         poidsKg: String(form.poidsKg),
         actif: Boolean(form.actif),
-        imageUrl: form.imageUrl ? String(form.imageUrl).trim() : null,
+        imageUrl:
+          !isEdit && pendingImageFile
+            ? null
+            : form.imageUrl
+              ? String(form.imageUrl).trim()
+              : null,
         category: form.category || "NON_CLASSE",
         details: form.details ? String(form.details) : null,
         stockQty: Number(form.stockQty ?? 0),
+      }, {
+        imageFile: !isEdit ? pendingImageFile : null,
       });
 
       // Support 2 contrats :
@@ -318,7 +335,25 @@ export default function ProductForm({
   };
 
   const uploadImage = async (file) => {
-    if (!file || !onUploadImage) return;
+    if (!file) return;
+
+    if (!isEdit) {
+      if (form.imageUrl?.startsWith?.("blob:")) {
+        URL.revokeObjectURL(form.imageUrl);
+      }
+      const previewUrl = URL.createObjectURL(file);
+      setPendingImageFile(file);
+      handleChange("imageUrl", previewUrl);
+      setBanner({
+        type: "success",
+        title: "Image prête",
+        message: "L’image sera envoyée automatiquement à la création du produit.",
+      });
+      return;
+    }
+
+    if (!onUploadImage) return;
+
     setUploadBusy(true);
     try {
       setBanner(null);
@@ -342,8 +377,9 @@ export default function ProductForm({
 
   const imgTag = imageSourceTag(form.imageUrl);
 
-  // ✅ upload seulement en EDIT (page dédiée)
-  const uploadDisabled = !isEdit || !onUploadImage || loading || uploadBusy;
+  const uploadDisabled = isEdit
+    ? !onUploadImage || loading || uploadBusy
+    : loading || uploadBusy;
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -418,15 +454,10 @@ export default function ProductForm({
           </div>
 
           <div className="flex-1">
-            <p className="text-sm text-gray-700 mb-2">
-              Image produit (admin).
-              {!isEdit && (
-                <span className="text-gray-500">
-                  {" "}
-                  — Modification uniquement sur la page d’édition.
-                </span>
-              )}
-            </p>
+          <p className="text-sm text-gray-700 mb-2">
+            Image produit (admin).
+            {!isEdit && <span className="text-gray-500"> — Upload possible dès la création.</span>}
+          </p>
 
             <div className="flex flex-wrap gap-2">
               <label
@@ -458,7 +489,29 @@ export default function ProductForm({
               {form.imageUrl && isEdit && (
                 <button
                   type="button"
-                  onClick={() => handleChange("imageUrl", "")}
+                  onClick={() => {
+                    if (!isEdit && form.imageUrl?.startsWith?.("blob:")) {
+                      URL.revokeObjectURL(form.imageUrl);
+                    }
+                    setPendingImageFile(null);
+                    handleChange("imageUrl", "");
+                  }}
+                  disabled={loading || uploadBusy}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Retirer l’image
+                </button>
+              )}
+              {form.imageUrl && !isEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (form.imageUrl?.startsWith?.("blob:")) {
+                      URL.revokeObjectURL(form.imageUrl);
+                    }
+                    setPendingImageFile(null);
+                    handleChange("imageUrl", "");
+                  }}
                   disabled={loading || uploadBusy}
                   className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
@@ -476,7 +529,10 @@ export default function ProductForm({
               </button>
             </div>
 
-            {form.imageUrl && /cloudinary\.com/i.test(form.imageUrl) === false && (
+            {form.imageUrl &&
+              !form.imageUrl.startsWith("blob:") &&
+              !form.imageUrl.startsWith("data:") &&
+              /cloudinary\.com/i.test(form.imageUrl) === false && (
               <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
                 ⚠️ Image externe détectée. Pour éviter les liens instables, privilégie l’upload Cloudinary côté admin.
               </div>

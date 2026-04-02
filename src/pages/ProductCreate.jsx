@@ -3,16 +3,34 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import ProductForm from "../components/ProductForm";
-import { create } from "../services/productsService";
+import { create, uploadImage } from "../services/productsService";
 
 export default function ProductCreate() {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(false);
 
-  const onSubmit = async (payload) => {
+  const onSubmit = async (payload, { imageFile } = {}) => {
     setLoading(true);
     try {
-      await create(payload);
+      const created = await create(payload);
+      const productId = created?.id;
+
+      if (imageFile && productId) {
+        try {
+          await uploadImage(productId, imageFile);
+        } catch (uploadErr) {
+          console.error("Image upload after create failed:", uploadErr);
+          navigate("/products", {
+            replace: true,
+            state: {
+              toast:
+                "Produit créé, mais l’image n’a pas pu être envoyée. Ouvre Modifier pour réessayer.",
+              type: "error",
+            },
+          });
+          return;
+        }
+      }
 
       // ✅ Confirmation visuelle + retour page produits
       navigate("/products", {

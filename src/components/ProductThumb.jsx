@@ -15,6 +15,7 @@ function resolveSrc(url) {
 
   // absolute
   if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^blob:/i.test(raw) || /^data:/i.test(raw)) return raw;
 
   // relative
   const path = raw.startsWith("/") ? raw : `/${raw}`;
