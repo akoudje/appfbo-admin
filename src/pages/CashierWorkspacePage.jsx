@@ -5,6 +5,7 @@ import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
 import SoundAlertControls from "../components/common/SoundAlertControls";
 import useSoundAlerts from "../hooks/useSoundAlerts";
+import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 
 const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v2";
 
@@ -353,6 +354,27 @@ export default function CashierWorkspacePage() {
   const firstAlertLoadRef = useRef(true);
   const previousAlertSnapshotRef = useRef(null);
   const sound = useSoundAlerts("cashier");
+
+  useRealtimeAlerts({
+    onEvent: (event) => {
+      const eventKey = String(event?.eventKey || "");
+      if (eventKey === "cashier_collect_new") {
+        sound.notify("cashier_collect_new", {
+          signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
+          cooldownMs: 20000,
+        });
+        loadRef.current?.({ silent: true });
+        return;
+      }
+      if (eventKey === "cashier_launch_new") {
+        sound.notify("cashier_launch_new", {
+          signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
+          cooldownMs: 15000,
+        });
+        loadRef.current?.({ silent: true });
+      }
+    },
+  });
 
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");

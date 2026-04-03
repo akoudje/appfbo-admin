@@ -12,6 +12,7 @@ import PreparationQueueTable from "../../components/preparation/PreparationQueue
 import useAdminAuth from "../../hooks/useAdminAuth";
 import SoundAlertControls from "../../components/common/SoundAlertControls";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
+import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 
 const PREPARATION_PRESET_STORAGE_PREFIX = "preparation_queue_preset_v1";
 
@@ -47,6 +48,18 @@ export default function PreparationQueuePage() {
     [role],
   );
   const sound = useSoundAlerts("preparation");
+
+  useRealtimeAlerts({
+    onEvent: (event) => {
+      const eventKey = String(event?.eventKey || "");
+      if (eventKey !== "preparation_queue_new") return;
+      sound.notify("preparation_queue_new", {
+        signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
+        cooldownMs: 15000,
+      });
+      loadRef.current?.({ silent: true });
+    },
+  });
 
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");

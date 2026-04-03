@@ -13,6 +13,7 @@ import BillingQueueTabs from "../../components/billing/BillingQueueTabs";
 import BillingQueueTable from "../../components/billing/BillingQueueTable";
 import SoundAlertControls from "../../components/common/SoundAlertControls";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
+import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 
 const BILLING_PRESET_STORAGE_PREFIX = "billing_queue_preset_v1";
 
@@ -49,6 +50,27 @@ export default function BillingQueuePage() {
     [role],
   );
   const sound = useSoundAlerts("billing");
+
+  useRealtimeAlerts({
+    onEvent: (event) => {
+      const eventKey = String(event?.eventKey || "");
+      if (eventKey === "billing_escalated_new") {
+        sound.notify("billing_escalated_new", {
+          signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
+          cooldownMs: 15000,
+        });
+        loadRef.current?.({ silent: true });
+        return;
+      }
+      if (eventKey === "billing_queue_new") {
+        sound.notify("billing_queue_new", {
+          signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
+          cooldownMs: 20000,
+        });
+        loadRef.current?.({ silent: true });
+      }
+    },
+  });
 
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
