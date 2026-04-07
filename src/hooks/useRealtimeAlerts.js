@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { getAdminToken } from "../services/auth";
 import { getCountryCode } from "../services/api";
 
@@ -24,17 +24,31 @@ function getEventsStreamUrl() {
   return url.toString();
 }
 
-export function useRealtimeAlerts({ onEvent } = {}) {
+function computeReconnectDelay(attempt = 0) {
+  const boundedAttempt = Math.min(6, Math.max(0, Number(attempt) || 0));
+  const base = 1000 * 2 ** boundedAttempt;
+  const jitter = Math.floor(Math.random() * 300);
+  return Math.min(30000, base + jitter);
+}
+
+export function useRealtimeAlerts({ onEvent, onConnectionChange } = {}) {
   const onEventRef = useRef(onEvent);
+  const onConnectionChangeRef = useRef(onConnectionChange);
   const reconnectTimerRef = useRef(null);
+  const heartbeatTimerRef = useRef(null);
+  const lastPingAtRef = useRef(0);
+  const retryAttemptRef = useRef(0);
 
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
 
-  const streamUrl = useMemo(() => getEventsStreamUrl(), []);
+  useEffect(() => {
+    onConnectionChangeRef.current = onConnectionChange;
+  }, [onConnectionChange]);
 
   useEffect(() => {
+    const streamUrl = getEventsStreamUrl();
     if (!streamUrl || typeof window === "undefined") return undefined;
 
     let closed = false;
@@ -47,11 +61,32 @@ export function useRealtimeAlerts({ onEvent } = {}) {
       }
     };
 
+    const clearHeartbeatWatch = () => {
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (closed) return;
+      clearReconnect();
+      const waitMs = computeReconnectDelay(retryAttemptRef.current);
+      reconnectTimerRef.current = setTimeout(connect, waitMs);
+      retryAttemptRef.current += 1;
+      onConnectionChangeRef.current?.({
+        state: "reconnecting",
+        retryInMs: waitMs,
+      });
+    };
+
     const connect = () => {
       if (closed) return;
       clearReconnect();
+      clearHeartbeatWatch();
 
       eventSource = new EventSource(streamUrl);
+      onConnectionChangeRef.current?.({ state: "connecting" });
 
       eventSource.addEventListener("alert", (event) => {
         try {
@@ -62,6 +97,16 @@ export function useRealtimeAlerts({ onEvent } = {}) {
         }
       });
 
+      eventSource.addEventListener("connected", () => {
+        retryAttemptRef.current = 0;
+        lastPingAtRef.current = Date.now();
+        onConnectionChangeRef.current?.({ state: "connected" });
+      });
+
+      eventSource.addEventListener("ping", () => {
+        lastPingAtRef.current = Date.now();
+      });
+
       eventSource.onerror = () => {
         if (closed) return;
         try {
@@ -69,8 +114,25 @@ export function useRealtimeAlerts({ onEvent } = {}) {
         } catch {
           // Ignore close failures.
         }
-        reconnectTimerRef.current = setTimeout(connect, 3000);
+        onConnectionChangeRef.current?.({ state: "disconnected" });
+        scheduleReconnect();
       };
+
+      heartbeatTimerRef.current = setInterval(() => {
+        const lastPingAt = Number(lastPingAtRef.current || 0);
+        if (!lastPingAt) return;
+        if (Date.now() - lastPingAt <= 70000) return;
+        try {
+          eventSource?.close();
+        } catch {
+          // Ignore close failures.
+        }
+        onConnectionChangeRef.current?.({
+          state: "disconnected",
+          reason: "heartbeat_timeout",
+        });
+        scheduleReconnect();
+      }, 12000);
     };
 
     connect();
@@ -78,14 +140,14 @@ export function useRealtimeAlerts({ onEvent } = {}) {
     return () => {
       closed = true;
       clearReconnect();
+      clearHeartbeatWatch();
       try {
         eventSource?.close();
       } catch {
         // Ignore close failures.
       }
     };
-  }, [streamUrl]);
+  }, []);
 }
 
 export default useRealtimeAlerts;
-

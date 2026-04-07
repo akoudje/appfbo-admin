@@ -1048,7 +1048,10 @@ function SmsMessageCard({
             <button
               className="btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm disabled:opacity-50"
               onClick={onResendWhatsApp}
-              disabled={!billingMessage?.id || saving}
+              disabled={
+                saving ||
+                !String(billingMessage?.toPhone || order?.factureWhatsappTo || "").trim()
+              }
               type="button"
             >
               🔄 Renvoyer
@@ -1217,7 +1220,16 @@ export default function OrderBillingPaymentTab({
     order?.paymentLink ||
     "";
 
-  const resolvedWhatsappStatus = billingMessage?.status || order?.lastWhatsappStatus || null;
+  const billingStatusAt = billingMessage?.lastStatusAt
+    ? new Date(billingMessage.lastStatusAt).getTime()
+    : 0;
+  const orderStatusAt = order?.lastWhatsappStatusAt
+    ? new Date(order.lastWhatsappStatusAt).getTime()
+    : 0;
+  const resolvedWhatsappStatus =
+    orderStatusAt >= billingStatusAt
+      ? order?.lastWhatsappStatus || billingMessage?.status || null
+      : billingMessage?.status || order?.lastWhatsappStatus || null;
   const hasWhatsappMessage = Boolean(order?.whatsappMessage);
   const paymentTimelineItems = Array.isArray(order?.paymentTransactionLogs)
     ? order.paymentTransactionLogs

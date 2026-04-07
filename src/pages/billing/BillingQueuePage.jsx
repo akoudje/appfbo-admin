@@ -14,6 +14,7 @@ import BillingQueueTable from "../../components/billing/BillingQueueTable";
 import SoundAlertControls from "../../components/common/SoundAlertControls";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
+import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
 
 const BILLING_PRESET_STORAGE_PREFIX = "billing_queue_preset_v1";
 
@@ -52,21 +53,37 @@ export default function BillingQueuePage() {
   const sound = useSoundAlerts("billing");
 
   useRealtimeAlerts({
-    onEvent: (event) => {
+    onEvent: async (event) => {
       const eventKey = String(event?.eventKey || "");
       if (eventKey === "billing_escalated_new") {
-        sound.notify("billing_escalated_new", {
+        const played = await sound.notify("billing_escalated_new", {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
           cooldownMs: 15000,
         });
+        if (played) {
+          ackRealtimeAlertPlayback({
+            workspace: "billing",
+            eventKey,
+            orderId: event?.orderId || null,
+            played: true,
+          }).catch(() => {});
+        }
         loadRef.current?.({ silent: true });
         return;
       }
       if (eventKey === "billing_queue_new") {
-        sound.notify("billing_queue_new", {
+        const played = await sound.notify("billing_queue_new", {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
           cooldownMs: 20000,
         });
+        if (played) {
+          ackRealtimeAlertPlayback({
+            workspace: "billing",
+            eventKey,
+            orderId: event?.orderId || null,
+            played: true,
+          }).catch(() => {});
+        }
         loadRef.current?.({ silent: true });
       }
     },
