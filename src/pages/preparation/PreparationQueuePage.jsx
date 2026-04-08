@@ -10,7 +10,6 @@ import PreparationQueueStats from "../../components/preparation/PreparationQueue
 import PreparationQueueTabs from "../../components/preparation/PreparationQueueTabs";
 import PreparationQueueTable from "../../components/preparation/PreparationQueueTable";
 import useAdminAuth from "../../hooks/useAdminAuth";
-import SoundAlertControls from "../../components/common/SoundAlertControls";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
@@ -332,12 +331,6 @@ export default function PreparationQueuePage() {
       <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
 
       <PreparationQueueAlerts error={error} info={info} />
-
-      <SoundAlertControls
-        title="Alertes sonores préparation"
-        description="Alerte lorsqu'une nouvelle commande entre dans la file à préparer."
-        sound={sound}
-      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

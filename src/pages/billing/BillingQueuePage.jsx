@@ -11,7 +11,6 @@ import BillingQueueAlerts from "../../components/billing/BillingQueueAlerts";
 import BillingQueueStats from "../../components/billing/BillingQueueStats";
 import BillingQueueTabs from "../../components/billing/BillingQueueTabs";
 import BillingQueueTable from "../../components/billing/BillingQueueTable";
-import SoundAlertControls from "../../components/common/SoundAlertControls";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
@@ -448,12 +447,6 @@ export default function BillingQueuePage() {
       />
 
       <BillingQueueAlerts error={error} info={info} />
-
-      <SoundAlertControls
-        title="Alertes sonores facturation"
-        description="Alerte sur nouveaux dossiers en file et sur escalades."
-        sound={sound}
-      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

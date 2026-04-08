@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import AdminUsersPage from "./AdminUsersPage";
 import AdminGradeDiscountsPage from "./AdminGradeDiscountsPage";
 import { settingsService } from "../services/settingsService";
+import useSoundAlerts from "../hooks/useSoundAlerts";
 
 const TABS = [
   { key: "countries", label: "Pays" },
   { key: "commercial", label: "Règles commerciales" },
   { key: "notifications", label: "Notifications" },
+  { key: "sound-alerts", label: "Alertes sonores" },
   { key: "users", label: "Utilisateurs" },
   { key: "discounts", label: "Remises" },
   { key: "theme", label: "Thème" },
@@ -75,6 +77,10 @@ const DEFAULT_SETTINGS = {
       },
     },
   },
+  soundAlerts: {
+    forceEnabled: true,
+    forceVolumePercent: 100,
+  },
 };
 
 function Card({ title, description, actions, children }) {
@@ -135,6 +141,7 @@ function ToggleCard({ label, hint, checked, onChange }) {
 }
 
 export default function AdminSettingsPage() {
+  const sound = useSoundAlerts("settings");
   const [activeTab, setActiveTab] = useState("countries");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -585,6 +592,61 @@ export default function AdminSettingsPage() {
                     </div>
                   ),
                 )}
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "sound-alerts" ? (
+            <div className="space-y-4">
+              <div className="border border-[#e7dec8] bg-[#fcfbf7] p-4 text-sm text-[#6f6a60]">
+                Les alertes sonores sont gérées de façon centralisée pour les espaces
+                Facturation, Caisse et Préparation.
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-3">
+                <div className="border border-[#e7dec8] bg-white p-4">
+                  <div className="text-xs uppercase tracking-wide text-[#8d7a5c]">
+                    État global
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-[#000000]">
+                    Toujours activées
+                  </div>
+                </div>
+                <div className="border border-[#e7dec8] bg-white p-4">
+                  <div className="text-xs uppercase tracking-wide text-[#8d7a5c]">
+                    Volume global
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-[#000000]">
+                    100%
+                  </div>
+                </div>
+                <div className="border border-[#e7dec8] bg-white p-4">
+                  <div className="text-xs uppercase tracking-wide text-[#8d7a5c]">
+                    Activation navigateur
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-[#000000]">
+                    {sound.unlocked ? "Active" : "À activer"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {!sound.unlocked ? (
+                  <button
+                    type="button"
+                    onClick={sound.unlockSound}
+                    className="border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fcfbf7]"
+                  >
+                    Activer le son navigateur
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={sound.testSound}
+                  className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200]"
+                >
+                  Tester l'alerte sonore
+                </button>
               </div>
             </div>
           ) : null}

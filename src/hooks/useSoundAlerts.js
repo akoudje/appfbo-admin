@@ -6,6 +6,8 @@ import {
 } from "../lib/soundEngine";
 
 const STORAGE_PREFIX = "workspace_sound_alert_v1";
+const FORCED_SOUND_ENABLED = true;
+const FORCED_SOUND_VOLUME = 1;
 
 function safeReadStorage(key, fallback) {
   try {
@@ -95,8 +97,8 @@ export function useSoundAlerts(workspaceKey) {
     [workspaceKey],
   );
 
-  const [enabled, setEnabled] = useState(true);
-  const [volume, setVolume] = useState(0.6);
+  const [enabled, setEnabled] = useState(FORCED_SOUND_ENABLED);
+  const [volume, setVolume] = useState(FORCED_SOUND_VOLUME);
   const [mutedUntil, setMutedUntil] = useState(0);
   const [unlocked, setUnlocked] = useState(() => isSoundSessionUnlocked());
 
@@ -105,23 +107,19 @@ export function useSoundAlerts(workspaceKey) {
   const signatureRef = useRef(new Map());
 
   useEffect(() => {
-    const saved = safeReadStorage(storageKey, {
-      enabled: true,
-      volume: 0.6,
-      mutedUntil: 0,
-    });
-    setEnabled(Boolean(saved.enabled));
-    setVolume(Math.max(0, Math.min(1, Number(saved.volume ?? 0.6))));
+    const saved = safeReadStorage(storageKey, { mutedUntil: 0 });
+    setEnabled(FORCED_SOUND_ENABLED);
+    setVolume(FORCED_SOUND_VOLUME);
     setMutedUntil(Number(saved.mutedUntil || 0));
   }, [storageKey]);
 
   useEffect(() => {
     safeWriteStorage(storageKey, {
-      enabled,
-      volume,
+      enabled: FORCED_SOUND_ENABLED,
+      volume: FORCED_SOUND_VOLUME,
       mutedUntil,
     });
-  }, [storageKey, enabled, volume, mutedUntil]);
+  }, [storageKey, mutedUntil]);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -152,10 +150,10 @@ export function useSoundAlerts(workspaceKey) {
     async (eventKey = "default") => {
       const ctx = await ensureAudioContext();
       if (!ctx) return false;
-      playBeepPattern(ctx, eventPattern(eventKey), volume);
+      playBeepPattern(ctx, eventPattern(eventKey), FORCED_SOUND_VOLUME);
       return true;
     },
-    [ensureAudioContext, volume],
+    [ensureAudioContext],
   );
 
   const notify = useCallback(
@@ -165,12 +163,10 @@ export function useSoundAlerts(workspaceKey) {
         cooldownMs = 45000,
       } = options || {};
 
-      if (!enabled) return false;
       if (!unlocked) return false;
       if (typeof document !== "undefined" && document.visibilityState !== "visible") {
         return false;
       }
-      if (Number(mutedUntil || 0) > Date.now()) return false;
 
       const key = String(eventKey || "default");
       const now = Date.now();
@@ -189,7 +185,7 @@ export function useSoundAlerts(workspaceKey) {
       }
       return ok;
     },
-    [enabled, mutedUntil, play, unlocked],
+    [play, unlocked],
   );
 
   const testSound = useCallback(async () => {
@@ -207,10 +203,23 @@ export function useSoundAlerts(workspaceKey) {
 
   const clearMute = useCallback(() => setMutedUntil(0), []);
 
+  useEffect(() => {
+    if (unlocked || typeof window === "undefined") return undefined;
+    const tryUnlock = () => {
+      unlockSound().catch(() => {});
+    };
+    window.addEventListener("pointerdown", tryUnlock, { passive: true });
+    window.addEventListener("keydown", tryUnlock, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", tryUnlock);
+      window.removeEventListener("keydown", tryUnlock);
+    };
+  }, [unlockSound, unlocked]);
+
   return {
-    enabled,
+    enabled: FORCED_SOUND_ENABLED,
     setEnabled,
-    volume,
+    volume: FORCED_SOUND_VOLUME,
     setVolume,
     mutedUntil,
     unlocked,

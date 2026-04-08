@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
-import SoundAlertControls from "../components/common/SoundAlertControls";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../services/realtimeAlertsService";
@@ -649,12 +648,6 @@ export default function CashierWorkspacePage() {
         <SummaryCard label="À lancer préparation" value={workspace?.launchSummary?.total || 0} hint="Déjà payées" />
         <SummaryCard label="Terminées" value={completedRows.length} hint="Payées, prêtes, clôturées" />
       </div>
-
-      <SoundAlertControls
-        title="Alertes sonores caisse"
-        description="Alerte sur nouvelles commandes à encaisser et à transmettre en préparation."
-        sound={sound}
-      />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
