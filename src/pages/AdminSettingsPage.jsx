@@ -6,6 +6,7 @@ import { settingsService } from "../services/settingsService";
 const TABS = [
   { key: "countries", label: "Pays" },
   { key: "commercial", label: "Règles commerciales" },
+  { key: "notifications", label: "Notifications" },
   { key: "users", label: "Utilisateurs" },
   { key: "discounts", label: "Remises" },
   { key: "theme", label: "Thème" },
@@ -35,6 +36,38 @@ const DEFAULT_SETTINGS = {
     logoPath: "/logo-forever.png",
     sliderEnabled: true,
     sidePanelsEnabled: true,
+  },
+  notifications: {
+    templates: {
+      sms: {
+        INVOICE:
+          "FOREVER Ref:{{invoiceRef}} Total:{{totalFcfa}}F {{paymentLink}}",
+        ORDER_READY:
+          "Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
+        PREPARATION_STARTED:
+          "Bonjour {{customerName}}, colis {{parcelNumber}} en préparation.",
+        REMINDER:
+          "Rappel FOREVER: commande {{preorderNumber}}. Ref:{{invoiceRef}} {{paymentLink}}",
+      },
+      email: {
+        INVOICE: {
+          subject: "FOREVER - Facture {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nVotre facture est disponible.\nRéférence: {{invoiceRef}}\nMontant à payer: {{totalFcfaLabel}}\nLien de paiement: {{paymentLink}}\n\nSupport: {{supportPhone}}\nEquipe FOREVER",
+        },
+        ORDER_READY: {
+          subject: "FOREVER - Colis prêt ({{preorderNumber}})",
+          body: "Bonjour {{customerName}},\n\nVotre colis {{parcelNumber}} est prêt.\nCode retrait: {{pickupCode}}\nAdresse retrait: {{pickupAddress}}\n\nEquipe FOREVER",
+        },
+        PREPARATION_STARTED: {
+          subject: "FOREVER - Préparation en cours ({{preorderNumber}})",
+          body: "Bonjour {{customerName}},\n\nVotre colis {{parcelNumber}} est en cours de préparation.\n\nEquipe FOREVER",
+        },
+        REMINDER: {
+          subject: "FOREVER - Rappel commande {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nRappel sur votre commande {{preorderNumber}}.\nRéférence: {{invoiceRef}}\nMontant: {{totalFcfaLabel}}\nLien: {{paymentLink}}\n\nEquipe FOREVER",
+        },
+      },
+    },
   },
 };
 
@@ -141,6 +174,18 @@ export default function AdminSettingsPage() {
             sidePanelsEnabled:
               data.themeSidePanelsEnabled ?? prev.theme.sidePanelsEnabled,
           },
+          notifications: {
+            templates: {
+              sms: {
+                ...prev.notifications.templates.sms,
+                ...(data?.notificationTemplates?.sms || {}),
+              },
+              email: {
+                ...prev.notifications.templates.email,
+                ...(data?.notificationTemplates?.email || {}),
+              },
+            },
+          },
         }));
       } catch (e) {
         setError(e?.response?.data?.message || "Impossible de charger les paramètres.");
@@ -174,6 +219,7 @@ export default function AdminSettingsPage() {
         themeLogoPath: settings.theme.logoPath,
         themeSliderEnabled: settings.theme.sliderEnabled,
         themeSidePanelsEnabled: settings.theme.sidePanelsEnabled,
+        notificationTemplates: settings.notifications.templates,
       });
       setInfo("Paramètres enregistrés.");
     } catch (e) {
@@ -187,6 +233,41 @@ export default function AdminSettingsPage() {
     () => `${settings.commercial.minCartTotalFcfa} ${settings.commercial.currencyLabel}`,
     [settings.commercial],
   );
+
+  function setSmsTemplate(purpose, value) {
+    setSettings((prev) => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        templates: {
+          ...prev.notifications.templates,
+          sms: {
+            ...prev.notifications.templates.sms,
+            [purpose]: value,
+          },
+        },
+      },
+    }));
+  }
+
+  function setEmailTemplate(purpose, field, value) {
+    setSettings((prev) => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        templates: {
+          ...prev.notifications.templates,
+          email: {
+            ...prev.notifications.templates.email,
+            [purpose]: {
+              ...(prev.notifications.templates.email?.[purpose] || {}),
+              [field]: value,
+            },
+          },
+        },
+      },
+    }));
+  }
 
   return (
     <div className="space-y-6">
@@ -409,6 +490,88 @@ export default function AdminSettingsPage() {
 
           {activeTab === "users" ? (
             <AdminUsersPage />
+          ) : null}
+
+          {activeTab === "notifications" ? (
+            <div className="space-y-6">
+              <div className="border border-[#e7dec8] bg-[#fcfbf7] p-4 text-sm text-[#6f6a60]">
+                Variables disponibles:{" "}
+                <code>{`{{customerName}} {{preorderNumber}} {{parcelNumber}} {{invoiceRef}} {{totalFcfa}} {{totalFcfaLabel}} {{paymentLink}} {{pickupCode}} {{supportPhone}} {{pickupAddress}}`}</code>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Field label="SMS - Facture">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.INVOICE || ""}
+                    onChange={(e) => setSmsTemplate("INVOICE", e.target.value)}
+                  />
+                </Field>
+                <Field label="SMS - Colis prêt">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.ORDER_READY || ""}
+                    onChange={(e) => setSmsTemplate("ORDER_READY", e.target.value)}
+                  />
+                </Field>
+                <Field label="SMS - Préparation en cours">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.PREPARATION_STARTED || ""}
+                    onChange={(e) =>
+                      setSmsTemplate("PREPARATION_STARTED", e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="SMS - Rappel">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.REMINDER || ""}
+                    onChange={(e) => setSmsTemplate("REMINDER", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-base font-semibold text-[#000000]">
+                  Templates Email
+                </div>
+                {["INVOICE", "ORDER_READY", "PREPARATION_STARTED", "REMINDER"].map(
+                  (purpose) => (
+                    <div
+                      key={purpose}
+                      className="grid gap-4 border border-[#e7dec8] bg-white p-4 xl:grid-cols-2"
+                    >
+                      <Field label={`Email ${purpose} - Sujet`}>
+                        <TextInput
+                          value={
+                            settings.notifications.templates.email?.[purpose]
+                              ?.subject || ""
+                          }
+                          onChange={(e) =>
+                            setEmailTemplate(purpose, "subject", e.target.value)
+                          }
+                        />
+                      </Field>
+                      <div className="xl:col-span-2">
+                        <Field label={`Email ${purpose} - Corps`}>
+                          <TextArea
+                            rows={5}
+                            value={
+                              settings.notifications.templates.email?.[purpose]
+                                ?.body || ""
+                            }
+                            onChange={(e) =>
+                              setEmailTemplate(purpose, "body", e.target.value)
+                            }
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
           ) : null}
 
           {activeTab === "discounts" ? (
