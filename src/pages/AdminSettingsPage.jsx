@@ -46,6 +46,8 @@ const DEFAULT_SETTINGS = {
           "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
         PREPARATION_STARTED:
           "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} en préparation.",
+        ORDER_FULFILLED:
+          "FOREVER: Bonjour {{customerName}}, votre commande {{preorderNumber}} est clôturée. Merci pour votre confiance.",
         REMINDER:
           "FOREVER: Rappel commande {{preorderNumber}}. Ref: {{invoiceRef}}. Paiement: {{paymentLink}}",
       },
@@ -61,6 +63,10 @@ const DEFAULT_SETTINGS = {
         PREPARATION_STARTED: {
           subject: "FOREVER | Préparation en cours - Commande {{preorderNumber}}",
           body: "Bonjour {{customerName}},\n\nVotre commande est en cours de préparation.\n\nRéférence colis: {{parcelNumber}}\n\nNous vous informerons dès qu'elle sera prête.\n\nCordialement,\nService Client FOREVER",
+        },
+        ORDER_FULFILLED: {
+          subject: "FOREVER | Commande clôturée {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nVotre commande {{preorderNumber}} a été clôturée avec succès.\nRéférence colis: {{parcelNumber}}\n\nNous vous remercions pour votre confiance.\n\nCordialement,\nService Client FOREVER",
         },
         REMINDER: {
           subject: "FOREVER | Rappel de commande {{preorderNumber}}",
@@ -530,13 +536,22 @@ export default function AdminSettingsPage() {
                     onChange={(e) => setSmsTemplate("REMINDER", e.target.value)}
                   />
                 </Field>
+                <Field label="SMS - Commande clôturée">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.ORDER_FULFILLED || ""}
+                    onChange={(e) =>
+                      setSmsTemplate("ORDER_FULFILLED", e.target.value)
+                    }
+                  />
+                </Field>
               </div>
 
               <div className="space-y-4">
                 <div className="text-base font-semibold text-[#000000]">
                   Templates Email
                 </div>
-                {["INVOICE", "ORDER_READY", "PREPARATION_STARTED", "REMINDER"].map(
+                {["INVOICE", "ORDER_READY", "PREPARATION_STARTED", "ORDER_FULFILLED", "REMINDER"].map(
                   (purpose) => (
                     <div
                       key={purpose}
