@@ -53,6 +53,67 @@ function humanizeEnum(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function resolveAssetUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const defaultApi =
+    typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:4000/api"
+      : "https://appfbo-backend.onrender.com/api";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || defaultApi;
+  const origin = String(apiBase || "").replace(/\/api\/?$/, "");
+
+  if (raw.startsWith("/")) return `${origin}${raw}`;
+  return `${origin}/${raw}`;
+}
+
+function isImageProof(url = "") {
+  return /\.(png|jpg|jpeg|webp|gif)(\?|#|$)/i.test(String(url || ""));
+}
+
+function isPdfProof(url = "") {
+  return /\.pdf(\?|#|$)/i.test(String(url || ""));
+}
+
+function printProof(url) {
+  const absolute = resolveAssetUrl(url);
+  if (!absolute || typeof window === "undefined") return;
+
+  const popup = window.open("", "_blank", "width=980,height=800");
+  if (!popup) return;
+
+  const safeUrl = absolute.replace(/"/g, "&quot;");
+  const isPdf = isPdfProof(absolute);
+  const content = isPdf
+    ? `<iframe src="${safeUrl}" style="width:100%;height:100%;border:0;"></iframe>`
+    : `<img src="${safeUrl}" alt="Preuve paiement" style="max-width:100%;max-height:100%;object-fit:contain;" />`;
+
+  popup.document.write(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Preuve de paiement</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #111; display:flex; align-items:center; justify-content:center; }
+    </style>
+  </head>
+  <body>${content}</body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  popup.addEventListener("load", () => {
+    setTimeout(() => {
+      try {
+        popup.print();
+      } catch {
+        // noop
+      }
+    }, 500);
+  });
+}
+
 function mergeRowsById(groups = []) {
   const map = new Map();
   groups.flat().forEach((row) => {
@@ -264,6 +325,11 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
   const items = Array.isArray(order?.items) ? order.items : [];
   const attempt = order?.activePayment?.attempts?.[0] || null;
   const cashierTx = order?.cashierTransactions?.[0] || null;
+  const latestBankProof = Array.isArray(order?.bankPaymentProofs) ? order.bankPaymentProofs[0] : null;
+  const proofUrlRaw = latestBankProof?.fileUrl || order?.manualPaymentProofUrl || "";
+  const proofUrl = resolveAssetUrl(proofUrlRaw);
+  const proofRef = latestBankProof?.reference || order?.manualPaymentReference || "-";
+  const proofNote = latestBankProof?.note || order?.manualPaymentProofNote || "";
 
   return (
     <div className="fixed inset-0 z-40">
@@ -299,6 +365,58 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
                 <div><strong>Facture:</strong> {order.factureReference || "-"}</div>
                 <div><strong>Paiement confirmé:</strong> {formatDateTime(order.paidAt)}</div>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 p-4 text-sm">
+              <div className="mb-2 text-sm font-semibold text-gray-900">Preuve de paiement</div>
+              {proofUrl ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <div><strong>Référence:</strong> {proofRef}</div>
+                    <div><strong>Déposée le:</strong> {formatDateTime(latestBankProof?.submittedAt || order?.manualPaymentReceivedAt)}</div>
+                  </div>
+
+                  {proofNote ? (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                      {proofNote}
+                    </div>
+                  ) : null}
+
+                  {isPdfProof(proofUrl) ? (
+                    <div className="h-72 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                      <iframe title="Aperçu preuve PDF" src={proofUrl} className="h-full w-full border-0" />
+                    </div>
+                  ) : isImageProof(proofUrl) ? (
+                    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white p-2">
+                      <img src={proofUrl} alt="Preuve de paiement" className="max-h-72 w-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      Aperçu non disponible pour ce format. Ouvrez le fichier pour vérification.
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={proofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Ouvrir la preuve
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => printProof(proofUrlRaw)}
+                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white"
+                    >
+                      Imprimer la preuve
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-500">Aucune preuve bancaire déposée pour cette commande.</div>
+              )}
             </div>
 
             <div className="rounded-xl border border-gray-200">
