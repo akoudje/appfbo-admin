@@ -364,6 +364,7 @@ export default function PreparationQueuePage() {
             <option value="ESPECES">Espèces</option>
             <option value="WAVE">Wave</option>
             <option value="ORANGE_MONEY">Orange Money</option>
+            <option value="BANK_TRANSFER">Virement bancaire</option>
           </select>
           <input
             type="date"

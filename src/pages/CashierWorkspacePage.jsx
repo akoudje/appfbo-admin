@@ -677,6 +677,7 @@ export default function CashierWorkspacePage() {
             <option value="ESPECES">Espèces</option>
             <option value="WAVE">Wave</option>
             <option value="ORANGE_MONEY">Orange Money</option>
+            <option value="BANK_TRANSFER">Virement bancaire</option>
           </select>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
           <input type="date" min={dateFrom || undefined} value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />

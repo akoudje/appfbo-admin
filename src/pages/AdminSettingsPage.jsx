@@ -21,8 +21,17 @@ const DEFAULT_SETTINGS = {
     enableWave: true,
     enableOrangeMoney: true,
     enableCash: true,
+    enableBankTransfer: true,
     enableDelivery: true,
     enablePickup: true,
+    bankAccountLabel: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIban: "",
+    bankSwift: "",
+    bankAccountHolder: "",
+    bankPaymentDueHours: 72,
+    bankProofMaxFileSizeMb: 8,
   },
   commercial: {
     minCartTotalFcfa: 100,
@@ -164,8 +173,19 @@ export default function AdminSettingsPage() {
             enableWave: Boolean(data.enableWave),
             enableOrangeMoney: Boolean(data.enableOrangeMoney),
             enableCash: Boolean(data.enableCash),
+            enableBankTransfer: data.enableBankTransfer ?? true,
             enableDelivery: Boolean(data.enableDelivery),
             enablePickup: Boolean(data.enablePickup),
+            bankAccountLabel: data.bankAccountLabel || "",
+            bankName: data.bankName || "",
+            bankAccountNumber: data.bankAccountNumber || "",
+            bankIban: data.bankIban || "",
+            bankSwift: data.bankSwift || "",
+            bankAccountHolder: data.bankAccountHolder || "",
+            bankPaymentDueHours:
+              data.bankPaymentDueHours ?? prev.countries.bankPaymentDueHours,
+            bankProofMaxFileSizeMb:
+              data.bankProofMaxFileSizeMb ?? prev.countries.bankProofMaxFileSizeMb,
           },
           commercial: {
             ...prev.commercial,
@@ -222,8 +242,17 @@ export default function AdminSettingsPage() {
         enableWave: settings.countries.enableWave,
         enableOrangeMoney: settings.countries.enableOrangeMoney,
         enableCash: settings.countries.enableCash,
+        enableBankTransfer: settings.countries.enableBankTransfer,
         enableDelivery: settings.countries.enableDelivery,
         enablePickup: settings.countries.enablePickup,
+        bankAccountLabel: settings.countries.bankAccountLabel,
+        bankName: settings.countries.bankName,
+        bankAccountNumber: settings.countries.bankAccountNumber,
+        bankIban: settings.countries.bankIban,
+        bankSwift: settings.countries.bankSwift,
+        bankAccountHolder: settings.countries.bankAccountHolder,
+        bankPaymentDueHours: settings.countries.bankPaymentDueHours,
+        bankProofMaxFileSizeMb: settings.countries.bankProofMaxFileSizeMb,
         currencyLabel: settings.commercial.currencyLabel,
         pricingDisclaimer: settings.commercial.pricingDisclaimer,
         themePrimaryColor: settings.theme.primaryColor,
@@ -395,6 +424,17 @@ export default function AdminSettingsPage() {
                 }
               />
               <ToggleCard
+                label="Virement bancaire disponible"
+                hint="Active le mode virement/versement bancaire côté frontend."
+                checked={settings.countries.enableBankTransfer}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    countries: { ...prev.countries, enableBankTransfer: checked },
+                  }))
+                }
+              />
+              <ToggleCard
                 label="Livraison disponible"
                 hint="Active le mode livraison côté frontend user."
                 checked={settings.countries.enableDelivery}
@@ -416,6 +456,127 @@ export default function AdminSettingsPage() {
                   }))
                 }
               />
+
+              <div className="xl:col-span-2 border border-[#e7dec8] bg-[#fcfbf7] p-4">
+                <div className="mb-3 text-sm font-semibold text-[#5D4B3C]">
+                  Paramètres virement bancaire
+                </div>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <Field label="Libellé compte">
+                    <TextInput
+                      value={settings.countries.bankAccountLabel}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: {
+                            ...prev.countries,
+                            bankAccountLabel: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Compte principal FCFA"
+                    />
+                  </Field>
+                  <Field label="Banque">
+                    <TextInput
+                      value={settings.countries.bankName}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: { ...prev.countries, bankName: e.target.value },
+                        }))
+                      }
+                      placeholder="Nom de la banque"
+                    />
+                  </Field>
+                  <Field label="Numéro de compte">
+                    <TextInput
+                      value={settings.countries.bankAccountNumber}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: {
+                            ...prev.countries,
+                            bankAccountNumber: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Ex: 1234567890"
+                    />
+                  </Field>
+                  <Field label="Titulaire du compte">
+                    <TextInput
+                      value={settings.countries.bankAccountHolder}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: {
+                            ...prev.countries,
+                            bankAccountHolder: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="FOREVER LIVING PRODUCTS"
+                    />
+                  </Field>
+                  <Field label="IBAN (optionnel)">
+                    <TextInput
+                      value={settings.countries.bankIban}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: { ...prev.countries, bankIban: e.target.value },
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="SWIFT/BIC (optionnel)">
+                    <TextInput
+                      value={settings.countries.bankSwift}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: { ...prev.countries, bankSwift: e.target.value },
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Délai de paiement (heures)">
+                    <TextInput
+                      type="number"
+                      min="1"
+                      max="720"
+                      value={settings.countries.bankPaymentDueHours}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: {
+                            ...prev.countries,
+                            bankPaymentDueHours: Number(e.target.value || 72),
+                          },
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Taille max preuve (MB)">
+                    <TextInput
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={settings.countries.bankProofMaxFileSizeMb}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: {
+                            ...prev.countries,
+                            bankProofMaxFileSizeMb: Number(e.target.value || 8),
+                          },
+                        }))
+                      }
+                    />
+                  </Field>
+                </div>
+              </div>
             </div>
           ) : null}
 
