@@ -41,30 +41,30 @@ const DEFAULT_SETTINGS = {
     templates: {
       sms: {
         INVOICE:
-          "FOREVER Ref:{{invoiceRef}} Total:{{totalFcfa}}F {{paymentLink}}",
+          "FOREVER: Facture {{invoiceRef}}. Montant: {{totalFcfa}}F. Paiement: {{paymentLink}}",
         ORDER_READY:
-          "Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
+          "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
         PREPARATION_STARTED:
-          "Bonjour {{customerName}}, colis {{parcelNumber}} en préparation.",
+          "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} en préparation.",
         REMINDER:
-          "Rappel FOREVER: commande {{preorderNumber}}. Ref:{{invoiceRef}} {{paymentLink}}",
+          "FOREVER: Rappel commande {{preorderNumber}}. Ref: {{invoiceRef}}. Paiement: {{paymentLink}}",
       },
       email: {
         INVOICE: {
-          subject: "FOREVER - Facture {{preorderNumber}}",
-          body: "Bonjour {{customerName}},\n\nVotre facture est disponible.\nRéférence: {{invoiceRef}}\nMontant à payer: {{totalFcfaLabel}}\nLien de paiement: {{paymentLink}}\n\nSupport: {{supportPhone}}\nEquipe FOREVER",
+          subject: "FOREVER | Facture de commande {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nNous vous remercions pour votre commande.\nVotre facture est disponible.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant à payer: {{totalFcfaLabel}}\nLien de paiement: {{paymentLink}}\n\nPour toute assistance, contactez-nous au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
         },
         ORDER_READY: {
-          subject: "FOREVER - Colis prêt ({{preorderNumber}})",
-          body: "Bonjour {{customerName}},\n\nVotre colis {{parcelNumber}} est prêt.\nCode retrait: {{pickupCode}}\nAdresse retrait: {{pickupAddress}}\n\nEquipe FOREVER",
+          subject: "FOREVER | Colis prêt - Commande {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nVotre colis est prêt au retrait.\n\nRéférence colis: {{parcelNumber}}\nCode de retrait: {{pickupCode}}\nPoint de retrait: {{pickupAddress}}\n\nMerci de présenter ce code au comptoir.\n\nCordialement,\nService Client FOREVER",
         },
         PREPARATION_STARTED: {
-          subject: "FOREVER - Préparation en cours ({{preorderNumber}})",
-          body: "Bonjour {{customerName}},\n\nVotre colis {{parcelNumber}} est en cours de préparation.\n\nEquipe FOREVER",
+          subject: "FOREVER | Préparation en cours - Commande {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nVotre commande est en cours de préparation.\n\nRéférence colis: {{parcelNumber}}\n\nNous vous informerons dès qu'elle sera prête.\n\nCordialement,\nService Client FOREVER",
         },
         REMINDER: {
-          subject: "FOREVER - Rappel commande {{preorderNumber}}",
-          body: "Bonjour {{customerName}},\n\nRappel sur votre commande {{preorderNumber}}.\nRéférence: {{invoiceRef}}\nMontant: {{totalFcfaLabel}}\nLien: {{paymentLink}}\n\nEquipe FOREVER",
+          subject: "FOREVER | Rappel de commande {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nNous vous rappelons les informations de votre commande.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant: {{totalFcfaLabel}}\nLien de paiement: {{paymentLink}}\n\nNous restons à votre disposition au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
         },
       },
     },
