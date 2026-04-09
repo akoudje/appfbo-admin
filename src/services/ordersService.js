@@ -42,6 +42,17 @@ export const ordersService = {
   getMessages: async (id) =>
     (await api.get(`/admin/orders/${normalizeOrderId(id)}/messages`)).data,
 
+  downloadBankProofFile: async (id, proofId) =>
+    await api.get(
+      `/admin/orders/${normalizeOrderId(id)}/bank-proofs/${proofId}/file`,
+      { responseType: "blob" },
+    ),
+
+  downloadLegacyManualProofFile: async (id) =>
+    await api.get(`/admin/orders/${normalizeOrderId(id)}/manual-proof/file`, {
+      responseType: "blob",
+    }),
+
   getInvoicePreview: async (id, params = {}) =>
     (
       await api.get(`/admin/orders/${normalizeOrderId(id)}/invoice-preview`, {
