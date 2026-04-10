@@ -1,9 +1,7 @@
 // src/components/orders/detail/OrderBillingPaymentTab.jsx
-// src/components/orders/OrderBillingPaymentTab.jsx
 import React from "react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
-import PaymentTimeline from "./PaymentTimeline";
 import OrderItemsTable from "./OrderItemsTable";
 
 // ============================================
@@ -27,7 +25,7 @@ const BILLING_GRADE_OPTIONS = [
 ];
 
 // ============================================
-// COMPOSANTS UTILITAIRES AMÉLIORÉS
+// COMPOSANTS UTILITAIRES
 // ============================================
 
 function Field({ label, children, optional = false, className = "", hint = "" }) {
@@ -97,6 +95,70 @@ function Alert({ tone = "blue", title, children, className = "", dismissible = f
   );
 }
 
+function PaymentMethodBadge({ isCash, isWaveFlow }) {
+  const config = isCash
+    ? { label: "Espèces", cls: "bg-amber-100 text-amber-700 border-amber-200", icon: "💵" }
+    : isWaveFlow
+      ? { label: "Wave", cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "🌊" }
+      : { label: "Manuel", cls: "bg-gray-100 text-gray-700 border-gray-200", icon: "📎" };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.cls}`}>
+      <span>{config.icon}</span>
+      {config.label}
+    </span>
+  );
+}
+
+function PaymentStatusBadge({ status }) {
+  const value = String(status || "").toUpperCase();
+
+  const config = {
+    PENDING_CUSTOMER_ACTION: { label: "En attente client", cls: "bg-amber-100 text-amber-700 border-amber-200" },
+    PAYMENT_PENDING: { label: "En attente", cls: "bg-amber-100 text-amber-700 border-amber-200" },
+    PROCESSING: { label: "En cours", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+    SUCCEEDED: { label: "Payé", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+    PAID: { label: "Payé", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+    EXPIRED: { label: "Expiré", cls: "bg-orange-100 text-orange-700 border-orange-200" },
+    CANCELLED: { label: "Annulé", cls: "bg-red-100 text-red-700 border-red-200" },
+    FAILED: { label: "Échec", cls: "bg-red-100 text-red-700 border-red-200" },
+  };
+
+  const item = config[value] || { label: status || "—", cls: "bg-gray-100 text-gray-700 border-gray-200" };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${item.cls}`}>
+      {item.label}
+    </span>
+  );
+}
+
+function StepIndicator({ number, title, active = false, completed = false }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+          completed
+            ? "bg-emerald-500 text-white shadow-md shadow-emerald-200"
+            : active
+              ? "bg-indigo-500 text-white shadow-md shadow-indigo-200"
+              : "bg-gray-200 text-gray-500"
+        }`}
+      >
+        {completed ? "✓" : number}
+      </div>
+      <div>
+        <div className={`font-medium text-sm ${completed ? "text-gray-900" : active ? "text-indigo-700" : "text-gray-500"}`}>
+          {title}
+        </div>
+        <div className="text-xs text-gray-500">
+          {completed ? "Terminée" : active ? "En cours" : "À venir"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Row({ label, value, highlight = false, copyable = false, className = "" }) {
   const [copied, setCopied] = React.useState(false);
   
@@ -143,169 +205,6 @@ function Row({ label, value, highlight = false, copyable = false, className = ""
   );
 }
 
-function StatCard({ label, value, subvalue, tone = "gray", icon, className = "" }) {
-  const tones = {
-    gray: "bg-gradient-to-br from-gray-50 to-white border-gray-200",
-    amber: "bg-gradient-to-br from-amber-50 to-white border-amber-200",
-    emerald: "bg-gradient-to-br from-emerald-50 to-white border-emerald-200",
-    blue: "bg-gradient-to-br from-blue-50 to-white border-blue-200",
-    red: "bg-gradient-to-br from-red-50 to-white border-red-200",
-  };
-
-  return (
-    <div className={`rounded-xl border ${tones[tone]} p-4 shadow-sm hover:shadow-md transition-all duration-200 ${className}`}>
-      <div className="flex items-center gap-2 mb-2">
-        {icon && (
-          <span className="text-xl" role="img" aria-hidden="true">
-            {icon}
-          </span>
-        )}
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          {label}
-        </span>
-      </div>
-      <div className="text-2xl font-bold text-gray-900">
-        {value}
-      </div>
-      {subvalue && (
-        <div className="mt-1">
-          <span className="text-xs text-gray-500">{subvalue}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CompactInfoCard({ title, children, className = "", collapsible = false }) {
-  const [isExpanded, setIsExpanded] = React.useState(true);
-  
-  const headerContent = (
-    <div className="bg-gradient-to-r from-gray-50 to-white px-5 py-3 border-b border-gray-200">
-      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-        {title}
-        {collapsible && (
-          <span className="ml-auto text-gray-400">
-            {isExpanded ? '▼' : '▶'}
-          </span>
-        )}
-      </h4>
-    </div>
-  );
-
-  return (
-    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${className}`}>
-      {collapsible ? (
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-left hover:bg-gray-50 transition-colors"
-        >
-          {headerContent}
-        </button>
-      ) : (
-        headerContent
-      )}
-      {isExpanded && (
-        <div className="p-5">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StepIndicator({ number, title, active = false, completed = false }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
-          completed
-            ? "bg-emerald-500 text-white shadow-md shadow-emerald-200"
-            : active
-              ? "bg-indigo-500 text-white shadow-md shadow-indigo-200"
-              : "bg-gray-200 text-gray-500"
-        }`}
-      >
-        {completed ? "✓" : number}
-      </div>
-      <div>
-        <div className={`font-medium text-sm ${completed ? "text-gray-900" : active ? "text-indigo-700" : "text-gray-500"}`}>
-          {title}
-        </div>
-        <div className="text-xs text-gray-500">
-          {completed ? "Terminée" : active ? "En cours" : "À venir"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PaymentMethodBadge({ isCash, isWaveFlow }) {
-  const config = isCash
-    ? { label: "Espèces", cls: "bg-amber-100 text-amber-700 border-amber-200", icon: "💵" }
-    : isWaveFlow
-      ? { label: "Wave", cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "🌊" }
-      : { label: "Manuel", cls: "bg-gray-100 text-gray-700 border-gray-200", icon: "📎" };
-
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.cls}`}>
-      <span>{config.icon}</span>
-      {config.label}
-    </span>
-  );
-}
-
-function MessageStatusBadge({ status }) {
-  const config = {
-    DRAFT: { tone: "gray", label: "Brouillon", icon: "📝" },
-    QUEUED: { tone: "gray", label: "En attente", icon: "⏳" },
-    SENT: { tone: "blue", label: "Envoyé", icon: "📤" },
-    DELIVERED: { tone: "emerald", label: "Distribué", icon: "✅" },
-    READ: { tone: "emerald", label: "Lu", icon: "👁️" },
-    FAILED: { tone: "red", label: "Échec", icon: "❌" },
-    CANCELLED: { tone: "gray", label: "Annulé", icon: "🚫" },
-  };
-
-  const { tone = "gray", label, icon } = config[status] || config.DRAFT;
-
-  const tones = {
-    gray: "bg-gray-100 text-gray-700 border-gray-200",
-    blue: "bg-blue-100 text-blue-700 border-blue-200",
-    emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    red: "bg-red-100 text-red-700 border-red-200",
-  };
-
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${tones[tone]}`}>
-      <span>{icon}</span>
-      {label}
-    </span>
-  );
-}
-
-function PaymentStatusBadge({ status }) {
-  const value = String(status || "").toUpperCase();
-
-  const config = {
-    PENDING_CUSTOMER_ACTION: { label: "En attente client", cls: "bg-amber-100 text-amber-700 border-amber-200" },
-    PAYMENT_PENDING: { label: "En attente", cls: "bg-amber-100 text-amber-700 border-amber-200" },
-    PROCESSING: { label: "En cours", cls: "bg-blue-100 text-blue-700 border-blue-200" },
-    SUCCEEDED: { label: "Payé", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-    PAID: { label: "Payé", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-    EXPIRED: { label: "Expiré", cls: "bg-orange-100 text-orange-700 border-orange-200" },
-    CANCELLED: { label: "Annulé", cls: "bg-red-100 text-red-700 border-red-200" },
-    FAILED: { label: "Échec", cls: "bg-red-100 text-red-700 border-red-200" },
-  };
-
-  const item = config[value] || { label: status || "—", cls: "bg-gray-100 text-gray-700 border-gray-200" };
-
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${item.cls}`}>
-      {item.label}
-    </span>
-  );
-}
-
 // ============================================
 // FONCTIONS UTILITAIRES
 // ============================================
@@ -340,213 +239,6 @@ function humanizeEnum(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function buildReceiptQrUrl(payload) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-    payload,
-  )}`;
-}
-
-function buildPrintAssetUrl(assetPath) {
-  const normalizedPath = String(assetPath || "").trim();
-  if (!normalizedPath) return "";
-  if (/^https?:\/\//i.test(normalizedPath)) return normalizedPath;
-
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return new URL(normalizedPath, window.location.origin).toString();
-  }
-
-  return normalizedPath;
-}
-
-function resolveReceiptCountryLabel(order) {
-  const explicitName = String(
-    order?.country?.name || order?.countryName || "",
-  ).trim();
-  if (explicitName) return explicitName;
-
-  const explicitCode = String(
-    order?.country?.code || order?.countryCode || "",
-  )
-    .trim()
-    .toUpperCase();
-
-  if (explicitCode === "CIV") return "Côte d'Ivoire";
-  if (explicitCode) return explicitCode;
-
-  try {
-    const storageCode = String(localStorage.getItem("countryCode") || "")
-      .trim()
-      .toUpperCase();
-    if (storageCode === "CIV") return "Côte d'Ivoire";
-    if (storageCode) return storageCode;
-  } catch {}
-
-  return "—";
-}
-
-function buildReceiptNumber({ factureReference, transactionRef, paidAt }) {
-  const paidDate = new Date(paidAt || Date.now());
-  const y = paidDate.getFullYear();
-  const m = String(paidDate.getMonth() + 1).padStart(2, "0");
-  const d = String(paidDate.getDate()).padStart(2, "0");
-  const factPart = String(factureReference || "REC")
-    .replace(/[^A-Za-z0-9]/g, "")
-    .slice(-6)
-    .toUpperCase();
-  const txPart = String(transactionRef || "0000")
-    .replace(/[^A-Za-z0-9]/g, "")
-    .slice(-6)
-    .toUpperCase();
-
-  return `RC-${y}${m}${d}-${factPart}-${txPart}`;
-}
-
-function buildThermalReceiptHtml({
-  preorderNumber,
-  factureReference,
-  countryName,
-  customerName,
-  fboNumero,
-  clientRef,
-  provider,
-  payerPhone,
-  transactionRef,
-  paidAt,
-  amountPaid,
-}) {
-  const receiptNumber = buildReceiptNumber({
-    factureReference,
-    transactionRef,
-    paidAt,
-  });
-  const logoUrl = buildPrintAssetUrl("/forever-corporate-logo-black.png");
-  const qrPayload = [
-    `recu:${receiptNumber}`,
-    `precommande:${preorderNumber || "-"}`,
-    `facture:${factureReference || "-"}`,
-    `pays:${countryName || "-"}`,
-    `client:${customerName || "-"}`,
-    `fbo:${fboNumero || "-"}`,
-    `provider:${provider || "-"}`,
-    `payer:${payerPhone || "-"}`,
-    `transaction:${transactionRef || "-"}`,
-    `montant:${amountPaid || "-"}`,
-    `date:${paidAt || "-"}`,
-  ].join("|");
-  const qrUrl = buildReceiptQrUrl(qrPayload);
-
-  const line = (label, value) => `
-    <div class="row">
-      <div class="label">${escapeHtml(label)}</div>
-      <div class="value">${escapeHtml(value || "—")}</div>
-    </div>
-  `;
-
-  const paymentLine = (label, value) => `
-    <div class="payment-row">
-      <div class="payment-label">${escapeHtml(label)}</div>
-      <div class="payment-value">${escapeHtml(value || "—")}</div>
-    </div>
-  `;
-
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reçu de paiement</title>
-  <style>
-    :root { color-scheme: light; }
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; background: #fff; color: #000; font-family: "Courier New", Courier, monospace; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .ticket { width: 80mm; margin: 0 auto; padding: 6mm 4mm 8mm; }
-    .brand { text-align: center; margin-bottom: 12px; }
-    .brand img { display: block; width: 58mm; max-width: 100%; height: auto; margin: 0 auto; }
-    .title { text-align: center; font-size: 19px; font-weight: 900; letter-spacing: 0.08em; margin-bottom: 8px; color: #000; }
-    .receipt-no { border: 2px solid #000; text-align: center; font-size: 14px; font-weight: 900; padding: 8px 8px; margin-bottom: 12px; color: #000; }
-    .divider { border-top: 1px dashed #111; margin: 10px 0; }
-    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; margin-bottom: 5px; color: #000; font-weight: 800; }
-    .label { flex: 0 0 38%; font-weight: 900; }
-    .value { flex: 1; text-align: right; word-break: break-word; font-weight: 900; }
-    .payment-box { border: 2px solid #000; padding: 9px 8px; margin: 12px 0; }
-    .payment-heading { text-align: center; font-size: 14px; font-weight: 900; margin-bottom: 8px; letter-spacing: 0.05em; }
-    .payment-row { margin-bottom: 7px; }
-    .payment-row:last-child { margin-bottom: 0; }
-    .payment-label { font-size: 12px; font-weight: 900; margin-bottom: 2px; color: #000; }
-    .payment-value { font-size: 16px; font-weight: 900; line-height: 1.25; color: #000; word-break: break-word; }
-    .payment-value.amount { font-size: 20px; }
-    .qr { text-align: center; margin-top: 12px; }
-    .qr img { width: 28mm; height: 28mm; object-fit: contain; display: inline-block; }
-    @page { size: 80mm auto; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="ticket">
-    <div class="brand">
-      <img src="${escapeHtml(logoUrl)}" alt="Forever" />
-    </div>
-    <div class="title">REÇU DE PAIEMENT</div>
-    <div class="receipt-no">N° REÇU ${escapeHtml(receiptNumber)}</div>
-    ${line("Pays", countryName)}
-    ${line("Précommande", preorderNumber)}
-    ${line("Facture", factureReference)}
-    ${line("Client", customerName)}
-    ${line("N° FBO", fboNumero)}
-    ${line("Client Ref", clientRef)}
-    <div class="payment-box">
-      <div class="payment-heading">INFORMATIONS PAIEMENT</div>
-      ${paymentLine("Provider", provider)}
-      ${paymentLine("Numéro payeur", payerPhone)}
-      ${paymentLine("Transaction", transactionRef)}
-      ${paymentLine("Date paiement", paidAt)}
-      <div class="divider"></div>
-      <div class="payment-row">
-        <div class="payment-label">Montant payé</div>
-        <div class="payment-value amount">${escapeHtml(amountPaid || "—")}</div>
-      </div>
-    </div>
-    <div class="qr">
-      <img src="${escapeHtml(qrUrl)}" alt="QR Code reçu paiement" />
-    </div>
-  </div>
-  <script>
-    function waitForImages() {
-      const images = Array.from(document.images || []);
-      if (!images.length) return Promise.resolve();
-
-      return Promise.all(
-        images.map((img) => {
-          if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-          return new Promise((resolve) => {
-            const done = () => resolve();
-            img.addEventListener("load", done, { once: true });
-            img.addEventListener("error", done, { once: true });
-            setTimeout(done, 1500);
-          });
-        }),
-      );
-    }
-
-    window.addEventListener("load", () => {
-      waitForImages().finally(() => {
-        setTimeout(() => window.print(), 350);
-      });
-    });
-    window.addEventListener("afterprint", () => { setTimeout(() => window.close(), 150); });
-  </script>
-</body>
-</html>`;
-}
-
 function getLatestAttempt(order) {
   const attempts = order?.activePayment?.attempts;
   if (Array.isArray(attempts) && attempts.length > 0) return attempts[0];
@@ -554,7 +246,7 @@ function getLatestAttempt(order) {
 }
 
 // ============================================
-// COMPOSANTS DE SECTION AMÉLIORÉS
+// COMPOSANT DE FACTURATION
 // ============================================
 
 function BillingActionCard({
@@ -577,6 +269,7 @@ function BillingActionCard({
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   resolvedPaymentLink,
+  order,
 }) {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   
@@ -602,6 +295,22 @@ function BillingActionCard({
       </div>
       
       <div className="p-5 space-y-4">
+        {/* Informations de commande (compact) */}
+        <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg text-sm">
+          <div>
+            <div className="text-xs text-gray-500">Commande</div>
+            <div className="font-semibold text-gray-900">{order?.preorderNumber || "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Montant total</div>
+            <div className="font-semibold text-gray-900">{formatFcfa(order?.totalFcfa || 0)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Paiement</div>
+            <div className="font-medium text-gray-700">{humanizeEnum(order?.preorderPaymentMode)}</div>
+          </div>
+        </div>
+
         {/* Champs principaux */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Référence AS400" hint="Référence de préfacture">
@@ -876,167 +585,169 @@ function WavePaymentCard({
   const canPrintReceipt = canUseWave && isPaymentSucceeded;
 
   return (
-    <CompactInfoCard 
-      title={
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div className="flex items-center gap-2">
           <span className="text-blue-600 text-lg">🌊</span>
-          <span>Paiement Wave</span>
+          <h4 className="font-semibold text-gray-900">Paiement Wave</h4>
           {isPaymentSucceeded && (
             <span className="ml-auto text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full border border-green-200">
               ✓ Payé
             </span>
           )}
         </div>
-      }
-    >
-      {!canUseWave ? (
-        <Alert tone="gray" title="Paiement manuel" className="text-sm">
-          Cette commande n'utilise pas de lien de paiement automatique.
-        </Alert>
-      ) : (
-        <div className="space-y-4">
-          {/* Résumé rapide */}
-          <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <div className="text-xs text-gray-500 mb-1">Statut</div>
-              <PaymentStatusBadge status={paymentStatus} />
-            </div>
-            <div className="text-center">
-              <div className="text-xs text-gray-500 mb-1">Montant</div>
-              <div className="font-semibold text-gray-900">
-                {formatFcfa(amountPaidValue)}
+      </div>
+      
+      <div className="p-5 space-y-4">
+        {!canUseWave ? (
+          <Alert tone="gray" title="Paiement manuel" className="text-sm">
+            Cette commande n'utilise pas de lien de paiement automatique.
+          </Alert>
+        ) : (
+          <>
+            {/* Résumé rapide */}
+            <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <div className="text-xs text-gray-500 mb-1">Statut</div>
+                <PaymentStatusBadge status={paymentStatus} />
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-500 mb-1">Montant</div>
+                <div className="font-semibold text-gray-900">
+                  {formatFcfa(amountPaidValue)}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-500 mb-1">Numéro</div>
+                <div className="text-sm font-mono text-gray-700 truncate" title={payerPhone}>
+                  {payerPhone || "—"}
+                </div>
               </div>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-gray-500 mb-1">Numéro</div>
-              <div className="text-sm font-mono text-gray-700 truncate" title={payerPhone}>
-                {payerPhone || "—"}
+            
+            {/* Bouton détails */}
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <span>Détails de la transaction</span>
+              <span className="text-gray-400 transition-transform duration-200" style={{ transform: showDetails ? 'rotate(180deg)' : 'none' }}>
+                ▼
+              </span>
+            </button>
+            
+            {/* Détails */}
+            {showDetails && (
+              <div className="space-y-1 pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                <Row label="Client Ref" value={visibleClientRef || "—"} copyable={Boolean(visibleClientRef)} />
+                <Row label="Provider" value={paymentProvider || "WAVE"} />
+                <Row label="Session" value={paymentSessionId} copyable={paymentSessionId !== "—"} />
+                <Row label="Transaction" value={paymentTxnId} copyable={paymentTxnId !== "—"} />
+                <Row label="Payé le" value={formatDateTime(paidAtValue)} highlight={isPaymentSucceeded} />
               </div>
-            </div>
-          </div>
-          
-          {/* Bouton détails */}
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <span>Détails de la transaction</span>
-            <span className="text-gray-400 transition-transform duration-200" style={{ transform: showDetails ? 'rotate(180deg)' : 'none' }}>
-              ▼
-            </span>
-          </button>
-          
-          {/* Détails */}
-          {showDetails && (
-            <div className="space-y-1 pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
-              <Row label="Client Ref" value={visibleClientRef || "—"} copyable={Boolean(visibleClientRef)} />
-              <Row label="Provider" value={paymentProvider || "WAVE"} />
-              <Row label="Session" value={paymentSessionId} copyable={paymentSessionId !== "—"} />
-              <Row label="Transaction" value={paymentTxnId} copyable={paymentTxnId !== "—"} />
-              <Row label="Payé le" value={formatDateTime(paidAtValue)} highlight={isPaymentSucceeded} />
-            </div>
-          )}
-          
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
-            {showWaveActions && (
-              <>
-                <button
-                  onClick={onInitiateWave}
-                  disabled={!canUseWave || saving || waveLoading}
-                  className="flex-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+            )}
+            
+            {/* Actions */}
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+              {showWaveActions && (
+                <>
+                  <button
+                    onClick={onInitiateWave}
+                    disabled={!canUseWave || saving || waveLoading}
+                    className="flex-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                  >
+                    {resolvedPaymentLink ? "🔄 Réinitialiser" : "💳 Initier paiement"}
+                  </button>
+                  <button
+                    onClick={syncWaveHandler}
+                    disabled={!canUseWave || saving || waveLoading || paymentSessionId === "—"}
+                    className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    title="Synchroniser le statut"
+                  >
+                    🔄
+                  </button>
+                </>
+              )}
+              
+              {resolvedPaymentLink && (
+                <a
+                  href={resolvedPaymentLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
                 >
-                  {resolvedPaymentLink ? "🔄 Réinitialiser" : "💳 Initier paiement"}
-                </button>
+                  🔗 Ouvrir
+                </a>
+              )}
+              
+              {canPrintReceipt && (
                 <button
-                  onClick={syncWaveHandler}
-                  disabled={!canUseWave || saving || waveLoading || paymentSessionId === "—"}
+                  onClick={onPrintReceipt}
+                  className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+                >
+                  🖨️ Imprimer reçu
+                </button>
+              )}
+              
+              {typeof reload === "function" && (
+                <button
+                  onClick={reload}
+                  disabled={saving || waveLoading}
                   className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  title="Synchroniser le statut"
+                  title="Rafraîchir"
                 >
                   🔄
                 </button>
-              </>
-            )}
-            
-            {resolvedPaymentLink && (
-              <a
-                href={resolvedPaymentLink}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
-              >
-                🔗 Ouvrir
-              </a>
-            )}
-            
-            {canPrintReceipt && (
-              <button
-                onClick={onPrintReceipt}
-                className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-              >
-                🖨️ Imprimer reçu
-              </button>
-            )}
-            
-            {typeof reload === "function" && (
-              <button
-                onClick={reload}
-                disabled={saving || waveLoading}
-                className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                title="Rafraîchir"
-              >
-                🔄
-              </button>
-            )}
-          </div>
-          
-          {/* Messages d'état */}
-          {isPaymentPending && (
-            <Alert tone="blue" className="text-xs">
-              ⏳ En attente de paiement client
-            </Alert>
-          )}
-          {isPaymentExpired && (
-            <Alert tone="amber" className="text-xs">
-              ⏰ Lien expiré - veuillez réinitialiser le paiement
-            </Alert>
-          )}
-          {(isPaymentCancelled || isPaymentFailed) && (
-            <Alert tone="red" className="text-xs">
-              ❌ Paiement échoué - veuillez réessayer
-            </Alert>
-          )}
-          
-          {/* Dev tools */}
-          {showWaveDevTools && onSimulateWave && (
-            <div className="pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-500 mb-2">🛠️ Dev Tools</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onSimulateWave("succeeded")}
-                  className="flex-1 px-2 py-1.5 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
-                >
-                  ✅ Success
-                </button>
-                <button
-                  onClick={() => onSimulateWave("expired")}
-                  className="flex-1 px-2 py-1.5 text-xs bg-amber-100 text-amber-700 rounded-md hover:bg-amber-200 transition-colors"
-                >
-                  ⏰ Expired
-                </button>
-                <button
-                  onClick={() => onSimulateWave("failed")}
-                  className="flex-1 px-2 py-1.5 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
-                >
-                  ❌ Failed
-                </button>
-              </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
-    </CompactInfoCard>
+            
+            {/* Messages d'état */}
+            {isPaymentPending && (
+              <Alert tone="blue" className="text-xs">
+                ⏳ En attente de paiement client
+              </Alert>
+            )}
+            {isPaymentExpired && (
+              <Alert tone="amber" className="text-xs">
+                ⏰ Lien expiré - veuillez réinitialiser le paiement
+              </Alert>
+            )}
+            {(isPaymentCancelled || isPaymentFailed) && (
+              <Alert tone="red" className="text-xs">
+                ❌ Paiement échoué - veuillez réessayer
+              </Alert>
+            )}
+            
+            {/* Dev tools */}
+            {showWaveDevTools && onSimulateWave && (
+              <div className="pt-3 border-t border-gray-200">
+                <div className="text-xs text-gray-500 mb-2">🛠️ Dev Tools</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onSimulateWave("succeeded")}
+                    className="flex-1 px-2 py-1.5 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                  >
+                    ✅ Success
+                  </button>
+                  <button
+                    onClick={() => onSimulateWave("expired")}
+                    className="flex-1 px-2 py-1.5 text-xs bg-amber-100 text-amber-700 rounded-md hover:bg-amber-200 transition-colors"
+                  >
+                    ⏰ Expired
+                  </button>
+                  <button
+                    onClick={() => onSimulateWave("failed")}
+                    className="flex-1 px-2 py-1.5 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                  >
+                    ❌ Failed
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1057,24 +768,24 @@ function CashPaymentCard({
   const isPaid = status === "PAID";
 
   return (
-    <CompactInfoCard 
-      title={
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div className="flex items-center gap-2">
           <span className="text-amber-600 text-lg">💵</span>
-          <span>Paiement Espèces</span>
+          <h4 className="font-semibold text-gray-900">Paiement Espèces</h4>
           {isPaid && (
             <span className="ml-auto text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full border border-green-200">
               ✓ Encaissé
             </span>
           )}
         </div>
-      }
-    >
-      <Alert tone="amber" className="mb-4 text-xs">
-        Paiement manuel au bureau. L'admin encaisse et valide.
-      </Alert>
+      </div>
       
-      <div className="space-y-4">
+      <div className="p-5 space-y-4">
+        <Alert tone="amber" className="text-xs">
+          Paiement manuel au bureau. L'admin encaisse et valide.
+        </Alert>
+        
         <Field label="Note d'encaissement" optional>
           <textarea
             className="w-full rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-sm min-h-[80px] resize-none disabled:bg-gray-50 disabled:opacity-60 transition-all"
@@ -1161,7 +872,7 @@ function CashPaymentCard({
           </span>
         </div>
       </div>
-    </CompactInfoCard>
+    </div>
   );
 }
 
@@ -1188,15 +899,15 @@ function ManualPaymentCard({
   const step2Completed = isPaid;
 
   return (
-    <CompactInfoCard 
-      title={
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div className="flex items-center gap-2">
           <span className="text-gray-600 text-lg">📎</span>
-          <span>Paiement Manuel</span>
+          <h4 className="font-semibold text-gray-900">Paiement Manuel</h4>
         </div>
-      }
-    >
-      <div className="space-y-5">
+      </div>
+      
+      <div className="p-5 space-y-5">
         {/* Indicateurs d'étapes */}
         <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
           <StepIndicator number={1} title="Preuve" active={!step1Completed && isInvoiced} completed={step1Completed} />
@@ -1237,7 +948,7 @@ function ManualPaymentCard({
                 value={proofNote || ""}
                 onChange={(e) => setProofNote?.(e.target.value)}
                 disabled={!canProof || saving || step1Completed}
-                placeholder="Capture recue par SMS/WhatsApp..."
+                placeholder="Capture reçue par SMS/WhatsApp..."
               />
             </Field>
             
@@ -1330,124 +1041,7 @@ function ManualPaymentCard({
           </div>
         )}
       </div>
-    </CompactInfoCard>
-  );
-}
-
-function SmsMessageCard({
-  order,
-  billingMessage,
-  resolvedWhatsappStatus,
-  resolvedPaymentLink,
-  hasWhatsappMessage,
-  onCopyWhatsApp,
-  onResendWhatsApp,
-  saving,
-}) {
-  return (
-    <CompactInfoCard 
-      title={
-        <div className="flex items-center gap-2">
-          <span className="text-green-600 text-lg">📱</span>
-          <span>SMS & Suivi client</span>
-        </div>
-      }
-      collapsible
-    >
-      <div className="space-y-4">
-        {/* Message envoyé */}
-        <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-          <div className="text-xs text-gray-500 uppercase mb-2">Message envoyé</div>
-          {hasWhatsappMessage ? (
-            <div className="text-sm text-gray-700 whitespace-pre-wrap max-h-32 overflow-y-auto font-mono">
-              {order?.whatsappMessage}
-            </div>
-          ) : (
-            <div className="text-sm text-gray-400 text-center py-4">
-              Aucun message généré
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm disabled:opacity-50 transition-colors"
-            onClick={onCopyWhatsApp}
-            disabled={!hasWhatsappMessage}
-            type="button"
-          >
-            📋 Copier
-          </button>
-          {typeof onResendWhatsApp === "function" && (
-            <button
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm disabled:opacity-50 transition-colors"
-              onClick={onResendWhatsApp}
-              disabled={
-                saving ||
-                !String(billingMessage?.toPhone || order?.factureWhatsappTo || "").trim()
-              }
-              type="button"
-            >
-              🔄 Renvoyer
-            </button>
-          )}
-          {resolvedPaymentLink && (
-            <a
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm transition-colors"
-              href={resolvedPaymentLink}
-              target="_blank"
-              rel="noreferrer"
-            >
-              🔗 Lien paiement
-            </a>
-          )}
-        </div>
-
-        {/* Détails */}
-        <div className="space-y-1 pt-2 border-t border-gray-100">
-          <Row label="Statut" value={<MessageStatusBadge status={resolvedWhatsappStatus} />} />
-          <Row label="Destinataire" value={billingMessage?.toPhone || order?.factureWhatsappTo || "—"} />
-          <Row label="Envoyé le" value={formatDateTime(billingMessage?.sentAt)} />
-          <Row 
-            label="Lien cliqué" 
-            value={order?.paymentLinkClickedAt ? `✅ ${formatDateTime(order.paymentLinkClickedAt)}` : "Non"} 
-          />
-          <Row label="Clics" value={order?.paymentLinkClickCount || 0} />
-          <Row label="Dernière MAJ" value={formatDateTime(billingMessage?.lastStatusAt || order?.lastWhatsappStatusAt)} />
-        </div>
-
-        {billingMessage?.errorMessage && (
-          <Alert tone="red" className="text-xs">
-            ⚠️ {billingMessage.errorMessage}
-          </Alert>
-        )}
-      </div>
-    </CompactInfoCard>
-  );
-}
-
-function TraceabilityCard({ order, status, paymentProvider, paymentSessionId, paymentTxnId, paidAtValue, amountPaidValue }) {
-  return (
-    <CompactInfoCard 
-      title={
-        <div className="flex items-center gap-2">
-          <span className="text-purple-600 text-lg">🧾</span>
-          <span>Traçabilité</span>
-        </div>
-      }
-    >
-      <div className="space-y-1">
-        <Row label="Commande" value={status || "—"} />
-        <Row label="Provider" value={paymentProvider || "—"} />
-        <Row label="Facture" value={order?.factureReference || "—"} />
-        <Row label="Précommande" value={order?.preorderNumber || "—"} />
-        <Row label="Session" value={paymentSessionId} copyable={paymentSessionId !== "—"} />
-        <Row label="Transaction" value={paymentTxnId} copyable={paymentTxnId !== "—"} />
-        <Row label="Payé le" value={formatDateTime(paidAtValue)} />
-        <Row label="Montant payé" value={formatFcfa(amountPaidValue)} highlight />
-      </div>
-    </CompactInfoCard>
+    </div>
   );
 }
 
@@ -1473,11 +1067,8 @@ export default function OrderBillingPaymentTab({
   invoicePreviewLoading,
   paymentLink,
   onInvoice,
-  onCopyWhatsApp,
   isCash,
   isAutoPayment,
-  billingMessage = null,
-  onResendWhatsApp,
   onInitiateWave,
   onRefreshWaveStatus,
   onSyncWave,
@@ -1510,7 +1101,6 @@ export default function OrderBillingPaymentTab({
   showReinvoiceHint = false,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
-  variant = "billing",
   canReplaceBillingItems = false,
   replacementProducts = [],
   replacementQuery = "",
@@ -1569,8 +1159,6 @@ export default function OrderBillingPaymentTab({
     order?.totalFcfa ||
     0;
   const resolvedPaymentLink =
-    billingMessage?.paymentLinkTracked ||
-    billingMessage?.paymentLinkTarget ||
     paymentLink ||
     order?.paymentLinkTarget ||
     order?.trackedPaymentLink ||
@@ -1579,62 +1167,13 @@ export default function OrderBillingPaymentTab({
     order?.paymentLink ||
     "";
 
-  const billingStatusAt = billingMessage?.lastStatusAt
-    ? new Date(billingMessage.lastStatusAt).getTime()
-    : 0;
-  const orderStatusAt = order?.lastWhatsappStatusAt
-    ? new Date(order.lastWhatsappStatusAt).getTime()
-    : 0;
-  const resolvedWhatsappStatus =
-    orderStatusAt >= billingStatusAt
-      ? order?.lastWhatsappStatus || billingMessage?.status || null
-      : billingMessage?.status || order?.lastWhatsappStatus || null;
-  const hasWhatsappMessage = Boolean(order?.whatsappMessage);
-  const paymentTimelineItems = Array.isArray(order?.paymentTransactionLogs)
-    ? order.paymentTransactionLogs
-    : [];
   const normalizedPaymentStatus = String(paymentStatus || "").toUpperCase();
   const isPaymentPending = ["PAYMENT_PENDING", "PENDING_CUSTOMER_ACTION", "PROCESSING"].includes(normalizedPaymentStatus);
   const isPaymentSucceeded = ["SUCCEEDED", "PAID"].includes(normalizedPaymentStatus);
   const isPaymentExpired = normalizedPaymentStatus === "EXPIRED";
   const isPaymentCancelled = normalizedPaymentStatus === "CANCELLED";
   const isPaymentFailed = normalizedPaymentStatus === "FAILED";
-  const showBillingSection = variant !== "payment";
-  const showMessageSection = variant !== "payment";
-  const showSummaryCards = variant === "payment" || variant === "billing";
-  const showTraceability = false;
-  const showTimeline = false;
   const syncWaveHandler = onRefreshWaveStatus || onSyncWave;
-  
-  const [activeSection, setActiveSection] = React.useState(
-    variant === "billing" ? "billing" : variant === "payment" ? "payment" : "messages"
-  );
-
-  const handlePrintReceipt = () => {
-    if (!isWaveFlow || !isPaymentSucceeded || typeof window === "undefined") return;
-
-    const receiptWindow = window.open("", "_blank", "width=420,height=720");
-    if (!receiptWindow) return;
-
-    receiptWindow.document.open();
-    receiptWindow.document.write(
-      buildThermalReceiptHtml({
-        preorderNumber: order?.preorderNumber || "—",
-        factureReference: order?.factureReference || "—",
-        countryName: resolveReceiptCountryLabel(order),
-        customerName: order?.fboNomComplet || order?.fbo?.nomComplet || "—",
-        fboNumero: order?.fboNumero || "—",
-        clientRef: visibleClientRef || "—",
-        provider: paymentProvider || "WAVE",
-        payerPhone: payerPhone || "—",
-        transactionRef: paymentTxnId !== "—" ? paymentTxnId : paymentSessionId,
-        paidAt: formatDateTime(paidAtValue),
-        amountPaid: formatFcfa(amountPaidValue),
-      }),
-    );
-    receiptWindow.document.close();
-    receiptWindow.focus();
-  };
 
   const getStatusMessage = () => {
     if (isCash) return { tone: "amber", text: "Paiement espèces - retrait ou encaissement au bureau" };
@@ -1652,78 +1191,6 @@ export default function OrderBillingPaymentTab({
 
   return (
     <div className="space-y-6">
-      {/* Navigation par onglets pour mobile (uniquement pour variant full) */}
-      {variant !== "billing" && variant !== "payment" && (
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl sm:hidden">
-          <button
-            onClick={() => setActiveSection("billing")}
-            className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-              activeSection === "billing"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Facturation
-          </button>
-          <button
-            onClick={() => setActiveSection("payment")}
-            className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-              activeSection === "payment"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Paiement
-          </button>
-          <button
-            onClick={() => setActiveSection("messages")}
-            className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-              activeSection === "messages"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Messages
-          </button>
-        </div>
-      )}
-      
-      {/* Cartes de résumé */}
-      {showSummaryCards && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="État"
-            value={<PaymentStatusBadge status={paymentStatus || status} />}
-            subvalue={hasInvoice ? "Facturée" : "À facturer"}
-            tone={hasInvoice ? "emerald" : "gray"}
-            icon="📊"
-          />
-          <StatCard
-            label="Montant"
-            value={formatFcfa(order?.activePayment?.amountExpectedFcfa || order?.totalFcfa)}
-            subvalue="Total à régler"
-            tone="blue"
-            icon="💰"
-          />
-          <StatCard
-            label="Mode"
-            value={<PaymentMethodBadge isCash={isCash} isWaveFlow={isWaveFlow} />}
-            subvalue={paymentProvider || order?.paymentMode || order?.preorderPaymentMode || "—"}
-            tone={isCash ? "amber" : isWaveFlow ? "blue" : "gray"}
-            icon={isCash ? "💵" : "💳"}
-          />
-          {variant !== "payment" && (
-            <StatCard
-              label="Facture"
-              value={order?.factureReference || "—"}
-              subvalue={hasInvoice ? "Générée" : "En attente"}
-              tone={hasInvoice ? "emerald" : "gray"}
-              icon="📄"
-            />
-          )}
-        </div>
-      )}
-
       {/* Message d'état global */}
       {statusMessage && (
         <Alert tone={statusMessage.tone} dismissible>
@@ -1738,86 +1205,53 @@ export default function OrderBillingPaymentTab({
         </Alert>
       )}
 
-      {/* Section Facturation */}
-      {(activeSection === "billing" || variant === "billing") && showBillingSection && (
-        <div className={variant !== "billing" ? "sm:block" : ""}>
-          {variant === "billing" ? (
-            <div className="grid gap-6 lg:grid-cols-12">
-              <CompactInfoCard 
-                title={
-                  <div className="flex items-center gap-2">
-                    <span>👤</span>
-                    Informations client
-                  </div>
-                }
-                className="lg:col-span-4"
-              >
-                <div className="space-y-1">
-                  <Row label="Client" value={order?.fboNomComplet || "—"} />
-                  <Row label="N° FBO" value={order?.fboNumero || "—"} copyable />
-                  <Row label="Précommande" value={order?.preorderNumber || "—"} copyable />
-                  <Row label="Paiement" value={humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)} />
-                  <Row label="Livraison" value={humanizeEnum(order?.deliveryMode)} />
-                  <Row 
-                    label="Montant actuel" 
-                    value={formatFcfa(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0)} 
-                    highlight 
-                  />
-                </div>
-              </CompactInfoCard>
-              
-              <div className="lg:col-span-8">
-                <BillingActionCard
-                  canInvoice={canInvoice}
-                  saving={saving}
-                  isCash={isCash}
-                  invoiceRef={invoiceRef}
-                  setInvoiceRef={setInvoiceRef}
-                  invoiceWaTo={invoiceWaTo}
-                  setInvoiceWaTo={setInvoiceWaTo}
-                  invoiceGrade={invoiceGrade}
-                  setInvoiceGrade={setInvoiceGrade}
-                  invoiceAmountFcfa={invoiceAmountFcfa}
-                  setInvoiceAmountFcfa={setInvoiceAmountFcfa}
-                  invoiceAdjustmentReason={invoiceAdjustmentReason}
-                  setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
-                  invoicePreview={invoicePreview}
-                  invoicePreviewLoading={invoicePreviewLoading}
-                  onInvoice={onInvoice}
-                  canSwitchToManualPayment={canSwitchToManualPayment}
-                  onSwitchToManualPayment={onSwitchToManualPayment}
-                  resolvedPaymentLink={resolvedPaymentLink}
-                />
-              </div>
-            </div>
-          ) : (
-            <BillingActionCard
-              canInvoice={canInvoice}
-              saving={saving}
-              isCash={isCash}
-              invoiceRef={invoiceRef}
-              setInvoiceRef={setInvoiceRef}
-              invoiceWaTo={invoiceWaTo}
-              setInvoiceWaTo={setInvoiceWaTo}
-              invoiceGrade={invoiceGrade}
-              setInvoiceGrade={setInvoiceGrade}
-              invoiceAmountFcfa={invoiceAmountFcfa}
-              setInvoiceAmountFcfa={setInvoiceAmountFcfa}
-              invoiceAdjustmentReason={invoiceAdjustmentReason}
-              setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
-              invoicePreview={invoicePreview}
-              invoicePreviewLoading={invoicePreviewLoading}
-              onInvoice={onInvoice}
-              canSwitchToManualPayment={canSwitchToManualPayment}
-              onSwitchToManualPayment={onSwitchToManualPayment}
-              resolvedPaymentLink={resolvedPaymentLink}
-            />
-          )}
+      {/* Grille principale : Items à gauche, Facturation à droite */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Colonne gauche : Items */}
+        <div>
+          <OrderItemsTable
+            items={order?.items || []}
+            totalFcfa={order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0}
+            canReplace={canReplaceBillingItems}
+            replacementProducts={replacementProducts}
+            replacementQuery={replacementQuery}
+            onReplacementQueryChange={setReplacementQuery}
+            replacementLoading={replacementLoading}
+            replacingItemId={replacingItemId}
+            saving={saving}
+            onReplaceItem={onReplaceBillingItem}
+          />
         </div>
-      )}
+
+        {/* Colonne droite : Facturation */}
+        <div>
+          <BillingActionCard
+            canInvoice={canInvoice}
+            saving={saving}
+            isCash={isCash}
+            invoiceRef={invoiceRef}
+            setInvoiceRef={setInvoiceRef}
+            invoiceWaTo={invoiceWaTo}
+            setInvoiceWaTo={setInvoiceWaTo}
+            invoiceGrade={invoiceGrade}
+            setInvoiceGrade={setInvoiceGrade}
+            invoiceAmountFcfa={invoiceAmountFcfa}
+            setInvoiceAmountFcfa={setInvoiceAmountFcfa}
+            invoiceAdjustmentReason={invoiceAdjustmentReason}
+            setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
+            invoicePreview={invoicePreview}
+            invoicePreviewLoading={invoicePreviewLoading}
+            onInvoice={onInvoice}
+            canSwitchToManualPayment={canSwitchToManualPayment}
+            onSwitchToManualPayment={onSwitchToManualPayment}
+            resolvedPaymentLink={resolvedPaymentLink}
+            order={order}
+          />
+        </div>
+      </div>
 
       {/* Section Paiement Wave */}
-      {(activeSection === "payment" || variant === "payment") && !isCash && (
+      {!isCash && isWaveFlow && (
         <WavePaymentCard
           paymentStatus={paymentStatus}
           paymentProvider={paymentProvider}
@@ -1841,7 +1275,6 @@ export default function OrderBillingPaymentTab({
           saving={saving}
           waveLoading={waveLoading}
           showWaveDevTools={showWaveDevTools}
-          onPrintReceipt={handlePrintReceipt}
         />
       )}
 
@@ -1886,52 +1319,6 @@ export default function OrderBillingPaymentTab({
             order={order}
           />
         </RequirePermission>
-      )}
-
-      {/* Section Messages */}
-      {(activeSection === "messages" || showMessageSection) && (
-        <SmsMessageCard
-          order={order}
-          billingMessage={billingMessage}
-          resolvedWhatsappStatus={resolvedWhatsappStatus}
-          resolvedPaymentLink={resolvedPaymentLink}
-          hasWhatsappMessage={hasWhatsappMessage}
-          onCopyWhatsApp={onCopyWhatsApp}
-          onResendWhatsApp={onResendWhatsApp}
-          saving={saving}
-        />
-      )}
-
-      {/* Section Traçabilité (optionnelle) */}
-      {showTraceability && (
-        <TraceabilityCard
-          order={order}
-          status={status}
-          paymentProvider={paymentProvider}
-          paymentSessionId={paymentSessionId}
-          paymentTxnId={paymentTxnId}
-          paidAtValue={paidAtValue}
-          amountPaidValue={amountPaidValue}
-        />
-      )}
-
-      {/* Timeline des paiements */}
-      {showTimeline && <PaymentTimeline items={paymentTimelineItems} />}
-
-      {/* Table des articles pour la facturation */}
-      {variant === "billing" && (
-        <OrderItemsTable
-          items={order?.items || []}
-          totalFcfa={order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0}
-          canReplace={canReplaceBillingItems}
-          replacementProducts={replacementProducts}
-          replacementQuery={replacementQuery}
-          onReplacementQueryChange={setReplacementQuery}
-          replacementLoading={replacementLoading}
-          replacingItemId={replacingItemId}
-          saving={saving}
-          onReplaceItem={onReplaceBillingItem}
-        />
       )}
     </div>
   );
