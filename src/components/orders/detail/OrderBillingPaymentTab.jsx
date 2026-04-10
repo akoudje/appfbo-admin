@@ -543,14 +543,6 @@ function BillingActionCard({
           </Field>
         </div>
 
-        <div className="flex-1 min-w-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          Le facturier peut corriger ici le grade effectif constate dans l'AS400.
-          Le montant saisi venant de l'AS400 est deja un montant net, avec la
-          remise du grade de facturation deja appliquee. La plateforme n'applique
-          pas une seconde remise sur ce montant et n'ajoute ensuite, si besoin,
-          que les frais operateur du moyen de paiement choisi.
-        </div>
-
         <div className="flex-1 min-w-0 rounded-lg border border-blue-200 bg-blue-50 p-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">
             Apercu facture
