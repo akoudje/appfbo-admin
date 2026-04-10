@@ -230,6 +230,69 @@ function formatDateTime(value) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildWaveReceiptHtml({
+  preorderNumber,
+  factureReference,
+  customerName,
+  fboNumero,
+  paymentProvider,
+  paymentTxnId,
+  payerPhone,
+  paidAt,
+  amountPaid,
+}) {
+  return `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reçu paiement Wave</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+      h1 { font-size: 20px; margin: 0 0 14px; }
+      .box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; }
+      .row { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
+      .row:last-child { border-bottom: 0; }
+      .label { color: #6b7280; font-size: 13px; }
+      .value { font-weight: 600; text-align: right; }
+      .amount { font-size: 18px; }
+      @media print { body { margin: 10mm; } }
+    </style>
+  </head>
+  <body>
+    <h1>Reçu de paiement Wave</h1>
+    <div class="box">
+      <div class="row"><div class="label">Précommande</div><div class="value">${escapeHtml(preorderNumber || "—")}</div></div>
+      <div class="row"><div class="label">Référence facture</div><div class="value">${escapeHtml(factureReference || "—")}</div></div>
+      <div class="row"><div class="label">Client</div><div class="value">${escapeHtml(customerName || "—")}</div></div>
+      <div class="row"><div class="label">Numéro FBO</div><div class="value">${escapeHtml(fboNumero || "—")}</div></div>
+      <div class="row"><div class="label">Provider</div><div class="value">${escapeHtml(paymentProvider || "WAVE")}</div></div>
+      <div class="row"><div class="label">Transaction</div><div class="value">${escapeHtml(paymentTxnId || "—")}</div></div>
+      <div class="row"><div class="label">Numéro payeur</div><div class="value">${escapeHtml(payerPhone || "—")}</div></div>
+      <div class="row"><div class="label">Date paiement</div><div class="value">${escapeHtml(paidAt || "—")}</div></div>
+      <div class="row"><div class="label">Montant payé</div><div class="value amount">${escapeHtml(amountPaid || "—")}</div></div>
+    </div>
+    <script>
+      window.addEventListener("load", function () {
+        setTimeout(function () { window.print(); }, 250);
+      });
+      window.addEventListener("afterprint", function () {
+        setTimeout(function () { window.close(); }, 120);
+      });
+    </script>
+  </body>
+</html>`;
+}
+
 function humanizeEnum(value) {
   if (!value) return "—";
   return String(value)
@@ -1189,6 +1252,41 @@ export default function OrderBillingPaymentTab({
 
   const statusMessage = getStatusMessage();
 
+  const handlePrintWaveReceipt = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+    const popup = window.open("", "_blank", "width=460,height=760");
+    if (!popup) {
+      window.alert("Impression bloquée par le navigateur. Autorisez les pop-ups puis réessayez.");
+      return;
+    }
+    const html = buildWaveReceiptHtml({
+      preorderNumber: order?.preorderNumber || order?.id || "—",
+      factureReference: order?.factureReference || "—",
+      customerName: order?.fboNomComplet || "—",
+      fboNumero: order?.fboNumero || "—",
+      paymentProvider: paymentProvider || "WAVE",
+      paymentTxnId,
+      payerPhone,
+      paidAt: formatDateTime(paidAtValue),
+      amountPaid: formatFcfa(amountPaidValue),
+    });
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    popup.focus();
+  }, [
+    amountPaidValue,
+    order?.factureReference,
+    order?.fboNomComplet,
+    order?.fboNumero,
+    order?.id,
+    order?.preorderNumber,
+    paidAtValue,
+    payerPhone,
+    paymentProvider,
+    paymentTxnId,
+  ]);
+
   return (
     <div className="space-y-6">
       {/* Message d'état global */}
@@ -1275,6 +1373,7 @@ export default function OrderBillingPaymentTab({
           saving={saving}
           waveLoading={waveLoading}
           showWaveDevTools={showWaveDevTools}
+          onPrintReceipt={handlePrintWaveReceipt}
         />
       )}
 
