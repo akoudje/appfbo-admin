@@ -1171,6 +1171,9 @@ export default function OrderBillingPaymentTab({
   variant = "billing",
   canReplaceBillingItems = false,
   replacementProducts = [],
+  replacementQuery = "",
+  setReplacementQuery = null,
+  replacementLoading = false,
   replacingItemId = "",
   onReplaceBillingItem = null,
 }) {
@@ -1256,7 +1259,7 @@ export default function OrderBillingPaymentTab({
   const isPaymentFailed = normalizedPaymentStatus === "FAILED";
   const showBillingSection = variant !== "payment";
   const showMessageSection = variant !== "payment";
-  const showSummaryCards = true;
+  const showSummaryCards = variant === "payment";
   const showTraceability = false;
   const showTimeline = false;
   const syncWaveHandler = onRefreshWaveStatus || onSyncWave;
@@ -1420,6 +1423,9 @@ export default function OrderBillingPaymentTab({
           totalFcfa={order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0}
           canReplace={canReplaceBillingItems}
           replacementProducts={replacementProducts}
+          replacementQuery={replacementQuery}
+          onReplacementQueryChange={setReplacementQuery}
+          replacementLoading={replacementLoading}
           replacingItemId={replacingItemId}
           saving={saving}
           onReplaceItem={onReplaceBillingItem}

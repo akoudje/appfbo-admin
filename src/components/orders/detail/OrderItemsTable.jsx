@@ -39,6 +39,9 @@ export default function OrderItemsTable({
   totalFcfa,
   canReplace = false,
   replacementProducts = [],
+  replacementQuery = "",
+  onReplacementQueryChange = null,
+  replacementLoading = false,
   replacingItemId = "",
   saving = false,
   onReplaceItem = null,
@@ -66,6 +69,22 @@ export default function OrderItemsTable({
       </div>
 
       <div className="overflow-auto">
+        {canReplace ? (
+          <div className="flex flex-wrap items-center gap-2 border-b bg-gray-50 px-4 py-2">
+            <input
+              value={replacementQuery}
+              onChange={(e) => onReplacementQueryChange?.(e.target.value)}
+              placeholder="Rechercher un produit de remplacement (SKU ou nom)"
+              className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs focus:border-[#f0cf57] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/35"
+            />
+            <span className="text-xs text-gray-500">
+              {replacementLoading
+                ? "Recherche..."
+                : `${replacementProducts.length} produit(s) disponible(s)`}
+            </span>
+          </div>
+        ) : null}
+
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr className="text-left">

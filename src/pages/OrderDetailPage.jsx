@@ -164,6 +164,8 @@ export default function OrderDetailPage() {
 
   const [messages, setMessages] = useState([]);
   const [replacementProducts, setReplacementProducts] = useState([]);
+  const [replacementQuery, setReplacementQuery] = useState("");
+  const [replacementLoading, setReplacementLoading] = useState(false);
   const [replacingItemId, setReplacingItemId] = useState("");
 
   const load = async () => {
@@ -228,12 +230,12 @@ export default function OrderDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    const next = searchParams.get("tab") || "overview";
+    const next = searchParams.get("tab") || getDefaultOrderTabForRole(role);
     if (next !== activeTab) {
       setActiveTab(next);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, role]);
 
   const setTab = (tabKey) => {
     setActiveTab(tabKey);
@@ -435,7 +437,10 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     if (!availableTabs.some((tab) => tab.key === activeTab)) {
-      setTab(getDefaultOrderTabForRole(role));
+      const fallback =
+        availableTabs.find((tab) => tab.key === getDefaultOrderTabForRole(role))
+          ?.key || availableTabs[0]?.key;
+      if (fallback) setTab(fallback);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableTabs, activeTab, role]);
@@ -484,26 +489,39 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let timer = null;
 
     if (!canReplaceBillingItems) {
       setReplacementProducts([]);
+      setReplacementLoading(false);
       return undefined;
     }
 
-    listProducts({ actif: true, take: 500 })
-      .then((rows) => {
-        if (cancelled) return;
-        setReplacementProducts(Array.isArray(rows) ? rows : []);
+    setReplacementLoading(true);
+    timer = setTimeout(() => {
+      listProducts({
+        actif: true,
+        take: 200,
+        q: normalizeStr(replacementQuery) || undefined,
       })
-      .catch(() => {
-        if (cancelled) return;
-        setReplacementProducts([]);
-      });
+        .then((rows) => {
+          if (cancelled) return;
+          setReplacementProducts(Array.isArray(rows) ? rows : []);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setReplacementProducts([]);
+        })
+        .finally(() => {
+          if (!cancelled) setReplacementLoading(false);
+        });
+    }, 250);
 
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
-  }, [canReplaceBillingItems]);
+  }, [canReplaceBillingItems, replacementQuery]);
 
   const handleActionResult = async (result, fallbackInfo) => {
     if (result?.alreadyDone) {
@@ -1230,6 +1248,9 @@ const doInvoice = async () => {
               onSwitchToManualPayment={doSwitchPaymentToManual}
               canReplaceBillingItems={canReplaceBillingItems}
               replacementProducts={replacementProducts}
+              replacementQuery={replacementQuery}
+              setReplacementQuery={setReplacementQuery}
+              replacementLoading={replacementLoading}
               replacingItemId={replacingItemId}
               onReplaceBillingItem={doReplaceBillingItem}
               reload={load}
