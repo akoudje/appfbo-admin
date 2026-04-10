@@ -23,8 +23,9 @@ export default function OrderSummaryCards({ order }) {
       </div>
 
       <div className="card p-4 space-y-3">
-        <div className="font-semibold">Commande</div>
+        <div className="font-semibold">Précommande</div>
         <Row label="Précommande" value={order?.preorderNumber || "—"} />
+        <Row label="Numéro FBO" value={order?.fboNumero || "—"} />
         <Row label="Référence facture" value={order?.factureReference || "—"} />
         <Row label="Paiement" value={order?.preorderPaymentMode || "—"} />
         <Row label="Soumise" value={formatDateTime(order?.submittedAt)} />
