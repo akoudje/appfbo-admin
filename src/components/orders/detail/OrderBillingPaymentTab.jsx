@@ -1267,9 +1267,14 @@ export default function OrderBillingPaymentTab({
   const [showSmsOps, setShowSmsOps] = React.useState(() => !isCash);
 
   React.useEffect(() => {
+    if (variant === "billing") {
+      setShowPaymentOps(false);
+      setShowSmsOps(false);
+      return;
+    }
     setShowPaymentOps(!isCash);
     setShowSmsOps(!isCash);
-  }, [order?.id, isCash]);
+  }, [order?.id, isCash, variant]);
 
   const handlePrintReceipt = () => {
     if (!isWaveFlow || !isPaymentSucceeded || typeof window === "undefined") return;
@@ -1357,8 +1362,8 @@ export default function OrderBillingPaymentTab({
       ) : null}
 
       {variant === "billing" && showBillingSection ? (
-        <div className="space-y-4 lg:sticky lg:top-4 lg:z-20">
-          <CompactInfoCard title="Client & commande">
+        <div className="grid gap-3 lg:grid-cols-12 lg:items-start">
+          <CompactInfoCard title="Client & commande" className="lg:col-span-4">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Row label="Client" value={order?.fboNomComplet || "—"} />
               <Row label="Numéro FBO" value={order?.fboNumero || "—"} copyable />
@@ -1368,28 +1373,29 @@ export default function OrderBillingPaymentTab({
               <Row label="Montant actuel" value={formatFcfa(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0)} />
             </div>
           </CompactInfoCard>
-
-          <BillingActionCard
-            canInvoice={canInvoice}
-            saving={saving}
-            isCash={isCash}
-            invoiceRef={invoiceRef}
-            setInvoiceRef={setInvoiceRef}
-            invoiceWaTo={invoiceWaTo}
-            setInvoiceWaTo={setInvoiceWaTo}
-            invoiceGrade={invoiceGrade}
-            setInvoiceGrade={setInvoiceGrade}
-            invoiceAmountFcfa={invoiceAmountFcfa}
-            setInvoiceAmountFcfa={setInvoiceAmountFcfa}
-            invoiceAdjustmentReason={invoiceAdjustmentReason}
-            setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
-            invoicePreview={invoicePreview}
-            invoicePreviewLoading={invoicePreviewLoading}
-            onInvoice={onInvoice}
-            canSwitchToManualPayment={canSwitchToManualPayment}
-            onSwitchToManualPayment={onSwitchToManualPayment}
-            resolvedPaymentLink={resolvedPaymentLink}
-          />
+          <div className="lg:col-span-8">
+            <BillingActionCard
+              canInvoice={canInvoice}
+              saving={saving}
+              isCash={isCash}
+              invoiceRef={invoiceRef}
+              setInvoiceRef={setInvoiceRef}
+              invoiceWaTo={invoiceWaTo}
+              setInvoiceWaTo={setInvoiceWaTo}
+              invoiceGrade={invoiceGrade}
+              setInvoiceGrade={setInvoiceGrade}
+              invoiceAmountFcfa={invoiceAmountFcfa}
+              setInvoiceAmountFcfa={setInvoiceAmountFcfa}
+              invoiceAdjustmentReason={invoiceAdjustmentReason}
+              setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
+              invoicePreview={invoicePreview}
+              invoicePreviewLoading={invoicePreviewLoading}
+              onInvoice={onInvoice}
+              canSwitchToManualPayment={canSwitchToManualPayment}
+              onSwitchToManualPayment={onSwitchToManualPayment}
+              resolvedPaymentLink={resolvedPaymentLink}
+            />
+          </div>
         </div>
       ) : null}
 
