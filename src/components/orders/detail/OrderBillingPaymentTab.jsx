@@ -2,6 +2,7 @@ import React from "react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import PaymentTimeline from "./PaymentTimeline";
+import OrderItemsTable from "./OrderItemsTable";
 
 const GRADE_LABELS = {
   CLIENT_PRIVILEGIE: "Client Privilégié",
@@ -239,6 +240,15 @@ function formatDateTime(value) {
   } catch {
     return "—";
   }
+}
+
+function humanizeEnum(value) {
+  if (!value) return "—";
+  return String(value)
+    .trim()
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 function escapeHtml(value) {
@@ -1159,6 +1169,10 @@ export default function OrderBillingPaymentTab({
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   variant = "billing",
+  canReplaceBillingItems = false,
+  replacementProducts = [],
+  replacingItemId = "",
+  onReplaceBillingItem = null,
 }) {
   const status = order?.status;
   const latestAttempt = getLatestAttempt(order);
@@ -1246,6 +1260,13 @@ export default function OrderBillingPaymentTab({
   const showTraceability = false;
   const showTimeline = false;
   const syncWaveHandler = onRefreshWaveStatus || onSyncWave;
+  const [showPaymentOps, setShowPaymentOps] = React.useState(() => !isCash);
+  const [showSmsOps, setShowSmsOps] = React.useState(() => !isCash);
+
+  React.useEffect(() => {
+    setShowPaymentOps(!isCash);
+    setShowSmsOps(!isCash);
+  }, [order?.id, isCash]);
 
   const handlePrintReceipt = () => {
     if (!isWaveFlow || !isPaymentSucceeded || typeof window === "undefined") return;
@@ -1332,7 +1353,44 @@ export default function OrderBillingPaymentTab({
         </Alert>
       ) : null}
 
-      {showBillingSection && (
+      {variant === "billing" && showBillingSection ? (
+        <div className="space-y-4 lg:sticky lg:top-4 lg:z-20">
+          <CompactInfoCard title="Client & commande">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Row label="Client" value={order?.fboNomComplet || "—"} />
+              <Row label="Numéro FBO" value={order?.fboNumero || "—"} copyable />
+              <Row label="Précommande" value={order?.preorderNumber || "—"} copyable />
+              <Row label="Paiement choisi" value={humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)} />
+              <Row label="Livraison" value={humanizeEnum(order?.deliveryMode)} />
+              <Row label="Montant actuel" value={formatFcfa(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0)} />
+            </div>
+          </CompactInfoCard>
+
+          <BillingActionCard
+            canInvoice={canInvoice}
+            saving={saving}
+            isCash={isCash}
+            invoiceRef={invoiceRef}
+            setInvoiceRef={setInvoiceRef}
+            invoiceWaTo={invoiceWaTo}
+            setInvoiceWaTo={setInvoiceWaTo}
+            invoiceGrade={invoiceGrade}
+            setInvoiceGrade={setInvoiceGrade}
+            invoiceAmountFcfa={invoiceAmountFcfa}
+            setInvoiceAmountFcfa={setInvoiceAmountFcfa}
+            invoiceAdjustmentReason={invoiceAdjustmentReason}
+            setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
+            invoicePreview={invoicePreview}
+            invoicePreviewLoading={invoicePreviewLoading}
+            onInvoice={onInvoice}
+            canSwitchToManualPayment={canSwitchToManualPayment}
+            onSwitchToManualPayment={onSwitchToManualPayment}
+            resolvedPaymentLink={resolvedPaymentLink}
+          />
+        </div>
+      ) : null}
+
+      {variant !== "billing" && showBillingSection ? (
         <BillingActionCard
           canInvoice={canInvoice}
           saving={saving}
@@ -1354,9 +1412,90 @@ export default function OrderBillingPaymentTab({
           onSwitchToManualPayment={onSwitchToManualPayment}
           resolvedPaymentLink={resolvedPaymentLink}
         />
-      )}
+      ) : null}
 
-      <div className={`grid gap-4 ${showMessageSection ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+      {variant === "billing" ? (
+        <OrderItemsTable
+          items={order?.items || []}
+          totalFcfa={order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0}
+          canReplace={canReplaceBillingItems}
+          replacementProducts={replacementProducts}
+          replacingItemId={replacingItemId}
+          saving={saving}
+          onReplaceItem={onReplaceBillingItem}
+        />
+      ) : null}
+
+      {showMessageSection ? (
+        <div className="space-y-3">
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setShowPaymentOps((prev) => !prev)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+            >
+              <span className="text-sm font-semibold text-gray-900">
+                Paiement {isWaveFlow ? "Wave" : "et traçabilité"}
+              </span>
+              <span className="text-xs text-gray-500">{showPaymentOps ? "Replier" : "Déplier"}</span>
+            </button>
+            {showPaymentOps ? (
+              <div className="border-t border-gray-100 p-4">
+                <WavePaymentCard
+                  paymentStatus={paymentStatus}
+                  paymentProvider={paymentProvider}
+                  visibleClientRef={visibleClientRef}
+                  payerPhone={payerPhone}
+                  paymentSessionId={paymentSessionId}
+                  paymentTxnId={paymentTxnId}
+                  paidAtValue={paidAtValue}
+                  amountPaidValue={amountPaidValue}
+                  canUseWave={isWaveFlow}
+                  isPaymentSucceeded={isPaymentSucceeded}
+                  isPaymentPending={isPaymentPending}
+                  isPaymentExpired={isPaymentExpired}
+                  isPaymentCancelled={isPaymentCancelled}
+                  isPaymentFailed={isPaymentFailed}
+                  resolvedPaymentLink={resolvedPaymentLink}
+                  onInitiateWave={onInitiateWave}
+                  syncWaveHandler={syncWaveHandler}
+                  reload={reload}
+                  onSimulateWave={onSimulateWave}
+                  saving={saving}
+                  waveLoading={waveLoading}
+                  showWaveDevTools={showWaveDevTools}
+                  onPrintReceipt={handlePrintReceipt}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setShowSmsOps((prev) => !prev)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+            >
+              <span className="text-sm font-semibold text-gray-900">SMS client</span>
+              <span className="text-xs text-gray-500">{showSmsOps ? "Replier" : "Déplier"}</span>
+            </button>
+            {showSmsOps ? (
+              <div className="border-t border-gray-100 p-4">
+                <SmsMessageCard
+                  order={order}
+                  billingMessage={billingMessage}
+                  resolvedWhatsappStatus={resolvedWhatsappStatus}
+                  resolvedPaymentLink={resolvedPaymentLink}
+                  hasWhatsappMessage={hasWhatsappMessage}
+                  onCopyWhatsApp={onCopyWhatsApp}
+                  onResendWhatsApp={onResendWhatsApp}
+                  saving={saving}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : (
         <WavePaymentCard
           paymentStatus={paymentStatus}
           paymentProvider={paymentProvider}
@@ -1382,20 +1521,7 @@ export default function OrderBillingPaymentTab({
           showWaveDevTools={showWaveDevTools}
           onPrintReceipt={handlePrintReceipt}
         />
-
-        {showMessageSection && (
-          <SmsMessageCard
-            order={order}
-            billingMessage={billingMessage}
-            resolvedWhatsappStatus={resolvedWhatsappStatus}
-            resolvedPaymentLink={resolvedPaymentLink}
-            hasWhatsappMessage={hasWhatsappMessage}
-            onCopyWhatsApp={onCopyWhatsApp}
-            onResendWhatsApp={onResendWhatsApp}
-            saving={saving}
-          />
-        )}
-      </div>
+      )}
 
       {isCash && (
         <RequirePermission permission={Permission.PAYMENT_VALIDATE}>

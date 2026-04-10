@@ -1095,7 +1095,7 @@ const doInvoice = async () => {
 
               {canReplaceBillingItems ? (
                 <button
-                  onClick={() => setTab("overview")}
+                  onClick={() => setTab("billing")}
                   disabled={saving || waveLoading}
                   className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
                   type="button"
@@ -1228,6 +1228,10 @@ const doInvoice = async () => {
               showReinvoiceHint={showReinvoiceHint}
               canSwitchToManualPayment={canSwitchWaveToManual}
               onSwitchToManualPayment={doSwitchPaymentToManual}
+              canReplaceBillingItems={canReplaceBillingItems}
+              replacementProducts={replacementProducts}
+              replacingItemId={replacingItemId}
+              onReplaceBillingItem={doReplaceBillingItem}
               reload={load}
             />
           </RequirePermission>
