@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+release/
+release-desktop/
+*.log
+*.pfx
+*.jks
