@@ -1261,4 +1261,4 @@ export default function AdminSettingsPage() {
       </Card>
     </div>
   );
-}git 
+}
