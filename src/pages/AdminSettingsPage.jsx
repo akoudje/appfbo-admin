@@ -52,7 +52,13 @@ const DEFAULT_SETTINGS = {
     templates: {
       sms: {
         INVOICE:
-          "FOREVER: Facture {{invoiceRef}}. Montant: {{totalFcfa}}F. Paiement: {{paymentLink}}",
+          "FOREVER: Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement: {{paymentLink}}",
+        INVOICE_WAVE:
+          "FOREVER: Précommande en ligne. Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement: {{paymentLink}}",
+        INVOICE_CASH:
+          "FOREVER: Précommande en ligne. Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement à la caisse FLP.",
+        INVOICE_BANK_TRANSFER:
+          "FOREVER: Précommande en ligne. Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Virement: voir email/espace client.",
         ORDER_READY:
           "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
         PREPARATION_STARTED:
@@ -670,15 +676,38 @@ export default function AdminSettingsPage() {
             <div className="space-y-6">
               <div className="border border-[#e7dec8] bg-[#fcfbf7] p-4 text-sm text-[#6f6a60]">
                 Variables disponibles:{" "}
-                <code>{`{{customerName}} {{preorderNumber}} {{parcelNumber}} {{invoiceRef}} {{totalFcfa}} {{totalFcfaLabel}} {{paymentLink}} {{pickupCode}} {{supportPhone}} {{pickupAddress}}`}</code>
+                <code>{`{{customerName}} {{preorderNumber}} {{parcelNumber}} {{invoiceRef}} {{paymentCollectionCode}} {{totalFcfa}} {{totalFcfaLabel}} {{paymentLink}} {{pickupCode}} {{supportPhone}} {{pickupAddress}}`}</code>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-2">
-                <Field label="SMS - Facture">
+                <Field label="SMS - Facture (fallback)">
                   <TextArea
                     rows={3}
                     value={settings.notifications.templates.sms.INVOICE || ""}
                     onChange={(e) => setSmsTemplate("INVOICE", e.target.value)}
+                  />
+                </Field>
+                <Field label="SMS - Facture Wave">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.INVOICE_WAVE || ""}
+                    onChange={(e) => setSmsTemplate("INVOICE_WAVE", e.target.value)}
+                  />
+                </Field>
+                <Field label="SMS - Facture Espèces">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.INVOICE_CASH || ""}
+                    onChange={(e) => setSmsTemplate("INVOICE_CASH", e.target.value)}
+                  />
+                </Field>
+                <Field label="SMS - Facture Virement">
+                  <TextArea
+                    rows={3}
+                    value={settings.notifications.templates.sms.INVOICE_BANK_TRANSFER || ""}
+                    onChange={(e) =>
+                      setSmsTemplate("INVOICE_BANK_TRANSFER", e.target.value)
+                    }
                   />
                 </Field>
                 <Field label="SMS - Colis prêt">
