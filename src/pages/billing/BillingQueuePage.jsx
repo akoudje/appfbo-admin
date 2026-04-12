@@ -57,8 +57,9 @@ export default function BillingQueuePage() {
       if (eventKey === "billing_escalated_new") {
         const played = await sound.notify("billing_escalated_new", {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
-          cooldownMs: 15000,
+          cooldownMs: 8000,
         });
+        raiseAttentionAlert("escalated", 1, "realtime");
         if (played) {
           ackRealtimeAlertPlayback({
             workspace: "billing",
@@ -73,8 +74,9 @@ export default function BillingQueuePage() {
       if (eventKey === "billing_queue_new") {
         const played = await sound.notify("billing_queue_new", {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
-          cooldownMs: 20000,
+          cooldownMs: 10000,
         });
+        raiseAttentionAlert("queue", 1, "realtime");
         if (played) {
           ackRealtimeAlertPlayback({
             workspace: "billing",
@@ -92,6 +94,7 @@ export default function BillingQueuePage() {
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [attentionAlert, setAttentionAlert] = useState(null);
   const [tab, setTab] = useState(
     role === "BILLING_MANAGER" ? "queue" : "my",
   );
@@ -101,6 +104,41 @@ export default function BillingQueuePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
+  const attentionTimerRef = useRef(null);
+
+  const clearAttentionAlert = () => {
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+    setAttentionAlert(null);
+  };
+
+  const raiseAttentionAlert = (kind = "queue", count = 1, source = "poll") => {
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+
+    const safeCount = Math.max(1, Number(count) || 1);
+    const isEscalated = kind === "escalated";
+    setAttentionAlert({
+      kind,
+      source,
+      count: safeCount,
+      title: isEscalated
+        ? "Nouvelle commande escaladée en facturation"
+        : "Nouvelle commande en file de facturation",
+      message: isEscalated
+        ? `${safeCount} dossier${safeCount > 1 ? "s" : ""} nécessite${safeCount > 1 ? "nt" : ""} une attention immédiate.`
+        : `${safeCount} nouvelle${safeCount > 1 ? "s" : ""} commande${safeCount > 1 ? "s" : ""} en attente de traitement.`,
+    });
+
+    attentionTimerRef.current = setTimeout(() => {
+      setAttentionAlert(null);
+      attentionTimerRef.current = null;
+    }, 45000);
+  };
 
   const load = async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
@@ -190,13 +228,15 @@ export default function BillingQueuePage() {
           if (newEscalatedCount > 0) {
             sound.notify("billing_escalated_new", {
               signature: `esc:${newEscalatedCount}:${snapshot.escalated.size}`,
-              cooldownMs: 30000,
+              cooldownMs: 12000,
             });
+            raiseAttentionAlert("escalated", newEscalatedCount, "poll");
           } else if (newQueueCount > 0) {
             sound.notify("billing_queue_new", {
               signature: `queue:${newQueueCount}:${snapshot.queue.size}`,
-              cooldownMs: 45000,
+              cooldownMs: 15000,
             });
+            raiseAttentionAlert("queue", newQueueCount, "poll");
           }
         }
 
@@ -229,6 +269,15 @@ export default function BillingQueuePage() {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (attentionTimerRef.current) {
+        clearTimeout(attentionTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -445,6 +494,61 @@ export default function BillingQueuePage() {
         onRefresh={load}
         onClaimNext={handleClaimNext}
       />
+
+      {attentionAlert ? (
+        <div
+          className={`rounded-xl border p-3 text-sm ${
+            attentionAlert.kind === "escalated"
+              ? "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-indigo-300 bg-indigo-50 text-indigo-900"
+          }`}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="font-semibold">{attentionAlert.title}</div>
+              <div>{attentionAlert.message}</div>
+              <div className="mt-1 text-xs opacity-80">
+                Source: {attentionAlert.source === "realtime" ? "Temps réel" : "Rafraîchissement auto"}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {!sound.unlocked ? (
+                <button
+                  type="button"
+                  onClick={sound.unlockSound}
+                  className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                >
+                  Activer le son
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  sound.notify(
+                    attentionAlert.kind === "escalated"
+                      ? "billing_escalated_new"
+                      : "billing_queue_new",
+                    {
+                      signature: `manual-replay:${Date.now()}`,
+                      cooldownMs: 0,
+                    },
+                  )
+                }
+                className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+              >
+                Rejouer le son
+              </button>
+              <button
+                type="button"
+                onClick={clearAttentionAlert}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Masquer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <BillingQueueAlerts error={error} info={info} />
 
