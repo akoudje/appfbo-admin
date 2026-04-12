@@ -325,8 +325,6 @@ function BillingActionCard({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
-  invoiceAdjustmentReason,
-  setInvoiceAdjustmentReason,
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
@@ -405,6 +403,32 @@ function BillingActionCard({
               ))}
             </select>
           </Field>
+
+          <Field label="Numéro du destinataire" optional>
+            <input
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
+              value={invoiceWaTo || ""}
+              onChange={(e) => setInvoiceWaTo?.(e.target.value)}
+              placeholder="+225 07 01 02 03 04"
+              disabled={!canInvoice || saving}
+            />
+          </Field>
+
+          <Field label="Montant AS400 (FCFA)">
+            <div className="relative">
+              <input
+                className="w-full pl-3 pr-12 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
+                value={invoiceAmountFcfa || ""}
+                onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
+                placeholder="0"
+                inputMode="numeric"
+                disabled={!canInvoice || saving}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                FCFA
+              </span>
+            </div>
+          </Field>
         </div>
         
         {/* Bouton options avancées */}
@@ -425,132 +449,85 @@ function BillingActionCard({
         {/* Options avancées */}
         {showAdvanced && (
           <div className="space-y-4 pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="WhatsApp destinataire" optional>
-                <input
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
-                  value={invoiceWaTo || ""}
-                  onChange={(e) => setInvoiceWaTo?.(e.target.value)}
-                  placeholder="+225 07 01 02 03 04"
-                  disabled={!canInvoice || saving}
-                />
-              </Field>
-              
-              <Field label="Montant AS400 (FCFA)">
-                <div className="relative">
-                  <input
-                    className="w-full pl-3 pr-12 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
-                    value={invoiceAmountFcfa || ""}
-                    onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
-                    placeholder="0"
-                    inputMode="numeric"
-                    disabled={!canInvoice || saving}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                    FCFA
-                  </span>
-                </div>
-              </Field>
-            </div>
-            
-            <Field label="Motif d'ajustement" optional>
-              <textarea
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm resize-none"
-                value={invoiceAdjustmentReason || ""}
-                onChange={(e) => setInvoiceAdjustmentReason?.(e.target.value)}
-                placeholder="Obligatoire si le grade ou le montant diffère du calcul automatique"
-                rows={2}
-                disabled={!canInvoice || saving}
-              />
-            </Field>
-          </div>
-        )}
-        
-        {/* Aperçu facture */}
-        <div className="rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-blue-600 text-lg">📊</span>
-            <h5 className="text-sm font-semibold text-blue-900">Aperçu facture</h5>
-          </div>
-          
-          {invoicePreviewLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent" />
-              <span className="ml-2 text-sm text-blue-700">Calcul en cours...</span>
-            </div>
-          ) : invoicePreview ? (
-            <div className="grid gap-2 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="text-blue-700">Grade initial :</div>
-                <div className="font-medium text-blue-900">
-                  {GRADE_LABELS[invoicePreview.previousGrade] || invoicePreview.previousGrade || "—"}
-                </div>
-                
-                <div className="text-blue-700">Grade retenu :</div>
-                <div className="font-medium text-blue-900">
-                  {GRADE_LABELS[invoicePreview.effectiveGrade] || invoicePreview.effectiveGrade || "—"}
-                </div>
-                
-                <div className="text-blue-700">Remise :</div>
-                <div className="font-medium text-blue-900">
-                  {Number(invoicePreview.discountPercent || 0).toFixed(2)}%
-                </div>
+            {/* Aperçu facture */}
+            <div className="rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-blue-600 text-lg">📊</span>
+                <h5 className="text-sm font-semibold text-blue-900">Aperçu facture</h5>
               </div>
-              
-              <div className="border-t border-blue-200 my-2" />
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div className="text-blue-700">Montant calculé :</div>
-                <div className="font-medium text-blue-900">
-                  {formatFcfa(invoicePreview.pricingTotals?.totalFcfa || 0)}
+
+              {invoicePreviewLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent" />
+                  <span className="ml-2 text-sm text-blue-700">Calcul en cours...</span>
                 </div>
-                
-                <div className="text-blue-700">Montant AS400 :</div>
-                <div className="font-medium text-blue-900">
-                  {formatFcfa(invoicePreview.effectiveInvoiceTotalFcfa || 0)}
+              ) : invoicePreview ? (
+                <div className="grid gap-2 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-blue-700">Grade initial :</div>
+                    <div className="font-medium text-blue-900">
+                      {GRADE_LABELS[invoicePreview.previousGrade] || invoicePreview.previousGrade || "—"}
+                    </div>
+
+                    <div className="text-blue-700">Grade retenu :</div>
+                    <div className="font-medium text-blue-900">
+                      {GRADE_LABELS[invoicePreview.effectiveGrade] || invoicePreview.effectiveGrade || "—"}
+                    </div>
+
+                    <div className="text-blue-700">Remise :</div>
+                    <div className="font-medium text-blue-900">
+                      {Number(invoicePreview.discountPercent || 0).toFixed(2)}%
+                    </div>
+                  </div>
+
+                  <div className="border-t border-blue-200 my-2" />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-blue-700">Montant calculé :</div>
+                    <div className="font-medium text-blue-900">
+                      {formatFcfa(invoicePreview.pricingTotals?.totalFcfa || 0)}
+                    </div>
+
+                    <div className="text-blue-700">Montant AS400 :</div>
+                    <div className="font-medium text-blue-900">
+                      {formatFcfa(invoicePreview.effectiveInvoiceTotalFcfa || 0)}
+                    </div>
+
+                    <div className="text-blue-700">Frais opérateur :</div>
+                    <div className="font-medium text-blue-900">
+                      {formatFcfa(invoicePreview.payment?.paymentServiceFeeFcfa || 0)}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-blue-200 my-2" />
+
+                  <div className="flex items-center justify-between bg-blue-100 rounded-lg p-3">
+                    <span className="font-semibold text-blue-900">Total à payer :</span>
+                    <span className="text-lg font-bold text-blue-900">
+                      {formatFcfa(invoicePreview.payment?.amountToPayFcfa || 0)}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="text-blue-700">Frais opérateur :</div>
-                <div className="font-medium text-blue-900">
-                  {formatFcfa(invoicePreview.payment?.paymentServiceFeeFcfa || 0)}
-                </div>
-              </div>
-              
-              <div className="border-t border-blue-200 my-2" />
-              
-              <div className="flex items-center justify-between bg-blue-100 rounded-lg p-3">
-                <span className="font-semibold text-blue-900">Total à payer :</span>
-                <span className="text-lg font-bold text-blue-900">
-                  {formatFcfa(invoicePreview.payment?.amountToPayFcfa || 0)}
-                </span>
-              </div>
-              
-              {invoicePreview.requiresAdjustmentReason && (
-                <Alert tone="amber" className="mt-2 text-xs">
-                  Un motif d'ajustement est requis avant facturation
-                </Alert>
+              ) : (
+                <p className="text-sm text-blue-600 text-center py-4">
+                  Sélectionnez un grade pour voir l'aperçu
+                </p>
               )}
             </div>
-          ) : (
-            <p className="text-sm text-blue-600 text-center py-4">
-              Sélectionnez un grade pour voir l'aperçu
-            </p>
-          )}
-        </div>
+          </div>
+        )}
         
         {/* Actions */}
         <div className="flex items-center gap-3 pt-2">
           <button
             className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
-              !canInvoice || saving || !invoiceGrade || !invoiceRef ||
-              (invoicePreview?.requiresAdjustmentReason && !invoiceAdjustmentReason?.trim())
+              !canInvoice || saving || !invoiceGrade || !invoiceRef
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800"
             }`}
             onClick={onInvoice}
             disabled={
-              !canInvoice || saving || !invoiceGrade || !invoiceRef ||
-              (invoicePreview?.requiresAdjustmentReason && !invoiceAdjustmentReason?.trim())
+              !canInvoice || saving || !invoiceGrade || !invoiceRef
             }
             type="button"
           >
@@ -1125,8 +1102,6 @@ export default function OrderBillingPaymentTab({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
-  invoiceAdjustmentReason,
-  setInvoiceAdjustmentReason,
   invoicePreview,
   invoicePreviewLoading,
   paymentLink,
@@ -1337,8 +1312,6 @@ export default function OrderBillingPaymentTab({
             setInvoiceGrade={setInvoiceGrade}
             invoiceAmountFcfa={invoiceAmountFcfa}
             setInvoiceAmountFcfa={setInvoiceAmountFcfa}
-            invoiceAdjustmentReason={invoiceAdjustmentReason}
-            setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
             invoicePreview={invoicePreview}
             invoicePreviewLoading={invoicePreviewLoading}
             onInvoice={onInvoice}

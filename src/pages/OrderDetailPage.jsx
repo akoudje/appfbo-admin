@@ -136,7 +136,6 @@ export default function OrderDetailPage() {
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
   const [invoiceGrade, setInvoiceGrade] = useState("");
   const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
-  const [invoiceAdjustmentReason, setInvoiceAdjustmentReason] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
   const [invoicePreview, setInvoicePreview] = useState(null);
@@ -190,7 +189,6 @@ export default function OrderDetailPage() {
           ? String(data.as400InvoiceTotalFcfa)
           : "",
       );
-      setInvoiceAdjustmentReason(data?.billingAdjustmentReason || "");
       setPaymentLink(data?.paymentLink || "");
       setInvoicePreview(null);
 
@@ -568,8 +566,6 @@ const doInvoice = async () => {
       whatsappTo: normalizeStr(invoiceWaTo) || undefined,
       fboGrade: normalizeStr(invoiceGrade) || undefined,
       invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
-      billingAdjustmentReason:
-        normalizeStr(invoiceAdjustmentReason) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
     };
 
@@ -1206,8 +1202,6 @@ const doInvoice = async () => {
               setInvoiceGrade={setInvoiceGrade}
               invoiceAmountFcfa={invoiceAmountFcfa}
               setInvoiceAmountFcfa={setInvoiceAmountFcfa}
-              invoiceAdjustmentReason={invoiceAdjustmentReason}
-              setInvoiceAdjustmentReason={setInvoiceAdjustmentReason}
               invoicePreview={invoicePreview}
               invoicePreviewLoading={invoicePreviewLoading}
               paymentLink={paymentLink}
