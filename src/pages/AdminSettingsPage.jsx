@@ -1201,8 +1201,18 @@ export default function AdminSettingsPage() {
                 className="space-y-6"
               >
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <StatCard icon={Volume2} label="État global" value="Toujours activées" color="gold" />
-                  <StatCard icon={Volume2} label="Volume global" value="100%" color="blue" />
+                  <StatCard
+                    icon={Volume2}
+                    label="État global"
+                    value={sound.enabled ? "Activées" : "Désactivées"}
+                    color={sound.enabled ? "emerald" : "gold"}
+                  />
+                  <StatCard
+                    icon={Volume2}
+                    label="Volume global"
+                    value={`${Math.round((Number(sound.volume || 0) || 0) * 100)}%`}
+                    color="blue"
+                  />
                   <StatCard
                     icon={Volume2}
                     label="Activation navigateur"

@@ -6,8 +6,8 @@ import {
 } from "../lib/soundEngine";
 
 const STORAGE_PREFIX = "workspace_sound_alert_v1";
-const FORCED_SOUND_ENABLED = true;
-const FORCED_SOUND_VOLUME = 1;
+const DEFAULT_SOUND_ENABLED = true;
+const DEFAULT_SOUND_VOLUME = 1;
 
 function safeReadStorage(key, fallback) {
   try {
@@ -97,8 +97,8 @@ export function useSoundAlerts(workspaceKey) {
     [workspaceKey],
   );
 
-  const [enabled, setEnabled] = useState(FORCED_SOUND_ENABLED);
-  const [volume, setVolume] = useState(FORCED_SOUND_VOLUME);
+  const [enabled, setEnabled] = useState(DEFAULT_SOUND_ENABLED);
+  const [volume, setVolume] = useState(DEFAULT_SOUND_VOLUME);
   const [mutedUntil, setMutedUntil] = useState(0);
   const [unlocked, setUnlocked] = useState(() => isSoundSessionUnlocked());
 
@@ -107,19 +107,30 @@ export function useSoundAlerts(workspaceKey) {
   const signatureRef = useRef(new Map());
 
   useEffect(() => {
-    const saved = safeReadStorage(storageKey, { mutedUntil: 0 });
-    setEnabled(FORCED_SOUND_ENABLED);
-    setVolume(FORCED_SOUND_VOLUME);
+    const saved = safeReadStorage(storageKey, {
+      enabled: DEFAULT_SOUND_ENABLED,
+      volume: DEFAULT_SOUND_VOLUME,
+      mutedUntil: 0,
+    });
+    const nextEnabled =
+      typeof saved.enabled === "boolean" ? saved.enabled : DEFAULT_SOUND_ENABLED;
+    const parsedVolume = Number(saved.volume);
+    const nextVolume =
+      Number.isFinite(parsedVolume) && parsedVolume >= 0 && parsedVolume <= 1
+        ? parsedVolume
+        : DEFAULT_SOUND_VOLUME;
+    setEnabled(nextEnabled);
+    setVolume(nextVolume);
     setMutedUntil(Number(saved.mutedUntil || 0));
   }, [storageKey]);
 
   useEffect(() => {
     safeWriteStorage(storageKey, {
-      enabled: FORCED_SOUND_ENABLED,
-      volume: FORCED_SOUND_VOLUME,
+      enabled,
+      volume,
       mutedUntil,
     });
-  }, [storageKey, mutedUntil]);
+  }, [storageKey, enabled, volume, mutedUntil]);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -150,10 +161,10 @@ export function useSoundAlerts(workspaceKey) {
     async (eventKey = "default") => {
       const ctx = await ensureAudioContext();
       if (!ctx) return false;
-      playBeepPattern(ctx, eventPattern(eventKey), FORCED_SOUND_VOLUME);
+      playBeepPattern(ctx, eventPattern(eventKey), volume);
       return true;
     },
-    [ensureAudioContext],
+    [ensureAudioContext, volume],
   );
 
   const notify = useCallback(
@@ -163,6 +174,8 @@ export function useSoundAlerts(workspaceKey) {
         cooldownMs = 45000,
       } = options || {};
 
+      if (!enabled) return false;
+      if (Number(mutedUntil || 0) > Date.now()) return false;
       if (!unlocked) return false;
       if (typeof document !== "undefined" && document.visibilityState !== "visible") {
         return false;
@@ -185,7 +198,7 @@ export function useSoundAlerts(workspaceKey) {
       }
       return ok;
     },
-    [play, unlocked],
+    [enabled, mutedUntil, play, unlocked],
   );
 
   const testSound = useCallback(async () => {
@@ -217,9 +230,9 @@ export function useSoundAlerts(workspaceKey) {
   }, [unlockSound, unlocked]);
 
   return {
-    enabled: FORCED_SOUND_ENABLED,
+    enabled,
     setEnabled,
-    volume: FORCED_SOUND_VOLUME,
+    volume,
     setVolume,
     mutedUntil,
     unlocked,
