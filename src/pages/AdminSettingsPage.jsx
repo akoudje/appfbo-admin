@@ -79,21 +79,23 @@ const DEFAULT_SETTINGS = {
     templates: {
       sms: {
         INVOICE:
-          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F.",
+          "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F.",
+        PREORDER_SUBMITTED:
+          "FOREVER: Demande {{preorderNumber}} bien reçue. Nous préparons votre facture et revenons vers vous rapidement.",
         INVOICE_WAVE:
-          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement Wave: {{paymentLink}}",
+          "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Payez ici: {{paymentLink}}",
         INVOICE_CASH:
-          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement a la caisse FLP.",
+          "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement à la caisse FLP.",
         INVOICE_BANK_TRANSFER:
-          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Virement: voir email ou espace client.",
+          "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Infos virement dans votre email/espace client.",
         ORDER_READY:
-          "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
+          "FOREVER: Colis prêt pour la commande {{preorderNumber}}. Code retrait {{pickupCode}}. Présentez ce code au comptoir FLP.",
         PREPARATION_STARTED:
-          "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} en préparation.",
+          "FOREVER: Préparation en cours pour la commande {{preorderNumber}}. Nous vous notifions dès que le colis est prêt.",
         ORDER_FULFILLED:
-          "FOREVER: Bonjour {{customerName}}, votre commande {{preorderNumber}} est clôturée. Merci pour votre confiance.",
+          "FOREVER: Retrait confirmé pour la commande {{preorderNumber}}. Merci pour votre confiance.",
         REMINDER:
-          "FOREVER: Rappel commande {{preorderNumber}}. Ref: {{invoiceRef}}. Paiement: {{paymentLink}}",
+          "FOREVER: Rappel commande {{preorderNumber}}. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Assistance: {{supportPhone}}",
       },
       email: {
         INVOICE: {
@@ -138,6 +140,71 @@ const NOTIFICATION_VARIABLES = [
   "{{supportPhone}}",
   "{{pickupAddress}}",
 ];
+
+const SMS_TEMPLATE_META = {
+  PREORDER_SUBMITTED: {
+    label: "Demande reçue (après envoi précommande)",
+    hint: "Message de confirmation immédiate au client.",
+  },
+  INVOICE_WAVE: {
+    label: "Facture prête - Paiement Wave",
+    hint: "Inclure {{paymentLink}} pour le paiement.",
+  },
+  INVOICE_CASH: {
+    label: "Facture prête - Paiement en caisse",
+    hint: "Client se présente à la caisse avec son code.",
+  },
+  INVOICE_BANK_TRANSFER: {
+    label: "Facture prête - Virement bancaire",
+    hint: "Renvoie vers email/espace client pour les infos bancaires.",
+  },
+  INVOICE: {
+    label: "Facture prête - Message de secours",
+    hint: "Utilisé si aucun template spécifique au mode n'est trouvé.",
+  },
+  REMINDER: {
+    label: "Rappel paiement",
+    hint: "Relance courte et claire.",
+  },
+  PREPARATION_STARTED: {
+    label: "Préparation en cours",
+    hint: "Informe que le colis est en préparation.",
+  },
+  ORDER_READY: {
+    label: "Colis prêt",
+    hint: "Inclure le code de retrait {{pickupCode}}.",
+  },
+  ORDER_FULFILLED: {
+    label: "Commande clôturée",
+    hint: "Confirmation finale du retrait/livraison.",
+  },
+};
+
+const SMS_TEMPLATE_GROUPS = [
+  {
+    title: "Parcours paiement",
+    keys: [
+      "PREORDER_SUBMITTED",
+      "INVOICE_WAVE",
+      "INVOICE_CASH",
+      "INVOICE_BANK_TRANSFER",
+      "INVOICE",
+      "REMINDER",
+    ],
+  },
+  {
+    title: "Parcours colis",
+    keys: ["PREPARATION_STARTED", "ORDER_READY", "ORDER_FULFILLED"],
+  },
+];
+
+const EMAIL_TEMPLATE_LABELS = {
+  INVOICE: "Facture prête",
+  ORDER_READY: "Colis prêt",
+  PREPARATION_STARTED: "Préparation en cours",
+  ORDER_FULFILLED: "Commande clôturée",
+  REMINDER: "Rappel paiement",
+};
 
 // --- Composants améliorés ---
 
@@ -1007,7 +1074,7 @@ export default function AdminSettingsPage() {
                   >
                     <div className="flex items-center gap-3">
                       <Bell className="w-5 h-5 text-[#5D4B3C]" />
-                      <span className="font-semibold text-[#5D4B3C]">Templates SMS</span>
+                      <span className="font-semibold text-[#5D4B3C]">Messages SMS clients</span>
                     </div>
                     {expandedSections.sms ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                   </button>
@@ -1019,15 +1086,43 @@ export default function AdminSettingsPage() {
                         exit={{ height: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-5 border-t border-[#e7dec8] grid gap-4 sm:grid-cols-2">
-                          {Object.entries(settings.notifications.templates.sms).map(([purpose, value]) => (
-                            <Field key={purpose} label={`SMS - ${purpose.replace(/_/g, " ")}`}>
-                              <TextArea
-                                rows={3}
-                                value={value || ""}
-                                onChange={(e) => setSmsTemplate(purpose, e.target.value)}
-                              />
-                            </Field>
+                        <div className="p-5 border-t border-[#e7dec8] space-y-6">
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                            Conseil: restez sous 160 caractères pour éviter les SMS multi-parties.
+                          </div>
+                          {SMS_TEMPLATE_GROUPS.map((group) => (
+                            <div key={group.title} className="space-y-3">
+                              <div className="text-sm font-semibold text-[#5D4B3C]">{group.title}</div>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                {group.keys.map((purpose) => {
+                                  const value = settings.notifications.templates.sms?.[purpose] || "";
+                                  const meta = SMS_TEMPLATE_META[purpose] || {
+                                    label: purpose.replace(/_/g, " "),
+                                    hint: "",
+                                  };
+                                  const length = String(value).length;
+                                  const over = length > 160;
+                                  return (
+                                    <Field key={purpose} label={meta.label} hint={meta.hint}>
+                                      <div className="space-y-1.5">
+                                        <TextArea
+                                          rows={3}
+                                          value={value}
+                                          onChange={(e) => setSmsTemplate(purpose, e.target.value)}
+                                        />
+                                        <div
+                                          className={`text-xs ${
+                                            over ? "text-red-600 font-semibold" : "text-[#8d7a5c]"
+                                          }`}
+                                        >
+                                          {length}/160 caractères {over ? "(dépassement)" : ""}
+                                        </div>
+                                      </div>
+                                    </Field>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       </motion.div>
@@ -1044,7 +1139,7 @@ export default function AdminSettingsPage() {
                   >
                     <div className="flex items-center gap-3">
                       <Bell className="w-5 h-5 text-[#5D4B3C]" />
-                      <span className="font-semibold text-[#5D4B3C]">Templates Email</span>
+                      <span className="font-semibold text-[#5D4B3C]">Messages Email clients</span>
                     </div>
                     {expandedSections.email ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                   </button>
@@ -1060,13 +1155,13 @@ export default function AdminSettingsPage() {
                           {["INVOICE", "ORDER_READY", "PREPARATION_STARTED", "ORDER_FULFILLED", "REMINDER"].map(
                             (purpose) => (
                               <div key={purpose} className="grid gap-4 border border-[#e7dec8] rounded-lg p-4">
-                                <Field label={`${purpose} - Sujet`}>
+                                <Field label={`${EMAIL_TEMPLATE_LABELS[purpose] || purpose} - Sujet`}>
                                   <TextInput
                                     value={settings.notifications.templates.email?.[purpose]?.subject || ""}
                                     onChange={(e) => setEmailTemplate(purpose, "subject", e.target.value)}
                                   />
                                 </Field>
-                                <Field label={`${purpose} - Corps`}>
+                                <Field label={`${EMAIL_TEMPLATE_LABELS[purpose] || purpose} - Corps`}>
                                   <TextArea
                                     rows={5}
                                     value={settings.notifications.templates.email?.[purpose]?.body || ""}
