@@ -4,7 +4,7 @@
 // la préparation, le fulfillment, l'historique et le workflow de la commande.
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
 import { list as listProducts } from "../services/productsService";
 import RequirePermission from "../components/auth/RequirePermission";
@@ -118,6 +118,7 @@ function AccessDeniedPanel({ message }) {
 
 export default function OrderDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAdminAuth();
 
@@ -570,14 +571,7 @@ const doInvoice = async () => {
     };
 
     await ordersService.invoice(id, body);
-
-    await load();
-
-    if (!isCash && isWave) {
-      setInfo("Prefacture creee, paiement Wave initie et SMS envoye.");
-    } else {
-      setInfo("Prefacture creee et SMS envoye.");
-    }
+    navigate("/billing?tab=queue&autoClaim=1");
   } catch (e) {
     setError(e?.response?.data?.message || "Impossible de facturer");
   } finally {

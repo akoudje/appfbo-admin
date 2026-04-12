@@ -3,7 +3,7 @@
 // Gère les actions de prise en charge, démarrage, libération et escalade des dossiers de facturation.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ordersService } from "../../services/ordersService";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import BillingQueueHeader from "../../components/billing/BillingQueueHeader";
@@ -37,8 +37,18 @@ function safeWriteStorage(key, value) {
   }
 }
 
+function normalizeBillingTab(value, fallback = "my") {
+  const tab = String(value || "")
+    .trim()
+    .toLowerCase();
+  const allowed = new Set(["my", "queue", "waiting-payment", "escalated"]);
+  if (allowed.has(tab)) return tab;
+  return fallback;
+}
+
 export default function BillingQueuePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { admin, role } = useAdminAuth();
   const currentAdminId = admin?.id || null;
   const searchDebounceInitializedRef = useRef(false);
@@ -95,8 +105,10 @@ export default function BillingQueuePage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [attentionAlert, setAttentionAlert] = useState(null);
+  const defaultTab = role === "BILLING_MANAGER" ? "queue" : "my";
+  const requestedTab = normalizeBillingTab(searchParams.get("tab"), defaultTab);
   const [tab, setTab] = useState(
-    role === "BILLING_MANAGER" ? "queue" : "my",
+    requestedTab,
   );
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
@@ -105,6 +117,7 @@ export default function BillingQueuePage() {
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
   const attentionTimerRef = useRef(null);
+  const autoClaimHandledRef = useRef(false);
 
   const clearAttentionAlert = () => {
     if (attentionTimerRef.current) {
@@ -290,6 +303,12 @@ export default function BillingQueuePage() {
 
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    const nextDefaultTab = role === "BILLING_MANAGER" ? "queue" : "my";
+    const nextTab = normalizeBillingTab(searchParams.get("tab"), nextDefaultTab);
+    setTab(nextTab);
+  }, [role, searchParams]);
 
   useEffect(() => {
     const savedPreset = safeReadStorage(presetStorageKey, "ALL");
@@ -485,6 +504,23 @@ export default function BillingQueuePage() {
       setError(e?.response?.data?.message || "Impossible d’escalader le dossier");
     }
   };
+
+  useEffect(() => {
+    const autoClaimRequested =
+      String(searchParams.get("autoClaim") || "").trim() === "1";
+    if (!autoClaimRequested || autoClaimHandledRef.current) return;
+
+    autoClaimHandledRef.current = true;
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("autoClaim");
+      return next;
+    });
+
+    handleClaimNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   return (
     <div className="space-y-4">
