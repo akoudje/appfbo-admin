@@ -79,13 +79,13 @@ const DEFAULT_SETTINGS = {
     templates: {
       sms: {
         INVOICE:
-          "FOREVER: Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement: {{paymentLink}}",
+          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F.",
         INVOICE_WAVE:
-          "FOREVER: Précommande en ligne. Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement: {{paymentLink}}",
+          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement Wave: {{paymentLink}}",
         INVOICE_CASH:
-          "FOREVER: Précommande en ligne. Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement à la caisse FLP.",
+          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement a la caisse FLP.",
         INVOICE_BANK_TRANSFER:
-          "FOREVER: Précommande en ligne. Code caisse {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Virement: voir email/espace client.",
+          "FOREVER: Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Virement: voir email ou espace client.",
         ORDER_READY:
           "FOREVER: Bonjour {{customerName}}, colis {{parcelNumber}} prêt. Code retrait: {{pickupCode}}.",
         PREPARATION_STARTED:
