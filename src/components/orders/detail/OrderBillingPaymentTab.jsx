@@ -3,6 +3,7 @@ import React from "react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import OrderItemsTable from "./OrderItemsTable";
+import { InfoDialog } from "../../ui/Dialogs";
 
 // ============================================
 // CONSTANTES
@@ -1172,6 +1173,7 @@ export default function OrderBillingPaymentTab({
   replacingItemId = "",
   onReplaceBillingItem = null,
 }) {
+  const [printPopupBlockedDialogOpen, setPrintPopupBlockedDialogOpen] = React.useState(false);
   const status = order?.status;
   const latestAttempt = getLatestAttempt(order);
   const payment = order?.activePayment || null;
@@ -1256,7 +1258,7 @@ export default function OrderBillingPaymentTab({
     if (typeof window === "undefined") return;
     const popup = window.open("", "_blank", "width=460,height=760");
     if (!popup) {
-      window.alert("Impression bloquée par le navigateur. Autorisez les pop-ups puis réessayez.");
+      setPrintPopupBlockedDialogOpen(true);
       return;
     }
     const html = buildWaveReceiptHtml({
@@ -1419,6 +1421,13 @@ export default function OrderBillingPaymentTab({
           />
         </RequirePermission>
       )}
+
+      <InfoDialog
+        open={printPopupBlockedDialogOpen}
+        title="Impression bloquée"
+        message="L'ouverture de la fenêtre d'impression a été bloquée. Autorise les pop-ups puis réessaie."
+        onClose={() => setPrintPopupBlockedDialogOpen(false)}
+      />
     </div>
   );
 }

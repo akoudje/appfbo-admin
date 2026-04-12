@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { TextPromptDialog } from "../../ui/Dialogs";
 
 function Field({ label, children, optional = false }) {
   return (
@@ -122,6 +123,11 @@ export default function OrderPreparationTab({
   const [anomalyItemId, setAnomalyItemId] = useState("");
   const [anomalyNote, setAnomalyNote] = useState("");
   const [anomalyBlocking, setAnomalyBlocking] = useState(true);
+  const [resolveDialog, setResolveDialog] = useState({
+    open: false,
+    anomalyId: "",
+    value: "Anomalie traitée",
+  });
 
   const status = order?.status;
   const stockDebited = Boolean(order?.stockDeductedAt);
@@ -378,10 +384,11 @@ export default function OrderPreparationTab({
                     <button
                       type="button"
                       onClick={() => {
-                        const resolutionNote = window.prompt("Note de résolution", "Anomalie traitée");
-                        if (resolutionNote !== null) {
-                          onResolveAnomaly?.(anomaly.id, resolutionNote);
-                        }
+                        setResolveDialog({
+                          open: true,
+                          anomalyId: anomaly.id,
+                          value: "Anomalie traitée",
+                        });
                       }}
                       disabled={saving}
                       className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
@@ -436,6 +443,31 @@ export default function OrderPreparationTab({
           ) : null}
         </div>
       </div>
+
+      <TextPromptDialog
+        open={resolveDialog.open}
+        title="Résolution anomalie"
+        description="Ajoute une note de résolution avant de clôturer l'anomalie."
+        label="Note de résolution"
+        initialValue={resolveDialog.value}
+        placeholder="Ex: anomalie vérifiée et corrigée"
+        cancelLabel="Annuler"
+        confirmLabel="Marquer résolue"
+        onCancel={() =>
+          setResolveDialog((prev) => ({
+            ...prev,
+            open: false,
+          }))
+        }
+        onConfirm={(value) => {
+          const note = String(value || "").trim() || "Anomalie traitée";
+          onResolveAnomaly?.(resolveDialog.anomalyId, note);
+          setResolveDialog((prev) => ({
+            ...prev,
+            open: false,
+          }));
+        }}
+      />
     </div>
   );
 }

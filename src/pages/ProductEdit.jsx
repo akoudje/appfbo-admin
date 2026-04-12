@@ -4,6 +4,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ProductForm from "../components/ProductForm";
 import { getById, update, uploadImage } from "../services/productsService";
+import { InfoDialog } from "../components/ui/Dialogs";
 
 export default function ProductEdit() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function ProductEdit() {
   const [initialValues, setInitialValues] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [errorDialogMessage, setErrorDialogMessage] = React.useState("");
 
   React.useEffect(() => {
     let alive = true;
@@ -45,11 +47,8 @@ export default function ProductEdit() {
       });
     } catch (e) {
       console.error(e);
-      // ✅ On reste sur la page d'édition si erreur, et on affiche un toast sur /products seulement si tu veux
-      // Ici on garde l'utilisateur sur la page pour corriger.
-      alert(
-        e?.response?.data?.message ||
-          "Mise à jour échouée. Corrige puis réessaie."
+      setErrorDialogMessage(
+        e?.response?.data?.message || "Mise à jour échouée. Corrige puis réessaie."
       );
     } finally {
       setSaving(false);
@@ -92,6 +91,13 @@ export default function ProductEdit() {
           loading={saving}
         />
       </div>
+
+      <InfoDialog
+        open={Boolean(errorDialogMessage)}
+        title="Mise à jour impossible"
+        message={errorDialogMessage}
+        onClose={() => setErrorDialogMessage("")}
+      />
     </div>
   );
 }
