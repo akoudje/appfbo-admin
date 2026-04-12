@@ -212,8 +212,10 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                 return (
                   <tr key={row.id} className="border-t border-gray-100 align-top">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.factureReference || row.id}</div>
-                      <div className="text-xs text-gray-500">{row.factureReference || "-"}</div>
+                      <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
+                      <div className="text-xs text-gray-500">
+                        Code caisse: {row.paymentCollectionCode || "-"} • AS400: {row.factureReference || "-"}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
@@ -284,7 +286,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
               rows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100 align-top">
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.factureReference || row.id}</div>
+                    <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
                     <div className="text-xs text-gray-500">{humanizeEnum(row.status)}</div>
                   </td>
                   <td className="px-4 py-3">
@@ -496,7 +498,8 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
                 <div><strong>Téléphone payeur:</strong> {attempt?.providerPayerPhone || "-"}</div>
                 <div><strong>N° reçu caisse:</strong> {cashierTx?.receiptNumber || "-"}</div>
                 <div><strong>Poste caisse:</strong> {cashierTx?.cashDeskLabel || "-"}</div>
-                <div><strong>Facture:</strong> {order.factureReference || "-"}</div>
+                <div><strong>Code caisse:</strong> {order.paymentCollectionCode || "-"}</div>
+                <div><strong>Facture AS400:</strong> {order.factureReference || "-"}</div>
                 <div><strong>Paiement confirmé:</strong> {formatDateTime(order.paidAt)}</div>
               </div>
             </div>
@@ -870,7 +873,7 @@ export default function CashierWorkspacePage() {
     new Promise((resolve) => {
       cashDialogResolverRef.current = resolve;
       setCashDialogValues({
-        receiptNumber: String(row?.cashierTransaction?.receiptNumber || row?.factureReference || "").trim(),
+        receiptNumber: String(row?.cashierTransaction?.receiptNumber || row?.paymentCollectionCode || row?.factureReference || "").trim(),
         cashDeskLabel: String(row?.cashierTransaction?.cashDeskLabel || "Caisse principale").trim(),
         amountReceivedFcfa: String(row?.amountExpectedFcfa || row?.totalFcfa || "").trim(),
       });
@@ -935,7 +938,7 @@ export default function CashierWorkspacePage() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Nom, facture, précommande, colis, téléphone, reçu"
+              placeholder="Code caisse, nom, facture AS400, précommande, colis, téléphone, reçu"
               className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm"
             />
           </div>
@@ -1001,6 +1004,8 @@ export default function CashierWorkspacePage() {
                   if (!payload) return;
                   await ordersService.pay(row.id, {
                     reference: row.factureReference || row.preorderNumber || row.id,
+                    providerReference:
+                      row.paymentCollectionCode || row.factureReference || row.preorderNumber || row.id,
                     note: "Encaissement espèces depuis l'espace caisse",
                     ...payload,
                   });
