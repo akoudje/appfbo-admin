@@ -318,6 +318,80 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
   );
 }
 
+function CashCollectionDialog({
+  open,
+  values,
+  onChange,
+  onCancel,
+  onConfirm,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-4 shadow-2xl">
+          <h3 className="text-base font-semibold text-gray-900">Encaissement espèces</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            Renseigne les informations caisse pour valider l'encaissement.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">Numéro de reçu caisse</label>
+              <input
+                value={values.receiptNumber}
+                onChange={(e) => onChange("receiptNumber", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Ex: RC-2026-00124"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">Poste de caisse</label>
+              <input
+                value={values.cashDeskLabel}
+                onChange={(e) => onChange("cashDeskLabel", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Ex: Caisse principale"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">Montant reçu (FCFA)</label>
+              <input
+                value={values.amountReceivedFcfa}
+                onChange={(e) => onChange("amountReceivedFcfa", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                inputMode="numeric"
+                placeholder="Ex: 15000"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white"
+            >
+              Valider
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
   const items = Array.isArray(order?.items) ? order.items : [];
   const attempt = order?.activePayment?.attempts?.[0] || null;
@@ -534,6 +608,7 @@ export default function CashierWorkspacePage() {
   const { admin, role } = useAdminAuth();
   const presetStorageKey = useMemo(() => `${CASHIER_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`, [role]);
   const searchDebounceInitializedRef = useRef(false);
+  const cashDialogResolverRef = useRef(null);
   const loadRef = useRef(null);
   const firstAlertLoadRef = useRef(true);
   const previousAlertSnapshotRef = useRef(null);
@@ -596,6 +671,12 @@ export default function CashierWorkspacePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerOrder, setDrawerOrder] = useState(null);
+  const [cashDialogOpen, setCashDialogOpen] = useState(false);
+  const [cashDialogValues, setCashDialogValues] = useState({
+    receiptNumber: "",
+    cashDeskLabel: "",
+    amountReceivedFcfa: "",
+  });
 
   const toCollect = workspace?.toCollect || [];
   const toLaunchPreparation = workspace?.toLaunchPreparation || [];
@@ -785,20 +866,22 @@ export default function CashierWorkspacePage() {
     }
   };
 
-  const askCashCollection = (row) => {
-    const receiptNumber = window.prompt("Numéro de reçu caisse", row?.cashierTransaction?.receiptNumber || row?.factureReference || "");
-    if (!receiptNumber || !String(receiptNumber).trim()) return null;
+  const askCashCollection = (row) =>
+    new Promise((resolve) => {
+      cashDialogResolverRef.current = resolve;
+      setCashDialogValues({
+        receiptNumber: String(row?.cashierTransaction?.receiptNumber || row?.factureReference || "").trim(),
+        cashDeskLabel: String(row?.cashierTransaction?.cashDeskLabel || "Caisse principale").trim(),
+        amountReceivedFcfa: String(row?.amountExpectedFcfa || row?.totalFcfa || "").trim(),
+      });
+      setCashDialogOpen(true);
+    });
 
-    const cashDeskLabel = window.prompt("Poste de caisse", row?.cashierTransaction?.cashDeskLabel || "Caisse principale") || "";
-
-    const amountReceivedFcfa = window.prompt("Montant reçu (FCFA)", String(row?.amountExpectedFcfa || row?.totalFcfa || ""));
-    if (!amountReceivedFcfa || !String(amountReceivedFcfa).trim()) return null;
-
-    return {
-      receiptNumber: String(receiptNumber).trim(),
-      cashDeskLabel: String(cashDeskLabel || "").trim() || undefined,
-      amountReceivedFcfa: String(amountReceivedFcfa).trim(),
-    };
+  const closeCashDialog = (payload = null) => {
+    setCashDialogOpen(false);
+    const resolver = cashDialogResolverRef.current;
+    cashDialogResolverRef.current = null;
+    if (typeof resolver === "function") resolver(payload);
   };
 
   const openDetails = async (orderId) => {
@@ -914,8 +997,8 @@ export default function CashierWorkspacePage() {
               onOpenDetails={openDetails}
               onCashPay={(row) =>
                 runAction(row.id, async () => {
-                  const payload = askCashCollection(row);
-                  if (!payload) throw new Error("Encaissement annulé.");
+                  const payload = await askCashCollection(row);
+                  if (!payload) return;
                   await ordersService.pay(row.id, {
                     reference: row.factureReference || row.preorderNumber || row.id,
                     note: "Encaissement espèces depuis l'espace caisse",
@@ -998,6 +1081,31 @@ export default function CashierWorkspacePage() {
           setDrawerOrder(null);
         }}
         onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+      />
+
+      <CashCollectionDialog
+        open={cashDialogOpen}
+        values={cashDialogValues}
+        onChange={(field, value) =>
+          setCashDialogValues((prev) => ({
+            ...prev,
+            [field]: value,
+          }))
+        }
+        onCancel={() => closeCashDialog(null)}
+        onConfirm={() => {
+          const receiptNumber = String(cashDialogValues.receiptNumber || "").trim();
+          const amountReceivedFcfa = String(cashDialogValues.amountReceivedFcfa || "").trim();
+          if (!receiptNumber || !amountReceivedFcfa) {
+            setError("Le numéro de reçu et le montant reçu sont obligatoires.");
+            return;
+          }
+          closeCashDialog({
+            receiptNumber,
+            cashDeskLabel: String(cashDialogValues.cashDeskLabel || "").trim() || undefined,
+            amountReceivedFcfa,
+          });
+        }}
       />
     </div>
   );

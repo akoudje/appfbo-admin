@@ -31,7 +31,12 @@ function runCommand(command, args, options = {}) {
 
 function main() {
   console.log(`[desktop:build] output dir: ${outputDir}`);
-  runCommand("npm", ["run", "build"]);
+  runCommand("npm", ["run", "build"], {
+    env: {
+      ...process.env,
+      VITE_APP_TARGET: "desktop",
+    },
+  });
 
   runCommand("npx", [
     "electron-builder",
