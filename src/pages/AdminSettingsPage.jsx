@@ -81,7 +81,7 @@ const DEFAULT_SETTINGS = {
         INVOICE:
           "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F.",
         PREORDER_SUBMITTED:
-          "FOREVER: Demande {{preorderNumber}} bien reçue. Nous préparons votre facture et revenons vers vous rapidement.",
+          "FOREVER: Précommande {{preorderNumber}} bien reçue. Nous préparons votre facture et revenons vers vous rapidement.",
         INVOICE_WAVE:
           "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Payez ici: {{paymentLink}}",
         INVOICE_CASH:
