@@ -12,6 +12,7 @@ import { useState, useRef, useEffect } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { Permission, hasPermission } from "../../auth/permissions";
 import { getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
+import { foreverLogoHomeUrl } from "../../lib/assetUrls";
 
 // ============================================
 // CONSTANTES
@@ -463,7 +464,7 @@ export function DesktopSidebar({ collapsed, onToggle }) {
           <div className="flex flex-1 flex-col items-start justify-center animate-in fade-in slide-in-from-left-2 duration-300">
             <div className="flex items-center gap-2">
               <img
-                src="/logo-forever-home.png"
+                src={foreverLogoHomeUrl}
                 alt="Forever"
                 className="h-14 w-auto object-contain"
               />
@@ -479,7 +480,7 @@ export function DesktopSidebar({ collapsed, onToggle }) {
           </div>
         ) : (
           <img
-            src="/logo-forever-home.png"
+            src={foreverLogoHomeUrl}
             alt="Forever"
             className="h-10 w-auto object-contain transition-all duration-300 hover:scale-105"
           />
@@ -617,7 +618,7 @@ export function MobileSidebar({ isOpen, onClose }) {
         <div className="flex items-center justify-between h-20 px-5 border-b border-[#1f1f1f] bg-gradient-to-r from-black to-[#0a0a0a]">
           <div className="flex items-center gap-3">
             <img
-              src="/logo-forever-home.png"
+              src={foreverLogoHomeUrl}
               alt="Forever"
               className="h-12 w-auto object-contain"
             />

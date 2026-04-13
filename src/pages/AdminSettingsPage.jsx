@@ -6,6 +6,7 @@ import AdminUsersPage from "./AdminUsersPage";
 import AdminGradeDiscountsPage from "./AdminGradeDiscountsPage";
 import { settingsService } from "../services/settingsService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
+import { foreverLogoUrl } from "../lib/assetUrls";
 import {
   Save,
   Loader2,
@@ -71,7 +72,7 @@ const DEFAULT_SETTINGS = {
     primaryColor: "#FFC600",
     secondaryColor: "#74AA50",
     darkColor: "#000000",
-    logoPath: "/logo-forever.png",
+    logoPath: foreverLogoUrl,
     sliderEnabled: true,
     sidePanelsEnabled: true,
   },

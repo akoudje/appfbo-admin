@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { setAdminToken, setAdminUser } from "../services/auth";
 import { getDefaultWorkspaceRoute } from "../auth/workspaces";
+import { foreverLogoHomeUrl } from "../lib/assetUrls";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <img
-            src="/logo-forever-home.png"
+            src={foreverLogoHomeUrl}
             alt="Forever"
             className="mx-auto h-28 w-auto object-contain sm:h-32"
           />
