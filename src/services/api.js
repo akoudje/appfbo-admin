@@ -39,6 +39,20 @@ const api = axios.create({
   timeout: 30000,
 });
 
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+
+  const isDesktopRuntime =
+    window?.desktopBridge?.isDesktop === true || window.location.protocol === "file:";
+
+  if (isDesktopRuntime) {
+    window.location.hash = "#/login";
+    return;
+  }
+
+  window.location.href = "/login";
+}
+
 /* ============================
    Request interceptor
 ============================ */
@@ -66,9 +80,7 @@ api.interceptors.response.use(
     if (error?.response?.status === 401) {
       clearAdminSession();
 
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      redirectToLogin();
     }
 
     return Promise.reject(error);
