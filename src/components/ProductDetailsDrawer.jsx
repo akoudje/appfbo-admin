@@ -169,6 +169,13 @@ export default function ProductDetailsDrawer({
                 </div>
 
                 <div className="border border-gray-200 rounded-xl p-3">
+                  <div className="text-xs text-gray-500">Limite / commande</div>
+                  <div className="font-semibold text-gray-900">
+                    {product.maxQtyPerOrder ?? "Limite globale"}
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-xl p-3">
                   <div className="text-xs text-gray-500">MAJ</div>
                   <div className="font-semibold text-gray-900">
                     {safeDate(product.updatedAt)}

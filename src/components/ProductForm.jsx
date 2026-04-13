@@ -42,6 +42,12 @@ function validateField(name, value) {
       if (Number(value) < 0) return "Le stock doit être ≥ 0";
       if (!Number.isInteger(Number(value))) return "Le stock doit être un entier";
       return "";
+    case "maxQtyPerOrder":
+      if (value === "" || value === null) return "";
+      if (!Number.isFinite(Number(value))) return "La limite est invalide";
+      if (Number(value) < 1) return "La limite doit être ≥ 1";
+      if (!Number.isInteger(Number(value))) return "La limite doit être un entier";
+      return "";
     case "category":
       return !String(value || "").trim() ? "La catégorie est requise" : "";
     default:
@@ -149,6 +155,7 @@ export default function ProductForm({
     imageUrl: "",
     category: "NON_CLASSE",
     stockQty: "0",
+    maxQtyPerOrder: "",
     details: "",
   });
 
@@ -176,6 +183,11 @@ export default function ProductForm({
         imageUrl: initialValues.imageUrl || "",
         category: initialValues.category || "NON_CLASSE",
         stockQty: String(initialValues.stockQty ?? 0),
+        maxQtyPerOrder:
+          initialValues.maxQtyPerOrder === null ||
+          initialValues.maxQtyPerOrder === undefined
+            ? ""
+            : String(initialValues.maxQtyPerOrder),
         details: initialValues.details || "",
       };
       setForm(next);
@@ -191,6 +203,7 @@ export default function ProductForm({
         imageUrl: "",
         category: "NON_CLASSE",
         stockQty: "0",
+        maxQtyPerOrder: "",
         details: "",
       };
       setForm(next);
@@ -221,6 +234,7 @@ export default function ProductForm({
       poidsKg: validateField("poidsKg", form.poidsKg),
       category: validateField("category", form.category),
       stockQty: validateField("stockQty", form.stockQty),
+      maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
     };
   }, [form]);
 
@@ -266,6 +280,7 @@ export default function ProductForm({
       poidsKg: validateField("poidsKg", form.poidsKg),
       category: validateField("category", form.category),
       stockQty: validateField("stockQty", form.stockQty),
+      maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
     };
     setErrors(validationErrors);
     if (Object.values(validationErrors).some((e) => e)) {
@@ -296,6 +311,8 @@ export default function ProductForm({
         category: form.category || "NON_CLASSE",
         details: form.details ? String(form.details) : null,
         stockQty: Number(form.stockQty ?? 0),
+        maxQtyPerOrder:
+          form.maxQtyPerOrder === "" ? null : Number(form.maxQtyPerOrder),
       }, {
         imageFile: !isEdit ? pendingImageFile : null,
       });
@@ -545,7 +562,7 @@ export default function ProductForm({
         </div>
 
         {/* Category + stock */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className={errors.category && touched.category ? "error" : ""}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Catégorie <span className="text-red-500">*</span>
@@ -591,6 +608,33 @@ export default function ProductForm({
               <p className="mt-1 text-xs text-red-600">{errors.stockQty}</p>
             )}
             <p className="mt-1 text-xs text-gray-500">0 = rupture (filtrable côté public)</p>
+          </div>
+
+          <div className={errors.maxQtyPerOrder && touched.maxQtyPerOrder ? "error" : ""}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Limite par commande
+            </label>
+            <input
+              className={`w-full px-4 py-2 border rounded-lg ${
+                errors.maxQtyPerOrder && touched.maxQtyPerOrder
+                  ? "border-red-300"
+                  : "border-gray-300"
+              }`}
+              type="number"
+              min="1"
+              step="1"
+              value={form.maxQtyPerOrder}
+              onChange={(e) => handleChange("maxQtyPerOrder", e.target.value)}
+              onBlur={() => handleBlur("maxQtyPerOrder")}
+              disabled={loading}
+              placeholder="Ex: 1"
+            />
+            {errors.maxQtyPerOrder && touched.maxQtyPerOrder && (
+              <p className="mt-1 text-xs text-red-600">{errors.maxQtyPerOrder}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Vide = limite globale du pays. Ex: Calcium = 1.
+            </p>
           </div>
         </div>
 

@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { importCsv } from "../services/productsService";
 
 const CSV_TEMPLATE = [
-  "sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;details",
-  '123-ABC;"Aloe Vera Gel";15000;0.482;3.300;true;https://example.com/image.jpg;BUVABLE;12;"Gel a boire"',
-  "456-DEF;Forever Fiber;12500;0.250;0.300;false;;NUTRITION;;",
+  "sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details",
+  '123-ABC;"Aloe Vera Gel";15000;0.482;3.300;true;https://example.com/image.jpg;BUVABLE;12;;"Gel a boire"',
+  "456-DEF;Forever Fiber;12500;0.250;0.300;false;;NUTRITION;;1;",
 ].join("\n");
 
 function splitCsvLines(text) {
@@ -101,6 +101,9 @@ function normalizeHeaderName(raw) {
     categorie: "category",
     stockqty: "stockQty",
     stock: "stockQty",
+    maxqtyperorder: "maxQtyPerOrder",
+    maxqty: "maxQtyPerOrder",
+    limiteparcommande: "maxQtyPerOrder",
     details: "details",
     detail: "details",
     description: "details",
@@ -163,6 +166,10 @@ function normalizeRow(r) {
       (r.stockQty ?? "").toString().trim() === ""
         ? "" // autorise vide => default serveur
         : toNumberOrNaN(r.stockQty),
+    maxQtyPerOrder:
+      (r.maxQtyPerOrder ?? "").toString().trim() === ""
+        ? ""
+        : toNumberOrNaN(r.maxQtyPerOrder),
     details: toNullableString(r.details),
   };
 }
@@ -286,6 +293,11 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
       if (!Number.isFinite(n) || n < 0) e.push("stockQty");
       else if (!Number.isInteger(n)) e.push("stockQty(int)");
     }
+    if (r.maxQtyPerOrder !== "") {
+      const n = Number(r.maxQtyPerOrder);
+      if (!Number.isFinite(n) || n < 1) e.push("maxQtyPerOrder");
+      else if (!Number.isInteger(n)) e.push("maxQtyPerOrder(int)");
+    }
 
     return e;
   }, []);
@@ -369,6 +381,12 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
           r.stockQty === "" || r.stockQty === null || r.stockQty === undefined
             ? null
             : Number(r.stockQty),
+        maxQtyPerOrder:
+          r.maxQtyPerOrder === "" ||
+          r.maxQtyPerOrder === null ||
+          r.maxQtyPerOrder === undefined
+            ? null
+            : Number(r.maxQtyPerOrder),
       }));
 
       const res = await importCsv(rows);
@@ -410,7 +428,7 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
               Colonnes attendues :{" "}
               <span className="font-mono">
                 sku, nom, prixBaseFcfa, cc, poidsKg, actif, imageUrl, category,
-                stockQty, details
+                stockQty, maxQtyPerOrder, details
               </span>{" "}
               • séparateur <b>;</b> ou <b>,</b>
             </div>
@@ -447,8 +465,8 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
                   if (banner) setBanner(null);
                 }}
                 disabled={busy}
-                placeholder={`sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;details
-123-ABC;Aloe Vera Gel;15000;0.482;3.300;true;https://...;BUVABLE;12;Gel à boire...`}
+                placeholder={`sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details
+123-ABC;Aloe Vera Gel;15000;0.482;3.300;true;https://...;BUVABLE;12;1;Gel à boire...`}
               />
               <div className="mt-2 flex gap-2">
                 <button

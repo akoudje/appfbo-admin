@@ -166,6 +166,15 @@ function ProductDetailsModal({ open, product, onClose, onEdit }) {
                 </div>
               </div>
 
+              <div>
+                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                  Limite par commande
+                </div>
+                <div className="text-sm bg-gray-50 px-3 py-2 rounded-lg">
+                  {product.maxQtyPerOrder ?? "Limite globale"}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
