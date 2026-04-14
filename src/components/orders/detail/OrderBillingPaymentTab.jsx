@@ -555,8 +555,9 @@ function BillingActionCard({
               onClick={onSwitchToManualPayment}
               disabled={saving}
               className="px-4 py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 disabled:opacity-50 whitespace-nowrap transition-colors"
+              title="Basculer ce règlement distant vers un encaissement à la caisse"
             >
-              Paiement caisse
+              Basculer en caisse
             </button>
           )}
         </div>

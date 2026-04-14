@@ -279,9 +279,9 @@ export default function OrderDetailPage() {
   const isAutoPayment = !isCash && isWave;
   const isGlobalAdmin =
     role === AdminRole.SUPER_ADMIN || role === AdminRole.TECH_ADMIN;
-  const canSwitchWaveToManual =
+  const canSwitchPaymentToCash =
     isGlobalAdmin &&
-    isWave &&
+    (isWave || paymentModeRaw === "BANK_TRANSFER") &&
     ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
       status,
     );
@@ -1232,7 +1232,7 @@ const doInvoice = async () => {
               waveLoading={waveLoading}
               showWaveDevTools={true}
               showReinvoiceHint={showReinvoiceHint}
-              canSwitchToManualPayment={canSwitchWaveToManual}
+              canSwitchToManualPayment={canSwitchPaymentToCash}
               onSwitchToManualPayment={doSwitchPaymentToManual}
               canReplaceBillingItems={canReplaceBillingItems}
               replacementProducts={replacementProducts}
