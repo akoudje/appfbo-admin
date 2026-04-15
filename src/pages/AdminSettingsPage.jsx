@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdminUsersPage from "./AdminUsersPage";
 import AdminGradeDiscountsPage from "./AdminGradeDiscountsPage";
 import { settingsService } from "../services/settingsService";
-import { settingsService } from "../services/settingsService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import { foreverLogoUrl } from "../lib/assetUrls";
 import {
