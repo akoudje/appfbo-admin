@@ -4,6 +4,7 @@ import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import OrderItemsTable from "./OrderItemsTable";
 import { InfoDialog } from "../../ui/Dialogs";
+import { ordersService } from "../../../services/ordersService";
 
 // ============================================
 // CONSTANTES
@@ -292,6 +293,66 @@ function buildWaveReceiptHtml({
     </script>
   </body>
 </html>`;
+}
+
+function resolveAssetUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const defaultApi =
+    typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:4000/api"
+      : "https://appfbo-backend.onrender.com/api";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || defaultApi;
+  const origin = String(apiBase || "").replace(/\/api\/?$/, "");
+
+  if (raw.startsWith("/")) return `${origin}${raw}`;
+  return `${origin}/${raw}`;
+}
+
+function isImageProof(url = "") {
+  return /\.(png|jpg|jpeg|webp|gif)(\?|#|$)/i.test(String(url || ""));
+}
+
+function isPdfProof(url = "") {
+  return /\.pdf(\?|#|$)/i.test(String(url || ""));
+}
+
+function printProof(url) {
+  if (!url || typeof window === "undefined") return;
+
+  const popup = window.open("", "_blank", "width=980,height=800");
+  if (!popup) return;
+
+  const safeUrl = String(url).replace(/"/g, "&quot;");
+  const isPdf = isPdfProof(url);
+  const content = isPdf
+    ? `<iframe src="${safeUrl}" style="width:100%;height:100%;border:0;"></iframe>`
+    : `<img src="${safeUrl}" alt="Preuve paiement" style="max-width:100%;max-height:100%;object-fit:contain;" />`;
+
+  popup.document.write(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Preuve de paiement</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #111; display:flex; align-items:center; justify-content:center; }
+    </style>
+  </head>
+  <body>${content}</body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  popup.addEventListener("load", () => {
+    setTimeout(() => {
+      try {
+        popup.print();
+      } catch {
+        // noop
+      }
+    }, 500);
+  });
 }
 
 function humanizeEnum(value) {
@@ -939,6 +1000,96 @@ function ManualPaymentCard({
   const isInvoiced = status === "INVOICED";
   const step1Completed = status === "PAYMENT_PENDING" || isPaid;
   const step2Completed = isPaid;
+  const latestBankProof = Array.isArray(order?.bankPaymentProofs)
+    ? order.bankPaymentProofs[0]
+    : null;
+  const [proofBlobUrl, setProofBlobUrl] = React.useState("");
+  const [proofBlobMimeType, setProofBlobMimeType] = React.useState("");
+  const [proofBlobLoading, setProofBlobLoading] = React.useState(false);
+  const [proofBlobError, setProofBlobError] = React.useState("");
+
+  const legacyProofUrl = resolveAssetUrl(
+    order?.manualPaymentProofUrl || order?.paymentProofUrl || "",
+  );
+  const effectiveProofUrl = proofBlobUrl || legacyProofUrl;
+  const effectiveProofRef =
+    latestBankProof?.reference ||
+    order?.manualPaymentReference ||
+    order?.paymentRef ||
+    "—";
+  const effectiveProofNote =
+    latestBankProof?.note ||
+    order?.manualPaymentProofNote ||
+    order?.paymentProofNote ||
+    "";
+  const proofSubmittedAt =
+    latestBankProof?.submittedAt ||
+    order?.manualPaymentReceivedAt ||
+    order?.proofReceivedAt ||
+    null;
+  const showPdfPreview = proofBlobUrl
+    ? String(proofBlobMimeType || "").toLowerCase().includes("pdf")
+    : isPdfProof(effectiveProofUrl);
+  const showImagePreview = proofBlobUrl
+    ? String(proofBlobMimeType || "").toLowerCase().startsWith("image/")
+    : isImageProof(effectiveProofUrl);
+
+  React.useEffect(() => {
+    let objectUrl = "";
+    let active = true;
+
+    async function loadProofBlob() {
+      if (!order?.id || (!latestBankProof?.id && !order?.manualPaymentProofUrl)) {
+        setProofBlobUrl("");
+        setProofBlobMimeType("");
+        setProofBlobError("");
+        setProofBlobLoading(false);
+        return;
+      }
+
+      try {
+        setProofBlobLoading(true);
+        setProofBlobError("");
+
+        const response = latestBankProof?.id
+          ? await ordersService.downloadBankProofFile(order.id, latestBankProof.id)
+          : await ordersService.downloadLegacyManualProofFile(order.id);
+
+        const mimeType = String(
+          response?.headers?.["content-type"] ||
+            latestBankProof?.fileMimeType ||
+            "application/octet-stream",
+        );
+        const blob = new Blob([response.data], { type: mimeType });
+        objectUrl = URL.createObjectURL(blob);
+        if (!active) return;
+        setProofBlobUrl(objectUrl);
+        setProofBlobMimeType(mimeType);
+      } catch (e) {
+        if (!active) return;
+        setProofBlobUrl("");
+        setProofBlobMimeType("");
+        setProofBlobError(
+          e?.response?.data?.message ||
+            "Impossible de charger la preuve sécurisée.",
+        );
+      } finally {
+        if (active) setProofBlobLoading(false);
+      }
+    }
+
+    loadProofBlob();
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [
+    latestBankProof?.fileMimeType,
+    latestBankProof?.id,
+    order?.id,
+    order?.manualPaymentProofUrl,
+  ]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1051,33 +1202,84 @@ function ManualPaymentCard({
         </div>
 
         {/* Preuve enregistrée */}
-        {(order?.manualPaymentProofUrl || order?.paymentProofUrl || order?.manualPaymentReference) && (
+        {(latestBankProof?.id ||
+          order?.manualPaymentProofUrl ||
+          order?.paymentProofUrl ||
+          order?.manualPaymentReference ||
+          order?.paymentRef) && (
           <div className="pt-3 border-t border-gray-100">
             <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <span>📋</span>
               Preuve enregistrée
             </h5>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Row
-                label="URL"
-                value={
-                  order?.manualPaymentProofUrl || order?.paymentProofUrl ? (
-                    <a 
-                      href={order?.manualPaymentProofUrl || order?.paymentProofUrl} 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      className="text-indigo-600 hover:text-indigo-800 text-sm transition-colors"
-                    >
-                      🔗 Voir la preuve
-                    </a>
-                  ) : "—"
-                }
-              />
-              <Row label="Référence" value={order?.manualPaymentReference || order?.paymentRef || "—"} copyable />
-            </div>
-            {(order?.manualPaymentProofNote || order?.paymentProofNote) && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-700">
-                {order?.manualPaymentProofNote || order?.paymentProofNote}
+            {proofBlobLoading ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-500">
+                Chargement sécurisé de la preuve...
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Row label="Référence" value={effectiveProofRef} copyable />
+                  <Row label="Déposée le" value={formatDateTime(proofSubmittedAt)} />
+                </div>
+
+                {effectiveProofNote ? (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                    {effectiveProofNote}
+                  </div>
+                ) : null}
+
+                {effectiveProofUrl ? (
+                  <>
+                    {showPdfPreview ? (
+                      <div className="h-80 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        <iframe
+                          title="Aperçu preuve PDF"
+                          src={effectiveProofUrl}
+                          className="h-full w-full border-0"
+                        />
+                      </div>
+                    ) : showImagePreview ? (
+                      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white p-2">
+                        <img
+                          src={effectiveProofUrl}
+                          alt="Preuve de paiement"
+                          className="max-h-80 w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Aperçu non disponible pour ce format. Ouvrez le fichier pour vérification.
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={effectiveProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        Ouvrir la preuve
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => printProof(effectiveProofUrl)}
+                        className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white"
+                      >
+                        Imprimer la preuve
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                    Aucune URL de preuve disponible pour cette commande.
+                  </div>
+                )}
+
+                {proofBlobError ? (
+                  <div className="text-xs text-red-600">{proofBlobError}</div>
+                ) : null}
               </div>
             )}
           </div>
