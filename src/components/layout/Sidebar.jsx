@@ -1,21 +1,28 @@
 // admin-app/src/components/layout/Sidebar.jsx
-// Composant de la barre latérale de navigation de l'interface d'administration, 
-// avec une version desktop et une version mobile. La barre latérale contient des liens vers 
-// les différentes sections de l'admin, ainsi qu'un bouton pour basculer entre les modes réduit et étendu. 
-// Les éléments de navigation sont définis dans des tableaux `NAV_ITEMS` et `SETTINGS_ITEMS`, qui contiennent 
-// les informations nécessaires pour afficher les liens et les icônes correspondantes. 
-// Le composant utilise `NavLink` de `react-router-dom` pour gérer la navigation et appliquer des styles actifs aux liens correspondants à la route courante.
-
-
+// Composant de la barre latérale de navigation avec icônes Lucide React améliorées
 import { NavLink } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { Permission, hasPermission } from "../../auth/permissions";
 import { getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
 import { foreverLogoHomeUrl } from "../../lib/assetUrls";
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  FileText,
+  CreditCard,
+  Package,
+  Boxes,
+  Tags,
+  Settings,
+  Megaphone,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from "lucide-react";
 
 // ============================================
-// CONSTANTES
+// CONSTANTES AVEC ICÔNES LUCIDE AMÉLIORÉES
 // ============================================
 
 // Navigation principale
@@ -25,16 +32,7 @@ const NAV_ITEMS = [
     to: "/dashboard",
     label: "Dashboard",
     permission: Permission.EXPORT_READ,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-        />
-      </svg>
-    ),
+    icon: LayoutDashboard, // Tableau de bord - parfait pour dashboard
     badge: null,
     description: "Vue d'ensemble et statistiques",
   },
@@ -43,16 +41,7 @@ const NAV_ITEMS = [
     to: "/orders",
     label: "Commandes",
     permission: Permission.PREORDER_READ,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-        />
-      </svg>
-    ),
+    icon: ShoppingCart, // Panier - représente les commandes
     badge: null,
     description: "Gestion des précommandes",
   },
@@ -61,16 +50,7 @@ const NAV_ITEMS = [
     to: "/billing",
     label: "Queue de facturation",
     permission: Permission.INVOICE_CREATE,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z"
-        />
-      </svg>
-    ),
+    icon: FileText, // Document texte - représente une facture
     badge: null,
     description: "Factures en attente",
   },
@@ -79,16 +59,7 @@ const NAV_ITEMS = [
     to: "/cashier",
     label: "Caisse",
     permission: Permission.PAYMENT_VALIDATE,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 9V7a5 5 0 00-10 0v2M5 9h14v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9zm4 5h6"
-        />
-      </svg>
-    ),
+    icon: CreditCard, // Carte de crédit - représente les paiements
     badge: null,
     description: "Encaissements et paiements",
   },
@@ -97,16 +68,7 @@ const NAV_ITEMS = [
     to: "/preparation",
     label: "Préparation",
     permission: Permission.PREPARATION_UPDATE,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-        />
-      </svg>
-    ),
+    icon: Package, // Colis - représente la préparation des commandes
     badge: null,
     description: "Préparation des commandes",
   },
@@ -115,16 +77,7 @@ const NAV_ITEMS = [
     to: "/stock",
     label: "Stock",
     permission: Permission.PRODUCT_READ,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 7h16M4 12h16M4 17h16M7 4h10a1 1 0 011 1v14a1 1 0 01-1 1H7a1 1 0 01-1-1V5a1 1 0 011-1z"
-        />
-      </svg>
-    ),
+    icon: Boxes, // Boîtes empilées - représente l'inventaire/stock
     badge: null,
     description: "Gestion des stocks",
   },
@@ -133,16 +86,7 @@ const NAV_ITEMS = [
     to: "/products",
     label: "Produits",
     permission: Permission.PRODUCT_READ,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-        />
-      </svg>
-    ),
+    icon: Tags, // Étiquettes - représente le catalogue produits
     badge: null,
     description: "Catalogue produits",
   },
@@ -154,38 +98,14 @@ const SETTINGS_ITEMS = [
     to: "/settings",
     label: "Paramètres",
     permission: Permission.COUNTRY_WRITE,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-        />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-        />
-      </svg>
-    ),
+    icon: Settings, // Roue dentée - universel pour les paramètres
     description: "Configuration générale",
   },
   {
     to: "/marketing/campaigns",
     label: "Campagnes marketing",
     permission: Permission.COUNTRY_WRITE,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M11 5h2m-1-1v2m0 12a4 4 0 100-8 4 4 0 000 8zm0 0v3m0-15V3m8 9h-3M6 12H3m14.95 4.95l-2.12-2.12M8.17 8.17L6.05 6.05m11.9 0l-2.12 2.12M8.17 15.83l-2.12 2.12"
-        />
-      </svg>
-    ),
+    icon: Megaphone, // Mégaphone - représente le marketing/communication
     description: "Gestion des campagnes",
   },
 ];
@@ -235,9 +155,9 @@ function Tooltip({ children, content, position = "right" }) {
 
 function NavItem({ item, collapsed = false, onClick, showDescription = false }) {
   const linkRef = useRef(null);
+  const Icon = item.icon; // L'icône est maintenant un composant Lucide React
 
   useEffect(() => {
-    // Ajouter un effet de focus visible pour l'accessibilité clavier
     const handleKeyDown = (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -255,7 +175,7 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
   const navLinkContent = ({ isActive }) => (
     <>
       <span className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
-        {item.icon}
+        <Icon className="w-5 h-5" />
       </span>
       {!collapsed && (
         <>
@@ -422,7 +342,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
   const visibleNavItems = filterItems(NAV_ITEMS, role, permissions);
   const visibleSettingsItems = filterItems(SETTINGS_ITEMS, role, permissions);
 
-  // Gestion du raccourci clavier pour basculer la sidebar
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "b") {
@@ -435,7 +354,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onToggle]);
 
-  // Afficher les descriptions après un délai quand la souris entre
   const handleMouseEnter = () => {
     setTimeout(() => setShowDescriptions(true), 300);
   };
@@ -493,19 +411,11 @@ export function DesktopSidebar({ collapsed, onToggle }) {
             type="button"
             aria-label={collapsed ? "Étendre la barre latérale" : "Réduire la barre latérale"}
           >
-            <svg
-              className={`w-5 h-5 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-              />
-            </svg>
+            {collapsed ? (
+              <ChevronRight className="w-5 h-5" />
+            ) : (
+              <ChevronLeft className="w-5 h-5" />
+            )}
           </button>
         </Tooltip>
       </div>
@@ -551,7 +461,7 @@ export function DesktopSidebar({ collapsed, onToggle }) {
         </div>
       )}
 
-      {/* Indicateur de raccourci clavier (optionnel) */}
+      {/* Indicateur de raccourci clavier */}
       {!collapsed && (
         <div className="px-4 py-2 text-[10px] text-white/30 text-center border-t border-white/5">
           <kbd className="px-1.5 py-0.5 bg-white/5 rounded">⌘</kbd>
@@ -571,7 +481,6 @@ export function MobileSidebar({ isOpen, onClose }) {
   const visibleNavItems = filterItems(NAV_ITEMS, role, permissions);
   const visibleSettingsItems = filterItems(SETTINGS_ITEMS, role, permissions);
 
-  // Fermer avec la touche Échap
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape" && isOpen) {
@@ -583,7 +492,6 @@ export function MobileSidebar({ isOpen, onClose }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Focus trap pour l'accessibilité
   useEffect(() => {
     if (isOpen && sidebarRef.current) {
       const focusableElements = sidebarRef.current.querySelectorAll(
@@ -597,7 +505,6 @@ export function MobileSidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay avec animation */}
       <div
         className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-all duration-300 ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -606,7 +513,6 @@ export function MobileSidebar({ isOpen, onClose }) {
         aria-hidden="true"
       />
 
-      {/* Sidebar mobile */}
       <aside
         ref={sidebarRef}
         className={`fixed top-0 left-0 h-full w-80 bg-[#000000] shadow-2xl z-50 transform transition-transform duration-300 ease-out lg:hidden ${
@@ -614,7 +520,6 @@ export function MobileSidebar({ isOpen, onClose }) {
         }`}
         aria-label="Navigation mobile"
       >
-        {/* En-tête */}
         <div className="flex items-center justify-between h-20 px-5 border-b border-[#1f1f1f] bg-gradient-to-r from-black to-[#0a0a0a]">
           <div className="flex items-center gap-3">
             <img
@@ -637,13 +542,10 @@ export function MobileSidebar({ isOpen, onClose }) {
             type="button"
             aria-label="Fermer le menu"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-13rem)]">
           <NavSection
             title="Menu principal"
@@ -669,7 +571,6 @@ export function MobileSidebar({ isOpen, onClose }) {
           )}
         </nav>
 
-        {/* Profil utilisateur */}
         <div className="absolute bottom-0 left-0 right-0">
           <UserProfileCard fullName={fullName} email={email} collapsed={false} />
         </div>
@@ -680,7 +581,6 @@ export function MobileSidebar({ isOpen, onClose }) {
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
-    // Persister l'état dans localStorage
     try {
       const saved = localStorage.getItem("sidebar-collapsed");
       return saved ? JSON.parse(saved) : false;
