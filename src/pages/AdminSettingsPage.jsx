@@ -88,7 +88,7 @@ const DEFAULT_SETTINGS = {
         INVOICE_CASH:
           "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Paiement à la caisse FLP.",
         INVOICE_BANK_TRANSFER:
-          "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Infos virement dans votre email/espace client.",
+          "FOREVER: Votre facture est prête. Code {{paymentCollectionCode}}. Montant {{totalFcfa}}F. Déposez votre preuve ici: {{bankProofUploadLink}}",
         ORDER_READY:
           "FOREVER: Colis prêt pour la commande {{preorderNumber}}. Code retrait {{pickupCode}}. Présentez ce code au comptoir FLP.",
         PREPARATION_STARTED:
@@ -137,6 +137,7 @@ const NOTIFICATION_VARIABLES = [
   "{{totalFcfa}}",
   "{{totalFcfaLabel}}",
   "{{paymentLink}}",
+  "{{bankProofUploadLink}}",
   "{{pickupCode}}",
   "{{supportPhone}}",
   "{{pickupAddress}}",
@@ -157,7 +158,7 @@ const SMS_TEMPLATE_META = {
   },
   INVOICE_BANK_TRANSFER: {
     label: "Facture prête - Virement bancaire",
-    hint: "Renvoie vers email/espace client pour les infos bancaires.",
+    hint: "Inclure {{bankProofUploadLink}} pour le dépôt sécurisé de la preuve.",
   },
   INVOICE: {
     label: "Facture prête - Message de secours",
