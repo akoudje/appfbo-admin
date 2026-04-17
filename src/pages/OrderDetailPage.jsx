@@ -531,16 +531,30 @@ export default function OrderDetailPage() {
     await load();
   };
 
-  const handleResendWhatsApp = async () => {
+  const handleResendInvoiceNotification = async () => {
     try {
       setSaving(true);
       setError("");
       setInfo("");
 
       const result = await ordersService.resendInvoiceSms(id);
+      const sentChannels = (Array.isArray(result?.attempts) ? result.attempts : [])
+        .filter((attempt) => attempt?.sent)
+        .map((attempt) => String(attempt.channel || "").toUpperCase())
+        .filter(Boolean);
+      const uniqueChannels = [...new Set(sentChannels)];
+      const channelsLabel =
+        uniqueChannels.length > 0 ? uniqueChannels.join(" + ") : "SMS / EMAIL";
+      const destinations = [
+        result?.toPhone ? `SMS: ${result.toPhone}` : null,
+        result?.toEmail ? `Email: ${result.toEmail}` : null,
+      ].filter(Boolean);
       if (result?.sent) {
-        const channel = String(result?.channel || "SMS").toUpperCase();
-        setInfo(`Notification renvoyée via ${channel} au ${result?.toPhone || "client"}.`);
+        setInfo(
+          `Lien de paiement renvoyé via ${channelsLabel}${
+            destinations.length ? ` vers ${destinations.join(" | ")}` : "."
+          }`,
+        );
       } else {
         setInfo(
           result?.errorMessage ||
@@ -550,7 +564,10 @@ export default function OrderDetailPage() {
 
       await load();
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de renvoyer le SMS");
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de renvoyer le lien de paiement par SMS / email",
+      );
     } finally {
       setSaving(false);
     }
@@ -1224,7 +1241,7 @@ const doInvoice = async () => {
               onVerify={doVerifyPayment}
               onCashPay={doCashPay}
               billingMessage={billingMessage}
-              onResendWhatsApp={handleResendWhatsApp}
+              onResendInvoiceNotification={handleResendInvoiceNotification}
               onInitiateWave={doInitiateWave}
               onRefreshWaveStatus={doSyncWave}
               onSyncWave={doSyncWave}
