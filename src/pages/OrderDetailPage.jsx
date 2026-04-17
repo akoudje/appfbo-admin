@@ -549,9 +549,15 @@ export default function OrderDetailPage() {
         result?.toPhone ? `SMS: ${result.toPhone}` : null,
         result?.toEmail ? `Email: ${result.toEmail}` : null,
       ].filter(Boolean);
+      const hasPaymentLink = Boolean(
+        order?.paymentLink ||
+          order?.paymentLinkTarget ||
+          order?.trackedPaymentLink ||
+          order?.activePayment?.providerLaunchUrl,
+      );
       if (result?.sent) {
         setInfo(
-          `Lien de paiement renvoyé via ${channelsLabel}${
+          `${hasPaymentLink ? "Notification de paiement avec lien" : "Notification de rappel de paiement"} renvoyée via ${channelsLabel}${
             destinations.length ? ` vers ${destinations.join(" | ")}` : "."
           }`,
         );
@@ -1242,6 +1248,13 @@ const doInvoice = async () => {
               onCashPay={doCashPay}
               billingMessage={billingMessage}
               onResendInvoiceNotification={handleResendInvoiceNotification}
+              canResendInvoiceNotification={Boolean(
+                order?.factureReference ||
+                  order?.invoicedAt ||
+                  ["INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED"].includes(
+                    String(order?.status || "").toUpperCase(),
+                  ),
+              )}
               onInitiateWave={doInitiateWave}
               onRefreshWaveStatus={doSyncWave}
               onSyncWave={doSyncWave}

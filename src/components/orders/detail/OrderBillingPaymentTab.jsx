@@ -392,6 +392,7 @@ function BillingActionCard({
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   onResendInvoiceNotification = null,
+  canResendInvoiceNotification = false,
   resolvedPaymentLink,
   order,
 }) {
@@ -623,6 +624,19 @@ function BillingActionCard({
             </button>
           )}
         </div>
+
+        {canResendInvoiceNotification ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onResendInvoiceNotification}
+              disabled={saving || typeof onResendInvoiceNotification !== "function"}
+              className="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+            >
+              Renvoyer la notification de paiement
+            </button>
+          </div>
+        ) : null}
         
         {/* Lien de paiement */}
         {!isCash && (
@@ -652,18 +666,6 @@ function BillingActionCard({
                 <span className="text-sm text-gray-400">Généré après facturation</span>
               )}
             </div>
-            {resolvedPaymentLink ? (
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={onResendInvoiceNotification}
-                  disabled={saving || typeof onResendInvoiceNotification !== "function"}
-                  className="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors"
-                >
-                  Renvoyer le lien par SMS / email
-                </button>
-              </div>
-            ) : null}
           </div>
         )}
       </div>
@@ -1357,6 +1359,7 @@ export default function OrderBillingPaymentTab({
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   onResendInvoiceNotification = null,
+  canResendInvoiceNotification = false,
   canReplaceBillingItems = false,
   replacementProducts = [],
   replacementQuery = "",
@@ -1535,6 +1538,7 @@ export default function OrderBillingPaymentTab({
             canSwitchToManualPayment={canSwitchToManualPayment}
             onSwitchToManualPayment={onSwitchToManualPayment}
             onResendInvoiceNotification={onResendInvoiceNotification}
+            canResendInvoiceNotification={canResendInvoiceNotification}
             resolvedPaymentLink={resolvedPaymentLink}
             order={order}
           />
