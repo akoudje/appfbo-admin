@@ -212,7 +212,7 @@ export default function App() {
                   path="/marketing/campaigns"
                   element={
                     <RequirePermission
-                      permission={Permission.COUNTRY_WRITE}
+                      permission={Permission.COUNTRY_READ}
                       fallback={<AccessDenied message="Accès refusé aux campagnes marketing." />}
                     >
                       <MarketingCampaignsPage />
