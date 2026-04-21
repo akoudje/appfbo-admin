@@ -12,10 +12,6 @@ export const marketingCampaignsService = {
     formData.append("file", file);
     if (slot) formData.append("slot", slot);
 
-    return (
-      await api.post("/admin/marketing-campaigns/assets", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      })
-    ).data;
+    return (await api.post("/admin/marketing-campaigns/assets", formData)).data;
   },
 };
