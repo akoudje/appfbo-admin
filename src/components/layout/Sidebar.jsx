@@ -32,7 +32,7 @@ const NAV_ITEMS = [
     to: "/dashboard",
     label: "Dashboard",
     permission: Permission.EXPORT_READ,
-    icon: LayoutDashboard, // Tableau de bord - parfait pour dashboard
+    icon: LayoutDashboard,
     badge: null,
     description: "Vue d'ensemble et statistiques",
   },
@@ -41,7 +41,7 @@ const NAV_ITEMS = [
     to: "/orders",
     label: "Commandes",
     permission: Permission.PREORDER_READ,
-    icon: ShoppingCart, // Panier - représente les commandes
+    icon: ShoppingCart,
     badge: null,
     description: "Gestion des précommandes",
   },
@@ -50,7 +50,7 @@ const NAV_ITEMS = [
     to: "/billing",
     label: "Queue de facturation",
     permission: Permission.INVOICE_CREATE,
-    icon: FileText, // Document texte - représente une facture
+    icon: FileText,
     badge: null,
     description: "Factures en attente",
   },
@@ -59,7 +59,7 @@ const NAV_ITEMS = [
     to: "/cashier",
     label: "Caisse",
     permission: Permission.PAYMENT_VALIDATE,
-    icon: CreditCard, // Carte de crédit - représente les paiements
+    icon: CreditCard,
     badge: null,
     description: "Encaissements et paiements",
   },
@@ -68,7 +68,7 @@ const NAV_ITEMS = [
     to: "/preparation",
     label: "Préparation",
     permission: Permission.PREPARATION_UPDATE,
-    icon: Package, // Colis - représente la préparation des commandes
+    icon: Package,
     badge: null,
     description: "Préparation des commandes",
   },
@@ -77,7 +77,7 @@ const NAV_ITEMS = [
     to: "/stock",
     label: "Stock",
     permission: Permission.PRODUCT_READ,
-    icon: Boxes, // Boîtes empilées - représente l'inventaire/stock
+    icon: Boxes,
     badge: null,
     description: "Gestion des stocks",
   },
@@ -86,33 +86,28 @@ const NAV_ITEMS = [
     to: "/products",
     label: "Produits",
     permission: Permission.PRODUCT_READ,
-    icon: Tags, // Étiquettes - représente le catalogue produits
+    icon: Tags,
     badge: null,
     description: "Catalogue produits",
   },
 ];
 
-// Paramètres
 const SETTINGS_ITEMS = [
   {
     to: "/settings",
     label: "Paramètres",
     permission: Permission.COUNTRY_WRITE,
-    icon: Settings, // Roue dentée - universel pour les paramètres
+    icon: Settings,
     description: "Configuration générale",
   },
   {
     to: "/marketing/campaigns",
     label: "Campagnes marketing",
-    permission: Permission.COUNTRY_WRITE,
-    icon: Megaphone, // Mégaphone - représente le marketing/communication
+    permission: Permission.COUNTRY_READ,
+    icon: Megaphone,
     description: "Gestion des campagnes",
   },
 ];
-
-// ============================================
-// COMPOSANTS UTILITAIRES
-// ============================================
 
 function Tooltip({ children, content, position = "right" }) {
   const [visible, setVisible] = useState(false);
@@ -155,7 +150,7 @@ function Tooltip({ children, content, position = "right" }) {
 
 function NavItem({ item, collapsed = false, onClick, showDescription = false }) {
   const linkRef = useRef(null);
-  const Icon = item.icon; // L'icône est maintenant un composant Lucide React
+  const Icon = item.icon;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -330,10 +325,6 @@ function filterItems(items, role, permissions) {
   });
 }
 
-// ============================================
-// COMPOSANTS PRINCIPAUX
-// ============================================
-
 export function DesktopSidebar({ collapsed, onToggle }) {
   const { role, permissions, fullName, email } = useAdminAuth();
   const [showDescriptions, setShowDescriptions] = useState(false);
@@ -372,7 +363,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
       }`}
       aria-label="Navigation principale"
     >
-      {/* En-tête avec logo */}
       <div
         className={`flex items-center h-20 px-4 border-b border-[#1f1f1f] bg-gradient-to-r from-black to-[#0a0a0a] ${
           collapsed ? "justify-center" : "justify-between"
@@ -420,7 +410,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
         </Tooltip>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         <NavSection
           title="Menu principal"
@@ -446,7 +435,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
         )}
       </nav>
 
-      {/* Profil utilisateur */}
       {!collapsed ? (
         <UserProfileCard fullName={fullName} email={email} collapsed={collapsed} />
       ) : (
@@ -461,7 +449,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
         </div>
       )}
 
-      {/* Indicateur de raccourci clavier */}
       {!collapsed && (
         <div className="px-4 py-2 text-[10px] text-white/30 text-center border-t border-white/5">
           <kbd className="px-1.5 py-0.5 bg-white/5 rounded">⌘</kbd>
@@ -605,4 +592,4 @@ export default function Sidebar() {
       onToggle={handleToggle}
     />
   );
-}   
+}
