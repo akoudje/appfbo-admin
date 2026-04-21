@@ -257,7 +257,9 @@ function StorefrontPreview({
             device === "mobile" ? "mx-auto max-w-[380px]" : ""
           }`}
         >
-          <MiniSlidePreview slide={primarySlide} isPrimary />
+          <div className={device === "mobile" ? "min-h-[220px]" : "min-h-[280px]"}>
+            <MiniSlidePreview slide={primarySlide} isPrimary />
+          </div>
           {secondarySlides.length ? (
             <div className="grid gap-px border-t border-[#e7dec8] bg-[#e7dec8] sm:grid-cols-2">
               {secondarySlides.map((slide) => (
@@ -699,6 +701,11 @@ export default function MarketingCampaignsPage() {
             Accès en lecture seule. Vous pouvez consulter les campagnes, mais pas les modifier.
           </div>
         ) : null}
+        <div className="mb-4 border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Les visuels uploadés modifient le <span className="font-semibold">brouillon courant</span>.
+          Le storefront public continue d’afficher la <span className="font-semibold">version publiée</span>
+          jusqu’au clic sur <span className="font-semibold">Publier</span>.
+        </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="border border-[#e7dec8] bg-[#fcfbf7] p-5">
             <div className="text-sm text-[#8d7a5c]">Slides actifs</div>
