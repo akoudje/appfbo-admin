@@ -3,7 +3,7 @@
 import { NavLink } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
-import { Permission, hasPermission } from "../../auth/permissions";
+import { AdminRole, Permission, hasPermission } from "../../auth/permissions";
 import { getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
 import { foreverLogoHomeUrl } from "../../lib/assetUrls";
 import {
@@ -94,6 +94,7 @@ const NAV_ITEMS = [
 
 const SETTINGS_ITEMS = [
   {
+    key: "settings",
     to: "/settings",
     label: "Paramètres",
     permission: Permission.COUNTRY_WRITE,
@@ -101,11 +102,19 @@ const SETTINGS_ITEMS = [
     description: "Configuration générale",
   },
   {
+    key: "marketing",
     to: "/marketing/campaigns",
     label: "Campagnes marketing",
     permission: Permission.COUNTRY_READ,
     icon: Megaphone,
     description: "Gestion des campagnes",
+    allowedRoles: [
+      AdminRole.SUPER_ADMIN,
+      AdminRole.TECH_ADMIN,
+      AdminRole.OPERATIONS_DIRECTOR,
+      AdminRole.SALES_DIRECTOR,
+      AdminRole.MARKETING_ASSISTANT,
+    ],
   },
 ];
 
@@ -314,6 +323,10 @@ function filterItems(items, role, permissions) {
 
   return items.filter((item) => {
     if (item.key === "dashboard" && !shouldShowDashboard(role)) {
+      return false;
+    }
+
+    if (Array.isArray(item.allowedRoles) && !item.allowedRoles.includes(role)) {
       return false;
     }
 

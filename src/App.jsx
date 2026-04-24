@@ -5,7 +5,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RequirePermission from "./components/auth/RequirePermission";
-import { Permission } from "./auth/permissions";
+import { AdminRole, Permission } from "./auth/permissions";
 import useAdminAuth from "./hooks/useAdminAuth";
 import { getDefaultWorkspaceRoute, shouldShowDashboard } from "./auth/workspaces";
 
@@ -46,6 +46,30 @@ function DashboardHome() {
     return <Navigate to={getDefaultWorkspaceRoute(role)} replace />;
   }
   return <Dashboard />;
+}
+
+function MarketingCampaignsRoute() {
+  const { role } = useAdminAuth();
+  const allowedRoles = new Set([
+    AdminRole.SUPER_ADMIN,
+    AdminRole.TECH_ADMIN,
+    AdminRole.OPERATIONS_DIRECTOR,
+    AdminRole.SALES_DIRECTOR,
+    AdminRole.MARKETING_ASSISTANT,
+  ]);
+
+  if (!allowedRoles.has(role)) {
+    return <AccessDenied message="Accès refusé aux campagnes marketing." />;
+  }
+
+  return (
+    <RequirePermission
+      permission={Permission.COUNTRY_READ}
+      fallback={<AccessDenied message="Accès refusé aux campagnes marketing." />}
+    >
+      <MarketingCampaignsPage />
+    </RequirePermission>
+  );
 }
 
 export default function App() {
@@ -210,14 +234,7 @@ export default function App() {
 
                 <Route
                   path="/marketing/campaigns"
-                  element={
-                    <RequirePermission
-                      permission={Permission.COUNTRY_READ}
-                      fallback={<AccessDenied message="Accès refusé aux campagnes marketing." />}
-                    >
-                      <MarketingCampaignsPage />
-                    </RequirePermission>
-                  }
+                  element={<MarketingCampaignsRoute />}
                 />
 
                 <Route path="*" element={<div className="p-6">Not found</div>} />
