@@ -9,7 +9,6 @@ import PreparationQueueAlerts from "../../components/preparation/PreparationQueu
 import PreparationQueueStats from "../../components/preparation/PreparationQueueStats";
 import PreparationQueueTabs from "../../components/preparation/PreparationQueueTabs";
 import PreparationQueueTable from "../../components/preparation/PreparationQueueTable";
-import WorkspaceAttentionAlert from "../../components/common/WorkspaceAttentionAlert";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
@@ -379,13 +378,6 @@ export default function PreparationQueuePage() {
 
   return (
     <div className="space-y-4">
-      <WorkspaceAttentionAlert
-        alert={attentionAlert}
-        sound={sound}
-        onReplay={replayAttentionAlert}
-        onDismiss={clearAttentionAlert}
-      />
-
       <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
 
       <PreparationQueueAlerts error={error} info={info} />

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
-import WorkspaceAttentionAlert from "../components/common/WorkspaceAttentionAlert";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../services/realtimeAlertsService";
@@ -960,13 +959,6 @@ export default function CashierWorkspacePage() {
 
   return (
     <div className="space-y-5">
-      <WorkspaceAttentionAlert
-        alert={attentionAlert}
-        sound={sound}
-        onReplay={replayAttentionAlert}
-        onDismiss={clearAttentionAlert}
-      />
-
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Espace Caisse</h1>
