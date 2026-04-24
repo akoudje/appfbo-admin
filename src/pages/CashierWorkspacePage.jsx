@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
+import WorkspaceAttentionAlert from "../components/common/WorkspaceAttentionAlert";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../services/realtimeAlertsService";
@@ -615,6 +616,7 @@ export default function CashierWorkspacePage() {
   const loadRef = useRef(null);
   const firstAlertLoadRef = useRef(true);
   const previousAlertSnapshotRef = useRef(null);
+  const attentionTimerRef = useRef(null);
   const sound = useSoundAlerts("cashier");
 
   useRealtimeAlerts({
@@ -625,6 +627,7 @@ export default function CashierWorkspacePage() {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
           cooldownMs: 20000,
         });
+        raiseAttentionAlert("collect", 1, "realtime");
         if (played) {
           ackRealtimeAlertPlayback({
             workspace: "cashier",
@@ -641,6 +644,7 @@ export default function CashierWorkspacePage() {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
           cooldownMs: 15000,
         });
+        raiseAttentionAlert("launch", 1, "realtime");
         if (played) {
           ackRealtimeAlertPlayback({
             workspace: "cashier",
@@ -658,6 +662,7 @@ export default function CashierWorkspacePage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [attentionAlert, setAttentionAlert] = useState(null);
 
   const [activeTab, setActiveTab] = useState("processing");
   const [quickPreset, setQuickPreset] = useState("ALL");
@@ -683,6 +688,48 @@ export default function CashierWorkspacePage() {
 
   const toCollect = workspace?.toCollect || [];
   const toLaunchPreparation = workspace?.toLaunchPreparation || [];
+
+  const clearAttentionAlert = () => {
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+    setAttentionAlert(null);
+  };
+
+  const raiseAttentionAlert = (kind = "collect", count = 1, source = "poll") => {
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+
+    const safeCount = Math.max(1, Number(count) || 1);
+    const isLaunch = kind === "launch";
+    setAttentionAlert({
+      source,
+      tone: isLaunch ? "blue" : "indigo",
+      soundEventKey: isLaunch ? "cashier_launch_new" : "cashier_collect_new",
+      title: isLaunch
+        ? "Nouvelle commande à lancer en préparation"
+        : "Nouveau paiement à traiter en caisse",
+      message: isLaunch
+        ? `${safeCount} commande${safeCount > 1 ? "s" : ""} payée${safeCount > 1 ? "s" : ""} attend${safeCount > 1 ? "ent" : ""} le lancement de la préparation.`
+        : `${safeCount} commande${safeCount > 1 ? "s" : ""} nécessite${safeCount > 1 ? "nt" : ""} un encaissement ou une confirmation de paiement.`,
+    });
+
+    attentionTimerRef.current = setTimeout(() => {
+      setAttentionAlert(null);
+      attentionTimerRef.current = null;
+    }, 45000);
+  };
+
+  const replayAttentionAlert = async () => {
+    if (!attentionAlert?.soundEventKey) return;
+    await sound.notify(attentionAlert.soundEventKey, {
+      signature: `manual-replay:${attentionAlert.soundEventKey}:${Date.now()}`,
+      cooldownMs: 0,
+    });
+  };
 
   const load = async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
@@ -732,11 +779,13 @@ export default function CashierWorkspacePage() {
               signature: `launch:${newLaunchCount}:${snapshot.toLaunch.size}`,
               cooldownMs: 30000,
             });
+            raiseAttentionAlert("launch", newLaunchCount, "poll");
           } else if (newCollectCount > 0) {
             sound.notify("cashier_collect_new", {
               signature: `collect:${newCollectCount}:${snapshot.toCollect.size}`,
               cooldownMs: 45000,
             });
+            raiseAttentionAlert("collect", newCollectCount, "poll");
           }
         }
 
@@ -770,6 +819,15 @@ export default function CashierWorkspacePage() {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (attentionTimerRef.current) {
+        clearTimeout(attentionTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -902,6 +960,13 @@ export default function CashierWorkspacePage() {
 
   return (
     <div className="space-y-5">
+      <WorkspaceAttentionAlert
+        alert={attentionAlert}
+        sound={sound}
+        onReplay={replayAttentionAlert}
+        onDismiss={clearAttentionAlert}
+      />
+
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Espace Caisse</h1>

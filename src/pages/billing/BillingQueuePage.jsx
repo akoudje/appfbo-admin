@@ -11,6 +11,7 @@ import BillingQueueAlerts from "../../components/billing/BillingQueueAlerts";
 import BillingQueueStats from "../../components/billing/BillingQueueStats";
 import BillingQueueTabs from "../../components/billing/BillingQueueTabs";
 import BillingQueueTable from "../../components/billing/BillingQueueTable";
+import WorkspaceAttentionAlert from "../../components/common/WorkspaceAttentionAlert";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
@@ -138,6 +139,8 @@ export default function BillingQueuePage() {
     setAttentionAlert({
       kind,
       source,
+      tone: isEscalated ? "amber" : "indigo",
+      soundEventKey: isEscalated ? "billing_escalated_new" : "billing_queue_new",
       count: safeCount,
       title: isEscalated
         ? "Nouvelle commande escaladée en facturation"
@@ -151,6 +154,14 @@ export default function BillingQueuePage() {
       setAttentionAlert(null);
       attentionTimerRef.current = null;
     }, 45000);
+  };
+
+  const replayAttentionAlert = async () => {
+    if (!attentionAlert?.soundEventKey) return;
+    await sound.notify(attentionAlert.soundEventKey, {
+      signature: `manual-replay:${attentionAlert.soundEventKey}:${Date.now()}`,
+      cooldownMs: 0,
+    });
   };
 
   const load = async (overrides = {}) => {
@@ -531,67 +542,19 @@ export default function BillingQueuePage() {
 
   return (
     <div className="space-y-4">
+      <WorkspaceAttentionAlert
+        alert={attentionAlert}
+        sound={sound}
+        onReplay={replayAttentionAlert}
+        onDismiss={clearAttentionAlert}
+      />
+
       <BillingQueueHeader
         loading={loading}
         claiming={claiming}
         onRefresh={load}
         onClaimNext={handleClaimNext}
       />
-
-      {attentionAlert ? (
-        <div
-          className={`rounded-xl border p-3 text-sm ${
-            attentionAlert.kind === "escalated"
-              ? "border-amber-300 bg-amber-50 text-amber-900"
-              : "border-indigo-300 bg-indigo-50 text-indigo-900"
-          }`}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <div className="font-semibold">{attentionAlert.title}</div>
-              <div>{attentionAlert.message}</div>
-              <div className="mt-1 text-xs opacity-80">
-                Source: {attentionAlert.source === "realtime" ? "Temps réel" : "Rafraîchissement auto"}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {!sound.unlocked ? (
-                <button
-                  type="button"
-                  onClick={sound.unlockSound}
-                  className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
-                >
-                  Activer le son
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() =>
-                  sound.notify(
-                    attentionAlert.kind === "escalated"
-                      ? "billing_escalated_new"
-                      : "billing_queue_new",
-                    {
-                      signature: `manual-replay:${Date.now()}`,
-                      cooldownMs: 0,
-                    },
-                  )
-                }
-                className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
-              >
-                Rejouer le son
-              </button>
-              <button
-                type="button"
-                onClick={clearAttentionAlert}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Masquer
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <BillingQueueAlerts error={error} info={info} />
 

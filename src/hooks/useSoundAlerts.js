@@ -32,32 +32,33 @@ function eventPattern(eventKey) {
   const key = String(eventKey || "").toLowerCase();
   if (key.includes("cashier")) {
     return [
-      { freq: 560, duration: 0.1, gap: 0.06 },
-      { freq: 620, duration: 0.1, gap: 0.06 },
+      { freq: 988, duration: 0.09, gap: 0.035, type: "triangle", layerFreq: 1480 },
+      { freq: 1318, duration: 0.12, gap: 0.05, type: "triangle", layerFreq: 1760 },
     ];
   }
   if (key.includes("preparation")) {
     return [
-      { freq: 520, duration: 0.08, gap: 0.05 },
-      { freq: 680, duration: 0.1, gap: 0.06 },
+      { freq: 1046, duration: 0.08, gap: 0.035, type: "triangle", layerFreq: 1567 },
+      { freq: 1396, duration: 0.11, gap: 0.045, type: "triangle", layerFreq: 1760 },
     ];
   }
   if (key.includes("escalated")) {
     return [
-      { freq: 980, duration: 0.12, gap: 0.06 },
-      { freq: 980, duration: 0.12, gap: 0.06 },
-      { freq: 1240, duration: 0.18, gap: 0.08 },
+      { freq: 1174, duration: 0.09, gap: 0.04, type: "square", layerFreq: 1567 },
+      { freq: 1174, duration: 0.09, gap: 0.04, type: "square", layerFreq: 1567 },
+      { freq: 1567, duration: 0.16, gap: 0.06, type: "triangle", layerFreq: 2093 },
     ];
   }
   if (key.includes("ready") || key.includes("launch")) {
     return [
-      { freq: 720, duration: 0.1, gap: 0.05 },
-      { freq: 860, duration: 0.14, gap: 0.07 },
+      { freq: 1046, duration: 0.085, gap: 0.035, type: "triangle", layerFreq: 1318 },
+      { freq: 1567, duration: 0.14, gap: 0.06, type: "triangle", layerFreq: 2093 },
     ];
   }
   return [
-    { freq: 640, duration: 0.12, gap: 0.06 },
-    { freq: 780, duration: 0.14, gap: 0.08 },
+    { freq: 1046, duration: 0.085, gap: 0.03, type: "triangle", layerFreq: 1318 },
+    { freq: 1318, duration: 0.1, gap: 0.04, type: "triangle", layerFreq: 1760 },
+    { freq: 1567, duration: 0.12, gap: 0.05, type: "triangle", layerFreq: 2093 },
   ];
 }
 
@@ -68,26 +69,43 @@ function playBeepPattern(audioContext, pattern, volume = 0.6) {
   let cursor = now + 0.01;
 
   pattern.forEach((step) => {
-    const oscillator = audioContext.createOscillator();
-    oscillator.type = "sine";
-    oscillator.frequency.value = Number(step.freq || 700);
-
     const gainNode = audioContext.createGain();
     const stepVolume = Math.max(0, Math.min(1, Number(volume || 0.6)));
+    const attack = Number(step.attack || 0.008);
+    const duration = Number(step.duration || 0.12);
+    const releaseAt = cursor + Math.max(0.02, duration);
+    const primary = audioContext.createOscillator();
+    primary.type = step.type || "triangle";
+    primary.frequency.value = Number(step.freq || 700);
+
+    const shimmer = audioContext.createOscillator();
+    shimmer.type = "sine";
+    shimmer.frequency.value = Number(step.layerFreq || Number(step.freq || 700) * 1.5);
+
+    const shimmerGain = audioContext.createGain();
 
     gainNode.gain.setValueAtTime(0.0001, cursor);
-    gainNode.gain.exponentialRampToValueAtTime(stepVolume, cursor + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(stepVolume, cursor + attack);
     gainNode.gain.exponentialRampToValueAtTime(
       0.0001,
-      cursor + Number(step.duration || 0.12),
+      releaseAt,
     );
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    oscillator.start(cursor);
-    oscillator.stop(cursor + Number(step.duration || 0.12) + 0.02);
+    shimmerGain.gain.setValueAtTime(0.0001, cursor);
+    shimmerGain.gain.exponentialRampToValueAtTime(stepVolume * 0.28, cursor + attack);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.0001, releaseAt);
 
-    cursor += Number(step.duration || 0.12) + Number(step.gap || 0.06);
+    primary.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(audioContext.destination);
+
+    primary.start(cursor);
+    shimmer.start(cursor);
+    primary.stop(releaseAt + 0.03);
+    shimmer.stop(releaseAt + 0.03);
+
+    cursor += duration + Number(step.gap || 0.06);
   });
 }
 

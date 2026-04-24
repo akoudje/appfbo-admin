@@ -9,6 +9,7 @@ import PreparationQueueAlerts from "../../components/preparation/PreparationQueu
 import PreparationQueueStats from "../../components/preparation/PreparationQueueStats";
 import PreparationQueueTabs from "../../components/preparation/PreparationQueueTabs";
 import PreparationQueueTable from "../../components/preparation/PreparationQueueTable";
+import WorkspaceAttentionAlert from "../../components/common/WorkspaceAttentionAlert";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
@@ -57,6 +58,7 @@ export default function PreparationQueuePage() {
         signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
         cooldownMs: 15000,
       });
+      raiseAttentionAlert(1, "realtime");
       if (played) {
         ackRealtimeAlertPlayback({
           workspace: "preparation",
@@ -73,6 +75,7 @@ export default function PreparationQueuePage() {
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [attentionAlert, setAttentionAlert] = useState(null);
   const [tab, setTab] = useState("to-prepare");
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
@@ -80,6 +83,44 @@ export default function PreparationQueuePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
+  const attentionTimerRef = useRef(null);
+
+  const clearAttentionAlert = () => {
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+    setAttentionAlert(null);
+  };
+
+  const raiseAttentionAlert = (count = 1, source = "poll") => {
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+
+    const safeCount = Math.max(1, Number(count) || 1);
+    setAttentionAlert({
+      source,
+      tone: "emerald",
+      soundEventKey: "preparation_queue_new",
+      title: "Nouvelle commande à préparer",
+      message: `${safeCount} commande${safeCount > 1 ? "s" : ""} vient${safeCount > 1 ? "nent" : ""} d'entrer dans la file de préparation.`,
+    });
+
+    attentionTimerRef.current = setTimeout(() => {
+      setAttentionAlert(null);
+      attentionTimerRef.current = null;
+    }, 45000);
+  };
+
+  const replayAttentionAlert = async () => {
+    if (!attentionAlert?.soundEventKey) return;
+    await sound.notify(attentionAlert.soundEventKey, {
+      signature: `manual-replay:${attentionAlert.soundEventKey}:${Date.now()}`,
+      cooldownMs: 0,
+    });
+  };
 
   const load = async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
@@ -158,6 +199,7 @@ export default function PreparationQueuePage() {
               signature: `prep:${newToPrepareCount}:${snapshot.toPrepare.size}`,
               cooldownMs: 35000,
             });
+            raiseAttentionAlert(newToPrepareCount, "poll");
           }
         }
 
@@ -190,6 +232,15 @@ export default function PreparationQueuePage() {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (attentionTimerRef.current) {
+        clearTimeout(attentionTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -328,6 +379,13 @@ export default function PreparationQueuePage() {
 
   return (
     <div className="space-y-4">
+      <WorkspaceAttentionAlert
+        alert={attentionAlert}
+        sound={sound}
+        onReplay={replayAttentionAlert}
+        onDismiss={clearAttentionAlert}
+      />
+
       <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
 
       <PreparationQueueAlerts error={error} info={info} />
