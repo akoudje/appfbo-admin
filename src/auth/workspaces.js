@@ -31,8 +31,9 @@ export function shouldShowDashboard(role) {
 export function getWorkspaceNavKeys(role) {
   switch (role) {
     case AdminRole.INVOICER:
-    case AdminRole.BILLING_MANAGER:
       return new Set(["billing"]);
+    case AdminRole.BILLING_MANAGER:
+      return new Set(["orders", "billing"]);
     case AdminRole.CAISSIERE:
     case AdminRole.COUNTER_MANAGER:
       return new Set(["cashier"]);

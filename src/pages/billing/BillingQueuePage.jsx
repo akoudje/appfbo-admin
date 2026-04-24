@@ -171,7 +171,7 @@ export default function BillingQueuePage() {
         dateTo: dateToValue || undefined,
       };
 
-      const [myData, queueData, waitingPaymentData, escalatedData] = await Promise.all([
+      const [myData, queuedData, releasedData, waitingPaymentData, escalatedData] = await Promise.all([
         ordersService.getAll({
           ...commonFilters,
           assignedToMe: true,
@@ -181,6 +181,12 @@ export default function BillingQueuePage() {
         ordersService.getAll({
           ...commonFilters,
           billingWorkStatus: "QUEUED",
+          sort: "billingQueueEnteredAt",
+          dir: "asc",
+        }),
+        ordersService.getAll({
+          ...commonFilters,
+          billingWorkStatus: "RELEASED",
           sort: "billingQueueEnteredAt",
           dir: "asc",
         }),
@@ -200,7 +206,8 @@ export default function BillingQueuePage() {
 
       const merged = [
         ...(myData?.data || []),
-        ...(queueData?.data || []),
+        ...(queuedData?.data || []),
+        ...(releasedData?.data || []),
         ...(waitingPaymentData?.data || []),
         ...(escalatedData?.data || []),
       ];
