@@ -64,6 +64,9 @@ const DEFAULT_SETTINGS = {
   commercial: {
     minCartTotalFcfa: 100,
     maxQtyPerProduct: 10,
+    preorderSubmissionEnabled: true,
+    preorderSubmissionDisabledMessage:
+      "Les soumissions de précommandes sont temporairement suspendues. Vous pouvez continuer à consulter le catalogue et votre panier.",
     currencyLabel: "FCFA",
     pricingDisclaimer:
       "Les prix affichés sont indicatifs. Le montant final est confirmé par le facturier à partir de l'AS400.",
@@ -484,6 +487,11 @@ export default function AdminSettingsPage() {
             minCartTotalFcfa: data.minCartFcfa ?? prev.commercial.minCartTotalFcfa,
             maxQtyPerProduct:
               data.maxQtyPerProduct ?? prev.commercial.maxQtyPerProduct,
+            preorderSubmissionEnabled:
+              data.preorderSubmissionEnabled ?? prev.commercial.preorderSubmissionEnabled,
+            preorderSubmissionDisabledMessage:
+              data.preorderSubmissionDisabledMessage ||
+              prev.commercial.preorderSubmissionDisabledMessage,
             currencyLabel: data.currencyLabel || prev.commercial.currencyLabel,
             pricingDisclaimer:
               data.pricingDisclaimer || prev.commercial.pricingDisclaimer,
@@ -530,6 +538,9 @@ export default function AdminSettingsPage() {
       await settingsService.updateCountrySettings({
         minCartFcfa: settings.commercial.minCartTotalFcfa,
         maxQtyPerProduct: settings.commercial.maxQtyPerProduct,
+        preorderSubmissionEnabled: settings.commercial.preorderSubmissionEnabled,
+        preorderSubmissionDisabledMessage:
+          settings.commercial.preorderSubmissionDisabledMessage,
         supportPhone: settings.countries.supportPhone,
         pickupAddress: settings.countries.pickupAddress,
         enableWave: settings.countries.enableWave,
@@ -1011,6 +1022,58 @@ export default function AdminSettingsPage() {
                     />
                   </Field>
                 </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ToggleCard
+                    label="Autoriser les nouvelles soumissions"
+                    hint="Coupe uniquement l'envoi final de nouvelles précommandes. Le catalogue reste accessible."
+                    checked={settings.commercial.preorderSubmissionEnabled}
+                    onChange={(checked) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        commercial: {
+                          ...prev.commercial,
+                          preorderSubmissionEnabled: checked,
+                        },
+                      }))
+                    }
+                  />
+                  <StatCard
+                    icon={ShoppingCart}
+                    label="Soumissions"
+                    value={
+                      settings.commercial.preorderSubmissionEnabled
+                        ? "Ouvertes"
+                        : "Fermées"
+                    }
+                    color={
+                      settings.commercial.preorderSubmissionEnabled
+                        ? "emerald"
+                        : "gold"
+                    }
+                  />
+                </div>
+
+                {!settings.commercial.preorderSubmissionEnabled && (
+                  <Field
+                    label="Message de fermeture"
+                    hint="Message affiché au client lorsque l'envoi final est temporairement fermé."
+                  >
+                    <TextArea
+                      rows={3}
+                      value={settings.commercial.preorderSubmissionDisabledMessage}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          commercial: {
+                            ...prev.commercial,
+                            preorderSubmissionDisabledMessage: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </Field>
+                )}
 
                 <Field label="Disclaimer prix AS400" hint="Message affiché concernant les prix indicatifs">
                   <TextArea

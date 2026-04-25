@@ -42,7 +42,17 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.STOCK_MANAGER:
       return new Set(["stock"]);
     default:
-      return new Set(["dashboard", "orders", "billing", "cashier", "preparation", "stock", "products"]);
+      return new Set([
+        "dashboard",
+        "orders",
+        "billing",
+        "cashier",
+        "preparation",
+        "stock",
+        "products",
+        "settings",
+        "marketing",
+      ]);
   }
 }
 
