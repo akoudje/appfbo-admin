@@ -232,6 +232,30 @@ function formatDateTime(value) {
   }
 }
 
+function notificationStatusTone(status = "") {
+  const value = String(status || "").trim().toUpperCase();
+  if (["DELIVERED", "READ", "SENT"].includes(value)) {
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  }
+  if (["QUEUED", "DRAFT"].includes(value)) {
+    return "bg-blue-100 text-blue-700 border-blue-200";
+  }
+  if (["FAILED", "CANCELLED"].includes(value)) {
+    return "bg-red-100 text-red-700 border-red-200";
+  }
+  return "bg-gray-100 text-gray-700 border-gray-200";
+}
+
+function extractNotificationDestination(message) {
+  if (!message) return "—";
+  if (String(message?.channel || "").toUpperCase() === "EMAIL") {
+    const latestEvent = Array.isArray(message?.events) ? message.events[0] : null;
+    const emailMatch = String(latestEvent?.note || "").match(/[^\s]+@[^\s]+/);
+    return emailMatch?.[0] || "—";
+  }
+  return message?.toPhone || "—";
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -392,6 +416,7 @@ function BillingActionCard({
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   onResendInvoiceNotification = null,
+  billingNotificationState = null,
   canResendInvoiceNotification = false,
   resolvedPaymentLink,
   order,
@@ -626,15 +651,70 @@ function BillingActionCard({
         </div>
 
         {canResendInvoiceNotification ? (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onResendInvoiceNotification}
-              disabled={saving || typeof onResendInvoiceNotification !== "function"}
-              className="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors"
-            >
-              Renvoyer la notification de paiement
-            </button>
+          <div className="space-y-3">
+            <div className="grid gap-2 md:grid-cols-2">
+              {["SMS", "EMAIL"].map((channel) => {
+                const message =
+                  channel === "SMS"
+                    ? billingNotificationState?.sms
+                    : billingNotificationState?.email;
+                return (
+                  <div
+                    key={channel}
+                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        {channel}
+                      </span>
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${notificationStatusTone(
+                          message?.status,
+                        )}`}
+                      >
+                        {String(message?.status || "—").toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-gray-900 break-all">
+                      {extractNotificationDestination(message)}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {formatDateTime(message?.lastStatusAt || message?.createdAt)}
+                    </div>
+                    {message?.errorMessage ? (
+                      <div className="mt-2 text-xs text-red-600">{message.errorMessage}</div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onResendInvoiceNotification?.("SMS")}
+                disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                className="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+              >
+                Renvoyer par SMS
+              </button>
+              <button
+                type="button"
+                onClick={() => onResendInvoiceNotification?.("EMAIL")}
+                disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                className="px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+              >
+                Renvoyer par email
+              </button>
+              <button
+                type="button"
+                onClick={() => onResendInvoiceNotification?.("")}
+                disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Renvoyer sur tous les canaux
+              </button>
+            </div>
           </div>
         ) : null}
         
@@ -1359,6 +1439,7 @@ export default function OrderBillingPaymentTab({
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   onResendInvoiceNotification = null,
+  billingNotificationState = null,
   canResendInvoiceNotification = false,
   canReplaceBillingItems = false,
   replacementProducts = [],
@@ -1538,6 +1619,7 @@ export default function OrderBillingPaymentTab({
             canSwitchToManualPayment={canSwitchToManualPayment}
             onSwitchToManualPayment={onSwitchToManualPayment}
             onResendInvoiceNotification={onResendInvoiceNotification}
+            billingNotificationState={billingNotificationState}
             canResendInvoiceNotification={canResendInvoiceNotification}
             resolvedPaymentLink={resolvedPaymentLink}
             order={order}

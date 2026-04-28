@@ -81,8 +81,8 @@ export const ordersService = {
       )
     ).data,
 
-  resendInvoiceSms: async (id) =>
-    (await api.post(`/admin/orders/${normalizeOrderId(id)}/resend-invoice-sms`))
+  resendInvoiceSms: async (id, body = {}) =>
+    (await api.post(`/admin/orders/${normalizeOrderId(id)}/resend-invoice-sms`, body))
       .data,
 
   switchPaymentToManual: async (id) =>

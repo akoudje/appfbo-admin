@@ -402,6 +402,24 @@ export default function OrderDetailPage() {
     );
   }, [messages]);
 
+  const billingNotificationState = useMemo(() => {
+    const items = Array.isArray(messages) ? messages : [];
+    const relevant = items.filter((message) =>
+      ["INVOICE", "PAYMENT_LINK", "REMINDER"].includes(
+        String(message?.purpose || "").toUpperCase(),
+      ),
+    );
+    const latestByChannel = (channel) =>
+      relevant.find(
+        (message) => String(message?.channel || "").toUpperCase() === channel,
+      ) || null;
+
+    return {
+      sms: latestByChannel("SMS"),
+      email: latestByChannel("EMAIL"),
+    };
+  }, [messages]);
+
   const showReinvoiceHint = useMemo(() => {
     if (status !== "SUBMITTED") return false;
     const logs = Array.isArray(order?.logs) ? order.logs : [];
@@ -531,20 +549,26 @@ export default function OrderDetailPage() {
     await load();
   };
 
-  const handleResendInvoiceNotification = async () => {
+  const handleResendInvoiceNotification = async (channel = "") => {
     try {
       setSaving(true);
       setError("");
       setInfo("");
 
-      const result = await ordersService.resendInvoiceSms(id);
+      const normalizedChannel = String(channel || "").trim().toUpperCase();
+      const result = await ordersService.resendInvoiceSms(
+        id,
+        normalizedChannel ? { channel: normalizedChannel } : {},
+      );
       const sentChannels = (Array.isArray(result?.attempts) ? result.attempts : [])
-        .filter((attempt) => attempt?.sent)
+        .filter((attempt) => attempt?.sent || attempt?.queued)
         .map((attempt) => String(attempt.channel || "").toUpperCase())
         .filter(Boolean);
       const uniqueChannels = [...new Set(sentChannels)];
       const channelsLabel =
-        uniqueChannels.length > 0 ? uniqueChannels.join(" + ") : "SMS / EMAIL";
+        uniqueChannels.length > 0
+          ? uniqueChannels.join(" + ")
+          : normalizedChannel || "SMS / EMAIL";
       const destinations = [
         result?.toPhone ? `SMS: ${result.toPhone}` : null,
         result?.toEmail ? `Email: ${result.toEmail}` : null,
@@ -558,6 +582,12 @@ export default function OrderDetailPage() {
       if (result?.sent) {
         setInfo(
           `${hasPaymentLink ? "Notification de paiement avec lien" : "Notification de rappel de paiement"} renvoyée via ${channelsLabel}${
+            destinations.length ? ` vers ${destinations.join(" | ")}` : "."
+          }`,
+        );
+      } else if (result?.queued) {
+        setInfo(
+          `${hasPaymentLink ? "Notification de paiement avec lien" : "Notification de rappel de paiement"} mise en file via ${channelsLabel}${
             destinations.length ? ` vers ${destinations.join(" | ")}` : "."
           }`,
         );
@@ -1247,6 +1277,7 @@ const doInvoice = async () => {
               onVerify={doVerifyPayment}
               onCashPay={doCashPay}
               billingMessage={billingMessage}
+              billingNotificationState={billingNotificationState}
               onResendInvoiceNotification={handleResendInvoiceNotification}
               canResendInvoiceNotification={Boolean(
                 order?.factureReference ||
