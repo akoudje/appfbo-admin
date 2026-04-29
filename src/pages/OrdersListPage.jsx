@@ -53,6 +53,8 @@ export default function OrdersListPage() {
     paymentStatus,
     billingWorkStatus,
     priority,
+    as400Reference,
+    as400Amount,
     assignedOnly,
     hasAssignee,
     invoicerId,
