@@ -64,6 +64,8 @@ const DEFAULT_SETTINGS = {
   commercial: {
     minCartTotalFcfa: 100,
     maxQtyPerProduct: 10,
+    preinvoicedAutoCancelAfterHours: 2,
+    preinvoicedAutoReminderAfterHours: 1,
     preorderSubmissionEnabled: true,
     preorderSubmissionDisabledMessage:
       "Les soumissions de précommandes sont temporairement suspendues. Vous pouvez continuer à consulter le catalogue et votre panier.",
@@ -487,6 +489,12 @@ export default function AdminSettingsPage() {
             minCartTotalFcfa: data.minCartFcfa ?? prev.commercial.minCartTotalFcfa,
             maxQtyPerProduct:
               data.maxQtyPerProduct ?? prev.commercial.maxQtyPerProduct,
+            preinvoicedAutoCancelAfterHours:
+              data.preinvoicedAutoCancelAfterHours ??
+              prev.commercial.preinvoicedAutoCancelAfterHours,
+            preinvoicedAutoReminderAfterHours:
+              data.preinvoicedAutoReminderAfterHours ??
+              prev.commercial.preinvoicedAutoReminderAfterHours,
             preorderSubmissionEnabled:
               data.preorderSubmissionEnabled ?? prev.commercial.preorderSubmissionEnabled,
             preorderSubmissionDisabledMessage:
@@ -538,6 +546,10 @@ export default function AdminSettingsPage() {
       await settingsService.updateCountrySettings({
         minCartFcfa: settings.commercial.minCartTotalFcfa,
         maxQtyPerProduct: settings.commercial.maxQtyPerProduct,
+        preinvoicedAutoCancelAfterHours:
+          settings.commercial.preinvoicedAutoCancelAfterHours,
+        preinvoicedAutoReminderAfterHours:
+          settings.commercial.preinvoicedAutoReminderAfterHours,
         preorderSubmissionEnabled: settings.commercial.preorderSubmissionEnabled,
         preorderSubmissionDisabledMessage:
           settings.commercial.preorderSubmissionDisabledMessage,
@@ -1021,6 +1033,48 @@ export default function AdminSettingsPage() {
                       }
                     />
                   </Field>
+
+                  <Field
+                    label="Annulation auto après préfacturation (heures)"
+                    hint="Délai d'annulation automatique d'une commande préfacturée impayée."
+                  >
+                    <TextInput
+                      type="number"
+                      min="1"
+                      max="720"
+                      value={settings.commercial.preinvoicedAutoCancelAfterHours}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          commercial: {
+                            ...prev.commercial,
+                            preinvoicedAutoCancelAfterHours: Number(e.target.value || 1),
+                          },
+                        }))
+                      }
+                    />
+                  </Field>
+
+                  <Field
+                    label="Rappel auto après préfacturation (heures)"
+                    hint="Le rappel doit partir avant l'annulation automatique."
+                  >
+                    <TextInput
+                      type="number"
+                      min="1"
+                      max="719"
+                      value={settings.commercial.preinvoicedAutoReminderAfterHours}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          commercial: {
+                            ...prev.commercial,
+                            preinvoicedAutoReminderAfterHours: Number(e.target.value || 1),
+                          },
+                        }))
+                      }
+                    />
+                  </Field>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1102,6 +1156,18 @@ export default function AdminSettingsPage() {
                     icon={Settings2}
                     label="Quantité max/produit"
                     value={settings.commercial.maxQtyPerProduct}
+                    color="blue"
+                  />
+                  <StatCard
+                    icon={Bell}
+                    label="Annulation préfacture"
+                    value={`${settings.commercial.preinvoicedAutoCancelAfterHours}h`}
+                    color="gold"
+                  />
+                  <StatCard
+                    icon={Bell}
+                    label="Rappel auto"
+                    value={`${settings.commercial.preinvoicedAutoReminderAfterHours}h`}
                     color="blue"
                   />
                 </div>
