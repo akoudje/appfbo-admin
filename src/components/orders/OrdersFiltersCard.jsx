@@ -98,6 +98,8 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
     filters.paymentStatus,
     filters.billingWorkStatus,
     filters.priority,
+    filters.as400Reference,
+    filters.as400Amount,
     filters.assignedOnly,
     filters.hasAssignee,
     filters.invoicerId,
@@ -210,6 +212,21 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
           <input
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="Référence AS400"
+            value={filters.as400Reference || ""}
+            onChange={(e) => onFilterChange({ as400Reference: e.target.value })}
+          />
+
+          <input
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            inputMode="numeric"
+            placeholder="Montant AS400"
+            value={filters.as400Amount || ""}
+            onChange={(e) => onFilterChange({ as400Amount: e.target.value })}
+          />
+
+          <input
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             type="date"
             value={filters.dateFrom || ""}
             onChange={(e) => onFilterChange({ dateFrom: e.target.value })}
@@ -244,7 +261,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             <option value="asc">Croissant</option>
           </select>
 
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 lg:col-span-3">
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
@@ -337,6 +354,18 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                   onRemove={() => onFilterChange({ priority: "" })}
                 >
                   Priorité: {filters.priority}
+                </FilterChip>
+              )}
+
+              {filters.as400Reference && (
+                <FilterChip onRemove={() => onFilterChange({ as400Reference: "" })}>
+                  AS400: {filters.as400Reference}
+                </FilterChip>
+              )}
+
+              {filters.as400Amount && (
+                <FilterChip onRemove={() => onFilterChange({ as400Amount: "" })}>
+                  Montant AS400: {filters.as400Amount}
                 </FilterChip>
               )}
 
