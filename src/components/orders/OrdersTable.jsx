@@ -41,6 +41,15 @@ function formatDate(dateString) {
   });
 }
 
+function formatDateShort(dateString) {
+  if (!dateString) return "—";
+  return new Date(dateString).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function formatAmount(amount) {
   const n = Number(amount) || 0;
   return new Intl.NumberFormat("fr-FR", {
@@ -54,7 +63,7 @@ function formatAmount(amount) {
 function EmptyState({ onReset }) {
   return (
     <tr>
-      <td colSpan={10} className="px-6 py-12 text-center">
+      <td colSpan={8} className="px-6 py-12 text-center">
         <div className="flex flex-col items-center justify-center text-gray-500">
           <svg
             className="w-12 h-12 mb-4 text-gray-400"
@@ -86,7 +95,7 @@ function EmptyState({ onReset }) {
 function LoadingState() {
   return (
     <tr>
-      <td colSpan={10} className="px-6 py-12 text-center">
+      <td colSpan={8} className="px-6 py-12 text-center">
         <div className="flex flex-col items-center justify-center text-gray-500">
           <svg className="animate-spin h-8 w-8 mb-4" viewBox="0 0 24 24">
             <circle
@@ -210,12 +219,9 @@ export default function OrdersTable({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1280px]">
+        <table className="w-full min-w-[1120px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Date
-              </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Précommande
               </th>
@@ -229,10 +235,7 @@ export default function OrdersTable({
                 Total
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Statut commande
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Paiement
+                Statuts
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Facturation
@@ -258,26 +261,30 @@ export default function OrdersTable({
                   className="hover:bg-gray-50 transition-colors group"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <RequirePermission
-                      permission={Permission.PREORDER_READ}
-                      fallback={<span>{formatDate(order.createdAt)}</span>}
-                    >
-                      <Link
-                        to={`/orders/${order.id}`}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        {formatDate(order.createdAt)}
-                      </Link>
-                    </RequirePermission>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
-                      <div className="font-mono text-sm font-semibold text-gray-900">
-                        {order.preorderNumber || "—"}
-                      </div>
+                      <RequirePermission
+                        permission={Permission.PREORDER_READ}
+                        fallback={
+                          <span className="font-mono text-sm font-semibold text-gray-900">
+                            {order.preorderNumber || "—"}
+                          </span>
+                        }
+                      >
+                        <Link
+                          to={`/orders/${order.id}`}
+                          className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800"
+                        >
+                          {order.preorderNumber || "—"}
+                        </Link>
+                      </RequirePermission>
                       <div className="text-xs text-gray-500">
                         {order.parcelNumber || "Colis non généré"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Créée le {formatDateShort(order.createdAt)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        MAJ le {formatDateShort(order.updatedAt)}
                       </div>
                     </div>
                   </td>
@@ -287,11 +294,9 @@ export default function OrdersTable({
                       <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-800">
                         {order.fboNumero || "—"}
                       </code>
-                      {order.fboGrade && (
-                        <div className="text-xs text-gray-500">
-                          {order.fboGrade}
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-500">
+                        {order.fboGrade || "—"}
+                      </div>
                     </div>
                   </td>
 
@@ -314,11 +319,8 @@ export default function OrdersTable({
                   </td>
 
                   <td className="px-6 py-4">
-                    <StatusBadge status={order.status} />
-                  </td>
-
-                  <td className="px-6 py-4">
                     <div className="space-y-1">
+                      <StatusBadge status={order.status} />
                       <OrderPaymentBadge status={order.paymentStatus} />
                       <div className="text-xs text-gray-500">
                         {order.paymentProvider || "—"}

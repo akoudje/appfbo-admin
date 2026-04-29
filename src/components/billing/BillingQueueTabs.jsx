@@ -17,17 +17,17 @@ function TabButton({ active, children, onClick }) {
   );
 }
 
-export default function BillingQueueTabs({ tab, setTab }) {
+export default function BillingQueueTabs({ tab, setTab, isBillingManager = false }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
       <div className="flex flex-wrap gap-2">
 
         <TabButton active={tab === "queue"} onClick={() => setTab("queue")}>
-          File commune
+          {isBillingManager ? "Vue globale" : "File commune"}
         </TabButton>
 
         <TabButton active={tab === "my"} onClick={() => setTab("my")}>
-          Mes dossiers
+          {isBillingManager ? "Activité facturiers" : "Mes dossiers"}
         </TabButton>
         
         <TabButton

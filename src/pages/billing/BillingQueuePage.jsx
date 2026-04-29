@@ -50,6 +50,7 @@ export default function BillingQueuePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { admin, role } = useAdminAuth();
+  const isBillingManager = role === "BILLING_MANAGER";
   const currentAdminId = admin?.id || null;
   const searchDebounceInitializedRef = useRef(false);
   const loadRef = useRef(null);
@@ -181,7 +182,7 @@ export default function BillingQueuePage() {
         dateTo: dateToValue || undefined,
       };
 
-      const [myData, queuedData, releasedData, waitingPaymentData, escalatedData] = await Promise.all([
+      const requests = [
         ordersService.getAll({
           ...commonFilters,
           assignedToMe: true,
@@ -212,15 +213,36 @@ export default function BillingQueuePage() {
           sort: "billingEscalatedAt",
           dir: "asc",
         }),
-      ]);
-
-      const merged = [
-        ...(myData?.data || []),
-        ...(queuedData?.data || []),
-        ...(releasedData?.data || []),
-        ...(waitingPaymentData?.data || []),
-        ...(escalatedData?.data || []),
       ];
+
+      if (isBillingManager) {
+        requests.push(
+          ordersService.getAll({
+            ...commonFilters,
+            billingWorkStatus: "ASSIGNED",
+            assignedOnly: true,
+            sort: "assignedAt",
+            dir: "asc",
+          }),
+          ordersService.getAll({
+            ...commonFilters,
+            billingWorkStatus: "IN_PROGRESS",
+            assignedOnly: true,
+            sort: "billingLastActivityAt",
+            dir: "asc",
+          }),
+          ordersService.getAll({
+            ...commonFilters,
+            billingWorkStatus: "WAITING_CUSTOMER_DATA",
+            assignedOnly: true,
+            sort: "billingLastActivityAt",
+            dir: "asc",
+          }),
+        );
+      }
+
+      const responses = await Promise.all(requests);
+      const merged = responses.flatMap((response) => response?.data || []);
 
       const uniqueMap = new Map();
       merged.forEach((row) => {
@@ -402,6 +424,19 @@ export default function BillingQueuePage() {
       Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
 
     if (tab === "queue") {
+      if (isBillingManager) {
+        return rows.filter((r) =>
+          [
+            "QUEUED",
+            "RELEASED",
+            "ASSIGNED",
+            "IN_PROGRESS",
+            "WAITING_CUSTOMER_DATA",
+            "WAITING_PAYMENT",
+            "ESCALATED",
+          ].includes(r.billingWorkStatus),
+        );
+      }
       return rows.filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus));
     }
 
@@ -413,6 +448,14 @@ export default function BillingQueuePage() {
       return rows.filter((r) => r.billingWorkStatus === "ESCALATED");
     }
 
+    if (isBillingManager) {
+      return rows.filter((r) =>
+        ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
+          r.billingWorkStatus,
+        ),
+      );
+    }
+
     return rows.filter(
       (r) =>
         isMine(r) &&
@@ -420,7 +463,7 @@ export default function BillingQueuePage() {
           r.billingWorkStatus,
         ),
     );
-  }, [rows, tab, currentAdminId]);
+  }, [rows, tab, currentAdminId, isBillingManager]);
 
   const stats = useMemo(() => {
     const all = Array.isArray(rows) ? rows : [];
@@ -428,18 +471,33 @@ export default function BillingQueuePage() {
       Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
 
     return {
-      queue: all.filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus)).length,
-      my: all.filter(
-        (r) =>
-          isMine(r) &&
-          ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
-            r.billingWorkStatus,
-          ),
+      queue: all.filter((r) =>
+        isBillingManager
+          ? [
+              "QUEUED",
+              "RELEASED",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "WAITING_CUSTOMER_DATA",
+              "WAITING_PAYMENT",
+              "ESCALATED",
+            ].includes(r.billingWorkStatus)
+          : ["QUEUED", "RELEASED"].includes(r.billingWorkStatus),
+      ).length,
+      my: all.filter((r) =>
+        isBillingManager
+          ? ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
+              r.billingWorkStatus,
+            )
+          : isMine(r) &&
+            ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
+              r.billingWorkStatus,
+            ),
       ).length,
       waitingPayment: all.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT").length,
       escalated: all.filter((r) => r.billingWorkStatus === "ESCALATED").length,
     };
-  }, [rows, currentAdminId]);
+  }, [rows, currentAdminId, isBillingManager]);
 
   const handleOpen = (row) => {
     navigate(`/orders/${row.id}?tab=billing`);
@@ -702,7 +760,7 @@ export default function BillingQueuePage() {
 
       <BillingQueueStats stats={stats} />
 
-      <BillingQueueTabs tab={tab} setTab={setTab} />
+      <BillingQueueTabs tab={tab} setTab={setTab} isBillingManager={isBillingManager} />
 
       <BillingQueueTable
         rows={filteredRows}
