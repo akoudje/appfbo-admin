@@ -32,17 +32,19 @@ function ExportOrderCard({ order }) {
 
       <div className="min-h-[26mm] mb-2">
         {(order.items || []).length ? (
-          order.items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-baseline justify-between gap-1.5 text-[8.5px] leading-[1.35] mb-1"
-            >
-              <span className="flex-1 font-semibold break-words">
-                {item.sku || "Article"}
-              </span>
-              <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
-            </div>
-          ))
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+            {order.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-baseline justify-between gap-1.5 text-[8.5px] leading-[1.35] border-b border-gray-300 pb-1"
+              >
+                <span className="flex-1 font-semibold break-words">
+                  {item.sku || "Article"}
+                </span>
+                <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="text-[8.5px] leading-[1.35]">Aucun article</div>
         )}
