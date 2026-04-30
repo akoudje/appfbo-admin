@@ -36,6 +36,9 @@ export const ordersService = {
   getAll: async (params) =>
     (await api.get("/admin/orders", { params })).data,
 
+  getSubmittedExport: async (params = {}) =>
+    (await api.get("/admin/orders/submitted-export", { params })).data,
+
   getById: async (id) =>
     (await api.get(`/admin/orders/${normalizeOrderId(id)}`)).data,
 
