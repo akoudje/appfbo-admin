@@ -21,6 +21,7 @@ import ProductEdit from "./pages/ProductEdit.jsx";
 import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
+import SubmittedOrdersPrintPage from "./pages/SubmittedOrdersPrintPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
@@ -80,6 +81,17 @@ export default function App() {
 
       {/* Protected */}
       <Route element={<ProtectedRoute />}>
+        <Route
+          path="/orders/submitted-export/print"
+          element={
+            <RequirePermission
+              permission={Permission.EXPORT_READ}
+              fallback={<AccessDenied message="Accès refusé à l’export des commandes." />}
+            >
+              <SubmittedOrdersPrintPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="*"
           element={
