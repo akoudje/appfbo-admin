@@ -132,6 +132,24 @@ function buildSubmittedOrdersPrintHtml(orders = []) {
 </html>`;
 }
 
+function buildPrintLoadingHtml() {
+  return `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Préparation de l'export</title>
+    <style>
+      html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #ffffff; color: #111827; }
+      body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+      .box { text-align: center; font-size: 16px; color: #4b5563; }
+    </style>
+  </head>
+  <body>
+    <div class="box">Préparation de l'export…</div>
+  </body>
+</html>`;
+}
+
 export default function OrdersListPage() {
   const [exporting, setExporting] = useState(false);
   const {
@@ -190,11 +208,15 @@ export default function OrdersListPage() {
   async function handleExportSubmittedOrders() {
     if (exporting) return;
     setExporting(true);
+    let popup = null;
     try {
-      const popup = window.open("", "_blank", "noopener,noreferrer,width=1280,height=900");
+      popup = window.open("", "_blank", "noopener,noreferrer,width=1280,height=900");
       if (!popup) {
         throw new Error("Le popup d'impression a été bloqué par le navigateur.");
       }
+      popup.document.open();
+      popup.document.write(buildPrintLoadingHtml());
+      popup.document.close();
 
       const result = await ordersService.getSubmittedExport({
         q: q || undefined,
@@ -206,7 +228,6 @@ export default function OrdersListPage() {
 
       const exportOrders = Array.isArray(result?.data) ? result.data : [];
       if (exportOrders.length === 0) {
-        popup.close();
         throw new Error("Aucune commande soumise à exporter pour les filtres courants.");
       }
 
@@ -215,6 +236,9 @@ export default function OrdersListPage() {
       popup.document.close();
     } catch (exportError) {
       console.error("submitted orders export error:", exportError);
+      if (popup && !popup.closed) {
+        popup.close();
+      }
       window.alert(
         exportError?.message || "Impossible de générer l'export des commandes soumises.",
       );
