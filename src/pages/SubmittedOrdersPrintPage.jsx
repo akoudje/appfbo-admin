@@ -21,7 +21,7 @@ function buildQueryParams(searchParams) {
 
 function ExportOrderCard({ order }) {
   return (
-    <article className="break-inside-avoid border-b border-gray-900 pb-4 mb-4">
+    <article className="break-inside-avoid pb-4 mb-4">
       <div className="text-[11px] font-bold uppercase leading-tight mb-1.5">
         {order.fboNomComplet || "-"}
       </div>
