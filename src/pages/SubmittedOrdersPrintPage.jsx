@@ -25,7 +25,7 @@ function ExportOrderCard({ order }) {
       <div className="text-[11px] font-bold uppercase leading-tight mb-1.5">
         {order.fboNomComplet || "-"}
       </div>
-      <div className="flex gap-1 text-[9px] mb-2">
+      <div className="flex gap-1 text-[10px] mb-2">
         <span>FBO</span>
         <strong>{order.fboNumero || "-"}</strong>
       </div>
@@ -36,7 +36,7 @@ function ExportOrderCard({ order }) {
             {order.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-baseline justify-between gap-1.5 text-[8.5px] leading-[1.35] border-b border-gray-300 pb-1"
+                className="flex items-baseline justify-between gap-1.5 text-[9.5px] leading-[1.35] border-b border-gray-300 pb-1"
               >
                 <span className="flex-1 font-semibold break-words">
                   {item.sku || "Article"}
