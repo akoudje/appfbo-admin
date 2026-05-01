@@ -56,6 +56,25 @@ function humanizeEnum(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function isLateWaveReviewOrder(order) {
+  const status = String(order?.status || "").trim().toUpperCase();
+  const paymentStatus = String(order?.paymentStatus || "").trim().toUpperCase();
+  const billingWorkStatus = String(order?.billingWorkStatus || "").trim().toUpperCase();
+  const paymentProvider = String(order?.paymentProvider || "").trim().toUpperCase();
+  const paymentMode = String(
+    order?.preorderPaymentMode || order?.paymentMode || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  return (
+    status === "CANCELLED" &&
+    paymentStatus === "PAID" &&
+    billingWorkStatus === "ESCALATED" &&
+    (paymentProvider === "WAVE" || paymentMode === "WAVE")
+  );
+}
+
 function Alert({ tone = "red", title, children }) {
   const tones = {
     amber: "border-amber-200 bg-amber-50 text-amber-900",
@@ -441,6 +460,11 @@ export default function OrderDetailPage() {
 
     return !hasNewerInvoice;
   }, [order?.logs, status]);
+
+  const showLateWaveReviewAlert = useMemo(
+    () => isLateWaveReviewOrder(order),
+    [order],
+  );
 
   const availableTabs = useMemo(() => {
     return getOrderTabsForRole(role, canAccessCancel, order?.status).filter((tab) => {
@@ -1190,6 +1214,13 @@ const doInvoice = async () => {
         {info ? (
           <Alert tone="blue" title="Information">
             {info}
+          </Alert>
+        ) : null}
+
+        {showLateWaveReviewAlert ? (
+          <Alert tone="amber" title="Paiement Wave tardif à revoir">
+            Cette précommande a été annulée automatiquement, puis un paiement Wave a été confirmé après coup.
+            Le dossier doit être vérifié manuellement avant toute réactivation ou remboursement.
           </Alert>
         ) : null}
 

@@ -9,6 +9,25 @@ import OrderBillingBadge from "./OrderBillingBadge";
 import RequirePermission from "../auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
 
+function isLateWaveReviewOrder(order) {
+  const status = String(order?.status || "").trim().toUpperCase();
+  const paymentStatus = String(order?.paymentStatus || "").trim().toUpperCase();
+  const billingWorkStatus = String(order?.billingWorkStatus || "").trim().toUpperCase();
+  const paymentProvider = String(order?.paymentProvider || "").trim().toUpperCase();
+  const paymentMode = String(
+    order?.preorderPaymentMode || order?.paymentMode || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  return (
+    status === "CANCELLED" &&
+    paymentStatus === "PAID" &&
+    billingWorkStatus === "ESCALATED" &&
+    (paymentProvider === "WAVE" || paymentMode === "WAVE")
+  );
+}
+
 function PriorityBadge({ priority }) {
   const tones = {
     LOW: "bg-gray-100 text-gray-700 border-gray-200",
@@ -322,6 +341,11 @@ export default function OrdersTable({
                     <div className="space-y-1">
                       <StatusBadge status={order.status} />
                       <OrderPaymentBadge status={order.paymentStatus} />
+                      {isLateWaveReviewOrder(order) ? (
+                        <div className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700">
+                          Paiement Wave tardif
+                        </div>
+                      ) : null}
                       <div className="text-xs text-gray-500">
                         {order.paymentProvider || "—"}
                       </div>
