@@ -100,6 +100,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
     filters.priority,
     filters.as400Reference,
     filters.as400Amount,
+    filters.lateWaveReview,
     filters.assignedOnly,
     filters.hasAssignee,
     filters.invoicerId,
@@ -265,6 +266,26 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
+                checked={!!filters.lateWaveReview}
+                onChange={(e) =>
+                  onFilterChange({
+                    lateWaveReview: e.target.checked,
+                    ...(e.target.checked
+                      ? {
+                          status: "",
+                          paymentStatus: "",
+                          billingWorkStatus: "",
+                        }
+                      : {}),
+                  })
+                }
+              />
+              Paiement Wave tardif à revoir
+            </label>
+
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
                 checked={!!filters.assignedOnly}
                 onChange={(e) =>
                   onFilterChange({
@@ -366,6 +387,12 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
               {filters.as400Amount && (
                 <FilterChip onRemove={() => onFilterChange({ as400Amount: "" })}>
                   Montant AS400: {filters.as400Amount}
+                </FilterChip>
+              )}
+
+              {filters.lateWaveReview && (
+                <FilterChip onRemove={() => onFilterChange({ lateWaveReview: false })}>
+                  Paiement Wave tardif
                 </FilterChip>
               )}
 
