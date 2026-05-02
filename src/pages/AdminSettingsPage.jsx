@@ -69,6 +69,7 @@ const DEFAULT_SETTINGS = {
     preorderSubmissionEnabled: true,
     preorderSubmissionDisabledMessage:
       "Les soumissions de précommandes sont temporairement suspendues. Vous pouvez continuer à consulter le catalogue et votre panier.",
+    closedOnSaturday: false,
     currencyLabel: "FCFA",
     pricingDisclaimer:
       "Les prix affichés sont indicatifs. Le montant final est confirmé par le facturier à partir de l'AS400.",
@@ -500,6 +501,7 @@ export default function AdminSettingsPage() {
             preorderSubmissionDisabledMessage:
               data.preorderSubmissionDisabledMessage ||
               prev.commercial.preorderSubmissionDisabledMessage,
+            closedOnSaturday: data.closedOnSaturday ?? prev.commercial.closedOnSaturday,
             currencyLabel: data.currencyLabel || prev.commercial.currencyLabel,
             pricingDisclaimer:
               data.pricingDisclaimer || prev.commercial.pricingDisclaimer,
@@ -553,6 +555,7 @@ export default function AdminSettingsPage() {
         preorderSubmissionEnabled: settings.commercial.preorderSubmissionEnabled,
         preorderSubmissionDisabledMessage:
           settings.commercial.preorderSubmissionDisabledMessage,
+        closedOnSaturday: settings.commercial.closedOnSaturday,
         supportPhone: settings.countries.supportPhone,
         pickupAddress: settings.countries.pickupAddress,
         enableWave: settings.countries.enableWave,
@@ -1128,6 +1131,26 @@ export default function AdminSettingsPage() {
                     />
                   </Field>
                 )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ToggleCard
+                    label="Service fermé le samedi"
+                    hint="Affiche un message d'avertissement aux clients lorsqu'ils visitent le formulaire un samedi."
+                    checked={settings.commercial.closedOnSaturday}
+                    onChange={(checked) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        commercial: { ...prev.commercial, closedOnSaturday: checked },
+                      }))
+                    }
+                  />
+                  <StatCard
+                    icon={ShoppingCart}
+                    label="Samedi"
+                    value={settings.commercial.closedOnSaturday ? "Fermé" : "Ouvert"}
+                    color={settings.commercial.closedOnSaturday ? "gold" : "emerald"}
+                  />
+                </div>
 
                 <Field label="Disclaimer prix AS400" hint="Message affiché concernant les prix indicatifs">
                   <TextArea
