@@ -154,6 +154,7 @@ export default function OrderDetailPage() {
 
   const [invoiceRef, setInvoiceRef] = useState("");
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
+  const [invoiceEmail, setInvoiceEmail] = useState("");
   const [invoiceGrade, setInvoiceGrade] = useState("");
   const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
@@ -202,6 +203,7 @@ export default function OrderDetailPage() {
 
       setInvoiceRef(data?.factureReference || "");
       setInvoiceWaTo(data?.factureWhatsappTo || "");
+      setInvoiceEmail(data?.fboEmail || "");
       setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
       setInvoiceAmountFcfa(
         data?.as400InvoiceTotalFcfa !== null &&
@@ -582,7 +584,11 @@ export default function OrderDetailPage() {
       const normalizedChannel = String(channel || "").trim().toUpperCase();
       const result = await ordersService.resendInvoiceSms(
         id,
-        normalizedChannel ? { channel: normalizedChannel } : {},
+        {
+          ...(normalizedChannel ? { channel: normalizedChannel } : {}),
+          phone: normalizeStr(invoiceWaTo) || undefined,
+          email: normalizeStr(invoiceEmail) || undefined,
+        },
       );
       const sentChannels = (Array.isArray(result?.attempts) ? result.attempts : [])
         .filter((attempt) => attempt?.sent || attempt?.queued)
@@ -633,6 +639,31 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleSaveNotificationContacts = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.updateNotificationContacts(id, {
+        phone: normalizeStr(invoiceWaTo) || "",
+        email: normalizeStr(invoiceEmail) || "",
+      });
+
+      setInvoiceWaTo(result?.factureWhatsappTo || "");
+      setInvoiceEmail(result?.fboEmail || "");
+      setInfo("Coordonnées de notification mises à jour pour cette commande.");
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de mettre à jour les coordonnées de notification",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
 const doInvoice = async () => {
   try {
     setSaving(true);
@@ -642,6 +673,7 @@ const doInvoice = async () => {
     const body = {
       factureReference: normalizeStr(invoiceRef) || undefined,
       whatsappTo: normalizeStr(invoiceWaTo) || undefined,
+      notificationEmail: normalizeStr(invoiceEmail) || undefined,
       fboGrade: normalizeStr(invoiceGrade) || undefined,
       invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
@@ -1276,6 +1308,8 @@ const doInvoice = async () => {
               setInvoiceRef={setInvoiceRef}
               invoiceWaTo={invoiceWaTo}
               setInvoiceWaTo={setInvoiceWaTo}
+              invoiceEmail={invoiceEmail}
+              setInvoiceEmail={setInvoiceEmail}
               invoiceGrade={invoiceGrade}
               setInvoiceGrade={setInvoiceGrade}
               invoiceAmountFcfa={invoiceAmountFcfa}
@@ -1309,6 +1343,7 @@ const doInvoice = async () => {
               onCashPay={doCashPay}
               billingMessage={billingMessage}
               billingNotificationState={billingNotificationState}
+              onSaveNotificationContacts={handleSaveNotificationContacts}
               onResendInvoiceNotification={handleResendInvoiceNotification}
               canResendInvoiceNotification={Boolean(
                 order?.factureReference ||

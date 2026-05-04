@@ -406,6 +406,8 @@ function BillingActionCard({
   setInvoiceRef,
   invoiceWaTo,
   setInvoiceWaTo,
+  invoiceEmail,
+  setInvoiceEmail,
   invoiceGrade,
   setInvoiceGrade,
   invoiceAmountFcfa,
@@ -415,6 +417,7 @@ function BillingActionCard({
   onInvoice,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
+  onSaveNotificationContacts = null,
   onResendInvoiceNotification = null,
   billingNotificationState = null,
   canResendInvoiceNotification = false,
@@ -422,6 +425,9 @@ function BillingActionCard({
   order,
 }) {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const canEditNotificationContacts = !["FULFILLED", "CANCELLED"].includes(
+    String(order?.status || "").toUpperCase(),
+  );
   
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -498,7 +504,18 @@ function BillingActionCard({
               value={invoiceWaTo || ""}
               onChange={(e) => setInvoiceWaTo?.(e.target.value)}
               placeholder="+225 07 01 02 03 04"
-              disabled={!canInvoice || saving}
+              disabled={!canEditNotificationContacts || saving}
+            />
+          </Field>
+
+          <Field label="Email du destinataire" optional>
+            <input
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
+              value={invoiceEmail || ""}
+              onChange={(e) => setInvoiceEmail?.(e.target.value)}
+              placeholder="client@example.com"
+              type="email"
+              disabled={!canEditNotificationContacts || saving}
             />
           </Field>
 
@@ -652,6 +669,29 @@ function BillingActionCard({
 
         {canResendInvoiceNotification ? (
           <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <div>
+                <div className="text-sm font-semibold text-amber-900">
+                  Coordonnées utilisées pour les prochains envois
+                </div>
+                <div className="text-xs text-amber-800">
+                  Toute modification est conservée sur cette commande jusqu'à sa clôture.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onSaveNotificationContacts?.()}
+                disabled={
+                  saving ||
+                  !canEditNotificationContacts ||
+                  typeof onSaveNotificationContacts !== "function"
+                }
+                className="px-3 py-2 rounded-lg border border-amber-300 bg-white text-amber-800 text-sm font-medium hover:bg-amber-100 disabled:opacity-50 transition-colors"
+              >
+                Enregistrer coordonnées
+              </button>
+            </div>
+
             <div className="grid gap-2 md:grid-cols-2">
               {["SMS", "EMAIL"].map((channel) => {
                 const message =
@@ -1396,6 +1436,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceRef,
   invoiceWaTo,
   setInvoiceWaTo,
+  invoiceEmail,
+  setInvoiceEmail,
   invoiceGrade,
   setInvoiceGrade,
   invoiceAmountFcfa,
@@ -1438,6 +1480,7 @@ export default function OrderBillingPaymentTab({
   showReinvoiceHint = false,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
+  onSaveNotificationContacts = null,
   onResendInvoiceNotification = null,
   billingNotificationState = null,
   canResendInvoiceNotification = false,
@@ -1609,6 +1652,8 @@ export default function OrderBillingPaymentTab({
             setInvoiceRef={setInvoiceRef}
             invoiceWaTo={invoiceWaTo}
             setInvoiceWaTo={setInvoiceWaTo}
+            invoiceEmail={invoiceEmail}
+            setInvoiceEmail={setInvoiceEmail}
             invoiceGrade={invoiceGrade}
             setInvoiceGrade={setInvoiceGrade}
             invoiceAmountFcfa={invoiceAmountFcfa}
@@ -1618,6 +1663,7 @@ export default function OrderBillingPaymentTab({
             onInvoice={onInvoice}
             canSwitchToManualPayment={canSwitchToManualPayment}
             onSwitchToManualPayment={onSwitchToManualPayment}
+            onSaveNotificationContacts={onSaveNotificationContacts}
             onResendInvoiceNotification={onResendInvoiceNotification}
             billingNotificationState={billingNotificationState}
             canResendInvoiceNotification={canResendInvoiceNotification}
