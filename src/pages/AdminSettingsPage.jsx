@@ -66,6 +66,8 @@ const DEFAULT_SETTINGS = {
     maxQtyPerProduct: 10,
     preinvoicedAutoCancelAfterHours: 2,
     preinvoicedAutoReminderAfterHours: 1,
+    preinvoicedAutoCancelAfterMinutes: 120,
+    preinvoicedAutoReminderAfterMinutes: 60,
     preorderSubmissionEnabled: true,
     preorderSubmissionDisabledMessage:
       "Les soumissions de précommandes sont temporairement suspendues. Vous pouvez continuer à consulter le catalogue et votre panier.",
@@ -150,6 +152,15 @@ const NOTIFICATION_VARIABLES = [
   "{{supportPhone}}",
   "{{pickupAddress}}",
 ];
+
+function formatDurationFromMinutes(value) {
+  const total = Math.max(1, Number.parseInt(String(value || ""), 10) || 1);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours > 0 && minutes > 0) return `${hours}h${String(minutes).padStart(2, "0")}`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes} min`;
+}
 
 const SMS_TEMPLATE_META = {
   PREORDER_SUBMITTED: {
@@ -498,6 +509,16 @@ export default function AdminSettingsPage() {
             preinvoicedAutoReminderAfterHours:
               data.preinvoicedAutoReminderAfterHours ??
               prev.commercial.preinvoicedAutoReminderAfterHours,
+            preinvoicedAutoCancelAfterMinutes:
+              data.preinvoicedAutoCancelAfterMinutes ??
+              (data.preinvoicedAutoCancelAfterHours
+                ? data.preinvoicedAutoCancelAfterHours * 60
+                : prev.commercial.preinvoicedAutoCancelAfterMinutes),
+            preinvoicedAutoReminderAfterMinutes:
+              data.preinvoicedAutoReminderAfterMinutes ??
+              (data.preinvoicedAutoReminderAfterHours
+                ? data.preinvoicedAutoReminderAfterHours * 60
+                : prev.commercial.preinvoicedAutoReminderAfterMinutes),
             preorderSubmissionEnabled:
               data.preorderSubmissionEnabled ?? prev.commercial.preorderSubmissionEnabled,
             preorderSubmissionDisabledMessage:
@@ -558,6 +579,10 @@ export default function AdminSettingsPage() {
           settings.commercial.preinvoicedAutoCancelAfterHours,
         preinvoicedAutoReminderAfterHours:
           settings.commercial.preinvoicedAutoReminderAfterHours,
+        preinvoicedAutoCancelAfterMinutes:
+          settings.commercial.preinvoicedAutoCancelAfterMinutes,
+        preinvoicedAutoReminderAfterMinutes:
+          settings.commercial.preinvoicedAutoReminderAfterMinutes,
         preorderSubmissionEnabled: settings.commercial.preorderSubmissionEnabled,
         preorderSubmissionDisabledMessage:
           settings.commercial.preorderSubmissionDisabledMessage,
@@ -1046,20 +1071,20 @@ export default function AdminSettingsPage() {
                   </Field>
 
                   <Field
-                    label="Annulation auto après préfacturation (heures)"
-                    hint="Délai d'annulation automatique d'une commande préfacturée impayée."
+                    label="Annulation auto après préfacturation"
+                    hint={`Délai en minutes avant annulation automatique (${formatDurationFromMinutes(settings.commercial.preinvoicedAutoCancelAfterMinutes)}).`}
                   >
                     <TextInput
                       type="number"
                       min="1"
-                      max="720"
-                      value={settings.commercial.preinvoicedAutoCancelAfterHours}
+                      max="43200"
+                      value={settings.commercial.preinvoicedAutoCancelAfterMinutes}
                       onChange={(e) =>
                         setSettings((prev) => ({
                           ...prev,
                           commercial: {
                             ...prev.commercial,
-                            preinvoicedAutoCancelAfterHours: Number(e.target.value || 1),
+                            preinvoicedAutoCancelAfterMinutes: Number(e.target.value || 1),
                           },
                         }))
                       }
@@ -1067,20 +1092,20 @@ export default function AdminSettingsPage() {
                   </Field>
 
                   <Field
-                    label="Rappel auto après préfacturation (heures)"
-                    hint="Le rappel doit partir avant l'annulation automatique."
+                    label="Rappel auto après préfacturation"
+                    hint={`Délai en minutes avant rappel (${formatDurationFromMinutes(settings.commercial.preinvoicedAutoReminderAfterMinutes)}). Le rappel doit partir avant l'annulation.`}
                   >
                     <TextInput
                       type="number"
                       min="1"
-                      max="719"
-                      value={settings.commercial.preinvoicedAutoReminderAfterHours}
+                      max="43199"
+                      value={settings.commercial.preinvoicedAutoReminderAfterMinutes}
                       onChange={(e) =>
                         setSettings((prev) => ({
                           ...prev,
                           commercial: {
                             ...prev.commercial,
-                            preinvoicedAutoReminderAfterHours: Number(e.target.value || 1),
+                            preinvoicedAutoReminderAfterMinutes: Number(e.target.value || 1),
                           },
                         }))
                       }
@@ -1245,13 +1270,13 @@ export default function AdminSettingsPage() {
                   <StatCard
                     icon={Bell}
                     label="Annulation préfacture"
-                    value={`${settings.commercial.preinvoicedAutoCancelAfterHours}h`}
+                    value={formatDurationFromMinutes(settings.commercial.preinvoicedAutoCancelAfterMinutes)}
                     color="gold"
                   />
                   <StatCard
                     icon={Bell}
                     label="Rappel auto"
-                    value={`${settings.commercial.preinvoicedAutoReminderAfterHours}h`}
+                    value={formatDurationFromMinutes(settings.commercial.preinvoicedAutoReminderAfterMinutes)}
                     color="blue"
                   />
                 </div>
