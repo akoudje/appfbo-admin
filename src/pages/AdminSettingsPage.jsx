@@ -69,6 +69,8 @@ const DEFAULT_SETTINGS = {
     preorderSubmissionEnabled: true,
     preorderSubmissionDisabledMessage:
       "Les soumissions de précommandes sont temporairement suspendues. Vous pouvez continuer à consulter le catalogue et votre panier.",
+    publicAnnouncementEnabled: false,
+    publicAnnouncementMessage: "",
     closedOnSaturday: false,
     currencyLabel: "FCFA",
     pricingDisclaimer:
@@ -501,6 +503,10 @@ export default function AdminSettingsPage() {
             preorderSubmissionDisabledMessage:
               data.preorderSubmissionDisabledMessage ||
               prev.commercial.preorderSubmissionDisabledMessage,
+            publicAnnouncementEnabled:
+              data.publicAnnouncementEnabled ?? prev.commercial.publicAnnouncementEnabled,
+            publicAnnouncementMessage:
+              data.publicAnnouncementMessage || prev.commercial.publicAnnouncementMessage,
             closedOnSaturday: data.closedOnSaturday ?? prev.commercial.closedOnSaturday,
             currencyLabel: data.currencyLabel || prev.commercial.currencyLabel,
             pricingDisclaimer:
@@ -555,6 +561,8 @@ export default function AdminSettingsPage() {
         preorderSubmissionEnabled: settings.commercial.preorderSubmissionEnabled,
         preorderSubmissionDisabledMessage:
           settings.commercial.preorderSubmissionDisabledMessage,
+        publicAnnouncementEnabled: settings.commercial.publicAnnouncementEnabled,
+        publicAnnouncementMessage: settings.commercial.publicAnnouncementMessage,
         closedOnSaturday: settings.commercial.closedOnSaturday,
         supportPhone: settings.countries.supportPhone,
         pickupAddress: settings.countries.pickupAddress,
@@ -1128,6 +1136,59 @@ export default function AdminSettingsPage() {
                           },
                         }))
                       }
+                    />
+                  </Field>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ToggleCard
+                    label="Annonce publique FBO"
+                    hint="Affiche une bannière informative sans bloquer les commandes."
+                    checked={settings.commercial.publicAnnouncementEnabled}
+                    onChange={(checked) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        commercial: {
+                          ...prev.commercial,
+                          publicAnnouncementEnabled: checked,
+                        },
+                      }))
+                    }
+                  />
+                  <StatCard
+                    icon={Bell}
+                    label="Annonce"
+                    value={
+                      settings.commercial.publicAnnouncementEnabled
+                        ? "Visible"
+                        : "Masquée"
+                    }
+                    color={
+                      settings.commercial.publicAnnouncementEnabled
+                        ? "blue"
+                        : "gold"
+                    }
+                  />
+                </div>
+
+                {settings.commercial.publicAnnouncementEnabled && (
+                  <Field
+                    label="Message d'annonce publique"
+                    hint="Message affiché aux FBO sur le formulaire et le catalogue."
+                  >
+                    <TextArea
+                      rows={3}
+                      value={settings.commercial.publicAnnouncementMessage}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          commercial: {
+                            ...prev.commercial,
+                            publicAnnouncementMessage: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Ex: Aujourd'hui, les commandes en présentiel seront servies jusqu'à 12h00..."
                     />
                   </Field>
                 )}
