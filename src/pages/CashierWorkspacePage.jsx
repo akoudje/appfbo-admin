@@ -708,6 +708,11 @@ export default function CashierWorkspacePage() {
   const toCollect = workspace?.toCollect || [];
   const toLaunchPreparation = workspace?.toLaunchPreparation || [];
   const validationSummary = workspace?.validationSummary || {};
+  const canViewConsolidated = Boolean(workspace?.permissions?.canViewConsolidated);
+  const personalValidationSummary = validationSummary.personal || validationSummary;
+  const generalValidationSummary = validationSummary.general || validationSummary;
+  const displayedValidationSummary = canViewConsolidated ? generalValidationSummary : personalValidationSummary;
+  const validationPeriodLabel = dateFrom || dateTo ? "sur période" : "aujourd'hui";
 
   const clearAttentionAlert = () => {
     if (attentionTimerRef.current) {
@@ -995,17 +1000,24 @@ export default function CashierWorkspacePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={canViewConsolidated ? "grid gap-4 md:grid-cols-4" : "grid gap-4 md:grid-cols-3"}>
         <SummaryCard label="À encaisser" value={workspace?.collectionSummary?.total || 0} hint="Paiements à traiter" />
         <SummaryCard label="À lancer préparation" value={workspace?.launchSummary?.total || 0} hint="Déjà payées" />
         <SummaryCard
-          label={dateFrom || dateTo ? "Validé sur période" : "Validé aujourd'hui"}
-          value={formatFcfa(validationSummary.totalReceivedFcfa || 0)}
-          hint={`${validationSummary.total || 0} facture${Number(validationSummary.total || 0) > 1 ? "s" : ""} validée${Number(validationSummary.total || 0) > 1 ? "s" : ""}`}
+          label={canViewConsolidated ? "Validé par moi" : `Validé ${validationPeriodLabel}`}
+          value={formatFcfa(personalValidationSummary.totalReceivedFcfa || 0)}
+          hint={`${personalValidationSummary.total || 0} facture${Number(personalValidationSummary.total || 0) > 1 ? "s" : ""} validée${Number(personalValidationSummary.total || 0) > 1 ? "s" : ""}`}
         />
+        {canViewConsolidated ? (
+          <SummaryCard
+            label="Total général caisse"
+            value={formatFcfa(generalValidationSummary.totalReceivedFcfa || 0)}
+            hint={`${generalValidationSummary.total || 0} facture${Number(generalValidationSummary.total || 0) > 1 ? "s" : ""} validée${Number(generalValidationSummary.total || 0) > 1 ? "s" : ""}`}
+          />
+        ) : null}
       </div>
 
-      {Array.isArray(validationSummary.byPaymentMode) && validationSummary.byPaymentMode.length > 0 ? (
+      {Array.isArray(displayedValidationSummary.byPaymentMode) && displayedValidationSummary.byPaymentMode.length > 0 ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -1013,11 +1025,13 @@ export default function CashierWorkspacePage() {
                 Bilan caisse {dateFrom || dateTo ? "de la période" : "du jour"}
               </div>
               <div className="mt-1 text-xs text-emerald-800">
-                Total des paiements validés par {workspace?.validationSummary?.scope === "my" ? "vous" : "les caissières"}.
+                {canViewConsolidated
+                  ? "Total général des paiements validés par toutes les caissières."
+                  : "Total des paiements validés par vous."}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {validationSummary.byPaymentMode.map((item) => (
+              {displayedValidationSummary.byPaymentMode.map((item) => (
                 <span
                   key={item.paymentMode}
                   className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-800"
@@ -1027,9 +1041,9 @@ export default function CashierWorkspacePage() {
               ))}
             </div>
           </div>
-          {Array.isArray(validationSummary.byCashier) && validationSummary.byCashier.length > 0 ? (
+          {Array.isArray(displayedValidationSummary.byCashier) && displayedValidationSummary.byCashier.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2 border-t border-emerald-200 pt-3">
-              {validationSummary.byCashier.map((item) => (
+              {displayedValidationSummary.byCashier.map((item) => (
                 <span
                   key={item.cashierId}
                   className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-900"
