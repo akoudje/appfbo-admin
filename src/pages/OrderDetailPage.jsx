@@ -877,7 +877,10 @@ const doInvoice = async () => {
       setError("");
       setInfo("");
 
-      const result = await ordersService.resendConfirmationSms(id);
+      const result = await ordersService.resendConfirmationSms(id, {
+        phone: normalizeStr(invoiceWaTo) || undefined,
+        email: normalizeStr(invoiceEmail) || undefined,
+      });
       if (result?.sent) {
         const channel = String(result?.channel || "SMS").toUpperCase();
         setInfo(`Notification de confirmation renvoyée via ${channel} au ${result?.toPhone || "client"}.`);
@@ -888,6 +891,8 @@ const doInvoice = async () => {
         );
       }
 
+      if (result?.toPhone) setInvoiceWaTo(result.toPhone);
+      if (result?.toEmail) setInvoiceEmail(result.toEmail);
       await load();
     } catch (e) {
       setError(
@@ -1457,6 +1462,10 @@ const doInvoice = async () => {
               setFulfillmentMode={setFulfillmentMode}
               fulfillNote={fulfillNote}
               setFulfillNote={setFulfillNote}
+              notificationPhone={invoiceWaTo}
+              setNotificationPhone={setInvoiceWaTo}
+              notificationEmail={invoiceEmail}
+              setNotificationEmail={setInvoiceEmail}
               onFulfill={doFulfill}
               onDownloadDeliveryNote={doDownloadDeliveryNote}
               onResendConfirmationSms={doResendConfirmationSms}

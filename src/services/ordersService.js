@@ -103,10 +103,11 @@ export const ordersService = {
       )
     ).data,
 
-  resendConfirmationSms: async (id) =>
+  resendConfirmationSms: async (id, body = {}) =>
     (
       await api.post(
         `/admin/orders/${normalizeOrderId(id)}/resend-confirmation-sms`,
+        body,
       )
     ).data,
 

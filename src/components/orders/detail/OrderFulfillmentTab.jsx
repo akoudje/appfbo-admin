@@ -191,6 +191,10 @@ export default function OrderFulfillmentTab({
   setFulfillmentMode,
   fulfillNote,
   setFulfillNote,
+  notificationPhone,
+  setNotificationPhone,
+  notificationEmail,
+  setNotificationEmail,
   onFulfill,
   onDownloadDeliveryNote,
   onResendConfirmationSms,
@@ -469,6 +473,27 @@ export default function OrderFulfillmentTab({
                   />
                 </Field>
               ) : null}
+
+              <Field label="Téléphone notifications" optional>
+                <input
+                  className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={notificationPhone || ""}
+                  onChange={(e) => setNotificationPhone?.(e.target.value)}
+                  placeholder="+225 07 01 02 03 04"
+                  disabled={saving}
+                />
+              </Field>
+
+              <Field label="Email notifications" optional>
+                <input
+                  className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={notificationEmail || ""}
+                  onChange={(e) => setNotificationEmail?.(e.target.value)}
+                  placeholder="client@example.com"
+                  type="email"
+                  disabled={saving}
+                />
+              </Field>
             </div>
 
             <Field label="Note" optional>
@@ -522,20 +547,25 @@ export default function OrderFulfillmentTab({
               </div>
 
               {typeof onResendConfirmationSms === "function" ? (
-                <button
-                  type="button"
-                  onClick={onResendConfirmationSms}
-                  disabled={
-                    saving ||
-                    (!canResendConfirmationSms &&
-                      !["READY", "FULFILLED"].includes(
-                        String(status || "").toUpperCase(),
-                      ))
-                  }
-                  className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Renvoyer SMS de confirmation
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={onResendConfirmationSms}
+                    disabled={
+                      saving ||
+                      (!canResendConfirmationSms &&
+                        !["READY", "FULFILLED"].includes(
+                          String(status || "").toUpperCase(),
+                        ))
+                    }
+                    className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Renvoyer SMS de confirmation
+                  </button>
+                  <div className="text-xs text-gray-500">
+                    Le renvoi utilise le téléphone de notifications saisi à gauche et le conserve sur la commande.
+                  </div>
+                </div>
               ) : null}
 
               {isPickupOrder ? (
