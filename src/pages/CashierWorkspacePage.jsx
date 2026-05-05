@@ -176,6 +176,10 @@ function statusTone(status) {
   return "bg-gray-100 text-gray-700";
 }
 
+function displayAdminName(value) {
+  return value?.fullName || value?.email || value?.id || "-";
+}
+
 function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncWave, onOpenDetails }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -224,6 +228,11 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
                       <div className="text-xs text-gray-500">{row.paymentProvider || "-"}</div>
+                      {row.validatedBy || row.cashierTransaction?.cashier ? (
+                        <div className="mt-1 text-xs text-emerald-700">
+                          Validé par {displayAdminName(row.validatedBy || row.cashierTransaction?.cashier)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-900">{formatFcfa(row.amountExpectedFcfa || row.totalFcfa)}</div>
@@ -272,6 +281,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
               <th className="px-4 py-3">Commande</th>
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
+              <th className="px-4 py-3">Caissière</th>
               <th className="px-4 py-3">Montant</th>
               <th className="px-4 py-3">Dates</th>
               <th className="px-4 py-3">Actions</th>
@@ -280,7 +290,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">{emptyLabel}</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">{emptyLabel}</td>
               </tr>
             ) : (
               rows.map((row) => (
@@ -296,6 +306,14 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
                     <div className="text-xs text-gray-500">{humanizeEnum(row.paymentStatus)} / {row.paymentProvider || "-"}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">
+                      {displayAdminName(row.validatedBy || row.manualPaymentValidatedBy || row.cashierTransaction?.cashier)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Validé: {formatDateTime(row.manualPaymentValidatedAt || row.paidAt)}
+                    </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-gray-900">{formatFcfa(row.totalFcfa)}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">
@@ -398,6 +416,7 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
   const items = Array.isArray(order?.items) ? order.items : [];
   const attempt = order?.activePayment?.attempts?.[0] || null;
   const cashierTx = order?.cashierTransactions?.[0] || null;
+  const validatedBy = order?.manualPaymentValidatedBy || cashierTx?.cashier || null;
   const latestBankProof = Array.isArray(order?.bankPaymentProofs) ? order.bankPaymentProofs[0] : null;
   const [proofBlobUrl, setProofBlobUrl] = useState("");
   const [proofBlobMimeType, setProofBlobMimeType] = useState("");
@@ -498,9 +517,10 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
                 <div><strong>Téléphone payeur:</strong> {attempt?.providerPayerPhone || "-"}</div>
                 <div><strong>N° reçu caisse:</strong> {cashierTx?.receiptNumber || "-"}</div>
                 <div><strong>Poste caisse:</strong> {cashierTx?.cashDeskLabel || "-"}</div>
+                <div><strong>Validé par:</strong> {displayAdminName(validatedBy)}</div>
                 <div><strong>Code caisse:</strong> {order.paymentCollectionCode || "-"}</div>
                 <div><strong>Facture AS400:</strong> {order.factureReference || "-"}</div>
-                <div><strong>Paiement confirmé:</strong> {formatDateTime(order.paidAt)}</div>
+                <div><strong>Paiement confirmé:</strong> {formatDateTime(order.manualPaymentValidatedAt || order.paidAt)}</div>
               </div>
             </div>
 
@@ -687,6 +707,7 @@ export default function CashierWorkspacePage() {
 
   const toCollect = workspace?.toCollect || [];
   const toLaunchPreparation = workspace?.toLaunchPreparation || [];
+  const validationSummary = workspace?.validationSummary || {};
 
   const clearAttentionAlert = () => {
     if (attentionTimerRef.current) {
@@ -793,7 +814,11 @@ export default function CashierWorkspacePage() {
       }
 
       setWorkspace(workspaceRes);
-      setCompletedRows(mergeRowsById([paidRes?.data || [], readyRes?.data || [], fulfilledRes?.data || []]));
+      setCompletedRows(
+        Array.isArray(workspaceRes?.journal) && workspaceRes.journal.length > 0
+          ? workspaceRes.journal
+          : mergeRowsById([paidRes?.data || [], readyRes?.data || [], fulfilledRes?.data || []]),
+      );
       setSearchRows(Array.isArray(searchRes?.data) ? searchRes.data : []);
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger l'espace caisse.");
@@ -973,8 +998,49 @@ export default function CashierWorkspacePage() {
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard label="À encaisser" value={workspace?.collectionSummary?.total || 0} hint="Paiements à traiter" />
         <SummaryCard label="À lancer préparation" value={workspace?.launchSummary?.total || 0} hint="Déjà payées" />
-        <SummaryCard label="Terminées" value={completedRows.length} hint="Payées, prêtes, clôturées" />
+        <SummaryCard
+          label={dateFrom || dateTo ? "Validé sur période" : "Validé aujourd'hui"}
+          value={formatFcfa(validationSummary.totalReceivedFcfa || 0)}
+          hint={`${validationSummary.total || 0} facture${Number(validationSummary.total || 0) > 1 ? "s" : ""} validée${Number(validationSummary.total || 0) > 1 ? "s" : ""}`}
+        />
       </div>
+
+      {Array.isArray(validationSummary.byPaymentMode) && validationSummary.byPaymentMode.length > 0 ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-emerald-950">
+                Bilan caisse {dateFrom || dateTo ? "de la période" : "du jour"}
+              </div>
+              <div className="mt-1 text-xs text-emerald-800">
+                Total des paiements validés par {workspace?.validationSummary?.scope === "my" ? "vous" : "les caissières"}.
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {validationSummary.byPaymentMode.map((item) => (
+                <span
+                  key={item.paymentMode}
+                  className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-800"
+                >
+                  {humanizeEnum(item.paymentMode)}: {formatFcfa(item.amountFcfa)}
+                </span>
+              ))}
+            </div>
+          </div>
+          {Array.isArray(validationSummary.byCashier) && validationSummary.byCashier.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-emerald-200 pt-3">
+              {validationSummary.byCashier.map((item) => (
+                <span
+                  key={item.cashierId}
+                  className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-900"
+                >
+                  {item.cashierName}: {formatFcfa(item.amountFcfa)}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
