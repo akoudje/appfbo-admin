@@ -113,6 +113,14 @@ const DEFAULT_SETTINGS = {
           subject: "FOREVER | Facture de commande {{preorderNumber}}",
           body: "Bonjour {{customerName}},\n\nNous vous remercions pour votre commande.\nVotre facture est disponible.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant à payer: {{totalFcfaLabel}}\nLien de paiement: {{paymentLink}}\n\nPour toute assistance, contactez-nous au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
         },
+        INVOICE_WAVE: {
+          subject: "FOREVER | Lien de paiement Wave {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nVotre facture est disponible.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant à payer: {{totalFcfaLabel}}\nLien de paiement sécurisé: {{paymentLink}}\n\nPour toute assistance, contactez-nous au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
+        },
+        INVOICE_BANK_TRANSFER: {
+          subject: "FOREVER | Dépôt de preuve bancaire {{preorderNumber}}",
+          body: "Bonjour {{customerName}},\n\nVotre facture est disponible pour paiement par virement bancaire.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant à payer: {{totalFcfaLabel}}\nLien sécurisé de dépôt de preuve: {{bankProofUploadLink}}\n\nPour toute assistance, contactez-nous au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
+        },
         ORDER_READY: {
           subject: "FOREVER | Colis prêt - Commande {{preorderNumber}}",
           body: "Bonjour {{customerName}},\n\nVotre colis est prêt au retrait.\n\nRéférence colis: {{parcelNumber}}\nCode de retrait: {{pickupCode}}\nPoint de retrait: {{pickupAddress}}\n\nMerci de présenter ce code au comptoir.\n\nCordialement,\nService Client FOREVER",
@@ -221,11 +229,23 @@ const SMS_TEMPLATE_GROUPS = [
 
 const EMAIL_TEMPLATE_LABELS = {
   INVOICE: "Facture prête",
+  INVOICE_WAVE: "Facture prête - Paiement Wave",
+  INVOICE_BANK_TRANSFER: "Facture prête - Virement bancaire",
   ORDER_READY: "Colis prêt",
   PREPARATION_STARTED: "Préparation en cours",
   ORDER_FULFILLED: "Commande clôturée",
   REMINDER: "Rappel paiement",
 };
+
+const EMAIL_TEMPLATE_KEYS = [
+  "INVOICE",
+  "INVOICE_WAVE",
+  "INVOICE_BANK_TRANSFER",
+  "ORDER_READY",
+  "PREPARATION_STARTED",
+  "ORDER_FULFILLED",
+  "REMINDER",
+];
 
 // --- Composants améliorés ---
 
@@ -1392,7 +1412,7 @@ export default function AdminSettingsPage() {
                         className="overflow-hidden"
                       >
                         <div className="p-5 border-t border-[#e7dec8] space-y-4">
-                          {["INVOICE", "ORDER_READY", "PREPARATION_STARTED", "ORDER_FULFILLED", "REMINDER"].map(
+                          {EMAIL_TEMPLATE_KEYS.map(
                             (purpose) => (
                               <div key={purpose} className="grid gap-4 border border-[#e7dec8] rounded-lg p-4">
                                 <Field label={`${EMAIL_TEMPLATE_LABELS[purpose] || purpose} - Sujet`}>
