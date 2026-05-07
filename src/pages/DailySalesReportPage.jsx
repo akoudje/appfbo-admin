@@ -40,6 +40,14 @@ function formatMinutes(value) {
   return `${minutes} min`;
 }
 
+const PAYMENT_MODE_OPTIONS = [
+  { value: "", label: "Tous modes" },
+  { value: "ESPECES", label: "Espèces" },
+  { value: "WAVE", label: "Wave" },
+  { value: "ORANGE_MONEY", label: "Orange Money" },
+  { value: "BANK_TRANSFER", label: "Virement bancaire" },
+];
+
 function humanize(value) {
   return String(value || "Non renseigné")
     .replace(/_/g, " ")
@@ -204,6 +212,50 @@ function OrdersTable({ rows = [], type = "generic" }) {
   );
 }
 
+function CriticalTable({ rows = [], title, dateField }) {
+  return (
+    <Section title={title}>
+      {!rows.length ? (
+        <div className="text-sm text-gray-500">Aucune alerte critique.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-amber-50">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold text-amber-900">Commande</th>
+                <th className="px-3 py-2 text-left font-semibold text-amber-900">FBO</th>
+                <th className="px-3 py-2 text-left font-semibold text-amber-900">Mode</th>
+                <th className="px-3 py-2 text-right font-semibold text-amber-900">Montant</th>
+                <th className="px-3 py-2 text-left font-semibold text-amber-900">Depuis</th>
+                <th className="px-3 py-2 text-left font-semibold text-amber-900">Âge</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-amber-100 bg-white">
+              {rows.map((row) => (
+                <tr key={`${title}-${row.id}`}>
+                  <td className="px-3 py-2 font-semibold text-gray-900">
+                    {row.preorderNumber || row.parcelNumber || row.id}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-gray-800">{row.fboNomComplet || "-"}</div>
+                    <div className="text-xs text-gray-500">{row.fboNumero || "-"}</div>
+                  </td>
+                  <td className="px-3 py-2">{humanize(row.preorderPaymentMode)}</td>
+                  <td className="px-3 py-2 text-right font-semibold">
+                    {formatFcfa(row.as400InvoiceTotalFcfa || row.totalFcfa || 0)}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(row[dateField])}</td>
+                  <td className="px-3 py-2 font-semibold text-amber-800">{formatMinutes(row.ageMinutes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function escapeCsv(value) {
   const raw = String(value ?? "");
   return `"${raw.replace(/"/g, '""')}"`;
@@ -239,18 +291,44 @@ function buildCsv(report) {
   return lines.join("\n");
 }
 
+function mergeAdminOptions(previous = [], groupedRows = []) {
+  const map = new Map();
+  previous.forEach((admin) => {
+    if (admin?.id) map.set(admin.id, admin);
+  });
+  groupedRows.forEach((row) => {
+    const admin = row?.admin;
+    if (admin?.id) map.set(admin.id, admin);
+  });
+  return [...map.values()].sort((a, b) =>
+    String(a.label || "").localeCompare(String(b.label || "")),
+  );
+}
+
 export default function DailySalesReportPage() {
   const [date, setDate] = useState(todayIso());
+  const [paymentMode, setPaymentMode] = useState("");
+  const [invoicerId, setInvoicerId] = useState("");
+  const [cashierId, setCashierId] = useState("");
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [knownInvoicers, setKnownInvoicers] = useState([]);
+  const [knownCashiers, setKnownCashiers] = useState([]);
 
   const load = async () => {
     try {
       setLoading(true);
       setError("");
-      const data = await reportsService.getDailySales({ date });
+      const data = await reportsService.getDailySales({
+        date,
+        paymentMode: paymentMode || undefined,
+        invoicerId: invoicerId || undefined,
+        cashierId: cashierId || undefined,
+      });
       setReport(data);
+      setKnownInvoicers((prev) => mergeAdminOptions(prev, data?.performance?.byInvoicer || []));
+      setKnownCashiers((prev) => mergeAdminOptions(prev, data?.performance?.byCashier || []));
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger le rapport quotidien.");
     } finally {
@@ -269,6 +347,12 @@ export default function DailySalesReportPage() {
     if (!submitted) return "0%";
     return `${Math.round((paid / submitted) * 100)}%`;
   }, [report]);
+
+  const resetFilters = () => {
+    setPaymentMode("");
+    setInvoicerId("");
+    setCashierId("");
+  };
 
   const downloadCsv = () => {
     if (!report) return;
@@ -317,6 +401,50 @@ export default function DailySalesReportPage() {
               className="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
+          <label className="text-sm font-medium text-gray-700">
+            Paiement
+            <select
+              value={paymentMode}
+              onChange={(e) => setPaymentMode(e.target.value)}
+              className="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              {PAYMENT_MODE_OPTIONS.map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-medium text-gray-700">
+            Facturier
+            <select
+              value={invoicerId}
+              onChange={(e) => setInvoicerId(e.target.value)}
+              className="mt-1 block max-w-[190px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">Tous</option>
+              {knownInvoicers.map((admin) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-medium text-gray-700">
+            Caissière
+            <select
+              value={cashierId}
+              onChange={(e) => setCashierId(e.target.value)}
+              className="mt-1 block max-w-[190px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">Toutes</option>
+              {knownCashiers.map((admin) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             onClick={load}
@@ -324,6 +452,13 @@ export default function DailySalesReportPage() {
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
             Charger
+          </button>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+          >
+            Réinitialiser
           </button>
           <button
             type="button"
@@ -368,6 +503,24 @@ export default function DailySalesReportPage() {
             <StatCard icon={AlertTriangle} label="Soumises non préfacturées" value={formatCount(report.pending?.submittedNotInvoiced?.count)} hint={formatFcfa(report.pending?.submittedNotInvoiced?.amountFcfa || 0)} tone="amber" />
             <StatCard icon={FileText} label="Préfacturées non payées" value={formatCount(report.pending?.invoicedNotPaid?.count)} hint={formatFcfa(report.pending?.invoicedNotPaid?.amountFcfa || 0)} tone="amber" />
             <StatCard icon={UserCheck} label="Payées non lancées" value={formatCount(report.pending?.paidNotLaunched?.count)} hint={formatFcfa(report.pending?.paidNotLaunched?.amountFcfa || 0)} tone="amber" />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <CriticalTable
+              title={`Critique: soumises non préfacturées > ${formatMinutes(report.critical?.thresholdsMinutes?.submittedNotInvoiced)}`}
+              rows={report.critical?.submittedNotInvoiced || []}
+              dateField="submittedAt"
+            />
+            <CriticalTable
+              title={`Critique: préfacturées non payées > ${formatMinutes(report.critical?.thresholdsMinutes?.invoicedNotPaid)}`}
+              rows={report.critical?.invoicedNotPaid || []}
+              dateField="invoicedAt"
+            />
+            <CriticalTable
+              title={`Critique: payées non lancées > ${formatMinutes(report.critical?.thresholdsMinutes?.paidNotLaunched)}`}
+              rows={report.critical?.paidNotLaunched || []}
+              dateField="paidAt"
+            />
           </div>
 
           <Section title="Performance de la journée">
