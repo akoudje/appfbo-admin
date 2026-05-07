@@ -21,38 +21,38 @@ function buildQueryParams(searchParams) {
 
 function ExportOrderCard({ order }) {
   return (
-    <article className="break-inside-avoid pb-4 mb-4">
-      <div className="text-[11px] font-bold uppercase leading-tight mb-1.5">
+    <article className="break-inside-avoid pb-3 mb-3">
+      <div className="text-[12.5px] font-bold uppercase leading-tight mb-1.5">
         {order.fboNomComplet || "-"}
       </div>
-      <div className="flex gap-1 text-[10px] mb-2">
+      <div className="flex gap-1.5 text-[11px] mb-2 font-medium">
         <span>FBO</span>
         <strong>{order.fboNumero || "-"}</strong>
       </div>
 
-      <div className="min-h-[26mm] mb-2">
+      <div className="min-h-[10mm] mb-2">
         {(order.items || []).length ? (
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
             {order.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-baseline justify-between gap-1.5 text-[9.5px] leading-[1.35] border-b border-gray-300 pb-1"
+                className="flex items-baseline justify-between gap-1.5 text-[10.5px] leading-[1.35] border-b border-gray-300 pb-1"
               >
                 <span className="flex-1 font-semibold break-words">
                   {item.sku || "Article"}
                 </span>
-                <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
+                <span className="whitespace-nowrap font-medium">x{Number(item.qty || 0)}</span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-[8.5px] leading-[1.35]">Aucun article</div>
+          <div className="text-[10px] leading-[1.35]">Aucun article</div>
         )}
       </div>
 
-      <div className="border border-gray-300 min-h-[18mm] p-2">
-        <div className="text-[8.5px] min-h-[6mm] flex items-center">Réf AS400 :</div>
-        <div className="text-[8.5px] min-h-[6mm] flex items-center">Montant AS400 :</div>
+      <div className="border border-gray-300 min-h-[15mm] px-2.5 py-2">
+        <div className="text-[9.5px] min-h-[5mm] flex items-center font-medium">Réf AS400 :</div>
+        <div className="text-[9.5px] min-h-[5mm] flex items-center font-medium">Montant AS400 :</div>
       </div>
     </article>
   );
@@ -149,8 +149,8 @@ export default function SubmittedOrdersPrintPage() {
           </div>
         ) : (
           <section
-            className="gap-[8mm]"
-            style={{ columnCount: 4, columnGap: "8mm", columnFill: "auto" }}
+            className="gap-[7mm]"
+            style={{ columnCount: 4, columnGap: "7mm", columnFill: "auto" }}
           >
             {orders.map((order) => (
               <ExportOrderCard key={order.id} order={order} />
