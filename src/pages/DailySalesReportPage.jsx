@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Banknote,
@@ -29,11 +30,11 @@ import { formatFcfa, formatDateTime } from "../lib/format";
 
 // ==================== CONSTANTS ====================
 const PAYMENT_MODE_OPTIONS = [
-  { value: "", label: "Tous les modes", icon: "💰" },
-  { value: "ESPECES", label: "Espèces", icon: "💵" },
-  { value: "WAVE", label: "Wave", icon: "📱" },
-  { value: "ORANGE_MONEY", label: "Orange Money", icon: "📱" },
-  { value: "BANK_TRANSFER", label: "Virement bancaire", icon: "🏦" },
+  { value: "", label: "Tous les modes" },
+  { value: "ESPECES", label: "Espèces" },
+  { value: "WAVE", label: "Wave" },
+  { value: "ORANGE_MONEY", label: "Orange Money" },
+  { value: "BANK_TRANSFER", label: "Virement bancaire" },
 ];
 
 const DETAIL_TABS = [
@@ -48,6 +49,15 @@ const DETAIL_TABS = [
 const STORAGE_KEY = "daily_report_filters";
 
 // ==================== UTILS ====================
+const readSavedFilters = () => {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+};
+
 const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -273,8 +283,6 @@ const PriorityAlert = ({ title, count, amount, threshold, tone = "amber", onView
 };
 
 const OrdersTable = ({ rows = [], type = "generic", maxRows = 50, onViewOrder }) => {
-  const [expandedRows, setExpandedRows] = useState(new Set());
-  
   if (!rows.length) return <div className="py-12 text-center text-gray-500">Aucune commande à afficher</div>;
   
   const displayedRows = rows.slice(0, maxRows);
@@ -286,15 +294,6 @@ const OrdersTable = ({ rows = [], type = "generic", maxRows = 50, onViewOrder })
     paid: "paidAt",
     cancelled: "cancelledAt",
   }[type] || "preparationLaunchedAt";
-
-  const toggleRow = (id) => {
-    setExpandedRows(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   return (
     <div className="overflow-x-auto">
@@ -314,7 +313,6 @@ const OrdersTable = ({ rows = [], type = "generic", maxRows = 50, onViewOrder })
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">
           {displayedRows.map((row) => {
-            const isExpanded = expandedRows.has(row.id);
             const actor = {
               invoiced: row.invoicedBy?.label,
               paid: row.cashier?.label,
@@ -322,7 +320,6 @@ const OrdersTable = ({ rows = [], type = "generic", maxRows = 50, onViewOrder })
             }[type] || row.preparationLaunchedBy?.label;
             
             return (
-              <>
                 <tr key={`${type}-${row.id}`} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-gray-900">{row.preorderNumber || row.parcelNumber || row.id}</div>
@@ -359,22 +356,6 @@ const OrdersTable = ({ rows = [], type = "generic", maxRows = 50, onViewOrder })
                     </button>
                   </td>
                 </tr>
-                {isExpanded && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={type === "cancelled" ? 9 : 8} className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="font-semibold mb-2">Détails de la commande</div>
-                        <div className="grid grid-cols-2 gap-4 text-xs">
-                          <div>ID: {row.id}</div>
-                          <div>Type: {row.preorderType || "Standard"}</div>
-                          <div>Produits: {row.itemsCount || "N/A"}</div>
-                          <div>Statut: {row.status || "En cours"}</div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </>
             );
           })}
         </tbody>
@@ -404,10 +385,14 @@ const FiltersPanel = ({
   loading,
 }) => {
   const [localDate, setLocalDate] = useState(date);
+
+  useEffect(() => {
+    setLocalDate(date);
+  }, [date]);
   
   const handleApply = () => {
     setDate(localDate);
-    onLoad();
+    onLoad({ date: localDate });
   };
   
   const handleReset = () => {
@@ -415,7 +400,7 @@ const FiltersPanel = ({
     setPaymentMode("");
     setInvoicerId("");
     setCashierId("");
-    onReset();
+    onReset({ date: todayIso(), paymentMode: "", invoicerId: "", cashierId: "" });
   };
   
   return (
@@ -439,7 +424,7 @@ const FiltersPanel = ({
           >
             {PAYMENT_MODE_OPTIONS.map((option) => (
               <option key={option.value || "all"} value={option.value}>
-                {option.icon} {option.label}
+                {option.label}
               </option>
             ))}
           </select>
@@ -538,10 +523,12 @@ const KpiCard = ({ title, value, trend, icon: Icon, color }) => {
 
 // ==================== MAIN COMPONENT ====================
 export default function DailySalesReportPage() {
+  const navigate = useNavigate();
+  const savedFilters = useMemo(() => readSavedFilters(), []);
   const [date, setDate] = useState(todayIso());
-  const [paymentMode, setPaymentMode] = useState("");
-  const [invoicerId, setInvoicerId] = useState("");
-  const [cashierId, setCashierId] = useState("");
+  const [paymentMode, setPaymentMode] = useState(savedFilters.paymentMode || "");
+  const [invoicerId, setInvoicerId] = useState(savedFilters.invoicerId || "");
+  const [cashierId, setCashierId] = useState(savedFilters.cashierId || "");
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -551,51 +538,49 @@ export default function DailySalesReportPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const refreshInterval = useRef(null);
+  const initialLoadRef = useRef(false);
 
-  // Load saved filters from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const filters = JSON.parse(saved);
-        if (filters.paymentMode) setPaymentMode(filters.paymentMode);
-        if (filters.invoicerId) setInvoicerId(filters.invoicerId);
-        if (filters.cashierId) setCashierId(filters.cashierId);
-      } catch (e) {}
-    }
+  const saveFilters = useCallback((filters) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
   }, []);
 
-  // Save filters to localStorage
-  const saveFilters = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      paymentMode,
-      invoicerId,
-      cashierId,
-    }));
-  }, [paymentMode, invoicerId, cashierId]);
+  const load = useCallback(async (overrides = {}) => {
+    const nextDate = overrides.date ?? date;
+    const nextPaymentMode = overrides.paymentMode ?? paymentMode;
+    const nextInvoicerId = overrides.invoicerId ?? invoicerId;
+    const nextCashierId = overrides.cashierId ?? cashierId;
 
-  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
       const data = await reportsService.getDailySales({
-        date,
-        paymentMode: paymentMode || undefined,
-        invoicerId: invoicerId || undefined,
-        cashierId: cashierId || undefined,
+        date: nextDate,
+        paymentMode: nextPaymentMode || undefined,
+        invoicerId: nextInvoicerId || undefined,
+        cashierId: nextCashierId || undefined,
       });
       setReport(data);
       setKnownInvoicers(prev => {
         const map = new Map(prev.map(a => [a.id, a]));
-        (data?.performance?.byInvoicer || []).forEach(a => a.id && map.set(a.id, a));
+        (data?.performance?.byInvoicer || []).forEach((row) => {
+          const admin = row?.admin;
+          if (admin?.id) map.set(admin.id, admin);
+        });
         return [...map.values()].sort((a, b) => String(a.label || "").localeCompare(String(b.label || "")));
       });
       setKnownCashiers(prev => {
         const map = new Map(prev.map(a => [a.id, a]));
-        (data?.performance?.byCashier || []).forEach(a => a.id && map.set(a.id, a));
+        (data?.performance?.byCashier || []).forEach((row) => {
+          const admin = row?.admin;
+          if (admin?.id) map.set(admin.id, admin);
+        });
         return [...map.values()].sort((a, b) => String(a.label || "").localeCompare(String(b.label || "")));
       });
-      saveFilters();
+      saveFilters({
+        paymentMode: nextPaymentMode,
+        invoicerId: nextInvoicerId,
+        cashierId: nextCashierId,
+      });
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger le rapport quotidien.");
       console.error("Load error:", e);
@@ -615,6 +600,8 @@ export default function DailySalesReportPage() {
   }, [autoRefresh, load]);
 
   useEffect(() => {
+    if (initialLoadRef.current) return;
+    initialLoadRef.current = true;
     load();
   }, [load]);
 
@@ -632,13 +619,19 @@ export default function DailySalesReportPage() {
   };
   const hasCritical = priorityCounts.submitted + priorityCounts.invoiced + priorityCounts.paid > 0;
 
-  const resetFilters = () => {
-    setPaymentMode("");
-    setInvoicerId("");
-    setCashierId("");
-    setDate(todayIso());
+  const resetFilters = (nextFilters = null) => {
+    const resetDate = nextFilters?.date || todayIso();
+    setPaymentMode(nextFilters?.paymentMode || "");
+    setInvoicerId(nextFilters?.invoicerId || "");
+    setCashierId(nextFilters?.cashierId || "");
+    setDate(resetDate);
     localStorage.removeItem(STORAGE_KEY);
-    load();
+    load({
+      date: resetDate,
+      paymentMode: nextFilters?.paymentMode || "",
+      invoicerId: nextFilters?.invoicerId || "",
+      cashierId: nextFilters?.cashierId || "",
+    });
   };
 
   const downloadCsv = () => {
@@ -654,9 +647,8 @@ export default function DailySalesReportPage() {
   };
 
   const handleViewOrder = (orderId) => {
-    // Implement order detail modal or navigation
-    console.log("View order:", orderId);
-    // You can open a modal or navigate to order details page
+    if (!orderId) return;
+    navigate(`/orders/${orderId}`);
   };
 
   const renderTab = () => {
@@ -877,7 +869,10 @@ export default function DailySalesReportPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span>📊 Rapports</span>
+              <span className="inline-flex items-center gap-1">
+                <BarChart3 className="h-4 w-4" />
+                Rapports
+              </span>
               <span>•</span>
               <span className="font-medium text-gray-700">{report?.date || date}</span>
             </div>
