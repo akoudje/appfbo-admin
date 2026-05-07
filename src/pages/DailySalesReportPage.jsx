@@ -7,8 +7,11 @@ import {
   Download,
   FileText,
   Loader2,
+  Printer,
   ReceiptText,
   ShoppingCart,
+  TrendingDown,
+  TrendingUp,
   UserCheck,
   XCircle,
 } from "lucide-react";
@@ -61,6 +64,34 @@ function StatCard({ icon: Icon, label, value, hint, tone = "gray" }) {
           {hint ? <div className="mt-1 text-xs text-gray-600">{hint}</div> : null}
         </div>
         <Icon className="h-5 w-5 text-gray-500" />
+      </div>
+    </div>
+  );
+}
+
+function ComparisonCard({ label, metric, amount = false, negativeIsGood = false }) {
+  const delta = amount ? Number(metric?.amountDeltaFcfa || 0) : Number(metric?.countDelta || 0);
+  const percent = amount ? metric?.amountDeltaPercent : metric?.countDeltaPercent;
+  const current = amount ? formatFcfa(metric?.currentAmountFcfa || 0) : formatCount(metric?.currentCount || 0);
+  const previous = amount ? formatFcfa(metric?.previousAmountFcfa || 0) : formatCount(metric?.previousCount || 0);
+  const isUp = delta > 0;
+  const isDown = delta < 0;
+  const good = negativeIsGood ? delta <= 0 : delta >= 0;
+  const tone = delta === 0 ? "text-gray-600 bg-gray-100" : good ? "text-emerald-700 bg-emerald-50" : "text-red-700 bg-red-50";
+  const Icon = isDown ? TrendingDown : TrendingUp;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-2 text-xl font-bold text-gray-900">{current}</div>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className="text-xs text-gray-500">Veille: {previous}</span>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${tone}`}>
+          <Icon className="h-3.5 w-3.5" />
+          {isUp ? "+" : ""}
+          {amount ? formatFcfa(delta) : formatCount(delta)}
+          {percent !== null && percent !== undefined ? ` (${isUp ? "+" : ""}${percent}%)` : ""}
+        </span>
       </div>
     </div>
   );
@@ -251,15 +282,32 @@ export default function DailySalesReportPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="daily-report-print space-y-5">
+      <style>{`
+        @page { size: A4 landscape; margin: 9mm; }
+        @media print {
+          body { background: #fff !important; }
+          aside, header, nav, .print-hidden, .print-toolbar { display: none !important; }
+          main { padding: 0 !important; overflow: visible !important; }
+          .daily-report-print { color: #111827 !important; }
+          .daily-report-print section, .daily-report-print .rounded-lg { break-inside: avoid; box-shadow: none !important; }
+          .daily-report-print table { font-size: 10px !important; }
+          .daily-report-print th, .daily-report-print td { padding: 4px 6px !important; }
+        }
+      `}</style>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Rapport quotidien de vente</h1>
           <p className="mt-1 text-sm text-gray-500">
             Synthèse des soumissions, préfacturations, paiements, annulations et restes à traiter.
           </p>
+          {report?.date ? (
+            <p className="mt-2 hidden text-sm font-semibold text-gray-900 print:block">
+              Journée du {report.date}
+            </p>
+          ) : null}
         </div>
-        <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-end">
+        <div className="print-hidden flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-end">
           <label className="text-sm font-medium text-gray-700">
             Date
             <input
@@ -285,6 +333,15 @@ export default function DailySalesReportPage() {
           >
             <Download className="h-4 w-4" />
             CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            disabled={!report}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
+          >
+            <Printer className="h-4 w-4" />
+            PDF
           </button>
         </div>
       </div>
@@ -318,6 +375,15 @@ export default function DailySalesReportPage() {
               <StatCard icon={BarChart3} label="Soumission → préfacturation" value={formatMinutes(report.performance?.averageSubmitToInvoiceMinutes)} />
               <StatCard icon={BarChart3} label="Préfacturation → paiement" value={formatMinutes(report.performance?.averageInvoiceToPaymentMinutes)} />
               <StatCard icon={BarChart3} label="Paiement → préparation" value={formatMinutes(report.performance?.averagePaymentToPreparationMinutes)} />
+            </div>
+          </Section>
+
+          <Section title={`Comparaison avec la veille (${report.comparison?.previousDay?.date || "-"})`}>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <ComparisonCard label="Soumissions" metric={report.comparison?.previousDay?.submitted} />
+              <ComparisonCard label="Préfacturations" metric={report.comparison?.previousDay?.invoiced} />
+              <ComparisonCard label="Encaissement" metric={report.comparison?.previousDay?.paid} amount />
+              <ComparisonCard label="Annulations" metric={report.comparison?.previousDay?.cancelled} negativeIsGood />
             </div>
           </Section>
 
