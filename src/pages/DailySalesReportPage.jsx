@@ -499,6 +499,151 @@ const TabButton = ({ active, children, onClick, icon: Icon }) => {
   );
 };
 
+const PrintMiniBars = ({ title, rows = [] }) => (
+  <div className="rounded-lg border border-gray-200 p-3">
+    <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+    {rows.length ? (
+      <div className="mt-2 space-y-1.5">
+        {rows.slice(0, 8).map((row) => {
+          const label = row?.admin?.label || row.key || "Non renseigné";
+          return (
+            <div key={`${title}-${label}`} className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-medium text-gray-700">{humanize(label)}</span>
+              <span className="whitespace-nowrap text-gray-600">
+                {formatCount(row.count)} • {formatFcfa(row.amountFcfa || 0)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="mt-2 text-xs text-gray-500">Aucune donnée.</div>
+    )}
+  </div>
+);
+
+const PrintRowsTable = ({ title, rows = [], type }) => {
+  const dateField = {
+    submitted: "submittedAt",
+    invoiced: "invoicedAt",
+    paid: "paidAt",
+    cancelled: "cancelledAt",
+  }[type] || "submittedAt";
+  const actorField = {
+    invoiced: "invoicedBy",
+    paid: "cashier",
+    cancelled: "cancelledBy",
+  }[type];
+
+  return (
+    <section className="mt-4 break-inside-avoid rounded-lg border border-gray-200 p-3">
+      <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+      {rows.length ? (
+        <table className="mt-2 w-full border-collapse text-[10px]">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="px-2 py-1 text-left">Commande</th>
+              <th className="px-2 py-1 text-left">FBO</th>
+              <th className="px-2 py-1 text-left">Mode</th>
+              <th className="px-2 py-1 text-right">Montant</th>
+              <th className="px-2 py-1 text-left">Acteur</th>
+              <th className="px-2 py-1 text-left">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 18).map((row) => (
+              <tr key={`${title}-${row.id}`} className="border-b border-gray-100">
+                <td className="px-2 py-1 font-semibold">{row.preorderNumber || row.parcelNumber || row.id}</td>
+                <td className="px-2 py-1">{row.fboNomComplet || "-"}<br />{row.fboNumero || "-"}</td>
+                <td className="px-2 py-1">{humanize(row.preorderPaymentMode)}</td>
+                <td className="px-2 py-1 text-right">{formatFcfa(row.as400InvoiceTotalFcfa || row.totalFcfa || 0)}</td>
+                <td className="px-2 py-1">{actorField ? row?.[actorField]?.label || "-" : "-"}</td>
+                <td className="px-2 py-1">{formatDateTime(row[dateField])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="mt-2 text-xs text-gray-500">Aucune donnée.</div>
+      )}
+      {rows.length > 18 ? (
+        <div className="mt-2 text-xs text-gray-500">+{rows.length - 18} lignes dans l'export CSV.</div>
+      ) : null}
+    </section>
+  );
+};
+
+const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
+  if (!report) return null;
+  return (
+    <div className="print-report hidden">
+      <div className="flex items-start justify-between border-b border-gray-300 pb-3">
+        <div>
+          <div className="text-xs font-semibold uppercase text-gray-500">Rapport quotidien des ventes</div>
+          <h1 className="mt-1 text-2xl font-bold text-gray-950">Journée du {report.date}</h1>
+        </div>
+        <div className="text-right text-xs text-gray-500">
+          Généré le {new Date().toLocaleString("fr-FR")}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-4 gap-3">
+        <div className="rounded-lg border border-gray-200 p-3">
+          <div className="text-xs font-semibold uppercase text-gray-500">Soumises</div>
+          <div className="text-xl font-bold">{formatCount(report.submitted?.count)}</div>
+          <div className="text-xs text-gray-600">{formatFcfa(report.submitted?.amountFcfa || 0)}</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 p-3">
+          <div className="text-xs font-semibold uppercase text-gray-500">Préfacturées</div>
+          <div className="text-xl font-bold">{formatCount(report.invoiced?.count)}</div>
+          <div className="text-xs text-gray-600">{formatFcfa(report.invoiced?.amountFcfa || 0)}</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 p-3">
+          <div className="text-xs font-semibold uppercase text-gray-500">Encaissé</div>
+          <div className="text-xl font-bold">{formatFcfa(report.paid?.amountFcfa || 0)}</div>
+          <div className="text-xs text-gray-600">{formatCount(report.paid?.count)} commandes • {conversionRate}</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 p-3">
+          <div className="text-xs font-semibold uppercase text-gray-500">Annulées</div>
+          <div className="text-xl font-bold">{formatCount(report.cancelled?.count)}</div>
+          <div className="text-xs text-gray-600">{formatFcfa(report.cancelled?.amountFcfa || 0)}</div>
+        </div>
+      </div>
+
+      <section className="mt-4 rounded-lg border border-gray-200 p-3">
+        <h2 className="text-sm font-bold">Flux de la journée</h2>
+        <div className="mt-2 grid grid-cols-5 gap-2 text-xs">
+          <div>Soumises<br /><strong>{formatCount(report.submitted?.count)}</strong></div>
+          <div>Préfacturées<br /><strong>{formatCount(report.invoiced?.count)}</strong></div>
+          <div>Payées<br /><strong>{formatCount(report.paid?.count)}</strong></div>
+          <div>Préparation<br /><strong>{formatCount(report.preparation?.launched?.count)}</strong></div>
+          <div>Clôturées<br /><strong>{formatCount(report.preparation?.fulfilled?.count)}</strong></div>
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-lg border border-amber-200 p-3">
+        <h2 className="text-sm font-bold">À traiter en priorité</h2>
+        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div>Soumises non préfacturées<br /><strong>{formatCount(priorityCounts.submitted)}</strong></div>
+          <div>Préfacturées non payées<br /><strong>{formatCount(priorityCounts.invoiced)}</strong></div>
+          <div>Payées non lancées<br /><strong>{formatCount(priorityCounts.paid)}</strong></div>
+        </div>
+      </section>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <PrintMiniBars title="Encaissement par mode" rows={report.paid?.byPaymentMode || []} />
+        <PrintMiniBars title="Paiements par caissière" rows={report.paid?.byCashier || []} />
+        <PrintMiniBars title="Préfacturation par facturier" rows={report.invoiced?.byInvoicer || []} />
+        <PrintMiniBars title="Annulations par motif" rows={report.cancelled?.byReason || []} />
+      </div>
+
+      <PrintRowsTable title="Préfacturées du jour" rows={report.invoiced?.rows || []} type="invoiced" />
+      <PrintRowsTable title="Paiements validés du jour" rows={report.paid?.rows || []} type="paid" />
+      <PrintRowsTable title="Annulations du jour" rows={report.cancelled?.rows || []} type="cancelled" />
+    </div>
+  );
+};
+
 const KpiCard = ({ title, value, trend, icon: Icon, color }) => {
   const colors = {
     blue: "bg-blue-50 border-blue-200",
@@ -644,6 +789,11 @@ export default function DailySalesReportPage() {
     link.download = `rapport-ventes-${report.date || date}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const printReport = () => {
+    if (!report) return;
+    window.setTimeout(() => window.print(), 50);
   };
 
   const handleViewOrder = (orderId) => {
@@ -838,20 +988,30 @@ export default function DailySalesReportPage() {
         }
         @media print {
           body { background: #fff !important; }
-          .print-hidden, .print-toolbar { display: none !important; }
-          .daily-report-print { 
+          body * { visibility: hidden !important; }
+          .print-report, .print-report * { visibility: visible !important; }
+          .print-report {
+            display: block !important;
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            color: #111827 !important;
+            background: #fff !important;
+            padding: 0 !important;
+          }
+          .screen-report, .print-hidden, .print-toolbar { display: none !important; }
+          .daily-report-print {
             color: #111827 !important;
             padding: 0 !important;
           }
-          .daily-report-print section, 
-          .daily-report-print .rounded-xl { 
-            break-inside: avoid; 
+          .print-report section,
+          .print-report .rounded-lg {
+            break-inside: avoid;
             box-shadow: none !important;
-            border: 1px solid #e5e7eb !important;
           }
-          .daily-report-print table { font-size: 9px !important; }
-          .daily-report-print th, 
-          .daily-report-print td { padding: 6px 8px !important; }
+          .print-report table { font-size: 9px !important; }
+          .print-report th,
+          .print-report td { padding: 4px 6px !important; }
         }
         
         @keyframes fadeIn {
@@ -863,7 +1023,9 @@ export default function DailySalesReportPage() {
           animation: fadeIn 0.3s ease-out;
         }
       `}</style>
+      <PrintableDailyReport report={report} conversionRate={conversionRate} priorityCounts={priorityCounts} />
 
+      <div className="screen-report space-y-6">
       {/* Header */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -932,7 +1094,7 @@ export default function DailySalesReportPage() {
             
             <button 
               type="button" 
-              onClick={() => window.print()} 
+              onClick={printReport}
               disabled={!report}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
@@ -1102,6 +1264,7 @@ export default function DailySalesReportPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
