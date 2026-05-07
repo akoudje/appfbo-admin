@@ -25,6 +25,7 @@ import SubmittedOrdersPrintPage from "./pages/SubmittedOrdersPrintPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
+import DailySalesReportPage from "./pages/DailySalesReportPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -144,6 +145,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à l’espace caisse." />}
                     >
                       <CashierWorkspacePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/reports/daily-sales"
+                  element={
+                    <RequirePermission
+                      permission={Permission.EXPORT_READ}
+                      fallback={<AccessDenied message="Accès refusé aux rapports." />}
+                    >
+                      <DailySalesReportPage />
                     </RequirePermission>
                   }
                 />

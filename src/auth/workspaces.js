@@ -33,9 +33,10 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.INVOICER:
       return new Set(["billing"]);
     case AdminRole.BILLING_MANAGER:
-      return new Set(["orders", "billing"]);
-    case AdminRole.CAISSIERE:
+      return new Set(["orders", "billing", "reports"]);
     case AdminRole.COUNTER_MANAGER:
+      return new Set(["cashier", "reports"]);
+    case AdminRole.CAISSIERE:
       return new Set(["cashier"]);
     case AdminRole.ORDER_PREPARER:
       return new Set(["preparation"]);
@@ -50,6 +51,7 @@ export function getWorkspaceNavKeys(role) {
         "preparation",
         "stock",
         "products",
+        "reports",
         "settings",
         "marketing",
       ]);

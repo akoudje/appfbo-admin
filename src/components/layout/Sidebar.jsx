@@ -16,6 +16,7 @@ import {
   Tags,
   Settings,
   Megaphone,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   X,
@@ -89,6 +90,15 @@ const NAV_ITEMS = [
     icon: Tags,
     badge: null,
     description: "Catalogue produits",
+  },
+  {
+    key: "reports",
+    to: "/reports/daily-sales",
+    label: "Rapports",
+    permission: Permission.EXPORT_READ,
+    icon: BarChart3,
+    badge: null,
+    description: "Rapports journaliers",
   },
 ];
 
