@@ -701,6 +701,7 @@ function SmsCampaignWorkspace({
   const stats = getSmsStats(selectedCampaign || {});
   const preview = renderSmsPreview(selectedCampaign || {});
   const smsTooLong = preview.length > 160;
+  const isCampaignSending = String(selectedCampaign?.status || "").toUpperCase() === "SENDING";
 
   function patchCampaign(patch) {
     if (!selectedCampaign) return;
@@ -810,10 +811,15 @@ function SmsCampaignWorkspace({
           description="Configurez l'événement, le message et la liste de destinataires avant envoi."
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              {isCampaignSending ? (
+                <span className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                  Envoi en cours…
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={onSave}
-                disabled={!canWrite || saving}
+                disabled={!canWrite || saving || isCampaignSending}
                 className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
               >
                 {saving ? "Enregistrement..." : "Enregistrer"}
@@ -821,7 +827,7 @@ function SmsCampaignWorkspace({
               <button
                 type="button"
                 onClick={() => onSendTest(selectedCampaign)}
-                disabled={!canWrite || sending || !selectedCampaign.testPhone}
+                disabled={!canWrite || sending || !selectedCampaign.testPhone || isCampaignSending}
                 className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
               >
                 Test SMS
@@ -829,15 +835,15 @@ function SmsCampaignWorkspace({
               <button
                 type="button"
                 onClick={() => onSendCampaign(selectedCampaign)}
-                disabled={!canWrite || sending || stats.valid <= 0}
+                disabled={!canWrite || sending || stats.valid <= 0 || isCampaignSending}
                 className="bg-black px-4 py-2 text-sm font-medium text-white hover:bg-[#333333] disabled:opacity-50"
               >
-                {sending ? "Envoi..." : "Envoyer"}
+                {sending && !isCampaignSending ? "Envoi..." : "Envoyer"}
               </button>
               <button
                 type="button"
                 onClick={() => onResendFailed(selectedCampaign)}
-                disabled={!canWrite || sending || stats.failed <= 0}
+                disabled={!canWrite || sending || stats.failed <= 0 || isCampaignSending}
                 className="border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
               >
                 Renvoyer échecs
@@ -894,7 +900,7 @@ function SmsCampaignWorkspace({
             <div className="lg:col-span-2">
               <Field
                 label="Message SMS"
-                hint="Limite stricte: 160 caractères après remplacement des variables. Variables: {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}."
+                hint="Variables disponibles : {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}, {{link}} (lien RSVP). Limite : 160 caractères hors lien — un message avec {{link}} peut dépasser 160 car. et sera envoyé en multi-parties."
               >
                 <TextArea
                   rows={4}
@@ -981,8 +987,8 @@ function SmsCampaignWorkspace({
                   smsTooLong ? "font-semibold text-red-700" : "text-[#8d7a5c]"
                 }`}
               >
-                {preview.length}/160 caractères après remplacement des variables.
-                {smsTooLong ? " Le backend coupera automatiquement le texte à 160 caractères." : ""}
+                {preview.length} caractères après remplacement des variables.
+                {smsTooLong ? " Le message dépasse 160 car. — s'il contient {{link}}, le lien sera préservé (multi-parties) ; sinon, le backend le tronquera à 160." : ""}
               </div>
             </div>
           </Card>
@@ -1057,6 +1063,7 @@ export default function MarketingCampaignsPage() {
   const [saving, setSaving] = useState(false);
   const [publishingNow, setPublishingNow] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
+  const [pollingCampaignId, setPollingCampaignId] = useState(null);
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
 
@@ -1089,6 +1096,43 @@ export default function MarketingCampaignsPage() {
     }
     load();
   }, []);
+
+  useEffect(() => {
+    if (!pollingCampaignId) return;
+    let cancelled = false;
+
+    async function poll() {
+      if (cancelled) return;
+      try {
+        const data = await marketingCampaignsService.get();
+        if (cancelled) return;
+        const campaigns = Array.isArray(data?.smsCampaigns) ? data.smsCampaigns : [];
+        setSettings((prev) => ({ ...prev, smsCampaigns: campaigns }));
+        const updated = campaigns.find((c) => c.id === pollingCampaignId);
+        if (updated && String(updated.status || "").toUpperCase() === "SENDING") {
+          setTimeout(poll, 5000);
+        } else {
+          setPollingCampaignId(null);
+          setSendingSms(false);
+          if (updated) {
+            const stats = getSmsStats(updated);
+            setInfo(`Envoi terminé : ${stats.sent} envoyés, ${stats.failed} échecs.`);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setPollingCampaignId(null);
+          setSendingSms(false);
+        }
+      }
+    }
+
+    const t = setTimeout(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [pollingCampaignId]);
 
   async function handleSave() {
     try {
@@ -1230,23 +1274,26 @@ export default function MarketingCampaignsPage() {
       );
     if (!confirmed) return;
 
+    setSendingSms(true);
+    setError("");
+    setInfo("");
     try {
-      setSendingSms(true);
-      setError("");
-      setInfo("");
       const saved = await marketingCampaignsService.save(settings);
       if (Array.isArray(saved?.smsCampaigns)) {
         setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
       }
       const response = await marketingCampaignsService.sendSmsCampaign(campaign.id);
       if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
-      setInfo(
-        `Envoi termine: ${response?.sentCount || 0} envoyes, ${response?.failedCount || 0} echecs.`,
-      );
+      if (response?.sending) {
+        setPollingCampaignId(campaign.id);
+        setInfo(`Envoi en cours pour ${response.total || "?"} destinataires…`);
+      } else {
+        setSendingSms(false);
+        setInfo(`Envoi terminé : ${response?.sentCount || 0} envoyés, ${response?.failedCount || 0} échecs.`);
+      }
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible d'envoyer la campagne SMS.");
-    } finally {
       setSendingSms(false);
+      setError(e?.response?.data?.message || "Impossible d'envoyer la campagne SMS.");
     }
   }
 
@@ -1256,10 +1303,10 @@ export default function MarketingCampaignsPage() {
       window.confirm(`Renvoyer uniquement aux ${getSmsStats(campaign).failed} destinataires en echec ?`);
     if (!confirmed) return;
 
+    setSendingSms(true);
+    setError("");
+    setInfo("");
     try {
-      setSendingSms(true);
-      setError("");
-      setInfo("");
       const saved = await marketingCampaignsService.save(settings);
       if (Array.isArray(saved?.smsCampaigns)) {
         setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
@@ -1268,13 +1315,16 @@ export default function MarketingCampaignsPage() {
         failedOnly: true,
       });
       if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
-      setInfo(
-        `Renvoi termine: ${response?.sentCount || 0} envoyes, ${response?.failedCount || 0} echecs.`,
-      );
+      if (response?.sending) {
+        setPollingCampaignId(campaign.id);
+        setInfo(`Renvoi en cours pour ${response.total || "?"} destinataires en échec…`);
+      } else {
+        setSendingSms(false);
+        setInfo(`Renvoi terminé : ${response?.sentCount || 0} envoyés, ${response?.failedCount || 0} échecs.`);
+      }
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de renvoyer les SMS en échec.");
-    } finally {
       setSendingSms(false);
+      setError(e?.response?.data?.message || "Impossible de renvoyer les SMS en échec.");
     }
   }
 
