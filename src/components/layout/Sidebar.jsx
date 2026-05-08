@@ -33,7 +33,38 @@ import {
   Clock,
   Users,
   ArrowUpRight,
+  
+  // Icônes supplémentaires pour les composants
+  MessageCircle,
+  Target,
+  CheckCircle,
+  Send,
+  ThumbsUp,
+  Plus,
+  Grid3X3,
+  List,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
+
+// ============================================
+// DÉFINITIONS DES ALIAS D'ICÔNES
+// ============================================
+const MessageIcon = MessageCircle;
+const CampaignIcon = Target;
+const CheckCircleIcon = CheckCircle;
+const SendIcon = Send;
+const AlertCircleIcon = AlertCircle;
+const ThumbsUpIcon = ThumbsUp;
+const PlusIcon = Plus;
+const GridIcon = Grid3X3;
+const ListIcon = List;
+const AlertTriangleIcon = AlertTriangle;
+const InfoIcon = Info;
+const UsersIcon = Users;
+const SearchIcon = Search;
+const ClockIcon = Clock;
+const XIcon = X;
 
 // ============================================
 // CONSTANTES AVEC ICÔNES LUCIDE OPTIMISÉES
