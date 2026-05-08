@@ -737,6 +737,42 @@ export function SmsCampaignWorkspace({
   const smsTooLong = preview.length > 160;
   const isCampaignSending = String(selectedCampaign?.status || "").toUpperCase() === "SENDING";
   const sentProgress = stats.valid > 0 ? Math.round((stats.sent / stats.valid) * 100) : 0;
+  const readinessChecks = [
+    {
+      key: "event",
+      label: "Événement renseigné",
+      ok: Boolean(
+        String(selectedCampaign?.eventDate || "").trim() &&
+          String(selectedCampaign?.location || "").trim(),
+      ),
+      detail: "Date/heure et lieu sont requis.",
+      step: "CONFIG",
+    },
+    {
+      key: "recipients",
+      label: "Destinataires valides",
+      ok: stats.valid > 0,
+      detail: `${stats.valid} destinataire(s) valide(s).`,
+      step: "RECIPIENTS",
+    },
+    {
+      key: "message",
+      label: "Message prêt",
+      ok: Boolean(String(selectedCampaign?.message || "").trim()) && preview.length > 0 && !smsTooLong,
+      detail: `${preview.length}/160 caractères après remplacement.`,
+      step: "MESSAGE",
+    },
+    {
+      key: "test",
+      label: "Test SMS effectué",
+      ok: Boolean(selectedCampaign?.lastTestAt),
+      detail: selectedCampaign?.lastTestAt
+        ? `Dernier test: ${new Date(selectedCampaign.lastTestAt).toLocaleString()}`
+        : "Envoyez un SMS de test avant la diffusion.",
+      step: "MESSAGE",
+    },
+  ];
+  const canSendCampaign = readinessChecks.every((check) => check.ok);
   const workflowSteps = [
     { id: "CONFIG", label: "Configuration", detail: selectedCampaign?.eventDate || "Événement" },
     { id: "RECIPIENTS", label: "Destinataires", detail: `${stats.valid}/${stats.total} valides` },
@@ -1118,6 +1154,37 @@ export function SmsCampaignWorkspace({
 
         {activeWorkflowStep === "VERIFY" ? (
           <Card title="Vérification et envoi" description="Contrôlez les volumes et lancez l'envoi lorsque la campagne est prête.">
+            <div className="mb-4 grid gap-3 md:grid-cols-2">
+              {readinessChecks.map((check) => (
+                <button
+                  key={check.key}
+                  type="button"
+                  onClick={() => setActiveWorkflowStep(check.step)}
+                  className={`flex min-h-[92px] items-start gap-3 border p-4 text-left transition hover:border-[#FFC600] ${
+                    check.ok ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border text-xs font-semibold ${
+                      check.ok
+                        ? "border-green-300 bg-white text-green-700"
+                        : "border-amber-300 bg-white text-amber-700"
+                    }`}
+                  >
+                    {check.ok ? "OK" : "!"}
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-black">{check.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-[#6f6a60]">{check.detail}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {!canSendCampaign ? (
+              <div className="mb-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                L'envoi est bloque tant que tous les contrôles ne sont pas validés.
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 ["Contacts", stats.total],
@@ -1155,8 +1222,9 @@ export function SmsCampaignWorkspace({
                 <button
                   type="button"
                   onClick={() => onSendCampaign(selectedCampaign)}
-                  disabled={!canWrite || sending || stats.valid <= 0 || isCampaignSending}
+                  disabled={!canWrite || sending || !canSendCampaign || isCampaignSending}
                   className="bg-black px-4 py-2 text-sm font-medium text-white hover:bg-[#333333] disabled:opacity-50"
+                  title={!canSendCampaign ? "Validez tous les contrôles avant d'envoyer." : undefined}
                 >
                   {sending && !isCampaignSending ? "Envoi..." : "Envoyer"}
                 </button>
