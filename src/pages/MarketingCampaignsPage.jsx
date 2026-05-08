@@ -202,6 +202,35 @@ function getSmsStats(campaign = {}) {
   );
 }
 
+function statusTone(status = "") {
+  const normalized = String(status || "").toUpperCase();
+  if (["SENT", "CONFIRMED"].includes(normalized)) {
+    return "border-green-200 bg-green-50 text-green-700";
+  }
+  if (["SENDING", "READY"].includes(normalized)) {
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  }
+  if (["PARTIAL", "DRAFT", "PENDING"].includes(normalized)) {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  if (["FAILED", "INVALID", "DECLINED"].includes(normalized)) {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+  if (["SKIPPED", "CANCELLED"].includes(normalized)) {
+    return "border-gray-200 bg-gray-50 text-gray-600";
+  }
+  return "border-[#e7dec8] bg-[#fcfbf7] text-[#6f6a60]";
+}
+
+function StatusPill({ status }) {
+  const normalized = String(status || "DRAFT").toUpperCase();
+  return (
+    <span className={`inline-flex border px-2 py-0.5 text-[11px] font-semibold ${statusTone(normalized)}`}>
+      {normalized}
+    </span>
+  );
+}
+
 function renderSmsPreview(campaign = {}) {
   const recipient = campaign.recipients?.find((item) => item.phoneNormalized) || {};
   const link = campaign.confirmationLink || "https://forevercivstore.com/e/exemple";
@@ -698,10 +727,54 @@ export function SmsCampaignWorkspace({
   const selectedCampaign =
     campaigns.find((campaign) => campaign.id === selectedCampaignId) || campaigns[0] || null;
   const [importText, setImportText] = useState("");
+  const [campaignSearch, setCampaignSearch] = useState("");
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState("ALL");
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState("CONFIG");
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [recipientStatusFilter, setRecipientStatusFilter] = useState("ALL");
   const stats = getSmsStats(selectedCampaign || {});
   const preview = renderSmsPreview(selectedCampaign || {});
   const smsTooLong = preview.length > 160;
   const isCampaignSending = String(selectedCampaign?.status || "").toUpperCase() === "SENDING";
+  const sentProgress = stats.valid > 0 ? Math.round((stats.sent / stats.valid) * 100) : 0;
+  const workflowSteps = [
+    { id: "CONFIG", label: "Configuration", detail: selectedCampaign?.eventDate || "Événement" },
+    { id: "RECIPIENTS", label: "Destinataires", detail: `${stats.valid}/${stats.total} valides` },
+    { id: "MESSAGE", label: "Message", detail: `${preview.length}/160 car.` },
+    { id: "VERIFY", label: "Vérification", detail: `${sentProgress}% envoyé` },
+    { id: "TRACKING", label: "Suivi", detail: `${stats.sent} envoyés` },
+  ];
+  const filteredCampaigns = campaigns.filter((campaign) => {
+    const status = String(campaign.status || "DRAFT").toUpperCase();
+    const matchesStatus = campaignStatusFilter === "ALL" || status === campaignStatusFilter;
+    const haystack = [
+      campaign.name,
+      campaign.eventName,
+      campaign.eventDate,
+      campaign.location,
+      status,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return matchesStatus && haystack.includes(campaignSearch.trim().toLowerCase());
+  });
+  const filteredRecipients = (selectedCampaign?.recipients || []).filter((recipient) => {
+    const status = String(recipient.status || "PENDING").toUpperCase();
+    const matchesStatus = recipientStatusFilter === "ALL" || status === recipientStatusFilter;
+    const haystack = [
+      recipient.nom,
+      recipient.numeroFbo,
+      recipient.phoneNormalized,
+      recipient.phoneRaw,
+      recipient.ville,
+      recipient.grade,
+      status,
+      recipient.lastError,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return matchesStatus && haystack.includes(recipientSearch.trim().toLowerCase());
+  });
 
   function patchCampaign(patch) {
     if (!selectedCampaign) return;
@@ -775,10 +848,34 @@ export function SmsCampaignWorkspace({
           </button>
         }
       >
+        <div className="mb-4 space-y-3">
+          <TextInput
+            value={campaignSearch}
+            onChange={(e) => setCampaignSearch(e.target.value)}
+            placeholder="Rechercher une campagne..."
+          />
+          <select
+            value={campaignStatusFilter}
+            onChange={(e) => setCampaignStatusFilter(e.target.value)}
+            className="w-full border border-[#e7dec8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
+          >
+            <option value="ALL">Tous les statuts</option>
+            <option value="DRAFT">Brouillon</option>
+            <option value="SENDING">En cours</option>
+            <option value="SENT">Envoyée</option>
+            <option value="PARTIAL">Partielle</option>
+            <option value="FAILED">Échec</option>
+          </select>
+        </div>
+
         <div className="space-y-3">
-          {campaigns.map((campaign) => {
+          {filteredCampaigns.map((campaign) => {
             const campaignStats = getSmsStats(campaign);
             const active = campaign.id === selectedCampaign.id;
+            const campaignProgress =
+              campaignStats.valid > 0
+                ? Math.round((campaignStats.sent / campaignStats.valid) * 100)
+                : 0;
             return (
               <button
                 key={campaign.id}
@@ -792,30 +889,83 @@ export function SmsCampaignWorkspace({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="font-semibold text-[#000000]">{campaign.name}</div>
-                  <span className="text-[11px] font-medium text-[#8d7a5c]">
-                    {campaign.status}
-                  </span>
+                  <StatusPill status={campaign.status} />
                 </div>
-                <div className="mt-2 text-xs text-[#6f6a60]">
-                  {campaignStats.valid} valides sur {campaignStats.total} contacts
+                <div className="mt-2 space-y-2 text-xs text-[#6f6a60]">
+                  <div>{campaignStats.valid} valides sur {campaignStats.total} contacts</div>
+                  <div className="h-1.5 overflow-hidden bg-[#efe7d7]">
+                    <div
+                      className="h-full bg-[#FFC600]"
+                      style={{ width: `${Math.min(100, campaignProgress)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{campaignStats.sent} envoyés</span>
+                    <span>{campaignStats.failed} échecs</span>
+                  </div>
                 </div>
               </button>
             );
           })}
+          {!filteredCampaigns.length ? (
+            <div className="border border-dashed border-[#e7dec8] bg-white px-4 py-6 text-center text-sm text-[#8d7a5c]">
+              Aucune campagne ne correspond aux filtres.
+            </div>
+          ) : null}
         </div>
       </Card>
 
       <div className="space-y-6">
-        <Card
-          title="Préparation SMS"
-          description="Configurez l'événement, le message et la liste de destinataires avant envoi."
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              {isCampaignSending ? (
-                <span className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                  Envoi en cours…
-                </span>
-              ) : null}
+        <div className="border border-[#e7dec8] bg-white p-2">
+          <div className="grid gap-2 md:grid-cols-5">
+            {workflowSteps.map((step, index) => (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => setActiveWorkflowStep(step.id)}
+                className={`border px-3 py-3 text-left transition-colors ${
+                  activeWorkflowStep === step.id
+                    ? "border-[#FFC600] bg-[#fff7df] text-black"
+                    : "border-transparent text-[#6f6a60] hover:bg-[#fcfbf7]"
+                }`}
+              >
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                  {index + 1}. {step.label}
+                </div>
+                <div className="mt-1 text-xs">{step.detail}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-3">
+            <div className="text-xs text-[#8d7a5c]">Statut</div>
+            <div className="mt-1"><StatusPill status={selectedCampaign.status} /></div>
+          </div>
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-3">
+            <div className="text-xs text-[#8d7a5c]">Progression</div>
+            <div className="mt-1 text-lg font-semibold text-black">{sentProgress}%</div>
+          </div>
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-3">
+            <div className="text-xs text-[#8d7a5c]">Envoyés / valides</div>
+            <div className="mt-1 text-lg font-semibold text-black">{stats.sent}/{stats.valid}</div>
+          </div>
+          <div className="border border-[#e7dec8] bg-[#fcfbf7] p-3">
+            <div className="text-xs text-[#8d7a5c]">Dernier envoi</div>
+            <div className="mt-1 text-sm font-medium text-black">
+              {selectedCampaign.lastSentAt
+                ? new Date(selectedCampaign.lastSentAt).toLocaleString()
+                : "Jamais"}
+            </div>
+          </div>
+        </div>
+
+        {activeWorkflowStep === "CONFIG" ? (
+          <Card
+            title="Configuration"
+            description="Définissez le contexte de la campagne et les informations de l'événement."
+            actions={
               <button
                 type="button"
                 onClick={onSave}
@@ -824,97 +974,59 @@ export function SmsCampaignWorkspace({
               >
                 {saving ? "Enregistrement..." : "Enregistrer"}
               </button>
-              <button
-                type="button"
-                onClick={() => onSendTest(selectedCampaign)}
-                disabled={!canWrite || sending || !selectedCampaign.testPhone || isCampaignSending}
-                className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
-              >
-                Test SMS
-              </button>
-              <button
-                type="button"
-                onClick={() => onSendCampaign(selectedCampaign)}
-                disabled={!canWrite || sending || stats.valid <= 0 || isCampaignSending}
-                className="bg-black px-4 py-2 text-sm font-medium text-white hover:bg-[#333333] disabled:opacity-50"
-              >
-                {sending && !isCampaignSending ? "Envoi..." : "Envoyer"}
-              </button>
-              <button
-                type="button"
-                onClick={() => onResendFailed(selectedCampaign)}
-                disabled={!canWrite || sending || stats.failed <= 0 || isCampaignSending}
-                className="border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-              >
-                Renvoyer échecs
-              </button>
-            </div>
-          }
-        >
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Nom de la campagne">
-              <TextInput
-                value={selectedCampaign.name || ""}
-                onChange={(e) => patchCampaign({ name: e.target.value })}
-                disabled={!canWrite}
-              />
-            </Field>
-            <Field label="Nom de l'événement">
-              <TextInput
-                value={selectedCampaign.eventName || ""}
-                onChange={(e) => patchCampaign({ eventName: e.target.value })}
-                disabled={!canWrite}
-              />
-            </Field>
-            <Field label="Date / heure">
-              <TextInput
-                value={selectedCampaign.eventDate || ""}
-                onChange={(e) => patchCampaign({ eventDate: e.target.value })}
-                placeholder="Ex: Samedi 18 mai à 09h00"
-                disabled={!canWrite}
-              />
-            </Field>
-            <Field label="Lieu">
-              <TextInput
-                value={selectedCampaign.location || ""}
-                onChange={(e) => patchCampaign({ location: e.target.value })}
-                disabled={!canWrite}
-              />
-            </Field>
-            <Field label="Lien de confirmation / info" hint="Optionnel pour cette première version.">
-              <TextInput
-                value={selectedCampaign.confirmationLink || ""}
-                onChange={(e) => patchCampaign({ confirmationLink: e.target.value })}
-                placeholder="https://..."
-                disabled={!canWrite}
-              />
-            </Field>
-            <Field label="Téléphone de test">
-              <TextInput
-                value={selectedCampaign.testPhone || ""}
-                onChange={(e) => patchCampaign({ testPhone: e.target.value })}
-                placeholder="Ex: 0700000000"
-                disabled={!canWrite}
-              />
-            </Field>
-            <div className="lg:col-span-2">
-              <Field
-                label="Message SMS"
-                hint="Limite stricte : 160 caractères après remplacement. Variables : {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}."
-              >
-                <TextArea
-                  rows={4}
-                  maxLength={160}
-                  value={selectedCampaign.message || ""}
-                  onChange={(e) => patchCampaign({ message: e.target.value })}
+            }
+          >
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Field label="Nom de la campagne">
+                <TextInput
+                  value={selectedCampaign.name || ""}
+                  onChange={(e) => patchCampaign({ name: e.target.value })}
+                  disabled={!canWrite}
+                />
+              </Field>
+              <Field label="Nom de l'événement">
+                <TextInput
+                  value={selectedCampaign.eventName || ""}
+                  onChange={(e) => patchCampaign({ eventName: e.target.value })}
+                  disabled={!canWrite}
+                />
+              </Field>
+              <Field label="Date / heure">
+                <TextInput
+                  value={selectedCampaign.eventDate || ""}
+                  onChange={(e) => patchCampaign({ eventDate: e.target.value })}
+                  placeholder="Ex: Samedi 18 mai à 09h00"
+                  disabled={!canWrite}
+                />
+              </Field>
+              <Field label="Lieu">
+                <TextInput
+                  value={selectedCampaign.location || ""}
+                  onChange={(e) => patchCampaign({ location: e.target.value })}
+                  disabled={!canWrite}
+                />
+              </Field>
+              <Field label="Lien de confirmation / info" hint="Optionnel. Non inclus par défaut dans le SMS.">
+                <TextInput
+                  value={selectedCampaign.confirmationLink || ""}
+                  onChange={(e) => patchCampaign({ confirmationLink: e.target.value })}
+                  placeholder="https://..."
+                  disabled={!canWrite}
+                />
+              </Field>
+              <Field label="Téléphone de test">
+                <TextInput
+                  value={selectedCampaign.testPhone || ""}
+                  onChange={(e) => patchCampaign({ testPhone: e.target.value })}
+                  placeholder="Ex: 0700000000"
                   disabled={!canWrite}
                 />
               </Field>
             </div>
-          </div>
-        </Card>
+          </Card>
+        ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        {activeWorkflowStep === "RECIPIENTS" ? (
           <Card title="Destinataires" description="Collez une liste: nom, téléphone, ville, grade. Une ligne par personne.">
             <TextArea
               rows={8}
@@ -958,8 +1070,54 @@ export function SmsCampaignWorkspace({
               </button>
             </div>
           </Card>
+        ) : null}
 
-          <Card title="Aperçu et contrôle" description="Contrôle avant envoi réel.">
+        {activeWorkflowStep === "MESSAGE" ? (
+          <Card
+            title="Message"
+            description="Composez le SMS et vérifiez le rendu après remplacement des variables."
+            actions={
+              <button
+                type="button"
+                onClick={() => onSendTest(selectedCampaign)}
+                disabled={!canWrite || sending || !selectedCampaign.testPhone || isCampaignSending}
+                className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
+              >
+                Test SMS
+              </button>
+            }
+          >
+            <Field
+              label="Message SMS"
+              hint="Limite stricte : 160 caractères après remplacement. Variables : {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}."
+            >
+              <TextArea
+                rows={5}
+                maxLength={160}
+                value={selectedCampaign.message || ""}
+                onChange={(e) => patchCampaign({ message: e.target.value })}
+                disabled={!canWrite}
+              />
+            </Field>
+            <div className="mt-4 border border-[#e7dec8] bg-[#fcfbf7] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8d7a5c]">
+                Aperçu message
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#000000]">{preview}</p>
+              <div
+                className={`mt-3 text-xs ${
+                  smsTooLong ? "font-semibold text-red-700" : "text-[#8d7a5c]"
+                }`}
+              >
+                {preview.length}/160 caractères après remplacement des variables.
+                {smsTooLong ? " Le backend tronquera automatiquement le texte à 160 caractères." : ""}
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {activeWorkflowStep === "VERIFY" ? (
+          <Card title="Vérification et envoi" description="Contrôlez les volumes et lancez l'envoi lorsque la campagne est prête.">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 ["Contacts", stats.total],
@@ -978,22 +1136,44 @@ export function SmsCampaignWorkspace({
               ))}
             </div>
             <div className="mt-4 border border-[#e7dec8] bg-white p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8d7a5c]">
-                Aperçu message
-              </div>
+              <div className="text-sm font-semibold text-black">Message qui sera envoyé</div>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#000000]">{preview}</p>
-              <div
-                className={`mt-3 text-xs ${
-                  smsTooLong ? "font-semibold text-red-700" : "text-[#8d7a5c]"
-                }`}
-              >
-                {preview.length} caractères après remplacement des variables.
-                {smsTooLong ? " Le backend tronquera automatiquement le texte à 160 caractères." : ""}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {isCampaignSending ? (
+                  <span className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                    Envoi en cours…
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={!canWrite || saving || isCampaignSending}
+                  className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
+                >
+                  {saving ? "Enregistrement..." : "Enregistrer"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSendCampaign(selectedCampaign)}
+                  disabled={!canWrite || sending || stats.valid <= 0 || isCampaignSending}
+                  className="bg-black px-4 py-2 text-sm font-medium text-white hover:bg-[#333333] disabled:opacity-50"
+                >
+                  {sending && !isCampaignSending ? "Envoi..." : "Envoyer"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onResendFailed(selectedCampaign)}
+                  disabled={!canWrite || sending || stats.failed <= 0 || isCampaignSending}
+                  className="border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                >
+                  Renvoyer échecs
+                </button>
               </div>
             </div>
           </Card>
-        </div>
+        ) : null}
 
+        {activeWorkflowStep === "TRACKING" ? (
         <Card title="Suivi destinataires" description="Statut individuel après import et envoi.">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-[#6f6a60]">
@@ -1010,6 +1190,28 @@ export function SmsCampaignWorkspace({
               Supprimer la campagne
             </button>
           </div>
+          <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <TextInput
+              value={recipientSearch}
+              onChange={(e) => setRecipientSearch(e.target.value)}
+              placeholder="Rechercher nom, téléphone, ville, erreur..."
+            />
+            <select
+              value={recipientStatusFilter}
+              onChange={(e) => setRecipientStatusFilter(e.target.value)}
+              className="w-full border border-[#e7dec8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
+            >
+              <option value="ALL">Tous les statuts</option>
+              <option value="READY">Prêts</option>
+              <option value="SENDING">En cours</option>
+              <option value="SENT">Envoyés</option>
+              <option value="FAILED">Échecs</option>
+              <option value="INVALID">Invalides</option>
+              <option value="SKIPPED">Ignorés</option>
+              <option value="CONFIRMED">Confirmés</option>
+              <option value="DECLINED">Indisponibles</option>
+            </select>
+          </div>
           <div className="max-h-[420px] overflow-auto border border-[#e7dec8]">
             <table className="min-w-full divide-y divide-[#efe7d7] text-sm">
               <thead className="sticky top-0 bg-[#fcfbf7]">
@@ -1022,21 +1224,21 @@ export function SmsCampaignWorkspace({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efe7d7] bg-white">
-                {(selectedCampaign.recipients || []).map((recipient) => (
+                {filteredRecipients.map((recipient) => (
                   <tr key={recipient.id}>
                     <td className="px-3 py-2 text-[#000000]">{recipient.nom || "-"}</td>
                     <td className="px-3 py-2 font-mono text-xs text-[#000000]">
                       {recipient.phoneNormalized || recipient.phoneRaw || "-"}
                     </td>
                     <td className="px-3 py-2 text-[#6f6a60]">{recipient.ville || "-"}</td>
-                    <td className="px-3 py-2 text-[#6f6a60]">{recipient.status || "PENDING"}</td>
+                    <td className="px-3 py-2"><StatusPill status={recipient.status || "PENDING"} /></td>
                     <td className="px-3 py-2 text-xs text-red-700">{recipient.lastError || ""}</td>
                   </tr>
                 ))}
-                {!selectedCampaign.recipients?.length ? (
+                {!filteredRecipients.length ? (
                   <tr>
                     <td className="px-3 py-8 text-center text-[#8d7a5c]" colSpan={5}>
-                      Aucun destinataire importé.
+                      Aucun destinataire ne correspond aux filtres.
                     </td>
                   </tr>
                 ) : null}
@@ -1044,6 +1246,7 @@ export function SmsCampaignWorkspace({
             </table>
           </div>
         </Card>
+        ) : null}
       </div>
     </div>
   );
