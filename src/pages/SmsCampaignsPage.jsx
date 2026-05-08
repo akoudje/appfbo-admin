@@ -8,7 +8,7 @@ import {
   createSmsCampaign,
 } from "./MarketingCampaignsPage";
 
-// Dans SmsCampaignsPage.jsx, ajoutez ces imports en haut du fichier
+// Imports des icônes Lucide React
 import {
   MessageCircle,
   Target,
@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 
-// Définissez les alias après les imports
+// Alias des icônes pour la compatibilité
 const MessageIcon = MessageCircle;
 const CampaignIcon = Target;
 const UsersIcon = Users;
@@ -142,7 +142,7 @@ function EmptyState({ onCreateCampaign, canWrite }) {
   return (
     <div className="text-center py-16 px-4">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#FFF9E6] mb-4">
-        <MessageIcon className="w-8 h-8 text-[#FFC600]" />
+        <MessageCircle className="w-8 h-8 text-[#FFC600]" />
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">
         Aucune campagne SMS
@@ -155,7 +155,7 @@ function EmptyState({ onCreateCampaign, canWrite }) {
           onClick={onCreateCampaign}
           className="inline-flex items-center gap-2 px-6 py-3 bg-[#FFC600] text-black font-semibold rounded-lg hover:bg-[#e6b200] transition-colors"
         >
-          <PlusIcon className="w-5 h-5" />
+          <Plus className="w-5 h-5" />
           Créer ma première campagne
         </button>
       )}
@@ -222,7 +222,7 @@ export default function SmsCampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date");
-  const [viewMode, setViewMode] = useState("grid"); // grid ou list
+  const [viewMode, setViewMode] = useState("grid");
 
   const smsCampaigns = settings.smsCampaigns || [];
   const stats = useCampaignStats(smsCampaigns);
@@ -259,7 +259,6 @@ export default function SmsCampaignsPage() {
     return result;
   }, [smsCampaigns, searchQuery, statusFilter, sortBy]);
 
-  // Gestionnaires optimisés avec useCallback
   const handleCreateSmsCampaign = useCallback(() => {
     const nextCampaign = createSmsCampaign();
     setSettings((prev) => ({
@@ -298,7 +297,6 @@ export default function SmsCampaignsPage() {
     });
   }, [smsCampaigns]);
 
-  // Effets secondaires
   useEffect(() => {
     async function load() {
       try {
@@ -322,7 +320,6 @@ export default function SmsCampaignsPage() {
     load();
   }, []);
 
-  // Auto-dismiss des notifications
   useEffect(() => {
     if (info || error) {
       const timer = setTimeout(() => {
@@ -336,13 +333,13 @@ export default function SmsCampaignsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* En-tête modernisé */}
+        {/* En-tête */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1a1a1a] to-[#2d2d2d] p-8 text-white shadow-xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFC600] opacity-5 rounded-full -translate-y-1/3 translate-x-1/3" />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
-                <MessageIcon className="w-6 h-6 text-[#FFC600]" />
+                <MessageCircle className="w-6 h-6 text-[#FFC600]" />
               </div>
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FFC600]">
                 Marketing SMS
@@ -356,49 +353,49 @@ export default function SmsCampaignsPage() {
           </div>
         </div>
 
-        {/* Statistiques avancées */}
+        {/* Statistiques */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <MetricCard
             label="Campagnes"
             value={stats.campaigns}
-            icon={<CampaignIcon className="w-5 h-5 text-gray-400" />}
+            icon={<Target className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
             label="Contacts"
             value={stats.contacts}
-            icon={<UsersIcon className="w-5 h-5 text-gray-400" />}
+            icon={<Users className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
             label="Valides"
             value={stats.valid}
             subValue={`${stats.deliveryRate}% livrés`}
-            icon={<CheckCircleIcon className="w-5 h-5 text-gray-400" />}
+            icon={<CheckCircle className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
             label="Envoyés"
             value={stats.sent}
-            icon={<SendIcon className="w-5 h-5 text-gray-400" />}
+            icon={<Send className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
             label="Échecs"
             value={stats.failed}
             subValue={`${stats.failureRate}%`}
-            icon={<AlertCircleIcon className="w-5 h-5 text-gray-400" />}
+            icon={<AlertCircle className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
             label="Confirmés"
             value={stats.confirmed}
             subValue={`${stats.responseRate}% de réponse`}
-            icon={<ThumbsUpIcon className="w-5 h-5 text-gray-400" />}
+            icon={<ThumbsUp className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
             label="En attente"
             value={stats.pending}
-            icon={<ClockIcon className="w-5 h-5 text-gray-400" />}
+            icon={<Clock className="w-5 h-5 text-gray-400" />}
           />
         </div>
 
-        {/* Notifications avec animation */}
+        {/* Notifications */}
         <AnimatedNotification type="success" message={info} isVisible={!!info} />
         <AnimatedNotification type="error" message={error} isVisible={!!error} />
         
@@ -406,9 +403,8 @@ export default function SmsCampaignsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex-1 flex flex-col sm:flex-row gap-3">
-              {/* Recherche */}
               <div className="relative flex-1 max-w-md">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Rechercher une campagne..."
@@ -418,7 +414,6 @@ export default function SmsCampaignsPage() {
                 />
               </div>
               
-              {/* Filtres */}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -430,7 +425,6 @@ export default function SmsCampaignsPage() {
                 <option value="completed">Terminé</option>
               </select>
               
-              {/* Tri */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -442,20 +436,19 @@ export default function SmsCampaignsPage() {
               </select>
             </div>
             
-            {/* Actions */}
             <div className="flex gap-2">
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-1.5 rounded ${viewMode === "grid" ? "bg-white shadow" : ""}`}
                 >
-                  <GridIcon className="w-4 h-4" />
+                  <Grid3X3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
                   className={`p-1.5 rounded ${viewMode === "list" ? "bg-white shadow" : ""}`}
                 >
-                  <ListIcon className="w-4 h-4" />
+                  <List className="w-4 h-4" />
                 </button>
               </div>
               
@@ -464,7 +457,7 @@ export default function SmsCampaignsPage() {
                   onClick={handleCreateSmsCampaign}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFC600] text-black font-semibold rounded-lg hover:bg-[#e6b200] transition-all hover:shadow-lg"
                 >
-                  <PlusIcon className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Nouvelle campagne</span>
                 </button>
               )}
@@ -491,7 +484,15 @@ export default function SmsCampaignsPage() {
         )}
 
         {/* Dialogue de confirmation */}
-        <ConfirmationDialog {...confirmDialog} />
+        <ConfirmationDialog
+          isOpen={confirmDialog.isOpen}
+          onClose={confirmDialog.config.onClose}
+          onConfirm={confirmDialog.config.onConfirm}
+          title={confirmDialog.config.title}
+          message={confirmDialog.config.message}
+          confirmLabel={confirmDialog.config.confirmLabel}
+          type={confirmDialog.config.type}
+        />
       </div>
     </div>
   );
@@ -515,13 +516,13 @@ function AnimatedNotification({ type, message, isVisible }) {
         }`}
       >
         {type === 'success' ? (
-          <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
         ) : (
-          <AlertCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
         )}
         <p className="text-sm font-medium flex-1">{message}</p>
         <button className="text-current opacity-50 hover:opacity-100">
-          <XIcon className="w-4 h-4" />
+          <X className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -551,14 +552,3 @@ function LoadingSkeleton() {
     </div>
   );
 }
-
-// Icônes SVG (à remplacer par votre bibliothèque d'icônes préférée)
-function MessageIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-    </svg>
-  );
-}
-
-// ... autres icônes similaires
