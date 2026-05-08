@@ -10,8 +10,8 @@ export const marketingCampaignsService = {
   sendSmsTest: async (campaignId, body) =>
     (await api.post(`/admin/marketing-campaigns/sms/${campaignId}/send-test`, body)).data,
 
-  sendSmsCampaign: async (campaignId) =>
-    (await api.post(`/admin/marketing-campaigns/sms/${campaignId}/send`)).data,
+  sendSmsCampaign: async (campaignId, body = {}) =>
+    (await api.post(`/admin/marketing-campaigns/sms/${campaignId}/send`, body)).data,
 
   uploadAsset: async ({ file, slot }) => {
     const formData = new FormData();

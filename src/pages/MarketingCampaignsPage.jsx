@@ -194,9 +194,11 @@ function getSmsStats(campaign = {}) {
       if (status === "FAILED") acc.failed += 1;
       if (status === "INVALID") acc.invalid += 1;
       if (status === "SKIPPED") acc.skipped += 1;
+      if (status === "CONFIRMED") acc.confirmed += 1;
+      if (status === "DECLINED") acc.declined += 1;
       return acc;
     },
-    { total: 0, valid: 0, sent: 0, failed: 0, invalid: 0, skipped: 0 },
+    { total: 0, valid: 0, sent: 0, failed: 0, invalid: 0, skipped: 0, confirmed: 0, declined: 0 },
   );
 }
 
@@ -209,6 +211,37 @@ function renderSmsPreview(campaign = {}) {
     .replace(/{{\s*eventDate\s*}}/gi, campaign.eventDate || "date a confirmer")
     .replace(/{{\s*location\s*}}/gi, campaign.location || "lieu a confirmer")
     .replace(/{{\s*link\s*}}/gi, campaign.confirmationLink || "");
+}
+
+function csvEscape(value = "") {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function exportCampaignRecipients(campaign = {}) {
+  const rows = Array.isArray(campaign.recipients) ? campaign.recipients : [];
+  const header = ["Nom", "Numero FBO", "Telephone", "Ville", "Grade", "Statut", "Envoye le", "Erreur"];
+  const body = rows.map((recipient) => [
+    recipient.nom,
+    recipient.numeroFbo,
+    recipient.phoneNormalized || recipient.phoneRaw,
+    recipient.ville,
+    recipient.grade,
+    recipient.status,
+    recipient.sentAt,
+    recipient.lastError,
+  ]);
+  const csv = [header, ...body].map((row) => row.map(csvEscape).join(";")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${String(campaign.name || "campagne-sms")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "campagne-sms"}-suivi.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function getRenderableSlides(slides = []) {
@@ -649,6 +682,8 @@ function SmsCampaignWorkspace({
   onSave,
   onSendTest,
   onSendCampaign,
+  onResendFailed,
+  onDeleteCampaign,
   canWrite,
   saving,
   sending,
@@ -672,6 +707,30 @@ function SmsCampaignWorkspace({
   function handleImportRecipients() {
     const parsed = parseRecipients(importText);
     patchCampaign({ recipients: parsed });
+  }
+
+  function handleAppendRecipients() {
+    const parsed = parseRecipients(importText);
+    const existing = Array.isArray(selectedCampaign.recipients)
+      ? selectedCampaign.recipients
+      : [];
+    const seen = new Set(
+      existing
+        .map((recipient) => String(recipient.phoneNormalized || "").replace(/\D/g, ""))
+        .filter(Boolean),
+    );
+    const nextRecipients = [
+      ...existing,
+      ...parsed.map((recipient) => {
+        const key = String(recipient.phoneNormalized || "").replace(/\D/g, "");
+        const duplicate = key && seen.has(key);
+        if (key) seen.add(key);
+        return duplicate
+          ? { ...recipient, status: "SKIPPED", lastError: "Doublon detecte" }
+          : recipient;
+      }),
+    ];
+    patchCampaign({ recipients: nextRecipients });
   }
 
   if (!selectedCampaign) {
@@ -768,6 +827,14 @@ function SmsCampaignWorkspace({
               >
                 {sending ? "Envoi..." : "Envoyer"}
               </button>
+              <button
+                type="button"
+                onClick={() => onResendFailed(selectedCampaign)}
+                disabled={!canWrite || sending || stats.failed <= 0}
+                className="border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+              >
+                Renvoyer échecs
+              </button>
             </div>
           }
         >
@@ -853,11 +920,27 @@ function SmsCampaignWorkspace({
               </button>
               <button
                 type="button"
+                onClick={handleAppendRecipients}
+                disabled={!canWrite || !importText.trim()}
+                className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
+              >
+                Ajouter à la liste
+              </button>
+              <button
+                type="button"
                 onClick={() => patchCampaign({ recipients: [] })}
                 disabled={!canWrite || !selectedCampaign.recipients?.length}
                 className="border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fcfbf7] disabled:opacity-50"
               >
                 Vider
+              </button>
+              <button
+                type="button"
+                onClick={() => exportCampaignRecipients(selectedCampaign)}
+                disabled={!selectedCampaign.recipients?.length}
+                className="border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fcfbf7] disabled:opacity-50"
+              >
+                Export CSV
               </button>
             </div>
           </Card>
@@ -871,6 +954,8 @@ function SmsCampaignWorkspace({
                 ["Échecs", stats.failed],
                 ["Invalides", stats.invalid],
                 ["Ignorés", stats.skipped],
+                ["Confirmés", stats.confirmed],
+                ["Indisponibles", stats.declined],
               ].map(([label, value]) => (
                 <div key={label} className="border border-[#e7dec8] bg-[#fcfbf7] p-3">
                   <div className="text-xs text-[#8d7a5c]">{label}</div>
@@ -891,6 +976,21 @@ function SmsCampaignWorkspace({
         </div>
 
         <Card title="Suivi destinataires" description="Statut individuel après import et envoi.">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-[#6f6a60]">
+              Dernier test: {selectedCampaign.lastTestAt ? new Date(selectedCampaign.lastTestAt).toLocaleString() : "jamais"}
+              {" · "}
+              Dernier envoi: {selectedCampaign.lastSentAt ? new Date(selectedCampaign.lastSentAt).toLocaleString() : "jamais"}
+            </div>
+            <button
+              type="button"
+              onClick={() => onDeleteCampaign(selectedCampaign)}
+              disabled={!canWrite}
+              className="border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              Supprimer la campagne
+            </button>
+          </div>
           <div className="max-h-[420px] overflow-auto border border-[#e7dec8]">
             <table className="min-w-full divide-y divide-[#efe7d7] text-sm">
               <thead className="sticky top-0 bg-[#fcfbf7]">
@@ -931,7 +1031,7 @@ function SmsCampaignWorkspace({
 }
 
 export default function MarketingCampaignsPage() {
-  const canWrite = usePermission(Permission.COUNTRY_WRITE);
+  const canWrite = usePermission(Permission.MARKETING_WRITE);
   const [activeTab, setActiveTab] = useState("visuals");
   const [previewDevice, setPreviewDevice] = useState("desktop");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -1076,6 +1176,18 @@ export default function MarketingCampaignsPage() {
     }));
   }
 
+  function handleDeleteSmsCampaign(campaign) {
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm(`Supprimer la campagne "${campaign.name}" ?`);
+    if (!confirmed) return;
+
+    const nextCampaigns = (settings.smsCampaigns || []).filter((item) => item.id !== campaign.id);
+    setSettings((prev) => ({ ...prev, smsCampaigns: nextCampaigns }));
+    setSelectedSmsCampaignId(nextCampaigns[0]?.id || "");
+    setInfo("Campagne supprimée du brouillon. Cliquez sur Enregistrer pour confirmer.");
+  }
+
   async function handleSendSmsTest(campaign) {
     try {
       setSendingSms(true);
@@ -1120,6 +1232,34 @@ export default function MarketingCampaignsPage() {
       );
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible d'envoyer la campagne SMS.");
+    } finally {
+      setSendingSms(false);
+    }
+  }
+
+  async function handleResendFailedSms(campaign) {
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm(`Renvoyer uniquement aux ${getSmsStats(campaign).failed} destinataires en echec ?`);
+    if (!confirmed) return;
+
+    try {
+      setSendingSms(true);
+      setError("");
+      setInfo("");
+      const saved = await marketingCampaignsService.save(settings);
+      if (Array.isArray(saved?.smsCampaigns)) {
+        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
+      }
+      const response = await marketingCampaignsService.sendSmsCampaign(campaign.id, {
+        failedOnly: true,
+      });
+      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
+      setInfo(
+        `Renvoi termine: ${response?.sentCount || 0} envoyes, ${response?.failedCount || 0} echecs.`,
+      );
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de renvoyer les SMS en échec.");
     } finally {
       setSendingSms(false);
     }
@@ -1245,6 +1385,8 @@ export default function MarketingCampaignsPage() {
           onSave={handleSave}
           onSendTest={handleSendSmsTest}
           onSendCampaign={handleSendSmsCampaign}
+          onResendFailed={handleResendFailedSms}
+          onDeleteCampaign={handleDeleteSmsCampaign}
           canWrite={canWrite}
           saving={saving}
           sending={sendingSms}
