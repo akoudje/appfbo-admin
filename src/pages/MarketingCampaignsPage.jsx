@@ -129,7 +129,7 @@ function createSmsCampaign() {
     location: "",
     confirmationLink: "",
     message:
-      "Bonjour {{nom}}, vous etes invite(e) a {{eventName}} le {{eventDate}} a {{location}}. Infos: {{link}}",
+      "FOREVER: Bonjour {{nom}}, invitation {{eventDate}} a {{location}}.",
     status: "DRAFT",
     testPhone: "",
     recipients: [],
@@ -700,7 +700,7 @@ function SmsCampaignWorkspace({
   const [importText, setImportText] = useState("");
   const stats = getSmsStats(selectedCampaign || {});
   const preview = renderSmsPreview(selectedCampaign || {});
-  const smsParts = Math.max(1, Math.ceil(preview.length / 160));
+  const smsTooLong = preview.length > 160;
 
   function patchCampaign(patch) {
     if (!selectedCampaign) return;
@@ -894,10 +894,11 @@ function SmsCampaignWorkspace({
             <div className="lg:col-span-2">
               <Field
                 label="Message SMS"
-                hint="Variables disponibles: {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}, {{link}}."
+                hint="Limite stricte: 160 caractères après remplacement des variables. Variables: {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}."
               >
                 <TextArea
                   rows={4}
+                  maxLength={160}
                   value={selectedCampaign.message || ""}
                   onChange={(e) => patchCampaign({ message: e.target.value })}
                   disabled={!canWrite}
@@ -975,8 +976,13 @@ function SmsCampaignWorkspace({
                 Aperçu message
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#000000]">{preview}</p>
-              <div className="mt-3 text-xs text-[#8d7a5c]">
-                {preview.length} caractères, environ {smsParts} SMS par destinataire.
+              <div
+                className={`mt-3 text-xs ${
+                  smsTooLong ? "font-semibold text-red-700" : "text-[#8d7a5c]"
+                }`}
+              >
+                {preview.length}/160 caractères après remplacement des variables.
+                {smsTooLong ? " Le backend coupera automatiquement le texte à 160 caractères." : ""}
               </div>
             </div>
           </Card>
