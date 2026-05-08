@@ -19,6 +19,8 @@ export function getDefaultWorkspaceRoute(role) {
       return "/preparation";
     case AdminRole.STOCK_MANAGER:
       return "/stock";
+    case AdminRole.MARKETING_ASSISTANT:
+      return "/marketing/sms-campaigns";
     default:
       return "/dashboard";
   }
@@ -54,6 +56,7 @@ export function getWorkspaceNavKeys(role) {
         "reports",
         "settings",
         "marketing",
+        "sms-campaigns",
       ]);
   }
 }

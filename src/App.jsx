@@ -25,6 +25,7 @@ import SubmittedOrdersPrintPage from "./pages/SubmittedOrdersPrintPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
+import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
@@ -70,6 +71,30 @@ function MarketingCampaignsRoute() {
       fallback={<AccessDenied message="Accès refusé aux campagnes marketing." />}
     >
       <MarketingCampaignsPage />
+    </RequirePermission>
+  );
+}
+
+function SmsCampaignsRoute() {
+  const { role } = useAdminAuth();
+  const allowedRoles = new Set([
+    AdminRole.SUPER_ADMIN,
+    AdminRole.TECH_ADMIN,
+    AdminRole.OPERATIONS_DIRECTOR,
+    AdminRole.SALES_DIRECTOR,
+    AdminRole.MARKETING_ASSISTANT,
+  ]);
+
+  if (!allowedRoles.has(role)) {
+    return <AccessDenied message="Accès refusé aux campagnes SMS." />;
+  }
+
+  return (
+    <RequirePermission
+      permission={Permission.COUNTRY_READ}
+      fallback={<AccessDenied message="Accès refusé aux campagnes SMS." />}
+    >
+      <SmsCampaignsPage />
     </RequirePermission>
   );
 }
@@ -260,6 +285,11 @@ export default function App() {
                 <Route
                   path="/marketing/campaigns"
                   element={<MarketingCampaignsRoute />}
+                />
+
+                <Route
+                  path="/marketing/sms-campaigns"
+                  element={<SmsCampaignsRoute />}
                 />
 
                 <Route path="*" element={<div className="p-6">Not found</div>} />

@@ -3,7 +3,7 @@ import { marketingCampaignsService } from "../services/marketingCampaignsService
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
 
-const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS = {
   slides: [
     {
       id: "slide-1",
@@ -118,7 +118,7 @@ function StatusBadge({ active }) {
   );
 }
 
-function createSmsCampaign() {
+export function createSmsCampaign() {
   const now = new Date().toISOString();
   return {
     id: `sms-${Date.now()}`,
@@ -680,7 +680,7 @@ function SidePanelEditor({ title, value, onChange, disabled = false, uploadSlot,
   );
 }
 
-function SmsCampaignWorkspace({
+export function SmsCampaignWorkspace({
   campaigns,
   selectedCampaignId,
   onSelectCampaign,
@@ -900,7 +900,7 @@ function SmsCampaignWorkspace({
             <div className="lg:col-span-2">
               <Field
                 label="Message SMS"
-                hint="Variables disponibles : {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}, {{link}} (lien RSVP). Limite : 160 caractères hors lien — un message avec {{link}} peut dépasser 160 car. et sera envoyé en multi-parties."
+                hint="Limite stricte : 160 caractères après remplacement. Variables : {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}."
               >
                 <TextArea
                   rows={4}
@@ -988,7 +988,7 @@ function SmsCampaignWorkspace({
                 }`}
               >
                 {preview.length} caractères après remplacement des variables.
-                {smsTooLong ? " Le message dépasse 160 car. — s'il contient {{link}}, le lien sera préservé (multi-parties) ; sinon, le backend le tronquera à 160." : ""}
+                {smsTooLong ? " Le backend tronquera automatiquement le texte à 160 caractères." : ""}
               </div>
             </div>
           </Card>
@@ -1331,7 +1331,7 @@ export default function MarketingCampaignsPage() {
   return (
     <div className="space-y-6">
       <Card
-        title="Campagnes marketing"
+        title="Visuels marketing"
         description="Gère ici les visuels promotionnels du frontend utilisateur: slider catalogue, panneaux latéraux desktop et préparation de publication."
         actions={
           <div className="flex items-center gap-3">
@@ -1418,44 +1418,6 @@ export default function MarketingCampaignsPage() {
         </div>
       </Card>
 
-      <div className="flex flex-wrap gap-2 border border-[#e7dec8] bg-white p-2">
-        {[
-          { id: "visuals", label: "Visuels storefront" },
-          { id: "sms", label: "Campagne SMS" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? "bg-[#FFC600] text-black"
-                : "text-[#6f6a60] hover:bg-[#fcfbf7]"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "sms" ? (
-        <SmsCampaignWorkspace
-          campaigns={settings.smsCampaigns || []}
-          selectedCampaignId={selectedSmsCampaignId}
-          onSelectCampaign={setSelectedSmsCampaignId}
-          onCreateCampaign={handleCreateSmsCampaign}
-          onUpdateCampaign={handleUpdateSmsCampaign}
-          onSave={handleSave}
-          onSendTest={handleSendSmsTest}
-          onSendCampaign={handleSendSmsCampaign}
-          onResendFailed={handleResendFailedSms}
-          onDeleteCampaign={handleDeleteSmsCampaign}
-          canWrite={canWrite}
-          saving={saving}
-          sending={sendingSms}
-        />
-      ) : (
-        <>
       <Card
         title="Slides frontend"
         description="Prépare les 3 visuels principaux affichés dans le catalogue utilisateur."
@@ -1630,8 +1592,6 @@ export default function MarketingCampaignsPage() {
           />
         </div>
       </Card>
-        </>
-      )}
     </div>
   );
 }

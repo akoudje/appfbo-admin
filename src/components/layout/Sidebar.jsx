@@ -114,10 +114,25 @@ const SETTINGS_ITEMS = [
   {
     key: "marketing",
     to: "/marketing/campaigns",
-    label: "Campagnes marketing",
+    label: "Visuels marketing",
     permission: Permission.COUNTRY_READ,
     icon: Megaphone,
-    description: "Gestion des campagnes",
+    description: "Slider et panneaux storefront",
+    allowedRoles: [
+      AdminRole.SUPER_ADMIN,
+      AdminRole.TECH_ADMIN,
+      AdminRole.OPERATIONS_DIRECTOR,
+      AdminRole.SALES_DIRECTOR,
+      AdminRole.MARKETING_ASSISTANT,
+    ],
+  },
+  {
+    key: "sms-campaigns",
+    to: "/marketing/sms-campaigns",
+    label: "Campagnes SMS",
+    permission: Permission.COUNTRY_READ,
+    icon: Megaphone,
+    description: "Invitations et suivis SMS",
     allowedRoles: [
       AdminRole.SUPER_ADMIN,
       AdminRole.TECH_ADMIN,
