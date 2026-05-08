@@ -204,13 +204,20 @@ function getSmsStats(campaign = {}) {
 
 function renderSmsPreview(campaign = {}) {
   const recipient = campaign.recipients?.find((item) => item.phoneNormalized) || {};
-  return String(campaign.message || "")
+  const link = campaign.confirmationLink || "https://forevercivstore.com/e/exemple";
+  const rendered = String(campaign.message || "")
     .replace(/{{\s*nom\s*}}/gi, recipient.nom || "FBO")
     .replace(/{{\s*numeroFbo\s*}}/gi, recipient.numeroFbo || "000-000-000")
     .replace(/{{\s*eventName\s*}}/gi, campaign.eventName || campaign.name || "Evenement Forever")
     .replace(/{{\s*eventDate\s*}}/gi, campaign.eventDate || "date a confirmer")
     .replace(/{{\s*location\s*}}/gi, campaign.location || "lieu a confirmer")
-    .replace(/{{\s*link\s*}}/gi, campaign.confirmationLink || "");
+    .replace(/{{\s*link\s*}}/gi, link);
+
+  return rendered
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function csvEscape(value = "") {
