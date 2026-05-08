@@ -19,6 +19,7 @@ export function getDefaultWorkspaceRoute(role) {
       return "/preparation";
     case AdminRole.STOCK_MANAGER:
       return "/stock";
+    case AdminRole.MARKETING_MANAGER:
     case AdminRole.MARKETING_ASSISTANT:
       return "/marketing/sms-campaigns";
     default:
@@ -44,6 +45,10 @@ export function getWorkspaceNavKeys(role) {
       return new Set(["preparation"]);
     case AdminRole.STOCK_MANAGER:
       return new Set(["stock"]);
+    case AdminRole.MARKETING_MANAGER:
+      return new Set(["marketing", "sms-campaigns", "products", "reports"]);
+    case AdminRole.MARKETING_ASSISTANT:
+      return new Set(["marketing", "sms-campaigns", "reports"]);
     default:
       return new Set([
         "dashboard",

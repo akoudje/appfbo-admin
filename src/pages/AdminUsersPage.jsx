@@ -48,6 +48,11 @@ const ROLE_GROUPS = [
         label: "Gestionnaire de stock",
         help: "Pilote le stock et la préparation.",
       },
+      {
+        value: "MARKETING_MANAGER",
+        label: "Responsable marketing",
+        help: "Pilote les campagnes marketing, les campagnes SMS et les exports.",
+      },
     ],
   },
   {
@@ -106,6 +111,7 @@ const ROLE_ASSIGNMENT_MATRIX = {
     "BILLING_MANAGER",
     "COUNTER_MANAGER",
     "STOCK_MANAGER",
+    "MARKETING_MANAGER",
     "MARKETING_ASSISTANT",
     "INVOICER",
     "CAISSIERE",

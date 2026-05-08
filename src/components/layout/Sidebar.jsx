@@ -186,6 +186,7 @@ const SETTINGS_ITEMS = [
       AdminRole.TECH_ADMIN,
       AdminRole.OPERATIONS_DIRECTOR,
       AdminRole.SALES_DIRECTOR,
+      AdminRole.MARKETING_MANAGER,
       AdminRole.MARKETING_ASSISTANT,
     ],
     color: "from-violet-500 to-purple-500",
@@ -203,6 +204,7 @@ const SETTINGS_ITEMS = [
       AdminRole.TECH_ADMIN,
       AdminRole.OPERATIONS_DIRECTOR,
       AdminRole.SALES_DIRECTOR,
+      AdminRole.MARKETING_MANAGER,
       AdminRole.MARKETING_ASSISTANT,
     ],
     color: "from-sky-500 to-blue-500",
@@ -453,6 +455,7 @@ function UserProfileCard({ fullName, email, collapsed, role }) {
       [AdminRole.TECH_ADMIN]: "Tech Admin",
       [AdminRole.OPERATIONS_DIRECTOR]: "Opérations",
       [AdminRole.SALES_DIRECTOR]: "Commercial",
+      [AdminRole.MARKETING_MANAGER]: "Resp. marketing",
       [AdminRole.MARKETING_ASSISTANT]: "Marketing",
     };
     return labels[role] || "Administrateur";

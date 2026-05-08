@@ -58,6 +58,7 @@ function MarketingCampaignsRoute() {
     AdminRole.TECH_ADMIN,
     AdminRole.OPERATIONS_DIRECTOR,
     AdminRole.SALES_DIRECTOR,
+    AdminRole.MARKETING_MANAGER,
     AdminRole.MARKETING_ASSISTANT,
   ]);
 
@@ -82,6 +83,7 @@ function SmsCampaignsRoute() {
     AdminRole.TECH_ADMIN,
     AdminRole.OPERATIONS_DIRECTOR,
     AdminRole.SALES_DIRECTOR,
+    AdminRole.MARKETING_MANAGER,
     AdminRole.MARKETING_ASSISTANT,
   ]);
 
