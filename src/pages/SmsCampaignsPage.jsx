@@ -8,6 +8,42 @@ import {
   createSmsCampaign,
 } from "./MarketingCampaignsPage";
 
+// Dans SmsCampaignsPage.jsx, ajoutez ces imports en haut du fichier
+import {
+  MessageCircle,
+  Target,
+  Users,
+  CheckCircle,
+  Send,
+  AlertCircle,
+  ThumbsUp,
+  Clock,
+  Plus,
+  Grid3X3,
+  List,
+  Search,
+  AlertTriangle,
+  Info,
+  X,
+} from "lucide-react";
+
+// Définissez les alias après les imports
+const MessageIcon = MessageCircle;
+const CampaignIcon = Target;
+const UsersIcon = Users;
+const CheckCircleIcon = CheckCircle;
+const SendIcon = Send;
+const AlertCircleIcon = AlertCircle;
+const ThumbsUpIcon = ThumbsUp;
+const ClockIcon = Clock;
+const PlusIcon = Plus;
+const GridIcon = Grid3X3;
+const ListIcon = List;
+const SearchIcon = Search;
+const AlertTriangleIcon = AlertTriangle;
+const InfoIcon = Info;
+const XIcon = X;
+
 // Types et constantes
 const STATUS_DEFINITIONS = {
   SENT: { label: "Envoyé", color: "bg-green-100 text-green-800" },
