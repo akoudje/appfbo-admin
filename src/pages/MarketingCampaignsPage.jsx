@@ -52,6 +52,7 @@ const DEFAULT_SETTINGS = {
     lastUpdatedBy: "",
     releaseNote: "",
   },
+  smsCampaigns: [],
 };
 
 function Card({ title, description, actions, children }) {
@@ -115,6 +116,99 @@ function StatusBadge({ active }) {
       {active ? "Actif" : "Inactif"}
     </span>
   );
+}
+
+function createSmsCampaign() {
+  const now = new Date().toISOString();
+  return {
+    id: `sms-${Date.now()}`,
+    name: "Invitation événement",
+    type: "EVENT_INVITATION",
+    eventName: "",
+    eventDate: "",
+    location: "",
+    confirmationLink: "",
+    message:
+      "Bonjour {{nom}}, vous etes invite(e) a {{eventName}} le {{eventDate}} a {{location}}. Infos: {{link}}",
+    status: "DRAFT",
+    testPhone: "",
+    recipients: [],
+    createdAt: now,
+    updatedAt: now,
+    lastSentAt: null,
+    lastTestAt: null,
+  };
+}
+
+function normalizePhoneForUi(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 10) return `+225${digits}`;
+  if (digits.startsWith("225") && digits.length === 13) {
+    return `+${digits}`;
+  }
+  if (String(value || "").trim().startsWith("+225") && digits.length === 13) {
+    return String(value || "").trim().replace(/\s+/g, "");
+  }
+  return "";
+}
+
+function parseRecipients(rawText = "") {
+  const rows = String(rawText || "")
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+  const seen = new Set();
+
+  return rows.map((row, index) => {
+    const parts = row.split(/[;\t,]/).map((part) => part.trim());
+    const phoneCandidate = parts.find((part) => /\d{6,}/.test(part)) || row;
+    const phoneNormalized = normalizePhoneForUi(phoneCandidate);
+    const duplicateKey = phoneNormalized.replace(/\D/g, "");
+    const isDuplicate = duplicateKey && seen.has(duplicateKey);
+    if (duplicateKey) seen.add(duplicateKey);
+
+    return {
+      id: `recipient-${Date.now()}-${index + 1}`,
+      nom: parts[0] && !/\d{6,}/.test(parts[0]) ? parts[0] : "",
+      numeroFbo: parts.find((part) => /\d{3}[-\s]?\d{3}[-\s]?\d{3}/.test(part)) || "",
+      phoneRaw: phoneCandidate,
+      phoneNormalized,
+      ville: parts[2] || "",
+      grade: parts[3] || "",
+      status: !phoneNormalized ? "INVALID" : isDuplicate ? "SKIPPED" : "READY",
+      providerMessageId: "",
+      lastError: isDuplicate ? "Doublon detecte" : "",
+      sentAt: null,
+    };
+  });
+}
+
+function getSmsStats(campaign = {}) {
+  const recipients = Array.isArray(campaign.recipients) ? campaign.recipients : [];
+  return recipients.reduce(
+    (acc, recipient) => {
+      acc.total += 1;
+      const status = String(recipient.status || "").toUpperCase();
+      if (recipient.phoneNormalized && status !== "SKIPPED") acc.valid += 1;
+      if (status === "SENT") acc.sent += 1;
+      if (status === "FAILED") acc.failed += 1;
+      if (status === "INVALID") acc.invalid += 1;
+      if (status === "SKIPPED") acc.skipped += 1;
+      return acc;
+    },
+    { total: 0, valid: 0, sent: 0, failed: 0, invalid: 0, skipped: 0 },
+  );
+}
+
+function renderSmsPreview(campaign = {}) {
+  const recipient = campaign.recipients?.find((item) => item.phoneNormalized) || {};
+  return String(campaign.message || "")
+    .replace(/{{\s*nom\s*}}/gi, recipient.nom || "FBO")
+    .replace(/{{\s*numeroFbo\s*}}/gi, recipient.numeroFbo || "000-000-000")
+    .replace(/{{\s*eventName\s*}}/gi, campaign.eventName || campaign.name || "Evenement Forever")
+    .replace(/{{\s*eventDate\s*}}/gi, campaign.eventDate || "date a confirmer")
+    .replace(/{{\s*location\s*}}/gi, campaign.location || "lieu a confirmer")
+    .replace(/{{\s*link\s*}}/gi, campaign.confirmationLink || "");
 }
 
 function getRenderableSlides(slides = []) {
@@ -546,10 +640,302 @@ function SidePanelEditor({ title, value, onChange, disabled = false, uploadSlot,
   );
 }
 
+function SmsCampaignWorkspace({
+  campaigns,
+  selectedCampaignId,
+  onSelectCampaign,
+  onCreateCampaign,
+  onUpdateCampaign,
+  onSave,
+  onSendTest,
+  onSendCampaign,
+  canWrite,
+  saving,
+  sending,
+}) {
+  const selectedCampaign =
+    campaigns.find((campaign) => campaign.id === selectedCampaignId) || campaigns[0] || null;
+  const [importText, setImportText] = useState("");
+  const stats = getSmsStats(selectedCampaign || {});
+  const preview = renderSmsPreview(selectedCampaign || {});
+  const smsParts = Math.max(1, Math.ceil(preview.length / 160));
+
+  function patchCampaign(patch) {
+    if (!selectedCampaign) return;
+    onUpdateCampaign({
+      ...selectedCampaign,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  function handleImportRecipients() {
+    const parsed = parseRecipients(importText);
+    patchCampaign({ recipients: parsed });
+  }
+
+  if (!selectedCampaign) {
+    return (
+      <Card
+        title="Campagne SMS"
+        description="Créez une campagne d'invitation SMS, importez vos destinataires, préparez le message et lancez l'envoi."
+      >
+        <button
+          type="button"
+          onClick={onCreateCampaign}
+          disabled={!canWrite}
+          className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
+        >
+          Nouvelle campagne SMS
+        </button>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <Card
+        title="Campagnes SMS"
+        description="Brouillons et suivis des invitations envoyées."
+        actions={
+          <button
+            type="button"
+            onClick={onCreateCampaign}
+            disabled={!canWrite}
+            className="bg-[#FFC600] px-3 py-2 text-xs font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
+          >
+            Nouvelle
+          </button>
+        }
+      >
+        <div className="space-y-3">
+          {campaigns.map((campaign) => {
+            const campaignStats = getSmsStats(campaign);
+            const active = campaign.id === selectedCampaign.id;
+            return (
+              <button
+                key={campaign.id}
+                type="button"
+                onClick={() => onSelectCampaign(campaign.id)}
+                className={`block w-full border px-4 py-3 text-left transition-colors ${
+                  active
+                    ? "border-[#FFC600] bg-[#fff7df]"
+                    : "border-[#e7dec8] bg-white hover:bg-[#fcfbf7]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-semibold text-[#000000]">{campaign.name}</div>
+                  <span className="text-[11px] font-medium text-[#8d7a5c]">
+                    {campaign.status}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-[#6f6a60]">
+                  {campaignStats.valid} valides sur {campaignStats.total} contacts
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <div className="space-y-6">
+        <Card
+          title="Préparation SMS"
+          description="Configurez l'événement, le message et la liste de destinataires avant envoi."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={!canWrite || saving}
+                className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
+              >
+                {saving ? "Enregistrement..." : "Enregistrer"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSendTest(selectedCampaign)}
+                disabled={!canWrite || sending || !selectedCampaign.testPhone}
+                className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
+              >
+                Test SMS
+              </button>
+              <button
+                type="button"
+                onClick={() => onSendCampaign(selectedCampaign)}
+                disabled={!canWrite || sending || stats.valid <= 0}
+                className="bg-black px-4 py-2 text-sm font-medium text-white hover:bg-[#333333] disabled:opacity-50"
+              >
+                {sending ? "Envoi..." : "Envoyer"}
+              </button>
+            </div>
+          }
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Field label="Nom de la campagne">
+              <TextInput
+                value={selectedCampaign.name || ""}
+                onChange={(e) => patchCampaign({ name: e.target.value })}
+                disabled={!canWrite}
+              />
+            </Field>
+            <Field label="Nom de l'événement">
+              <TextInput
+                value={selectedCampaign.eventName || ""}
+                onChange={(e) => patchCampaign({ eventName: e.target.value })}
+                disabled={!canWrite}
+              />
+            </Field>
+            <Field label="Date / heure">
+              <TextInput
+                value={selectedCampaign.eventDate || ""}
+                onChange={(e) => patchCampaign({ eventDate: e.target.value })}
+                placeholder="Ex: Samedi 18 mai à 09h00"
+                disabled={!canWrite}
+              />
+            </Field>
+            <Field label="Lieu">
+              <TextInput
+                value={selectedCampaign.location || ""}
+                onChange={(e) => patchCampaign({ location: e.target.value })}
+                disabled={!canWrite}
+              />
+            </Field>
+            <Field label="Lien de confirmation / info" hint="Optionnel pour cette première version.">
+              <TextInput
+                value={selectedCampaign.confirmationLink || ""}
+                onChange={(e) => patchCampaign({ confirmationLink: e.target.value })}
+                placeholder="https://..."
+                disabled={!canWrite}
+              />
+            </Field>
+            <Field label="Téléphone de test">
+              <TextInput
+                value={selectedCampaign.testPhone || ""}
+                onChange={(e) => patchCampaign({ testPhone: e.target.value })}
+                placeholder="Ex: 0700000000"
+                disabled={!canWrite}
+              />
+            </Field>
+            <div className="lg:col-span-2">
+              <Field
+                label="Message SMS"
+                hint="Variables disponibles: {{nom}}, {{numeroFbo}}, {{eventName}}, {{eventDate}}, {{location}}, {{link}}."
+              >
+                <TextArea
+                  rows={4}
+                  value={selectedCampaign.message || ""}
+                  onChange={(e) => patchCampaign({ message: e.target.value })}
+                  disabled={!canWrite}
+                />
+              </Field>
+            </div>
+          </div>
+        </Card>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card title="Destinataires" description="Collez une liste: nom, téléphone, ville, grade. Une ligne par personne.">
+            <TextArea
+              rows={8}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={"Aka Jean, 0700000000, Abidjan, Manager\nKouassi Awa, 0500000000, Bouake"}
+              disabled={!canWrite}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleImportRecipients}
+                disabled={!canWrite || !importText.trim()}
+                className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
+              >
+                Importer la liste
+              </button>
+              <button
+                type="button"
+                onClick={() => patchCampaign({ recipients: [] })}
+                disabled={!canWrite || !selectedCampaign.recipients?.length}
+                className="border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fcfbf7] disabled:opacity-50"
+              >
+                Vider
+              </button>
+            </div>
+          </Card>
+
+          <Card title="Aperçu et contrôle" description="Contrôle avant envoi réel.">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {[
+                ["Contacts", stats.total],
+                ["Valides", stats.valid],
+                ["Envoyés", stats.sent],
+                ["Échecs", stats.failed],
+                ["Invalides", stats.invalid],
+                ["Ignorés", stats.skipped],
+              ].map(([label, value]) => (
+                <div key={label} className="border border-[#e7dec8] bg-[#fcfbf7] p-3">
+                  <div className="text-xs text-[#8d7a5c]">{label}</div>
+                  <div className="mt-1 text-2xl font-semibold text-[#000000]">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 border border-[#e7dec8] bg-white p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8d7a5c]">
+                Aperçu message
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#000000]">{preview}</p>
+              <div className="mt-3 text-xs text-[#8d7a5c]">
+                {preview.length} caractères, environ {smsParts} SMS par destinataire.
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card title="Suivi destinataires" description="Statut individuel après import et envoi.">
+          <div className="max-h-[420px] overflow-auto border border-[#e7dec8]">
+            <table className="min-w-full divide-y divide-[#efe7d7] text-sm">
+              <thead className="sticky top-0 bg-[#fcfbf7]">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-[#5D4B3C]">Nom</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[#5D4B3C]">Téléphone</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[#5D4B3C]">Ville</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[#5D4B3C]">Statut</th>
+                  <th className="px-3 py-2 text-left font-semibold text-[#5D4B3C]">Erreur</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#efe7d7] bg-white">
+                {(selectedCampaign.recipients || []).map((recipient) => (
+                  <tr key={recipient.id}>
+                    <td className="px-3 py-2 text-[#000000]">{recipient.nom || "-"}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-[#000000]">
+                      {recipient.phoneNormalized || recipient.phoneRaw || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-[#6f6a60]">{recipient.ville || "-"}</td>
+                    <td className="px-3 py-2 text-[#6f6a60]">{recipient.status || "PENDING"}</td>
+                    <td className="px-3 py-2 text-xs text-red-700">{recipient.lastError || ""}</td>
+                  </tr>
+                ))}
+                {!selectedCampaign.recipients?.length ? (
+                  <tr>
+                    <td className="px-3 py-8 text-center text-[#8d7a5c]" colSpan={5}>
+                      Aucun destinataire importé.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function MarketingCampaignsPage() {
   const canWrite = usePermission(Permission.COUNTRY_WRITE);
+  const [activeTab, setActiveTab] = useState("visuals");
   const [previewDevice, setPreviewDevice] = useState("desktop");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [selectedSmsCampaignId, setSelectedSmsCampaignId] = useState("");
   const [publishedSnapshot, setPublishedSnapshot] = useState({
     slides: DEFAULT_SETTINGS.slides,
     sidePanels: DEFAULT_SETTINGS.sidePanels,
@@ -557,6 +943,7 @@ export default function MarketingCampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishingNow, setPublishingNow] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
 
@@ -570,7 +957,11 @@ export default function MarketingCampaignsPage() {
           slides: Array.isArray(data?.slides) ? data.slides : DEFAULT_SETTINGS.slides,
           sidePanels: data?.sidePanels || DEFAULT_SETTINGS.sidePanels,
           publishing: data?.publishing || DEFAULT_SETTINGS.publishing,
+          smsCampaigns: Array.isArray(data?.smsCampaigns) ? data.smsCampaigns : [],
         });
+        if (Array.isArray(data?.smsCampaigns) && data.smsCampaigns[0]?.id) {
+          setSelectedSmsCampaignId(data.smsCampaigns[0].id);
+        }
         setPublishedSnapshot({
           slides: Array.isArray(data?.publishedSlides)
             ? data.publishedSlides
@@ -595,6 +986,9 @@ export default function MarketingCampaignsPage() {
       setSettings((prev) => ({
         ...prev,
         publishing: response?.publishing || prev.publishing,
+        smsCampaigns: Array.isArray(response?.smsCampaigns)
+          ? response.smsCampaigns
+          : prev.smsCampaigns,
       }));
       if (response?.publishedSlides || response?.publishedSidePanels) {
         setPublishedSnapshot({
@@ -621,6 +1015,9 @@ export default function MarketingCampaignsPage() {
       setSettings((prev) => ({
         ...prev,
         publishing: response?.publishing || prev.publishing,
+        smsCampaigns: Array.isArray(response?.smsCampaigns)
+          ? response.smsCampaigns
+          : prev.smsCampaigns,
       }));
       setPublishedSnapshot({
         slides: Array.isArray(response?.publishedSlides)
@@ -659,6 +1056,74 @@ export default function MarketingCampaignsPage() {
       Number(Boolean(publishedSnapshot.sidePanels?.right?.active)),
     [publishedSnapshot.sidePanels],
   );
+
+  function handleCreateSmsCampaign() {
+    const nextCampaign = createSmsCampaign();
+    setSettings((prev) => ({
+      ...prev,
+      smsCampaigns: [nextCampaign, ...(prev.smsCampaigns || [])],
+    }));
+    setSelectedSmsCampaignId(nextCampaign.id);
+    setActiveTab("sms");
+  }
+
+  function handleUpdateSmsCampaign(nextCampaign) {
+    setSettings((prev) => ({
+      ...prev,
+      smsCampaigns: (prev.smsCampaigns || []).map((campaign) =>
+        campaign.id === nextCampaign.id ? nextCampaign : campaign,
+      ),
+    }));
+  }
+
+  async function handleSendSmsTest(campaign) {
+    try {
+      setSendingSms(true);
+      setError("");
+      setInfo("");
+      const saved = await marketingCampaignsService.save(settings);
+      if (Array.isArray(saved?.smsCampaigns)) {
+        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
+      }
+      const response = await marketingCampaignsService.sendSmsTest(campaign.id, {
+        phone: campaign.testPhone,
+      });
+      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
+      setInfo(response?.ok ? "SMS de test envoyé." : "Test SMS traité avec erreur provider.");
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d'envoyer le SMS de test.");
+    } finally {
+      setSendingSms(false);
+    }
+  }
+
+  async function handleSendSmsCampaign(campaign) {
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm(
+        `Envoyer cette campagne SMS a ${getSmsStats(campaign).valid} destinataires valides ?`,
+      );
+    if (!confirmed) return;
+
+    try {
+      setSendingSms(true);
+      setError("");
+      setInfo("");
+      const saved = await marketingCampaignsService.save(settings);
+      if (Array.isArray(saved?.smsCampaigns)) {
+        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
+      }
+      const response = await marketingCampaignsService.sendSmsCampaign(campaign.id);
+      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
+      setInfo(
+        `Envoi termine: ${response?.sentCount || 0} envoyes, ${response?.failedCount || 0} echecs.`,
+      );
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d'envoyer la campagne SMS.");
+    } finally {
+      setSendingSms(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -750,6 +1215,42 @@ export default function MarketingCampaignsPage() {
         </div>
       </Card>
 
+      <div className="flex flex-wrap gap-2 border border-[#e7dec8] bg-white p-2">
+        {[
+          { id: "visuals", label: "Visuels storefront" },
+          { id: "sms", label: "Campagne SMS" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? "bg-[#FFC600] text-black"
+                : "text-[#6f6a60] hover:bg-[#fcfbf7]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "sms" ? (
+        <SmsCampaignWorkspace
+          campaigns={settings.smsCampaigns || []}
+          selectedCampaignId={selectedSmsCampaignId}
+          onSelectCampaign={setSelectedSmsCampaignId}
+          onCreateCampaign={handleCreateSmsCampaign}
+          onUpdateCampaign={handleUpdateSmsCampaign}
+          onSave={handleSave}
+          onSendTest={handleSendSmsTest}
+          onSendCampaign={handleSendSmsCampaign}
+          canWrite={canWrite}
+          saving={saving}
+          sending={sendingSms}
+        />
+      ) : (
+        <>
       <Card
         title="Slides frontend"
         description="Prépare les 3 visuels principaux affichés dans le catalogue utilisateur."
@@ -924,6 +1425,8 @@ export default function MarketingCampaignsPage() {
           />
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

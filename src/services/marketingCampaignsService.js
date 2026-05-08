@@ -7,6 +7,12 @@ export const marketingCampaignsService = {
 
   publish: async (body) => (await api.post("/admin/marketing-campaigns/publish", body)).data,
 
+  sendSmsTest: async (campaignId, body) =>
+    (await api.post(`/admin/marketing-campaigns/sms/${campaignId}/send-test`, body)).data,
+
+  sendSmsCampaign: async (campaignId) =>
+    (await api.post(`/admin/marketing-campaigns/sms/${campaignId}/send`)).data,
+
   uploadAsset: async ({ file, slot }) => {
     const formData = new FormData();
     formData.append("file", file);
