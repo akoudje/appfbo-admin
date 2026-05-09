@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { list, remove } from "../services/productsService";
+import { copyFromCountry, list, remove } from "../services/productsService";
 
 import { formatFcfa } from "../lib/format";
 
@@ -429,6 +429,7 @@ export default function Products() {
   const [detailsProduct, setDetailsProduct] = useState(null);
 
   const [importOpen, setImportOpen] = useState(false);
+  const [copyBusy, setCopyBusy] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteProduct, setDeleteProduct] = useState(null);
@@ -597,6 +598,30 @@ export default function Products() {
     }
   };
 
+  const handleCopyCatalogFromCiv = async () => {
+    const confirmed = window.confirm(
+      "Copier la disponibilité du catalogue CIV vers tous les autres pays actifs ? Les stocks des nouveaux pays seront initialisés à 0.",
+    );
+    if (!confirmed) return;
+
+    try {
+      setCopyBusy(true);
+      setError("");
+      const result = await copyFromCountry({ sourceCode: "CIV", overwrite: false });
+      const countries = (result?.countries || [])
+        .map((item) => `${item.countryCode}: ${item.created} créés, ${item.skipped} ignorés`)
+        .join(" | ");
+      showToast(`Catalogue copié depuis CIV. ${countries}`, "success");
+      await load({});
+    } catch (e) {
+      const msg = e?.response?.data?.message || "Impossible de copier le catalogue CIV.";
+      setError(msg);
+      showToast(msg, "error");
+    } finally {
+      setCopyBusy(false);
+    }
+  };
+
   const filtersActive = Boolean(q || actifFilter || categoryFilter || stockFilter);
 
   return (
@@ -632,6 +657,14 @@ export default function Products() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
                 Importer CSV
+              </button>
+
+              <button
+                onClick={handleCopyCatalogFromCiv}
+                disabled={loading || copyBusy}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {copyBusy ? "Copie..." : "Copier CIV vers pays"}
               </button>
 
               <button

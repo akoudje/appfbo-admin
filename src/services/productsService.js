@@ -45,3 +45,8 @@ export const remove = async (id) => {
   const res = await api.delete(`/admin/products/${id}`);
   return res.data;
 };
+
+export const copyFromCountry = async (payload = {}) => {
+  const res = await api.post("/admin/products/copy-from-country", payload);
+  return res.data;
+};
