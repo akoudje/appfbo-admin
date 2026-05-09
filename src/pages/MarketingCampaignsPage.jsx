@@ -280,6 +280,56 @@ function exportCampaignRecipients(campaign = {}) {
   URL.revokeObjectURL(url);
 }
 
+function formatCampaignDate(value) {
+  if (!value) return "Jamais";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Jamais";
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getCampaignSuccessRate(stats) {
+  if (!stats.valid) return 0;
+  return Math.round(((stats.sent + stats.confirmed) / stats.valid) * 100);
+}
+
+function exportCampaignSummary(campaign = {}) {
+  const stats = getSmsStats(campaign);
+  const rows = [
+    ["Champ", "Valeur"],
+    ["Campagne", campaign.name || ""],
+    ["Evenement", campaign.eventName || ""],
+    ["Date evenement", campaign.eventDate || ""],
+    ["Lieu", campaign.location || ""],
+    ["Statut", campaign.status || "DRAFT"],
+    ["Cree le", formatCampaignDate(campaign.createdAt)],
+    ["Dernier test", formatCampaignDate(campaign.lastTestAt)],
+    ["Dernier envoi", formatCampaignDate(campaign.lastSentAt)],
+    ["Contacts", stats.total],
+    ["Valides", stats.valid],
+    ["Envoyes", stats.sent],
+    ["Echecs", stats.failed],
+    ["Invalides", stats.invalid],
+    ["Ignores", stats.skipped],
+    ["Confirmes", stats.confirmed],
+    ["Indisponibles", stats.declined],
+    ["Taux succes", `${getCampaignSuccessRate(stats)}%`],
+  ];
+  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${campaign.name || "campagne-sms"}-rapport.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function getRenderableSlides(slides = []) {
   const activeSlides = Array.isArray(slides)
     ? slides.filter((slide) => slide?.active && slide?.image)
@@ -719,6 +769,7 @@ export function SmsCampaignWorkspace({
   onSendTest,
   onSendCampaign,
   onResendFailed,
+  onDuplicateCampaign,
   onDeleteCampaign,
   canWrite,
   saving,
@@ -869,10 +920,10 @@ export function SmsCampaignWorkspace({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(420px,520px)_minmax(0,1fr)]">
       <Card
-        title="Campagnes SMS"
-        description="Brouillons et suivis des invitations envoyées."
+        title="Historique campagnes"
+        description="Vue consolidée des campagnes SMS, volumes, performance et actions."
         actions={
           <button
             type="button"
@@ -904,45 +955,90 @@ export function SmsCampaignWorkspace({
           </select>
         </div>
 
-        <div className="space-y-3">
-          {filteredCampaigns.map((campaign) => {
-            const campaignStats = getSmsStats(campaign);
-            const active = campaign.id === selectedCampaign.id;
-            const campaignProgress =
-              campaignStats.valid > 0
-                ? Math.round((campaignStats.sent / campaignStats.valid) * 100)
-                : 0;
-            return (
-              <button
-                key={campaign.id}
-                type="button"
-                onClick={() => onSelectCampaign(campaign.id)}
-                className={`block w-full border px-4 py-3 text-left transition-colors ${
-                  active
-                    ? "border-[#FFC600] bg-[#fff7df]"
-                    : "border-[#e7dec8] bg-white hover:bg-[#fcfbf7]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-semibold text-[#000000]">{campaign.name}</div>
-                  <StatusPill status={campaign.status} />
-                </div>
-                <div className="mt-2 space-y-2 text-xs text-[#6f6a60]">
-                  <div>{campaignStats.valid} valides sur {campaignStats.total} contacts</div>
-                  <div className="h-1.5 overflow-hidden bg-[#efe7d7]">
-                    <div
-                      className="h-full bg-[#FFC600]"
-                      style={{ width: `${Math.min(100, campaignProgress)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{campaignStats.sent} envoyés</span>
-                    <span>{campaignStats.failed} échecs</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-xs">
+            <thead className="border-y border-[#e7dec8] bg-[#fcfbf7] text-[#6f6a60]">
+              <tr>
+                <th className="px-3 py-2 font-semibold">Campagne</th>
+                <th className="px-3 py-2 font-semibold">Statut</th>
+                <th className="px-3 py-2 font-semibold">Contacts</th>
+                <th className="px-3 py-2 font-semibold">Succès</th>
+                <th className="px-3 py-2 font-semibold">Dernier envoi</th>
+                <th className="px-3 py-2 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#efe7d7]">
+              {filteredCampaigns.map((campaign) => {
+                const campaignStats = getSmsStats(campaign);
+                const active = campaign.id === selectedCampaign.id;
+                const successRate = getCampaignSuccessRate(campaignStats);
+                return (
+                  <tr
+                    key={campaign.id}
+                    className={active ? "bg-[#fff7df]" : "bg-white hover:bg-[#fcfbf7]"}
+                  >
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => onSelectCampaign(campaign.id)}
+                        className="text-left"
+                      >
+                        <span className="block font-semibold text-black">{campaign.name}</span>
+                        <span className="mt-1 block text-[#8d7a5c]">
+                          {campaign.eventDate || "Date non renseignée"} · {campaign.location || "Lieu non renseigné"}
+                        </span>
+                        <span className="mt-1 block text-[#8d7a5c]">
+                          Créée le {formatCampaignDate(campaign.createdAt)}
+                        </span>
+                      </button>
+                    </td>
+                    <td className="px-3 py-3"><StatusPill status={campaign.status} /></td>
+                    <td className="px-3 py-3 text-[#5D4B3C]">
+                      <div>{campaignStats.valid}/{campaignStats.total} valides</div>
+                      <div className="mt-1 text-red-700">{campaignStats.failed} échecs</div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="font-semibold text-black">{successRate}%</div>
+                      <div className="mt-1 h-1.5 w-20 overflow-hidden bg-[#efe7d7]">
+                        <div className="h-full bg-[#FFC600]" style={{ width: `${successRate}%` }} />
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-[#5D4B3C]">
+                      {formatCampaignDate(campaign.lastSentAt)}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onSelectCampaign(campaign.id)}
+                          className="border border-[#e7dec8] bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-[#fcfbf7]"
+                        >
+                          Ouvrir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => exportCampaignSummary(campaign)}
+                          className="border border-[#e7dec8] bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-[#fcfbf7]"
+                        >
+                          Rapport
+                        </button>
+                        {onDuplicateCampaign ? (
+                          <button
+                            type="button"
+                            onClick={() => onDuplicateCampaign(campaign)}
+                            disabled={!canWrite}
+                            className="border border-[#e7dec8] bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-[#fcfbf7] disabled:opacity-50"
+                          >
+                            Dupliquer
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           {!filteredCampaigns.length ? (
             <div className="border border-dashed border-[#e7dec8] bg-white px-4 py-6 text-center text-sm text-[#8d7a5c]">
               Aucune campagne ne correspond aux filtres.

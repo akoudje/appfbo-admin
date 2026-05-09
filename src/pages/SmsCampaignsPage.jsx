@@ -53,6 +53,22 @@ const STATUS_DEFINITIONS = {
   PENDING: { label: "En attente", color: "bg-yellow-100 text-yellow-800" },
 };
 
+function getCampaignStats(campaign = {}) {
+  const recipients = Array.isArray(campaign.recipients) ? campaign.recipients : [];
+  return recipients.reduce(
+    (acc, recipient) => {
+      acc.total += 1;
+      const status = String(recipient.status || "").toUpperCase();
+      if (recipient.phoneNormalized && status !== "SKIPPED") acc.valid += 1;
+      if (status === "SENT") acc.sent += 1;
+      if (status === "FAILED") acc.failed += 1;
+      if (status === "CONFIRMED") acc.confirmed += 1;
+      return acc;
+    },
+    { total: 0, valid: 0, sent: 0, failed: 0, confirmed: 0 },
+  );
+}
+
 // Hooks personnalisés
 function useCampaignStats(campaigns = []) {
   return useMemo(() => {
@@ -259,6 +275,27 @@ export default function SmsCampaignsPage() {
     return result;
   }, [smsCampaigns, searchQuery, statusFilter, sortBy]);
 
+  const handleSave = useCallback(async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+      const response = await marketingCampaignsService.save(settings);
+      setSettings((prev) => ({
+        ...prev,
+        publishing: response?.publishing || prev.publishing,
+        smsCampaigns: Array.isArray(response?.smsCampaigns)
+          ? response.smsCampaigns
+          : prev.smsCampaigns,
+      }));
+      setInfo("Campagnes SMS enregistrées.");
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d'enregistrer les campagnes SMS.");
+    } finally {
+      setSaving(false);
+    }
+  }, [settings]);
+
   const handleCreateSmsCampaign = useCallback(() => {
     const nextCampaign = createSmsCampaign();
     setSettings((prev) => ({
@@ -296,6 +333,115 @@ export default function SmsCampaignsPage() {
       },
     });
   }, [smsCampaigns]);
+
+  const handleDuplicateSmsCampaign = useCallback((campaign) => {
+    const now = new Date().toISOString();
+    const duplicated = {
+      ...campaign,
+      id: `sms-${Date.now()}`,
+      name: `${campaign.name || "Campagne SMS"} - copie`,
+      status: "DRAFT",
+      recipients: (campaign.recipients || []).map((recipient, index) => ({
+        ...recipient,
+        id: `recipient-${Date.now()}-${index + 1}`,
+        status: recipient.phoneNormalized ? "READY" : "INVALID",
+        providerMessageId: "",
+        lastError: recipient.phoneNormalized ? "" : recipient.lastError || "",
+        sentAt: null,
+      })),
+      createdAt: now,
+      updatedAt: now,
+      lastSentAt: null,
+      lastTestAt: null,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      smsCampaigns: [duplicated, ...(prev.smsCampaigns || [])],
+    }));
+    setSelectedSmsCampaignId(duplicated.id);
+    setInfo("Campagne dupliquée. Vérifiez le contenu puis enregistrez.");
+  }, []);
+
+  const handleSendSmsTest = useCallback(async (campaign) => {
+    try {
+      setSendingSms(true);
+      setError("");
+      setInfo("");
+      const saved = await marketingCampaignsService.save(settings);
+      if (Array.isArray(saved?.smsCampaigns)) {
+        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
+      }
+      const response = await marketingCampaignsService.sendSmsTest(campaign.id, {
+        phone: campaign.testPhone,
+      });
+      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
+      setInfo(response?.ok ? "SMS de test envoyé." : "Test SMS traité avec erreur provider.");
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d'envoyer le SMS de test.");
+    } finally {
+      setSendingSms(false);
+    }
+  }, [settings, handleUpdateSmsCampaign]);
+
+  const handleSendSmsCampaign = useCallback(async (campaign) => {
+    const stats = getCampaignStats(campaign);
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm(`Envoyer cette campagne SMS a ${stats.valid} destinataires valides ?`);
+    if (!confirmed) return;
+
+    try {
+      setSendingSms(true);
+      setError("");
+      setInfo("");
+      const saved = await marketingCampaignsService.save(settings);
+      if (Array.isArray(saved?.smsCampaigns)) {
+        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
+      }
+      const response = await marketingCampaignsService.sendSmsCampaign(campaign.id);
+      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
+      setInfo(
+        response?.sending
+          ? `Envoi en cours pour ${response.total || stats.valid} destinataires.`
+          : `Envoi terminé : ${response?.sentCount || 0} envoyés, ${response?.failedCount || 0} échecs.`,
+      );
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d'envoyer la campagne SMS.");
+    } finally {
+      setSendingSms(false);
+    }
+  }, [settings, handleUpdateSmsCampaign]);
+
+  const handleResendFailedSms = useCallback(async (campaign) => {
+    const stats = getCampaignStats(campaign);
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm(`Renvoyer uniquement aux ${stats.failed} destinataires en échec ?`);
+    if (!confirmed) return;
+
+    try {
+      setSendingSms(true);
+      setError("");
+      setInfo("");
+      const saved = await marketingCampaignsService.save(settings);
+      if (Array.isArray(saved?.smsCampaigns)) {
+        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
+      }
+      const response = await marketingCampaignsService.sendSmsCampaign(campaign.id, {
+        failedOnly: true,
+      });
+      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
+      setInfo(
+        response?.sending
+          ? `Renvoi en cours pour ${response.total || stats.failed} destinataires.`
+          : `Renvoi terminé : ${response?.sentCount || 0} envoyés, ${response?.failedCount || 0} échecs.`,
+      );
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de renvoyer les SMS en échec.");
+    } finally {
+      setSendingSms(false);
+    }
+  }, [settings, handleUpdateSmsCampaign]);
 
   useEffect(() => {
     async function load() {
@@ -420,9 +566,11 @@ export default function SmsCampaignsPage() {
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#FFC600]"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="draft">Brouillon</option>
-                <option value="sending">En cours</option>
-                <option value="completed">Terminé</option>
+                <option value="DRAFT">Brouillon</option>
+                <option value="SENDING">En cours</option>
+                <option value="SENT">Envoyée</option>
+                <option value="PARTIAL">Partielle</option>
+                <option value="FAILED">Échec</option>
               </select>
               
               <select
@@ -477,8 +625,15 @@ export default function SmsCampaignsPage() {
             onSelectCampaign={setSelectedSmsCampaignId}
             onCreateCampaign={handleCreateSmsCampaign}
             onUpdateCampaign={handleUpdateSmsCampaign}
+            onSave={handleSave}
+            onSendTest={handleSendSmsTest}
+            onSendCampaign={handleSendSmsCampaign}
+            onResendFailed={handleResendFailedSms}
+            onDuplicateCampaign={handleDuplicateSmsCampaign}
             onDeleteCampaign={handleDeleteSmsCampaign}
             canWrite={canWrite}
+            saving={saving}
+            sending={sendingSms}
             viewMode={viewMode}
           />
         )}
