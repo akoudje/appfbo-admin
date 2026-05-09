@@ -489,6 +489,14 @@ export default function AdminSettingsPage() {
     sms: true,
     email: true,
   });
+  const [countriesList, setCountriesList] = useState([]);
+  const [togglingCountry, setTogglingCountry] = useState(null);
+
+  useEffect(() => {
+    settingsService.getCountriesList()
+      .then(setCountriesList)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -686,6 +694,24 @@ export default function AdminSettingsPage() {
     }));
   }, []);
 
+  const handleToggleCountry = useCallback(async (code, actif) => {
+    setTogglingCountry(code);
+    try {
+      const updated = await settingsService.toggleCountry(code, actif);
+      setCountriesList((prev) =>
+        prev.map((c) => (c.code === updated.code ? { ...c, actif: updated.actif } : c))
+      );
+      setToast({
+        message: `${updated.name} ${updated.actif ? "activé" : "désactivé"} pour les clients`,
+        type: "success",
+      });
+    } catch (e) {
+      setToast({ message: "Impossible de modifier ce pays.", type: "error" });
+    } finally {
+      setTogglingCountry(null);
+    }
+  }, []);
+
   const resetToDefault = useCallback(() => {
     if (window.confirm("Réinitialiser tous les paramètres aux valeurs par défaut ?")) {
       setSettings(DEFAULT_SETTINGS);
@@ -793,6 +819,72 @@ export default function AdminSettingsPage() {
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6"
               >
+                {/* Pays visibles pour les clients */}
+                <div className="rounded-xl border border-[#e7dec8] bg-gradient-to-br from-[#fff9ee] to-white p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-[#5D4B3C]" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-[#5D4B3C]">
+                      Pays visibles pour les clients
+                    </h3>
+                  </div>
+                  <p className="mb-4 text-xs text-gray-500">
+                    Activez ou désactivez les pays disponibles dans le sélecteur de pays du formulaire client.
+                  </p>
+                  {countriesList.length === 0 ? (
+                    <div className="text-xs italic text-gray-400">Chargement…</div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                      {countriesList.map((country) => {
+                        const flagMap = {
+                          CIV: "https://flagcdn.com/w40/ci.png",
+                          BFA: "https://flagcdn.com/w40/bf.png",
+                          TGO: "https://flagcdn.com/w40/tg.png",
+                          BEN: "https://flagcdn.com/w40/bj.png",
+                          NER: "https://flagcdn.com/w40/ne.png",
+                        };
+                        const isToggling = togglingCountry === country.code;
+                        return (
+                          <motion.button
+                            key={country.code}
+                            type="button"
+                            onClick={() => !isToggling && handleToggleCountry(country.code, !country.actif)}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`relative flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3 transition-all ${
+                              country.actif
+                                ? "border-[#FFC600] bg-gradient-to-b from-[#fff7d6] to-[#fffbeb] shadow-sm"
+                                : "border-gray-200 bg-gray-50 opacity-60"
+                            }`}
+                          >
+                            <img
+                              src={flagMap[country.code] || ""}
+                              alt={country.name}
+                              className="h-6 w-9 rounded-sm object-cover"
+                            />
+                            <span className={`text-center text-[10px] font-bold uppercase leading-tight ${
+                              country.actif ? "text-[#5D4B3C]" : "text-gray-400"
+                            }`}>
+                              {country.name}
+                            </span>
+                            <div className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
+                              country.actif ? "bg-[#FFC600]" : "bg-gray-300"
+                            }`}>
+                              <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                                country.actif ? "translate-x-4" : "translate-x-0"
+                              }`} />
+                            </div>
+                            {isToggling && (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70">
+                                <Loader2 className="h-4 w-4 animate-spin text-[#FFC600]" />
+                              </div>
+                            )}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid gap-4 xl:grid-cols-2">
                   <Field label="Téléphone support" hint="Numéro affiché dans les communications">
                     <TextInput

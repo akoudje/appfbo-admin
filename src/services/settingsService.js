@@ -6,4 +6,10 @@ export const settingsService = {
 
   updateCountrySettings: async (body) =>
     (await api.patch("/admin/country-settings", body)).data,
+
+  getCountriesList: async () =>
+    (await api.get("/admin/countries")).data,
+
+  toggleCountry: async (code, actif) =>
+    (await api.patch(`/admin/countries/${code}`, { actif })).data,
 };
