@@ -457,6 +457,7 @@ export default function AdminUsersPage() {
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => users, [users]);
+  const activeFiltersCount = [search, roleFilter, countryFilter, statusFilter].filter(Boolean).length;
   const manageableRoleGroups = useMemo(() => {
     const allowedRoles = ROLE_ASSIGNMENT_MATRIX[currentRole] || new Set();
 
@@ -695,6 +696,12 @@ export default function AdminUsersPage() {
               >
                 Reset
               </button>
+            </div>
+            <div className="border-t border-gray-100 pt-3 text-xs text-gray-500">
+              {filteredUsers.length} utilisateur{filteredUsers.length > 1 ? "s" : ""} affiché{filteredUsers.length > 1 ? "s" : ""}
+              {activeFiltersCount > 0
+                ? ` avec ${activeFiltersCount} filtre${activeFiltersCount > 1 ? "s" : ""} actif${activeFiltersCount > 1 ? "s" : ""}.`
+                : " sans filtre actif."}
             </div>
           </div>
 

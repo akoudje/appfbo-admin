@@ -713,6 +713,7 @@ export default function CashierWorkspacePage() {
   const generalValidationSummary = validationSummary.general || validationSummary;
   const displayedValidationSummary = canViewConsolidated ? generalValidationSummary : personalValidationSummary;
   const validationPeriodLabel = dateFrom || dateTo ? "sur période" : "aujourd'hui";
+  const activeFilterCount = [query, paymentMode, dateFrom, dateTo].filter(Boolean).length;
 
   const clearAttentionAlert = () => {
     if (attentionTimerRef.current) {
@@ -1079,15 +1080,45 @@ export default function CashierWorkspacePage() {
               className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm"
             />
           </div>
-          <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm">
+          <select
+            value={paymentMode}
+            onChange={(e) => {
+              const next = e.target.value;
+              setPaymentMode(next);
+              setQuickPreset("CUSTOM");
+              load({ paymentMode: next });
+            }}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          >
             <option value="">Tous paiements</option>
             <option value="ESPECES">Espèces</option>
             <option value="WAVE">Wave</option>
             <option value="ORANGE_MONEY">Orange Money</option>
             <option value="BANK_TRANSFER">Virement bancaire</option>
           </select>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-          <input type="date" min={dateFrom || undefined} value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm" />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDateFrom(next);
+              setQuickPreset("CUSTOM");
+              load({ dateFrom: next });
+            }}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="date"
+            min={dateFrom || undefined}
+            value={dateTo}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDateTo(next);
+              setQuickPreset("CUSTOM");
+              load({ dateTo: next });
+            }}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          />
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -1115,6 +1146,12 @@ export default function CashierWorkspacePage() {
               Réinitialiser
             </button>
           </div>
+        </div>
+        <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+          {toCollect.length + toLaunchPreparation.length} commande{toCollect.length + toLaunchPreparation.length > 1 ? "s" : ""} à traiter, {completedRows.length} terminée{completedRows.length > 1 ? "s" : ""}, {searchRows.length} résultat{searchRows.length > 1 ? "s" : ""} de recherche
+          {activeFilterCount > 0
+            ? ` avec ${activeFilterCount} filtre${activeFilterCount > 1 ? "s" : ""} actif${activeFilterCount > 1 ? "s" : ""}.`
+            : " sans filtre actif."}
         </div>
       </div>
 

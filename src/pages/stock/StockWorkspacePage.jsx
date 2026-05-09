@@ -186,6 +186,17 @@ export default function StockWorkspacePage() {
   }
 
   const summary = dashboard?.summary || {};
+  const inventoryFilterCount = [
+    inventoryFilters.q,
+    inventoryFilters.category,
+    inventoryFilters.stock,
+  ].filter(Boolean).length;
+  const movementFilterCount = [
+    movementFilters.q,
+    movementFilters.type,
+    movementFilters.reason,
+    movementFilters.days !== 30 ? String(movementFilters.days) : "",
+  ].filter(Boolean).length;
 
   return (
     <div className="space-y-5">
@@ -282,6 +293,21 @@ export default function StockWorkspacePage() {
               <select value={inventoryFilters.category} onChange={(e) => setInventoryFilters((v) => ({ ...v, category: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]">{CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
               <select value={inventoryFilters.stock} onChange={(e) => setInventoryFilters((v) => ({ ...v, stock: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous niveaux</option><option value="in">En stock</option><option value="out">Rupture</option></select>
             </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f0ebe1] pt-3 text-xs text-[#6f6a60]">
+              <span>
+                {inventory.length} produit{inventory.length > 1 ? "s" : ""} affiché{inventory.length > 1 ? "s" : ""}
+                {inventoryFilterCount > 0 ? ` avec ${inventoryFilterCount} filtre${inventoryFilterCount > 1 ? "s" : ""} actif${inventoryFilterCount > 1 ? "s" : ""}.` : " sans filtre actif."}
+              </span>
+              {inventoryFilterCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setInventoryFilters({ q: "", category: "", stock: "" })}
+                  className="border border-[#d6c8aa] bg-white px-3 py-1.5 text-xs font-medium text-[#5D4B3C]"
+                >
+                  Réinitialiser
+                </button>
+              ) : null}
+            </div>
           </div>
           <div className="overflow-x-auto border border-[#eadfb9] bg-white">
             <table className="min-w-full">
@@ -327,6 +353,21 @@ export default function StockWorkspacePage() {
               <select value={movementFilters.type} onChange={(e) => setMovementFilters((v) => ({ ...v, type: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous types</option><option value="CREDIT">Entrées</option><option value="DEBIT">Sorties</option></select>
               <select value={movementFilters.reason} onChange={(e) => setMovementFilters((v) => ({ ...v, reason: e.target.value }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value="">Tous motifs</option><option value="MANUAL_ADJUSTMENT">Ajustement manuel</option><option value="PREPARE_ORDER">Préparation commande</option><option value="CANCEL_ORDER">Annulation commande</option></select>
               <select value={movementFilters.days} onChange={(e) => setMovementFilters((v) => ({ ...v, days: Number(e.target.value || 30) }))} className="w-full border border-[#d6c8aa] bg-white px-3 py-2 text-sm outline-none focus:border-[#FFC600]"><option value={7}>7 jours</option><option value={30}>30 jours</option><option value={90}>90 jours</option><option value={180}>180 jours</option></select>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f0ebe1] pt-3 text-xs text-[#6f6a60]">
+              <span>
+                {movementMeta.total || 0} mouvement{(movementMeta.total || 0) > 1 ? "s" : ""} trouvé{(movementMeta.total || 0) > 1 ? "s" : ""}
+                {movementFilterCount > 0 ? ` avec ${movementFilterCount} filtre${movementFilterCount > 1 ? "s" : ""} actif${movementFilterCount > 1 ? "s" : ""}.` : " sans filtre actif."}
+              </span>
+              {movementFilterCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setMovementFilters({ q: "", type: "", reason: "", days: 30 })}
+                  className="border border-[#d6c8aa] bg-white px-3 py-1.5 text-xs font-medium text-[#5D4B3C]"
+                >
+                  Réinitialiser
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="overflow-x-auto border border-[#eadfb9] bg-white">

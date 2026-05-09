@@ -36,12 +36,15 @@ export default function OrdersStatsBar({ totalCount, orders }) {
       <div className="flex flex-wrap items-center gap-6">
         <div className="flex items-center gap-2">
           <span className="text-3xl font-bold text-gray-900">{totalCount}</span>
-          <span className="text-sm text-gray-500">total</span>
+          <span className="text-sm text-gray-500">résultats filtrés</span>
         </div>
 
         <div className="w-px h-8 bg-gray-200 hidden sm:block" />
 
         <div className="flex flex-wrap items-center gap-4">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+            Page affichée
+          </span>
           {orderedStatuses.map((status) => (
             <div key={status} className="flex items-center gap-2">
               <Dot className={ORDER_STATUS_CONFIG[status]?.dot || "bg-gray-400"} />

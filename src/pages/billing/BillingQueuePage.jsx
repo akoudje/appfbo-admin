@@ -465,6 +465,8 @@ export default function BillingQueuePage() {
     );
   }, [rows, tab, currentAdminId, isBillingManager]);
 
+  const activeFilterCount = [query, priority, dateFrom, dateTo].filter(Boolean).length;
+
   const stats = useMemo(() => {
     const all = Array.isArray(rows) ? rows : [];
     const isMine = (row) =>
@@ -678,7 +680,12 @@ export default function BillingQueuePage() {
           </div>
           <select
             value={priority}
-            onChange={(e) => setPriority(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setPriority(next);
+              setQuickPreset("CUSTOM");
+              load({ priority: next });
+            }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Toutes priorités</option>
@@ -690,14 +697,24 @@ export default function BillingQueuePage() {
           <input
             type="date"
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDateFrom(next);
+              setQuickPreset("CUSTOM");
+              load({ dateFrom: next });
+            }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           />
           <input
             type="date"
             value={dateTo}
             min={dateFrom || undefined}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDateTo(next);
+              setQuickPreset("CUSTOM");
+              load({ dateTo: next });
+            }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
@@ -755,6 +772,12 @@ export default function BillingQueuePage() {
               Réinitialiser
             </button>
           </div>
+        </div>
+        <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+          {filteredRows.length} dossier{filteredRows.length > 1 ? "s" : ""} affiché{filteredRows.length > 1 ? "s" : ""} dans l'onglet courant sur {rows.length} dossier{rows.length > 1 ? "s" : ""} chargé{rows.length > 1 ? "s" : ""}
+          {activeFilterCount > 0
+            ? ` avec ${activeFilterCount} filtre${activeFilterCount > 1 ? "s" : ""} actif${activeFilterCount > 1 ? "s" : ""}.`
+            : " sans filtre actif."}
         </div>
       </div>
 

@@ -76,6 +76,22 @@ export default function OrdersListPage() {
     return `/orders/submitted-export/print${query ? `?${query}` : ""}`;
   }, [q, dateFrom, dateTo, sort, dir]);
 
+  const activeFiltersCount = [
+    status,
+    q,
+    dateFrom,
+    dateTo,
+    paymentStatus,
+    billingWorkStatus,
+    priority,
+    as400Reference,
+    as400Amount,
+    lateWaveReview,
+    assignedOnly,
+    hasAssignee,
+    invoicerId,
+  ].filter(Boolean).length;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="w-full px-4 py-8 sm:px-6 lg:px-8 space-y-6">
@@ -161,6 +177,15 @@ export default function OrdersListPage() {
           onFilterChange={setFilter}
           onClear={resetFilters}
         />
+
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500">
+          {totalCount} commande{totalCount > 1 ? "s" : ""} correspondent au périmètre courant
+          {activeFiltersCount > 0
+            ? ` avec ${activeFiltersCount} filtre${activeFiltersCount > 1 ? "s" : ""} actif${activeFiltersCount > 1 ? "s" : ""}.`
+            : " sans filtre actif."}
+          {" "}
+          Les badges de statut résument uniquement les commandes de la page affichée.
+        </div>
 
         {error && (
           <div className="p-4 bg-red-50 rounded-lg flex items-center justify-between">

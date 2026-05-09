@@ -354,6 +354,8 @@ export default function PreparationQueuePage() {
     return rows.filter((r) => r.status === "PAID" && r.preparationLaunchedAt);
   }, [rows, tab]);
 
+  const activeFilterCount = [query, paymentMode, dateFrom, dateTo].filter(Boolean).length;
+
   const stats = useMemo(() => {
     const all = Array.isArray(rows) ? rows : [];
 
@@ -407,7 +409,12 @@ export default function PreparationQueuePage() {
           </div>
           <select
             value={paymentMode}
-            onChange={(e) => setPaymentMode(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setPaymentMode(next);
+              setQuickPreset("CUSTOM");
+              load({ paymentMode: next });
+            }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Tous paiements</option>
@@ -419,14 +426,24 @@ export default function PreparationQueuePage() {
           <input
             type="date"
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDateFrom(next);
+              setQuickPreset("CUSTOM");
+              load({ dateFrom: next });
+            }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           />
           <input
             type="date"
             min={dateFrom || undefined}
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDateTo(next);
+              setQuickPreset("CUSTOM");
+              load({ dateTo: next });
+            }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
@@ -495,6 +512,12 @@ export default function PreparationQueuePage() {
               Réinitialiser
             </button>
           </div>
+        </div>
+        <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+          {filteredRows.length} commande{filteredRows.length > 1 ? "s" : ""} affichée{filteredRows.length > 1 ? "s" : ""} dans l'onglet courant sur {rows.length} commande{rows.length > 1 ? "s" : ""} chargée{rows.length > 1 ? "s" : ""}
+          {activeFilterCount > 0
+            ? ` avec ${activeFilterCount} filtre${activeFilterCount > 1 ? "s" : ""} actif${activeFilterCount > 1 ? "s" : ""}.`
+            : " sans filtre actif."}
         </div>
       </div>
 

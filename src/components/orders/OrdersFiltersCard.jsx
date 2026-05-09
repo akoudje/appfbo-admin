@@ -378,6 +378,12 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                 </FilterChip>
               )}
 
+              {filters.q && (
+                <FilterChip onRemove={() => onFilterChange({ q: "" })}>
+                  Recherche: {filters.q}
+                </FilterChip>
+              )}
+
               {filters.as400Reference && (
                 <FilterChip onRemove={() => onFilterChange({ as400Reference: "" })}>
                   AS400: {filters.as400Reference}

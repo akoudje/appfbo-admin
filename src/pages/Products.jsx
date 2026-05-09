@@ -649,6 +649,9 @@ export default function Products() {
 
           <div className="mt-6">
             <ProductStats total={stats.total} actifs={stats.actifs} inactifs={stats.inactifs} rupture={stats.rupture} />
+            <p className="mt-2 text-xs text-gray-500">
+              Ces compteurs reflètent les produits actuellement affichés avec les filtres appliqués.
+            </p>
           </div>
         </div>
 
@@ -726,6 +729,10 @@ export default function Products() {
                   Réinitialiser
                 </button>
               )}
+            </div>
+            <div className="border-t border-gray-100 pt-3 text-xs text-gray-500">
+              {rows.length} produit{rows.length > 1 ? "s" : ""} affiché{rows.length > 1 ? "s" : ""}
+              {filtersActive ? " avec les filtres actifs." : " sans filtre actif."}
             </div>
           </div>
 

@@ -77,12 +77,15 @@ function OrderStats({ totalCount, statusCounts = {} }) {
     <div className="flex flex-wrap items-center gap-6">
       <div className="flex items-center gap-2">
         <span className="text-3xl font-bold text-gray-900">{totalCount}</span>
-        <span className="text-sm text-gray-500">total</span>
+        <span className="text-sm text-gray-500">résultats filtrés</span>
       </div>
 
       <div className="w-px h-8 bg-gray-200" />
 
       <div className="flex flex-wrap items-center gap-4">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+          Répartition de la page affichée
+        </span>
         {ordered.map((st) => (
           <div key={st} className="flex items-center gap-2">
             <Dot status={st} />
@@ -103,6 +106,10 @@ function AdvancedFilters({ filters, onFilterChange, onClear }) {
   const [localFilters, setLocalFilters] = useState(filters);
 
   const hasActiveFilters = Object.values(filters).some((v) => v && v !== "");
+
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -321,6 +328,19 @@ function AdvancedFilters({ filters, onFilterChange, onClear }) {
               </span>
             )}
 
+            {filters.q && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                Recherche: {filters.q}
+                <button
+                  onClick={() => handleChange("q", "")}
+                  className="hover:text-blue-900"
+                  type="button"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+
             {filters.dateFrom && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
                 Du: {new Date(filters.dateFrom).toLocaleDateString("fr-FR")}
@@ -394,6 +414,8 @@ export default function Orders() {
     setFilter({ status: "", q: "", dateFrom: "", dateTo: "" });
   };
 
+  const activeFiltersCount = [status, q, dateFrom, dateTo].filter(Boolean).length;
+
   const formatDate = (dateString) => {
     if (!dateString) return "—";
     return new Date(dateString).toLocaleString("fr-FR", {
@@ -463,6 +485,13 @@ export default function Orders() {
             onFilterChange={setFilter}
             onClear={handleClearFilters}
           />
+          <div className="border-t border-gray-100 pt-3 text-xs text-gray-500">
+            {activeFiltersCount > 0
+              ? `${totalCount} commande${totalCount > 1 ? "s" : ""} correspondent aux ${activeFiltersCount} filtre${activeFiltersCount > 1 ? "s" : ""} actif${activeFiltersCount > 1 ? "s" : ""}.`
+              : `${totalCount} commande${totalCount > 1 ? "s" : ""} au total dans le périmètre courant.`}
+            {" "}
+            Les badges de statut résument uniquement la page actuellement affichée.
+          </div>
         </FilterSection>
 
         {/* Error */}
