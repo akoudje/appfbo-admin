@@ -26,7 +26,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Search,
   Star,
   TrendingUp,
   AlertCircle,
@@ -62,7 +61,6 @@ const ListIcon = List;
 const AlertTriangleIcon = AlertTriangle;
 const InfoIcon = Info;
 const UsersIcon = Users;
-const SearchIcon = Search;
 const ClockIcon = Clock;
 const XIcon = X;
 
@@ -510,27 +508,6 @@ function UserProfileCard({ fullName, email, collapsed, role }) {
   );
 }
 
-// Barre de recherche rapide (optionnelle)
-function QuickSearch({ collapsed }) {
-  if (collapsed) return null;
-
-  return (
-    <div className="px-3 py-2">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-        <input
-          type="text"
-          placeholder="Recherche rapide..."
-          className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#FFC600]/30 focus:bg-white/10 transition-all"
-        />
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] bg-white/5 rounded text-white/20">
-          ⌘K
-        </kbd>
-      </div>
-    </div>
-  );
-}
-
 // Fonctions de filtrage améliorées
 function filterItems(items, role, permissions) {
   const allowedKeys = getWorkspaceNavKeys(role);
@@ -659,9 +636,6 @@ export function DesktopSidebar({ collapsed, onToggle }) {
           </button>
         </EnhancedTooltip>
       </div>
-
-      {/* Recherche rapide */}
-      <QuickSearch collapsed={collapsed} />
 
       {/* Navigation principale */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20">
