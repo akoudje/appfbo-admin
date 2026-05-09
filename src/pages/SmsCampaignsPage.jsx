@@ -250,13 +250,22 @@ export default function SmsCampaignsPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(c => 
-        c.name?.toLowerCase().includes(query) ||
-        c.description?.toLowerCase().includes(query)
+        [
+          c.name,
+          c.description,
+          c.eventName,
+          c.eventDate,
+          c.location,
+          c.status,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
       );
     }
     
     if (statusFilter !== "all") {
-      result = result.filter(c => c.status === statusFilter);
+      result = result.filter(c => String(c.status || "DRAFT").toUpperCase() === statusFilter);
     }
     
     switch (sortBy) {
@@ -274,6 +283,21 @@ export default function SmsCampaignsPage() {
     
     return result;
   }, [smsCampaigns, searchQuery, statusFilter, sortBy]);
+
+  const hiddenCampaignsCount = Math.max(0, smsCampaigns.length - filteredCampaigns.length);
+  const hasActiveCampaignFilters = Boolean(searchQuery.trim()) || statusFilter !== "all";
+  const campaignStatusCounts = useMemo(() => {
+    return smsCampaigns.reduce((acc, campaign) => {
+      const status = String(campaign.status || "DRAFT").toUpperCase();
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+  }, [smsCampaigns]);
+
+  const resetCampaignFilters = useCallback(() => {
+    setSearchQuery("");
+    setStatusFilter("all");
+  }, []);
 
   const handleSave = useCallback(async () => {
     try {
@@ -504,6 +528,7 @@ export default function SmsCampaignsPage() {
           <MetricCard
             label="Campagnes"
             value={stats.campaigns}
+            subValue={`${filteredCampaigns.length} affichée${filteredCampaigns.length > 1 ? "s" : ""}`}
             icon={<Target className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
@@ -611,7 +636,32 @@ export default function SmsCampaignsPage() {
               )}
             </div>
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-medium text-gray-600">
+              {filteredCampaigns.length} affichée{filteredCampaigns.length > 1 ? "s" : ""} sur {smsCampaigns.length} enregistrée{smsCampaigns.length > 1 ? "s" : ""}
+            </span>
+            {["DRAFT", "SENDING", "SENT", "PARTIAL", "FAILED"].map((status) => (
+              <span key={status} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-gray-600">
+                {status}: {campaignStatusCounts[status] || 0}
+              </span>
+            ))}
+            {hasActiveCampaignFilters ? (
+              <button
+                type="button"
+                onClick={resetCampaignFilters}
+                className="rounded-full border border-[#FFC600] bg-[#fff7df] px-2.5 py-1 font-medium text-black hover:bg-[#ffefbd]"
+              >
+                Réinitialiser filtres
+              </button>
+            ) : null}
+          </div>
         </div>
+
+        {hiddenCampaignsCount > 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {hiddenCampaignsCount} campagne{hiddenCampaignsCount > 1 ? "s" : ""} existe{hiddenCampaignsCount > 1 ? "nt" : ""} dans le total mais {hiddenCampaignsCount > 1 ? "sont masquées" : "est masquée"} par la recherche ou le filtre de statut.
+          </div>
+        ) : null}
 
         {/* Contenu principal */}
         {loading ? (
