@@ -30,6 +30,8 @@ import {
   Copy,
   RotateCcw,
   MessageCircle,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 // --- Constantes ---
@@ -301,6 +303,19 @@ const EMAIL_TEMPLATE_KEYS = [
   "ORDER_FULFILLED",
   "REMINDER",
 ];
+
+function createCustomFboHelpTopic() {
+  const id = `custom-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  return {
+    id,
+    type: "custom",
+    enabled: true,
+    label: "Nouvelle rubrique",
+    answer: "Réponse à compléter.",
+  };
+}
 
 // --- Composants améliorés ---
 
@@ -762,6 +777,30 @@ export default function AdminSettingsPage() {
         ...prev.fboHelp,
         topics: prev.fboHelp.topics.map((topic) =>
           topic.id === topicId ? { ...topic, ...patch } : topic,
+        ),
+      },
+    }));
+  }, []);
+
+  const addFboHelpTopic = useCallback(() => {
+    const topic = createCustomFboHelpTopic();
+    setSettings((prev) => ({
+      ...prev,
+      fboHelp: {
+        ...prev.fboHelp,
+        topics: [...prev.fboHelp.topics, topic],
+      },
+    }));
+    setToast({ message: "Rubrique personnalisée ajoutée", type: "success" });
+  }, []);
+
+  const removeFboHelpTopic = useCallback((topicId) => {
+    setSettings((prev) => ({
+      ...prev,
+      fboHelp: {
+        ...prev.fboHelp,
+        topics: prev.fboHelp.topics.filter(
+          (topic) => topic.id !== topicId || topic.type === "system",
         ),
       },
     }));
@@ -1614,11 +1653,23 @@ export default function AdminSettingsPage() {
                 className="space-y-6"
               >
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                  <p className="text-sm font-semibold text-blue-900">Aide affichée côté FBO</p>
-                  <p className="mt-1 text-sm text-blue-800">
-                    Activez uniquement les rubriques utiles au client. Les rubriques désactivées restent
-                    configurables ici mais ne sont pas visibles dans l'application FBO.
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Aide affichée côté FBO</p>
+                      <p className="mt-1 text-sm text-blue-800">
+                        Activez uniquement les rubriques utiles au client. Les rubriques désactivées restent
+                        configurables ici mais ne sont pas visibles dans l'application FBO.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addFboHelpTopic}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#e6b200]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Ajouter une rubrique
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid gap-4">
@@ -1636,21 +1687,40 @@ export default function AdminSettingsPage() {
                           <div className="text-sm font-bold text-[#5D4B3C]">
                             {topic.label || topic.id}
                           </div>
-                          <div className="mt-0.5 text-xs uppercase tracking-wide text-gray-400">
-                            {topic.id}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-gray-400">
+                            <span>{topic.id}</span>
+                            <span className="rounded-full border border-gray-200 bg-white px-2 py-0.5">
+                              {topic.type === "custom" ? "personnalisée" : "système"}
+                            </span>
                           </div>
                         </div>
-                        <label className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(topic.enabled)}
-                            onChange={(e) =>
-                              updateFboHelpTopic(topic.id, { enabled: e.target.checked })
-                            }
-                            className="h-4 w-4 accent-[#FFC600]"
-                          />
-                          Visible FBO
-                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(topic.enabled)}
+                              onChange={(e) =>
+                                updateFboHelpTopic(topic.id, { enabled: e.target.checked })
+                              }
+                              className="h-4 w-4 accent-[#FFC600]"
+                            />
+                            Visible FBO
+                          </label>
+                          {topic.type === "custom" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm("Supprimer cette rubrique personnalisée ?")) {
+                                  removeFboHelpTopic(topic.id);
+                                }
+                              }}
+                              className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Supprimer
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
