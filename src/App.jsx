@@ -27,6 +27,7 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
+import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -172,6 +173,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à l’espace caisse." />}
                     >
                       <CashierWorkspacePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/billing/payment-link-requests"
+                  element={
+                    <RequirePermission
+                      permission={Permission.INVOICE_CREATE}
+                      fallback={<AccessDenied message="Accès refusé aux demandes de lien de paiement." />}
+                    >
+                      <PaymentLinkRequestsPage />
                     </RequirePermission>
                   }
                 />

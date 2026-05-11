@@ -104,6 +104,17 @@ const NAV_ITEMS = [
     shortcut: "3",
   },
   {
+    key: "billing",
+    to: "/billing/payment-link-requests",
+    label: "Liens paiement",
+    permission: Permission.INVOICE_CREATE,
+    icon: MessageSquareText,
+    badge: null,
+    description: "Demandes de renvoi client",
+    color: "from-emerald-500 to-teal-500",
+    shortcut: "L",
+  },
+  {
     key: "cashier",
     to: "/cashier",
     label: "Caisse",
