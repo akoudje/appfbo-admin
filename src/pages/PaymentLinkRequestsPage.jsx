@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Send, XCircle } from "lucide-react";
 import { paymentLinkRequestsService } from "../services/paymentLinkRequestsService";
 
 const STATUS_OPTIONS = [
@@ -30,6 +30,7 @@ export default function PaymentLinkRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
   const pendingCount = useMemo(
     () => items.filter((item) => item.status === "PENDING").length,
@@ -40,6 +41,7 @@ export default function PaymentLinkRequestsPage() {
     try {
       setLoading(true);
       setError("");
+      setInfo("");
       const data = await paymentLinkRequestsService.list({ status });
       setItems(Array.isArray(data?.items) ? data.items : []);
     } catch (e) {
@@ -60,6 +62,51 @@ export default function PaymentLinkRequestsPage() {
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de mettre à jour la demande.");
+    } finally {
+      setActionId("");
+    }
+  }
+
+  async function resendAndResolve(item) {
+    const destination = item.requestedWhatsappPhone || item.originalPhone || "";
+    if (!destination) {
+      setError("Aucun numéro disponible pour le renvoi.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Renvoyer le lien de paiement par WhatsApp au ${destination} ?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setActionId(item.id);
+      setError("");
+      setInfo("");
+      const result = await paymentLinkRequestsService.resendPaymentLink(item.preorderId, {
+        channel: "WHATSAPP",
+        phone: destination,
+      });
+
+      if (!result?.sent && !result?.queued) {
+        throw new Error(
+          result?.errorMessage ||
+            "Le renvoi n'a pas été confirmé par le service de notification.",
+        );
+      }
+
+      await paymentLinkRequestsService.update(item.id, {
+        status: "RESOLVED",
+        reviewNote: `Lien renvoyé par ${result?.channel || "notification"} au ${destination}.`,
+      });
+      setInfo(`Lien renvoyé au ${destination}. Demande marquée comme traitée.`);
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Impossible de renvoyer le lien de paiement.",
+      );
     } finally {
       setActionId("");
     }
@@ -121,6 +168,11 @@ export default function PaymentLinkRequestsPage() {
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+      {info ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+          {info}
         </div>
       ) : null}
 
@@ -194,6 +246,19 @@ export default function PaymentLinkRequestsPage() {
                         ) : null}
                         {!["RESOLVED", "REJECTED"].includes(item.status) ? (
                           <>
+                            <button
+                              type="button"
+                              onClick={() => resendAndResolve(item)}
+                              disabled={actionId === item.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[#e7c34b] bg-[#fff7d6] px-3 py-2 text-xs font-semibold text-[#5D4B3C]"
+                            >
+                              {actionId === item.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Send className="h-3.5 w-3.5" />
+                              )}
+                              Renvoyer
+                            </button>
                             <button
                               type="button"
                               onClick={() => updateRequest(item.id, "RESOLVED")}

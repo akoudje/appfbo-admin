@@ -6,4 +6,7 @@ export const paymentLinkRequestsService = {
 
   update: async (id, body = {}) =>
     (await api.patch(`/admin/payment-link-resend-requests/${id}`, body)).data,
+
+  resendPaymentLink: async (preorderId, body = {}) =>
+    (await api.post(`/admin/orders/${preorderId}/resend-invoice-sms`, body)).data,
 };
