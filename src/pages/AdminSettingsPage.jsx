@@ -29,6 +29,7 @@ import {
   Settings2,
   Copy,
   RotateCcw,
+  MessageCircle,
 } from "lucide-react";
 
 // --- Constantes ---
@@ -36,6 +37,7 @@ const TABS = [
   { key: "countries", label: "Pays", icon: Globe, description: "Configuration par pays" },
   { key: "commercial", label: "Règles commerciales", icon: ShoppingCart, description: "Panier et tarification" },
   { key: "notifications", label: "Notifications", icon: Bell, description: "SMS et emails" },
+  { key: "fbo-help", label: "Aide FBO", icon: MessageCircle, description: "Rubriques d'aide client" },
   { key: "sound-alerts", label: "Alertes sonores", icon: Volume2, description: "Sons de notification" },
   { key: "users", label: "Utilisateurs", icon: Users, description: "Gestion des accès" },
   { key: "discounts", label: "Remises", icon: Percent, description: "Remises par grade" },
@@ -139,6 +141,59 @@ const DEFAULT_SETTINGS = {
         },
       },
     },
+  },
+  fboHelp: {
+    topics: [
+      {
+        id: "country",
+        enabled: true,
+        label: "Quel catalogue est affiché ?",
+        answer:
+          "Le catalogue dépend du pays choisi à l'étape 1. Les produits, prix, stocks et moyens de paiement sont chargés pour ce pays.",
+      },
+      {
+        id: "new-order",
+        enabled: true,
+        label: "Faire une nouvelle précommande",
+        answer:
+          "Pour refaire une précommande, revenez à l'étape 1. Si l'ancien panier reste affiché, utilisez Nouvelle précommande.",
+      },
+      {
+        id: "cache",
+        enabled: true,
+        label: "Anciennes informations affichées",
+        answer:
+          "Si le téléphone affiche encore les anciennes informations, réinitialisez la précommande en cours puis recommencez depuis l'étape 1.",
+      },
+      {
+        id: "payment",
+        enabled: false,
+        label: "Paiement et lien reçu",
+        answer:
+          "Après traitement, vous recevez une notification avec les instructions de paiement.",
+      },
+      {
+        id: "status",
+        enabled: false,
+        label: "Voir mes commandes",
+        answer:
+          "Ouvrez l'espace client avec votre téléphone pour consulter vos commandes et leur statut.",
+      },
+      {
+        id: "pickup",
+        enabled: false,
+        label: "Retrait de commande",
+        answer:
+          "Le retrait se fait selon les informations confirmées après paiement.",
+      },
+      {
+        id: "support",
+        enabled: false,
+        label: "Contacter le support",
+        answer:
+          "Si vous êtes bloqué, contactez le support avec votre numéro FBO et votre code de précommande.",
+      },
+    ],
   },
   soundAlerts: {
     forceEnabled: true,
@@ -584,6 +639,11 @@ export default function AdminSettingsPage() {
               },
             },
           },
+          fboHelp: {
+            topics: Array.isArray(data?.fboHelpTopics)
+              ? data.fboHelpTopics
+              : prev.fboHelp.topics,
+          },
         }));
       } catch (e) {
         setToast({
@@ -642,6 +702,7 @@ export default function AdminSettingsPage() {
         themeSliderEnabled: settings.theme.sliderEnabled,
         themeSidePanelsEnabled: settings.theme.sidePanelsEnabled,
         notificationTemplates: settings.notifications.templates,
+        fboHelpTopics: settings.fboHelp.topics,
       });
       setToast({ message: "Paramètres enregistrés avec succès", type: "success" });
     } catch (e) {
@@ -690,6 +751,18 @@ export default function AdminSettingsPage() {
             },
           },
         },
+      },
+    }));
+  }, []);
+
+  const updateFboHelpTopic = useCallback((topicId, patch) => {
+    setSettings((prev) => ({
+      ...prev,
+      fboHelp: {
+        ...prev.fboHelp,
+        topics: prev.fboHelp.topics.map((topic) =>
+          topic.id === topicId ? { ...topic, ...patch } : topic,
+        ),
       },
     }));
   }, []);
@@ -1527,6 +1600,83 @@ export default function AdminSettingsPage() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Aide FBO */}
+            {activeTab === "fbo-help" && (
+              <motion.div
+                key="fbo-help"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="space-y-6"
+              >
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="text-sm font-semibold text-blue-900">Aide affichée côté FBO</p>
+                  <p className="mt-1 text-sm text-blue-800">
+                    Activez uniquement les rubriques utiles au client. Les rubriques désactivées restent
+                    configurables ici mais ne sont pas visibles dans l'application FBO.
+                  </p>
+                </div>
+
+                <div className="grid gap-4">
+                  {settings.fboHelp.topics.map((topic) => (
+                    <div
+                      key={topic.id}
+                      className={`rounded-xl border p-4 transition ${
+                        topic.enabled
+                          ? "border-[#FFC600] bg-[#fffdf4]"
+                          : "border-gray-200 bg-gray-50"
+                      }`}
+                    >
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-bold text-[#5D4B3C]">
+                            {topic.label || topic.id}
+                          </div>
+                          <div className="mt-0.5 text-xs uppercase tracking-wide text-gray-400">
+                            {topic.id}
+                          </div>
+                        </div>
+                        <label className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(topic.enabled)}
+                            onChange={(e) =>
+                              updateFboHelpTopic(topic.id, { enabled: e.target.checked })
+                            }
+                            className="h-4 w-4 accent-[#FFC600]"
+                          />
+                          Visible FBO
+                        </label>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+                        <Field label="Titre de la rubrique">
+                          <TextInput
+                            value={topic.label || ""}
+                            onChange={(e) =>
+                              updateFboHelpTopic(topic.id, { label: e.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field
+                          label="Réponse affichée"
+                          hint="Variables possibles : {{countryLabel}}, {{supportPhone}}, {{pickupAddress}}"
+                        >
+                          <TextArea
+                            rows={3}
+                            value={topic.answer || ""}
+                            onChange={(e) =>
+                              updateFboHelpTopic(topic.id, { answer: e.target.value })
+                            }
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
             )}
