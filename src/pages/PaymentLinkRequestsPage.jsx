@@ -75,7 +75,7 @@ export default function PaymentLinkRequestsPage() {
     }
 
     const confirmed = window.confirm(
-      `Renvoyer le lien de paiement par WhatsApp au ${destination} ?`,
+      `Renvoyer le lien de paiement par SMS/email au ${destination} ?`,
     );
     if (!confirmed) return;
 
@@ -84,7 +84,6 @@ export default function PaymentLinkRequestsPage() {
       setError("");
       setInfo("");
       const result = await paymentLinkRequestsService.resendPaymentLink(item.preorderId, {
-        channel: "WHATSAPP",
         phone: destination,
       });
 
@@ -97,7 +96,7 @@ export default function PaymentLinkRequestsPage() {
 
       await paymentLinkRequestsService.update(item.id, {
         status: "RESOLVED",
-        reviewNote: `Lien renvoyé par ${result?.channel || "notification"} au ${destination}.`,
+        reviewNote: `Lien renvoyé par ${result?.channel || "SMS/email"} au ${destination}.`,
       });
       setInfo(`Lien renvoyé au ${destination}. Demande marquée comme traitée.`);
       await load();
@@ -257,7 +256,7 @@ export default function PaymentLinkRequestsPage() {
                               ) : (
                                 <Send className="h-3.5 w-3.5" />
                               )}
-                              Renvoyer
+                              Renvoyer SMS/email
                             </button>
                             <button
                               type="button"
