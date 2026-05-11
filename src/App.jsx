@@ -28,6 +28,7 @@ import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
+import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -209,6 +210,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à la file de préparation." />}
                     >
                       <PreparationQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/preparation/pickup-code-requests"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREPARATION_UPDATE}
+                      fallback={<AccessDenied message="Accès refusé aux demandes de code de retrait." />}
+                    >
+                      <PickupCodeRequestsPage />
                     </RequirePermission>
                   }
                 />

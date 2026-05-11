@@ -137,6 +137,17 @@ const NAV_ITEMS = [
     shortcut: "5",
   },
   {
+    key: "preparation",
+    to: "/preparation/pickup-code-requests",
+    label: "Codes retrait",
+    permission: Permission.PREPARATION_UPDATE,
+    icon: MessageSquareText,
+    badge: null,
+    description: "Demandes de renvoi client",
+    color: "from-amber-500 to-orange-500",
+    shortcut: "R",
+  },
+  {
     key: "stock",
     to: "/stock",
     label: "Stock",

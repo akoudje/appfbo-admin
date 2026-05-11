@@ -196,6 +196,13 @@ const DEFAULT_SETTINGS = {
           "Le retrait se fait selon les informations confirmées après paiement.",
       },
       {
+        id: "pickup-code-missing",
+        enabled: true,
+        label: "Je n'ai pas reçu mon code de retrait",
+        answer:
+          "Renseignez les informations de votre commande. Si le colis est prêt, le code sera renvoyé automatiquement sur le numéro de commande.",
+      },
+      {
         id: "support",
         enabled: false,
         label: "Contacter le support",
