@@ -306,6 +306,10 @@ export default function OrderDetailPage() {
     ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
       status,
     );
+  const canFulfillNoNotification =
+    [AdminRole.SUPER_ADMIN, AdminRole.TECH_ADMIN, AdminRole.OPERATIONS_DIRECTOR].includes(
+      role,
+    ) && ["PAID", "READY"].includes(status);
 
   useEffect(() => {
     if (!order) return;
@@ -968,6 +972,43 @@ const doInvoice = async () => {
     }
   };
 
+  const doFulfillNoNotification = async () => {
+    const confirmed = window.confirm(
+      "Cette action va clôturer la commande sans envoyer de SMS ni email au client. Elle débitera le stock si nécessaire et sera tracée dans l'historique. Continuer ?",
+    );
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.fulfillNoNotification(id, {
+        deliveryTracking: normalizeStr(deliveryTracking) || undefined,
+        pickupPointLabel: normalizeStr(pickupPointLabel) || undefined,
+        deliveryCarrier: normalizeStr(deliveryCarrier) || undefined,
+        fulfillmentMode: normalizeStr(fulfillmentMode) || undefined,
+        note:
+          normalizeStr(fulfillNote) ||
+          "Commande déjà livrée physiquement. Clôture admin sans notification.",
+      });
+
+      if (result?.alreadyDone) {
+        setInfo("Commande déjà clôturée.");
+      } else {
+        setInfo("Commande clôturée sans notification SMS/email.");
+      }
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de clôturer sans notification",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const doDownloadDeliveryNote = async () => {
     try {
       setSaving(true);
@@ -1467,6 +1508,8 @@ const doInvoice = async () => {
               notificationEmail={invoiceEmail}
               setNotificationEmail={setInvoiceEmail}
               onFulfill={doFulfill}
+              onFulfillNoNotification={doFulfillNoNotification}
+              canFulfillNoNotification={canFulfillNoNotification}
               onDownloadDeliveryNote={doDownloadDeliveryNote}
               onResendConfirmationSms={doResendConfirmationSms}
               canResendConfirmationSms={isGlobalAdmin}

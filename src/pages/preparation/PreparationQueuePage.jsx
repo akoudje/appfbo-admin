@@ -13,6 +13,7 @@ import useAdminAuth from "../../hooks/useAdminAuth";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
+import { AdminRole } from "../../auth/permissions";
 
 const PREPARATION_PRESET_STORAGE_PREFIX = "preparation_queue_preset_v1";
 
@@ -368,6 +369,12 @@ export default function PreparationQueuePage() {
     };
   }, [rows]);
 
+  const canFulfillNoNotification = [
+    AdminRole.SUPER_ADMIN,
+    AdminRole.TECH_ADMIN,
+    AdminRole.OPERATIONS_DIRECTOR,
+  ].includes(role);
+
   const handleOpen = (row) => {
     const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
     navigate(`/orders/${row.id}?tab=${targetTab}`);
@@ -376,6 +383,33 @@ export default function PreparationQueuePage() {
   const handlePrepare = async (row) => {
     const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
     navigate(`/orders/${row.id}?tab=${targetTab}`);
+  };
+
+  const handleFulfillNoNotification = async (row) => {
+    const label = row.parcelNumber || row.preorderNumber || row.id;
+    const confirmed = window.confirm(
+      `Clôturer la commande ${label} sans envoyer de SMS ni email ? Cette action sera tracée dans l'historique.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setActionLoadingId(row.id);
+      setError("");
+      setInfo("");
+      await ordersService.fulfillNoNotification(row.id, {
+        note:
+          "Commande déjà livrée physiquement. Clôture admin depuis la file de préparation, sans notification.",
+      });
+      setInfo(`Commande ${label} clôturée sans notification.`);
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de clôturer la commande sans notification.",
+      );
+    } finally {
+      setActionLoadingId("");
+    }
   };
 
   return (
@@ -528,6 +562,8 @@ export default function PreparationQueuePage() {
         loading={loading || !!actionLoadingId}
         onOpen={handleOpen}
         onPrepare={handlePrepare}
+        onFulfillNoNotification={handleFulfillNoNotification}
+        canFulfillNoNotification={canFulfillNoNotification}
       />
     </div>
   );

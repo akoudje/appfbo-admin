@@ -166,6 +166,14 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/fulfill`, body))
       .data,
 
+  fulfillNoNotification: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/fulfill-no-notification`,
+        body,
+      )
+    ).data,
+
   cancel: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/cancel`, body))
       .data,

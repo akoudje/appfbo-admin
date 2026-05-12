@@ -196,6 +196,8 @@ export default function OrderFulfillmentTab({
   notificationEmail,
   setNotificationEmail,
   onFulfill,
+  onFulfillNoNotification,
+  canFulfillNoNotification = false,
   onDownloadDeliveryNote,
   onResendConfirmationSms,
   canResendConfirmationSms = false,
@@ -545,6 +547,31 @@ export default function OrderFulfillmentTab({
                     : "La clôture enverra automatiquement un SMS de confirmation au client."
                   : "Statut READY requis pour clôturer."}
               </div>
+
+              {typeof onFulfillNoNotification === "function" ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="text-sm font-semibold text-amber-900">
+                    Régularisation admin
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    À utiliser uniquement si la commande a déjà été livrée physiquement.
+                    Aucun SMS ni email ne sera envoyé.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onFulfillNoNotification}
+                    disabled={!canFulfillNoNotification || saving}
+                    className="mt-3 w-full rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Clôturer sans notification
+                  </button>
+                  {!canFulfillNoNotification ? (
+                    <div className="mt-2 text-xs text-amber-700">
+                      Réservé aux administrateurs autorisés et aux commandes payées ou prêtes.
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {typeof onResendConfirmationSms === "function" ? (
                 <div className="space-y-2">

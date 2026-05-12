@@ -45,7 +45,14 @@ function OrderStatusBadge({ status }) {
   );
 }
 
-export default function PreparationQueueTable({ rows, loading, onOpen, onPrepare }) {
+export default function PreparationQueueTable({
+  rows,
+  loading,
+  onOpen,
+  onPrepare,
+  onFulfillNoNotification,
+  canFulfillNoNotification = false,
+}) {
   if (loading) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-sm">
@@ -146,6 +153,18 @@ export default function PreparationQueueTable({ rows, loading, onOpen, onPrepare
                           type="button"
                         >
                           Clôturer
+                        </button>
+                      </RequirePermission>
+                    ) : null}
+
+                    {canFulfillNoNotification && ["PAID", "READY"].includes(row.status) ? (
+                      <RequirePermission permission={Permission.PREPARATION_UPDATE}>
+                        <button
+                          onClick={() => onFulfillNoNotification?.(row)}
+                          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                          type="button"
+                        >
+                          Clôturer sans notif.
                         </button>
                       </RequirePermission>
                     ) : null}
