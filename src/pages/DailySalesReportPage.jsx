@@ -37,6 +37,13 @@ const PAYMENT_MODE_OPTIONS = [
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
 ];
 
+const PERIOD_OPTIONS = [
+  { value: "day", label: "Journalier" },
+  { value: "week", label: "Hebdomadaire" },
+  { value: "month", label: "Mensuel" },
+  { value: "custom", label: "Personnalisé" },
+];
+
 const DETAIL_TABS = [
   { key: "overview", label: "Vue générale", icon: BarChart3 },
   { key: "invoiced", label: "Préfacturation", icon: ReceiptText },
@@ -46,7 +53,7 @@ const DETAIL_TABS = [
   { key: "submitted", label: "Soumissions", icon: FileText },
 ];
 
-const STORAGE_KEY = "daily_report_filters";
+const STORAGE_KEY = "sales_report_filters";
 
 // ==================== UTILS ====================
 const readSavedFilters = () => {
@@ -62,6 +69,8 @@ const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+
+const monthStartIso = (iso = todayIso()) => `${String(iso).slice(0, 7)}-01`;
 
 const formatCount = (value) => new Intl.NumberFormat("fr-FR").format(Number(value || 0));
 
@@ -370,8 +379,14 @@ const OrdersTable = ({ rows = [], type = "generic", maxRows = 50, onViewOrder })
 };
 
 const FiltersPanel = ({
+  period,
+  setPeriod,
   date,
   setDate,
+  dateFrom,
+  setDateFrom,
+  dateTo,
+  setDateTo,
   paymentMode,
   setPaymentMode,
   invoicerId,
@@ -385,36 +400,95 @@ const FiltersPanel = ({
   loading,
 }) => {
   const [localDate, setLocalDate] = useState(date);
+  const [localDateFrom, setLocalDateFrom] = useState(dateFrom);
+  const [localDateTo, setLocalDateTo] = useState(dateTo);
 
   useEffect(() => {
     setLocalDate(date);
   }, [date]);
+
+  useEffect(() => {
+    setLocalDateFrom(dateFrom);
+    setLocalDateTo(dateTo);
+  }, [dateFrom, dateTo]);
   
   const handleApply = () => {
     setDate(localDate);
-    onLoad({ date: localDate });
+    setDateFrom(localDateFrom);
+    setDateTo(localDateTo);
+    onLoad({ period, date: localDate, dateFrom: localDateFrom, dateTo: localDateTo });
   };
   
   const handleReset = () => {
     setLocalDate(todayIso());
+    setLocalDateFrom(monthStartIso());
+    setLocalDateTo(todayIso());
+    setPeriod("day");
     setPaymentMode("");
     setInvoicerId("");
     setCashierId("");
-    onReset({ date: todayIso(), paymentMode: "", invoicerId: "", cashierId: "" });
+    onReset({
+      period: "day",
+      date: todayIso(),
+      dateFrom: monthStartIso(),
+      dateTo: todayIso(),
+      paymentMode: "",
+      invoicerId: "",
+      cashierId: "",
+    });
   };
   
   return (
     <div className="space-y-4 pt-4 border-t border-gray-200">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <div>
-          <label className="text-sm font-medium text-gray-700">Date</label>
-          <input 
-            type="date" 
-            value={localDate} 
-            onChange={(e) => setLocalDate(e.target.value)} 
+          <label className="text-sm font-medium text-gray-700">Période</label>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
-          />
+          >
+            {PERIOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
+        {period === "custom" ? (
+          <>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Du</label>
+              <input
+                type="date"
+                value={localDateFrom}
+                onChange={(e) => setLocalDateFrom(e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Au</label>
+              <input
+                type="date"
+                value={localDateTo}
+                onChange={(e) => setLocalDateTo(e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
+              />
+            </div>
+          </>
+        ) : (
+          <div>
+            <label className="text-sm font-medium text-gray-700">
+              {period === "month" ? "Mois de référence" : period === "week" ? "Semaine de référence" : "Date"}
+            </label>
+            <input
+              type="date"
+              value={localDate}
+              onChange={(e) => setLocalDate(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
+            />
+          </div>
+        )}
         <div>
           <label className="text-sm font-medium text-gray-700">Mode de paiement</label>
           <select 
@@ -575,12 +649,13 @@ const PrintRowsTable = ({ title, rows = [], type }) => {
 
 const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
   if (!report) return null;
+  const periodLabel = report?.period?.label || report.date;
   return (
     <div className="print-report hidden">
       <div className="flex items-start justify-between border-b border-gray-300 pb-3">
         <div>
-          <div className="text-xs font-semibold uppercase text-gray-500">Rapport quotidien des ventes</div>
-          <h1 className="mt-1 text-2xl font-bold text-gray-950">Journée du {report.date}</h1>
+          <div className="text-xs font-semibold uppercase text-gray-500">Rapport commercial</div>
+          <h1 className="mt-1 text-2xl font-bold text-gray-950">Période : {periodLabel}</h1>
         </div>
         <div className="text-right text-xs text-gray-500">
           Généré le {new Date().toLocaleString("fr-FR")}
@@ -611,7 +686,7 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
       </div>
 
       <section className="mt-4 rounded-lg border border-gray-200 p-3">
-        <h2 className="text-sm font-bold">Flux de la journée</h2>
+        <h2 className="text-sm font-bold">Flux de la période</h2>
         <div className="mt-2 grid grid-cols-5 gap-2 text-xs">
           <div>Soumises<br /><strong>{formatCount(report.submitted?.count)}</strong></div>
           <div>Préfacturées<br /><strong>{formatCount(report.invoiced?.count)}</strong></div>
@@ -637,9 +712,9 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
         <PrintMiniBars title="Annulations par motif" rows={report.cancelled?.byReason || []} />
       </div>
 
-      <PrintRowsTable title="Préfacturées du jour" rows={report.invoiced?.rows || []} type="invoiced" />
-      <PrintRowsTable title="Paiements validés du jour" rows={report.paid?.rows || []} type="paid" />
-      <PrintRowsTable title="Annulations du jour" rows={report.cancelled?.rows || []} type="cancelled" />
+      <PrintRowsTable title="Préfacturées sur la période" rows={report.invoiced?.rows || []} type="invoiced" />
+      <PrintRowsTable title="Paiements validés sur la période" rows={report.paid?.rows || []} type="paid" />
+      <PrintRowsTable title="Annulations sur la période" rows={report.cancelled?.rows || []} type="cancelled" />
     </div>
   );
 };
@@ -670,7 +745,10 @@ const KpiCard = ({ title, value, trend, icon: Icon, color }) => {
 export default function DailySalesReportPage() {
   const navigate = useNavigate();
   const savedFilters = useMemo(() => readSavedFilters(), []);
-  const [date, setDate] = useState(todayIso());
+  const [period, setPeriod] = useState(savedFilters.period || "day");
+  const [date, setDate] = useState(savedFilters.date || todayIso());
+  const [dateFrom, setDateFrom] = useState(savedFilters.dateFrom || monthStartIso());
+  const [dateTo, setDateTo] = useState(savedFilters.dateTo || todayIso());
   const [paymentMode, setPaymentMode] = useState(savedFilters.paymentMode || "");
   const [invoicerId, setInvoicerId] = useState(savedFilters.invoicerId || "");
   const [cashierId, setCashierId] = useState(savedFilters.cashierId || "");
@@ -690,7 +768,10 @@ export default function DailySalesReportPage() {
   }, []);
 
   const load = useCallback(async (overrides = {}) => {
+    const nextPeriod = overrides.period ?? period;
     const nextDate = overrides.date ?? date;
+    const nextDateFrom = overrides.dateFrom ?? dateFrom;
+    const nextDateTo = overrides.dateTo ?? dateTo;
     const nextPaymentMode = overrides.paymentMode ?? paymentMode;
     const nextInvoicerId = overrides.invoicerId ?? invoicerId;
     const nextCashierId = overrides.cashierId ?? cashierId;
@@ -699,7 +780,10 @@ export default function DailySalesReportPage() {
       setLoading(true);
       setError("");
       const data = await reportsService.getDailySales({
+        period: nextPeriod,
         date: nextDate,
+        dateFrom: nextPeriod === "custom" ? nextDateFrom : undefined,
+        dateTo: nextPeriod === "custom" ? nextDateTo : undefined,
         paymentMode: nextPaymentMode || undefined,
         invoicerId: nextInvoicerId || undefined,
         cashierId: nextCashierId || undefined,
@@ -722,17 +806,21 @@ export default function DailySalesReportPage() {
         return [...map.values()].sort((a, b) => String(a.label || "").localeCompare(String(b.label || "")));
       });
       saveFilters({
+        period: nextPeriod,
+        date: nextDate,
+        dateFrom: nextDateFrom,
+        dateTo: nextDateTo,
         paymentMode: nextPaymentMode,
         invoicerId: nextInvoicerId,
         cashierId: nextCashierId,
       });
     } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de charger le rapport quotidien.");
+      setError(e?.response?.data?.message || "Impossible de charger le rapport.");
       console.error("Load error:", e);
     } finally {
       setLoading(false);
     }
-  }, [date, paymentMode, invoicerId, cashierId, saveFilters]);
+  }, [period, date, dateFrom, dateTo, paymentMode, invoicerId, cashierId, saveFilters]);
 
   // Auto-refresh
   useEffect(() => {
@@ -763,16 +851,29 @@ export default function DailySalesReportPage() {
     paid: report?.critical?.paidNotLaunched?.length || 0,
   };
   const hasCritical = priorityCounts.submitted + priorityCounts.invoiced + priorityCounts.paid > 0;
+  const reportPeriodLabel = report?.period?.label || date;
+  const periodOptionLabel =
+    PERIOD_OPTIONS.find((option) => option.value === (report?.period?.type || period))?.label ||
+    "Rapport";
 
   const resetFilters = (nextFilters = null) => {
     const resetDate = nextFilters?.date || todayIso();
+    const resetPeriod = nextFilters?.period || "day";
+    const resetDateFrom = nextFilters?.dateFrom || monthStartIso();
+    const resetDateTo = nextFilters?.dateTo || todayIso();
     setPaymentMode(nextFilters?.paymentMode || "");
     setInvoicerId(nextFilters?.invoicerId || "");
     setCashierId(nextFilters?.cashierId || "");
+    setPeriod(resetPeriod);
     setDate(resetDate);
+    setDateFrom(resetDateFrom);
+    setDateTo(resetDateTo);
     localStorage.removeItem(STORAGE_KEY);
     load({
+      period: resetPeriod,
       date: resetDate,
+      dateFrom: resetDateFrom,
+      dateTo: resetDateTo,
       paymentMode: nextFilters?.paymentMode || "",
       invoicerId: nextFilters?.invoicerId || "",
       cashierId: nextFilters?.cashierId || "",
@@ -786,7 +887,7 @@ export default function DailySalesReportPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `rapport-ventes-${report.date || date}.csv`;
+    link.download = `rapport-ventes-${report.period?.type || period}-${report.date || date}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -888,7 +989,7 @@ export default function DailySalesReportPage() {
                 />
               </div>
             </Section>
-            <Section title={`Comparaison avec la veille (${report.comparison?.previousDay?.date || "-"})`} icon={TrendingUp}>
+            <Section title={`Comparaison avec ${report.comparison?.previousDay?.label || "la période précédente"} (${report.comparison?.previousDay?.date || "-"})`} icon={TrendingUp}>
               <div className="grid gap-4 md:grid-cols-2">
                 <ExecutiveMetric 
                   icon={ShoppingCart} 
@@ -1036,9 +1137,11 @@ export default function DailySalesReportPage() {
                 Rapports
               </span>
               <span>•</span>
-              <span className="font-medium text-gray-700">{report?.date || date}</span>
+              <span className="font-medium text-gray-700">{periodOptionLabel}</span>
+              <span>•</span>
+              <span className="font-medium text-gray-700">{reportPeriodLabel}</span>
             </div>
-            <h1 className="mt-2 text-3xl font-bold text-gray-950">Rapport quotidien des ventes</h1>
+            <h1 className="mt-2 text-3xl font-bold text-gray-950">Rapports commerciaux</h1>
             <p className="mt-2 max-w-3xl text-sm text-gray-500">
               Vue de pilotage des commandes, encaissements, annulations et blocages opérationnels
             </p>
@@ -1107,8 +1210,14 @@ export default function DailySalesReportPage() {
         {filtersOpen && (
           <div className="animate-fade-in">
             <FiltersPanel
+              period={period}
+              setPeriod={setPeriod}
               date={date}
               setDate={setDate}
+              dateFrom={dateFrom}
+              setDateFrom={setDateFrom}
+              dateTo={dateTo}
+              setDateTo={setDateTo}
               paymentMode={paymentMode}
               setPaymentMode={setPaymentMode}
               invoicerId={invoicerId}
@@ -1140,7 +1249,7 @@ export default function DailySalesReportPage() {
       {loading && !report && (
         <div className="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-gray-400" />
-          <p>Chargement du rapport quotidien...</p>
+          <p>Chargement du rapport...</p>
         </div>
       )}
 
@@ -1189,8 +1298,8 @@ export default function DailySalesReportPage() {
             />
           </div>
 
-          {/* Daily Flow */}
-          <Section title="Flux quotidien des commandes" icon={CalendarDays}>
+          {/* Flow */}
+          <Section title="Flux des commandes sur la période" icon={CalendarDays}>
             <DailyFlow report={report} />
           </Section>
 
