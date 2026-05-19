@@ -24,7 +24,7 @@ function getTodayIsoDate() {
 function safeReadStorage(key, fallback = "ALL") {
   try {
     return window.localStorage.getItem(key) || fallback;
-  } catch (_) {
+  } catch {
     return fallback;
   }
 }
@@ -32,7 +32,7 @@ function safeReadStorage(key, fallback = "ALL") {
 function safeWriteStorage(key, value) {
   try {
     window.localStorage.setItem(key, value);
-  } catch (_) {
+  } catch {
     // Ignore storage failures (private mode, quota, etc.).
   }
 }
@@ -527,8 +527,9 @@ export default function BillingQueuePage() {
 
       if (result?.reason === "MAX_ACTIVE_REACHED") {
         setInfo(
-          `Limite atteinte : ${result.activeCount}/${result.maxActive} dossiers actifs.`,
+          "Vous avez déjà des dossiers attribués. Finalisez, mettez en attente paiement ou libérez un dossier avant d'en prendre un nouveau.",
         );
+        setTab("my");
         return;
       }
 
