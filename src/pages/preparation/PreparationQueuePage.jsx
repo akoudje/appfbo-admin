@@ -2,7 +2,7 @@
 // Page d'affichage de la file de préparation, avec les stats, les onglets et le tableau. Gère les actions de préparation des commandes.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ordersService } from "../../services/ordersService";
 import PreparationQueueHeader from "../../components/preparation/PreparationQueueHeader";
 import PreparationQueueAlerts from "../../components/preparation/PreparationQueueAlerts";
@@ -24,7 +24,7 @@ function getTodayIsoDate() {
 function safeReadStorage(key, fallback = "ALL") {
   try {
     return window.localStorage.getItem(key) || fallback;
-  } catch (_) {
+  } catch {
     return fallback;
   }
 }
@@ -32,13 +32,14 @@ function safeReadStorage(key, fallback = "ALL") {
 function safeWriteStorage(key, value) {
   try {
     window.localStorage.setItem(key, value);
-  } catch (_) {
+  } catch {
     // Ignore storage failures (private mode, quota, etc.).
   }
 }
 
 export default function PreparationQueuePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAdminAuth();
   const searchDebounceInitializedRef = useRef(false);
   const loadRef = useRef(null);
@@ -75,8 +76,8 @@ export default function PreparationQueuePage() {
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [attentionAlert, setAttentionAlert] = useState(null);
-  const [tab, setTab] = useState("to-prepare");
+  const [, setAttentionAlert] = useState(null);
+  const [tab, setTabState] = useState(searchParams.get("tab") || "to-prepare");
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
@@ -84,14 +85,6 @@ export default function PreparationQueuePage() {
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
   const attentionTimerRef = useRef(null);
-
-  const clearAttentionAlert = () => {
-    if (attentionTimerRef.current) {
-      clearTimeout(attentionTimerRef.current);
-      attentionTimerRef.current = null;
-    }
-    setAttentionAlert(null);
-  };
 
   const raiseAttentionAlert = (count = 1, source = "poll") => {
     if (attentionTimerRef.current) {
@@ -112,14 +105,6 @@ export default function PreparationQueuePage() {
       setAttentionAlert(null);
       attentionTimerRef.current = null;
     }, 45000);
-  };
-
-  const replayAttentionAlert = async () => {
-    if (!attentionAlert?.soundEventKey) return;
-    await sound.notify(attentionAlert.soundEventKey, {
-      signature: `manual-replay:${attentionAlert.soundEventKey}:${Date.now()}`,
-      cooldownMs: 0,
-    });
   };
 
   const load = async (overrides = {}) => {
@@ -375,14 +360,35 @@ export default function PreparationQueuePage() {
     AdminRole.OPERATIONS_DIRECTOR,
   ].includes(role);
 
-  const handleOpen = (row) => {
+  const setTab = (nextTab) => {
+    setTabState(nextTab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextTab && nextTab !== "to-prepare") {
+        next.set("tab", nextTab);
+      } else {
+        next.delete("tab");
+      }
+      return next;
+    });
+  };
+
+  const buildOrderUrl = (row) => {
     const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
-    navigate(`/orders/${row.id}?tab=${targetTab}`);
+    const params = new URLSearchParams();
+    params.set("tab", targetTab);
+    params.set("prepQueue", "1");
+    params.set("queueTab", tab);
+    params.set("queueIds", filteredRows.map((item) => item.id).filter(Boolean).join(","));
+    return `/orders/${row.id}?${params.toString()}`;
+  };
+
+  const handleOpen = (row) => {
+    navigate(buildOrderUrl(row));
   };
 
   const handlePrepare = async (row) => {
-    const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
-    navigate(`/orders/${row.id}?tab=${targetTab}`);
+    navigate(buildOrderUrl(row));
   };
 
   const handleFulfillNoNotification = async (row) => {
@@ -562,6 +568,7 @@ export default function PreparationQueuePage() {
         loading={loading || !!actionLoadingId}
         onOpen={handleOpen}
         onPrepare={handlePrepare}
+        getOrderHref={buildOrderUrl}
         onFulfillNoNotification={handleFulfillNoNotification}
         canFulfillNoNotification={canFulfillNoNotification}
       />

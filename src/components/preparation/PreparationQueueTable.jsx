@@ -50,6 +50,7 @@ export default function PreparationQueueTable({
   loading,
   onOpen,
   onPrepare,
+  getOrderHref,
   onFulfillNoNotification,
   canFulfillNoNotification = false,
 }) {
@@ -171,7 +172,7 @@ export default function PreparationQueueTable({
 
                     <RequirePermission permission={Permission.PREORDER_READ}>
                       <Link
-                        to={`/orders/${row.id}?tab=${row.status === "READY" ? "fulfillment" : "preparation"}`}
+                        to={getOrderHref?.(row) || `/orders/${row.id}?tab=${row.status === "READY" ? "fulfillment" : "preparation"}`}
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
                         Détail

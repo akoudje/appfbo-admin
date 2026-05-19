@@ -579,6 +579,28 @@ export default function OrderDetailPage() {
     await load();
   };
 
+  const navigateToNextPreparationQueueOrder = (nextTab) => {
+    if (searchParams.get("prepQueue") !== "1") return false;
+
+    const queueIds = String(searchParams.get("queueIds") || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const currentIndex = queueIds.indexOf(id);
+    const nextId = currentIndex >= 0 ? queueIds[currentIndex + 1] : "";
+
+    if (!nextId) {
+      const queueTab = searchParams.get("queueTab");
+      navigate(queueTab ? `/preparation?tab=${encodeURIComponent(queueTab)}` : "/preparation", { replace: true });
+      return true;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", nextTab);
+    navigate(`/orders/${nextId}?${nextParams.toString()}`, { replace: true });
+    return true;
+  };
+
   const handleResendInvoiceNotification = async (channel = "") => {
     try {
       setSaving(true);
@@ -866,6 +888,7 @@ const doInvoice = async () => {
       });
 
       await handleActionResult(result, "Commande déjà préparée.");
+      navigateToNextPreparationQueueOrder("preparation");
     } catch (e) {
       setError(
         e?.response?.data?.message || "Impossible de marquer le colis prêt",
@@ -924,6 +947,7 @@ const doInvoice = async () => {
       });
 
       await handleActionResult(result, "Commande déjà clôturée.");
+      navigateToNextPreparationQueueOrder("fulfillment");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de clôturer");
     } finally {
@@ -999,6 +1023,7 @@ const doInvoice = async () => {
         setInfo("Commande clôturée sans notification SMS/email.");
       }
       await load();
+      navigateToNextPreparationQueueOrder("fulfillment");
     } catch (e) {
       setError(
         e?.response?.data?.message ||
