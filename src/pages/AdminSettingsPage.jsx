@@ -54,6 +54,7 @@ const DEFAULT_SETTINGS = {
     enableOrangeMoney: true,
     enableCash: true,
     enableBankTransfer: true,
+    enableEcobankPay: false,
     enableDelivery: true,
     enablePickup: true,
     bankAccountLabel: "",
@@ -64,6 +65,12 @@ const DEFAULT_SETTINGS = {
     bankAccountHolder: "",
     bankPaymentDueHours: 72,
     bankProofMaxFileSizeMb: 8,
+    ecobankPayMerchantName: "",
+    ecobankPayMerchantId: "",
+    ecobankPayTerminalName: "",
+    ecobankPayTerminalId: "",
+    ecobankPayQrImageUrl: "",
+    ecobankPayInstructions: "",
   },
   commercial: {
     minCartTotalFcfa: 100,
@@ -597,6 +604,7 @@ export default function AdminSettingsPage() {
             enableOrangeMoney: Boolean(data.enableOrangeMoney),
             enableCash: Boolean(data.enableCash),
             enableBankTransfer: data.enableBankTransfer ?? true,
+            enableEcobankPay: Boolean(data.enableEcobankPay),
             enableDelivery: Boolean(data.enableDelivery),
             enablePickup: Boolean(data.enablePickup),
             bankAccountLabel: data.bankAccountLabel || "",
@@ -609,6 +617,12 @@ export default function AdminSettingsPage() {
               data.bankPaymentDueHours ?? prev.countries.bankPaymentDueHours,
             bankProofMaxFileSizeMb:
               data.bankProofMaxFileSizeMb ?? prev.countries.bankProofMaxFileSizeMb,
+            ecobankPayMerchantName: data.ecobankPayMerchantName || "",
+            ecobankPayMerchantId: data.ecobankPayMerchantId || "",
+            ecobankPayTerminalName: data.ecobankPayTerminalName || "",
+            ecobankPayTerminalId: data.ecobankPayTerminalId || "",
+            ecobankPayQrImageUrl: data.ecobankPayQrImageUrl || "",
+            ecobankPayInstructions: data.ecobankPayInstructions || "",
           },
           commercial: {
             ...prev.commercial,
@@ -712,6 +726,7 @@ export default function AdminSettingsPage() {
         enableOrangeMoney: settings.countries.enableOrangeMoney,
         enableCash: settings.countries.enableCash,
         enableBankTransfer: settings.countries.enableBankTransfer,
+        enableEcobankPay: settings.countries.enableEcobankPay,
         enableDelivery: settings.countries.enableDelivery,
         enablePickup: settings.countries.enablePickup,
         bankAccountLabel: settings.countries.bankAccountLabel,
@@ -722,6 +737,12 @@ export default function AdminSettingsPage() {
         bankAccountHolder: settings.countries.bankAccountHolder,
         bankPaymentDueHours: settings.countries.bankPaymentDueHours,
         bankProofMaxFileSizeMb: settings.countries.bankProofMaxFileSizeMb,
+        ecobankPayMerchantName: settings.countries.ecobankPayMerchantName,
+        ecobankPayMerchantId: settings.countries.ecobankPayMerchantId,
+        ecobankPayTerminalName: settings.countries.ecobankPayTerminalName,
+        ecobankPayTerminalId: settings.countries.ecobankPayTerminalId,
+        ecobankPayQrImageUrl: settings.countries.ecobankPayQrImageUrl,
+        ecobankPayInstructions: settings.countries.ecobankPayInstructions,
         currencyLabel: settings.commercial.currencyLabel,
         pricingDisclaimer: settings.commercial.pricingDisclaimer,
         themePrimaryColor: settings.theme.primaryColor,
@@ -1092,6 +1113,18 @@ export default function AdminSettingsPage() {
                     icon={Building2}
                   />
                   <ToggleCard
+                    label="Ecobank Pay"
+                    hint="QR Ecobank avec dépôt de preuve"
+                    checked={settings.countries.enableEcobankPay}
+                    onChange={(checked) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        countries: { ...prev.countries, enableEcobankPay: checked },
+                      }))
+                    }
+                    icon={CreditCard}
+                  />
+                  <ToggleCard
                     label="Livraison"
                     hint="Livraison à domicile"
                     checked={settings.countries.enableDelivery}
@@ -1115,6 +1148,107 @@ export default function AdminSettingsPage() {
                     }
                     icon={ShoppingCart}
                   />
+                </div>
+
+                {/* Section Ecobank Pay */}
+                <div className="rounded-xl border border-[#e7dec8] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedSections(prev => ({ ...prev, ecobank: !prev.ecobank }))}
+                    className="w-full flex items-center justify-between px-5 py-4 bg-[#fcfbf7] hover:bg-[#f8f4e7] transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-[#5D4B3C]" />
+                      <span className="font-semibold text-[#5D4B3C]">Paramètres Ecobank Pay</span>
+                    </div>
+                    {expandedSections.ecobank ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                  </button>
+                  <AnimatePresence>
+                    {expandedSections.ecobank && (
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: "auto" }}
+                        exit={{ height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-5 border-t border-[#e7dec8] grid gap-4 sm:grid-cols-2">
+                          <Field label="Nom marchand">
+                            <TextInput
+                              value={settings.countries.ecobankPayMerchantName}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, ecobankPayMerchantName: e.target.value },
+                                }))
+                              }
+                              placeholder="FOREVER LIVING PRODUCT BF"
+                            />
+                          </Field>
+                          <Field label="ID marchand">
+                            <TextInput
+                              value={settings.countries.ecobankPayMerchantId}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, ecobankPayMerchantId: e.target.value },
+                                }))
+                              }
+                              placeholder="858172371"
+                            />
+                          </Field>
+                          <Field label="Nom terminal">
+                            <TextInput
+                              value={settings.countries.ecobankPayTerminalName}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, ecobankPayTerminalName: e.target.value },
+                                }))
+                              }
+                              placeholder="FOREVER LIVING PRODUCT BF"
+                            />
+                          </Field>
+                          <Field label="ID terminal">
+                            <TextInput
+                              value={settings.countries.ecobankPayTerminalId}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, ecobankPayTerminalId: e.target.value },
+                                }))
+                              }
+                              placeholder="32629497"
+                            />
+                          </Field>
+                          <Field label="URL QR code" hint="Image publique du QR Ecobank Pay">
+                            <TextInput
+                              value={settings.countries.ecobankPayQrImageUrl}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, ecobankPayQrImageUrl: e.target.value },
+                                }))
+                              }
+                              placeholder="https://..."
+                            />
+                          </Field>
+                          <Field label="Instructions">
+                            <TextArea
+                              value={settings.countries.ecobankPayInstructions}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, ecobankPayInstructions: e.target.value },
+                                }))
+                              }
+                              rows={3}
+                              placeholder="Scannez le QR Ecobank Pay, payez le montant exact, puis déposez une capture."
+                            />
+                          </Field>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Section virement bancaire */}

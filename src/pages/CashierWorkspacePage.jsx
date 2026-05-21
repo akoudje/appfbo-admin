@@ -1095,6 +1095,7 @@ export default function CashierWorkspacePage() {
             <option value="WAVE">Wave</option>
             <option value="ORANGE_MONEY">Orange Money</option>
             <option value="BANK_TRANSFER">Virement bancaire</option>
+            <option value="ECOBANK_PAY">Ecobank Pay</option>
           </select>
           <input
             type="date"

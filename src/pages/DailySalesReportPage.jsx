@@ -35,6 +35,7 @@ const PAYMENT_MODE_OPTIONS = [
   { value: "WAVE", label: "Wave" },
   { value: "ORANGE_MONEY", label: "Orange Money" },
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
+  { value: "ECOBANK_PAY", label: "Ecobank Pay" },
 ];
 
 const PERIOD_OPTIONS = [
