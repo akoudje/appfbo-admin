@@ -9,6 +9,7 @@ import useSoundAlerts from "../hooks/useSoundAlerts";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { AdminRole } from "../auth/permissions";
 import { foreverLogoUrl } from "../lib/assetUrls";
+import { getCountryCode } from "../services/api";
 import {
   Save,
   Loader2,
@@ -579,6 +580,7 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [selectedCountryCode, setSelectedCountryCode] = useState(() => getCountryCode());
   const [expandedSections, setExpandedSections] = useState({
     bank: true,
     sms: true,
@@ -597,7 +599,7 @@ export default function AdminSettingsPage() {
     async function load() {
       try {
         setLoading(true);
-        const data = await settingsService.getCountrySettings();
+        const data = await settingsService.getCountrySettings(selectedCountryCode);
         setSettings((prev) => ({
           ...prev,
           countries: {
@@ -702,7 +704,7 @@ export default function AdminSettingsPage() {
       }
     }
     load();
-  }, []);
+  }, [selectedCountryCode]);
 
   const handleSave = useCallback(async () => {
     try {
@@ -757,8 +759,8 @@ export default function AdminSettingsPage() {
         themeSidePanelsEnabled: settings.theme.sidePanelsEnabled,
         notificationTemplates: settings.notifications.templates,
         fboHelpTopics: settings.fboHelp.topics,
-      });
-      setToast({ message: "Paramètres enregistrés avec succès", type: "success" });
+      }, selectedCountryCode);
+      setToast({ message: `Paramètres ${selectedCountryCode} enregistrés avec succès`, type: "success" });
     } catch (e) {
       setToast({
         message: e?.response?.data?.message || "Impossible d'enregistrer les paramètres.",
@@ -767,7 +769,7 @@ export default function AdminSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [settings, selectedCountryCode]);
 
   const commercialSummary = useMemo(
     () => `${settings.commercial.minCartTotalFcfa} ${settings.commercial.currencyLabel}`,
@@ -987,9 +989,7 @@ export default function AdminSettingsPage() {
                     </h3>
                   </div>
                   <p className="mb-4 text-xs text-gray-500">
-                    {isSuperAdmin
-                      ? "Activez ou désactivez les pays disponibles dans le sélecteur de pays du formulaire client."
-                      : "Lecture seule : seul le super admin peut activer ou désactiver un pays."}
+                    Sélectionnez le pays à paramétrer. L'activation publique du pays reste réservée au super admin.
                   </p>
                   {countriesList.length === 0 ? (
                     <div className="text-xs italic text-gray-400">Chargement…</div>
@@ -1004,23 +1004,28 @@ export default function AdminSettingsPage() {
                           NER: "https://flagcdn.com/w40/ne.png",
                         };
                         const isToggling = togglingCountry === country.code;
+                        const isSelected = selectedCountryCode === country.code;
                         return (
-                          <motion.button
+                          <motion.div
                             key={country.code}
-                            type="button"
-                            onClick={() =>
-                              !isToggling &&
-                              isSuperAdmin &&
-                              handleToggleCountry(country.code, !country.actif)
-                            }
-                            disabled={!isSuperAdmin || isToggling}
-                            whileHover={isSuperAdmin ? { scale: 1.02 } : {}}
-                            whileTap={isSuperAdmin ? { scale: 0.98 } : {}}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedCountryCode(country.code)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setSelectedCountryCode(country.code);
+                              }
+                            }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             className={`relative flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3 transition-all ${
-                              country.actif
+                              isSelected
+                                ? "border-[#5D4B3C] bg-white shadow-md"
+                                : country.actif
                                 ? "border-[#FFC600] bg-gradient-to-b from-[#fff7d6] to-[#fffbeb] shadow-sm"
                                 : "border-gray-200 bg-gray-50 opacity-60"
-                            } ${isSuperAdmin ? "cursor-pointer" : "cursor-not-allowed"}`}
+                            } cursor-pointer`}
                           >
                             <img
                               src={flagMap[country.code] || ""}
@@ -1032,23 +1037,61 @@ export default function AdminSettingsPage() {
                             }`}>
                               {country.name}
                             </span>
-                            <div className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
-                              country.actif ? "bg-[#FFC600]" : "bg-gray-300"
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              isSelected ? "bg-[#5D4B3C] text-white" : "bg-white/70 text-gray-500"
                             }`}>
-                              <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                              {isSelected ? "Paramétrage" : country.code}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (!isSuperAdmin || isToggling) return;
+                                handleToggleCountry(country.code, !country.actif);
+                              }}
+                              disabled={!isSuperAdmin || isToggling}
+                              className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
+                                country.actif ? "bg-[#FFC600]" : "bg-gray-300"
+                              } ${isSuperAdmin ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+                              title={
+                                isSuperAdmin
+                                  ? country.actif
+                                    ? "Désactiver ce pays"
+                                    : "Activer ce pays"
+                                  : "Réservé au super admin"
+                              }
+                            >
+                              <span className={`block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
                                 country.actif ? "translate-x-4" : "translate-x-0"
                               }`} />
-                            </div>
+                            </button>
                             {isToggling && (
                               <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70">
                                 <Loader2 className="h-4 w-4 animate-spin text-[#FFC600]" />
                               </div>
                             )}
-                          </motion.button>
+                          </motion.div>
                         );
                       })}
                     </div>
                   )}
+                </div>
+
+                <div className="rounded-xl border border-[#e7dec8] bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Paramètres du pays
+                      </p>
+                      <h3 className="mt-1 text-lg font-bold text-[#5D4B3C]">
+                        {countriesList.find((country) => country.code === selectedCountryCode)?.name ||
+                          selectedCountryCode}
+                      </h3>
+                    </div>
+                    <span className="rounded-full bg-[#5D4B3C] px-3 py-1 text-xs font-bold text-white">
+                      {selectedCountryCode}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
