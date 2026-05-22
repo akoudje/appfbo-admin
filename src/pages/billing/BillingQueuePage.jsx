@@ -21,14 +21,6 @@ function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function safeReadStorage(key, fallback = "ALL") {
-  try {
-    return window.localStorage.getItem(key) || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function safeWriteStorage(key, value) {
   try {
     window.localStorage.setItem(key, value);
@@ -106,7 +98,7 @@ export default function BillingQueuePage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [attentionAlert, setAttentionAlert] = useState(null);
-  const defaultTab = role === "BILLING_MANAGER" ? "queue" : "my";
+  const defaultTab = "queue";
   const requestedTab = normalizeBillingTab(searchParams.get("tab"), defaultTab);
   const [tab, setTab] = useState(
     requestedTab,
@@ -344,30 +336,12 @@ export default function BillingQueuePage() {
   }, [query]);
 
   useEffect(() => {
-    const nextDefaultTab = role === "BILLING_MANAGER" ? "queue" : "my";
+    const nextDefaultTab = "queue";
     const nextTab = normalizeBillingTab(searchParams.get("tab"), nextDefaultTab);
     setTab(nextTab);
   }, [role, searchParams]);
 
   useEffect(() => {
-    const savedPreset = safeReadStorage(presetStorageKey, "ALL");
-    if (savedPreset === "URGENT") {
-      setQuickPreset("URGENT");
-      setPriority("URGENT");
-      setDateFrom("");
-      setDateTo("");
-      load({ priority: "URGENT", dateFrom: "", dateTo: "" });
-      return;
-    }
-    if (savedPreset === "TODAY") {
-      const today = getTodayIsoDate();
-      setQuickPreset("TODAY");
-      setPriority("");
-      setDateFrom(today);
-      setDateTo(today);
-      load({ priority: "", dateFrom: today, dateTo: today });
-      return;
-    }
     setQuickPreset("ALL");
     setPriority("");
     setDateFrom("");
