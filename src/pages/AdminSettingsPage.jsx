@@ -6,6 +6,8 @@ import AdminUsersPage from "./AdminUsersPage";
 import AdminGradeDiscountsPage from "./AdminGradeDiscountsPage";
 import { settingsService } from "../services/settingsService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
+import useAdminAuth from "../hooks/useAdminAuth";
+import { AdminRole } from "../auth/permissions";
 import { foreverLogoUrl } from "../lib/assetUrls";
 import {
   Save,
@@ -570,6 +572,8 @@ function Toast({ message, type, onClose }) {
 // --- Composant Principal ---
 export default function AdminSettingsPage() {
   const sound = useSoundAlerts("settings");
+  const { role } = useAdminAuth();
+  const isSuperAdmin = role === AdminRole.SUPER_ADMIN;
   const [activeTab, setActiveTab] = useState("countries");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -842,6 +846,14 @@ export default function AdminSettingsPage() {
   }, []);
 
   const handleToggleCountry = useCallback(async (code, actif) => {
+    if (!isSuperAdmin) {
+      setToast({
+        message: "Seul le super admin peut activer ou désactiver un pays.",
+        type: "error",
+      });
+      return;
+    }
+
     setTogglingCountry(code);
     try {
       const updated = await settingsService.toggleCountry(code, actif);
@@ -857,7 +869,7 @@ export default function AdminSettingsPage() {
     } finally {
       setTogglingCountry(null);
     }
-  }, []);
+  }, [isSuperAdmin]);
 
   const resetToDefault = useCallback(() => {
     if (window.confirm("Réinitialiser tous les paramètres aux valeurs par défaut ?")) {
@@ -975,7 +987,9 @@ export default function AdminSettingsPage() {
                     </h3>
                   </div>
                   <p className="mb-4 text-xs text-gray-500">
-                    Activez ou désactivez les pays disponibles dans le sélecteur de pays du formulaire client.
+                    {isSuperAdmin
+                      ? "Activez ou désactivez les pays disponibles dans le sélecteur de pays du formulaire client."
+                      : "Lecture seule : seul le super admin peut activer ou désactiver un pays."}
                   </p>
                   {countriesList.length === 0 ? (
                     <div className="text-xs italic text-gray-400">Chargement…</div>
@@ -994,14 +1008,19 @@ export default function AdminSettingsPage() {
                           <motion.button
                             key={country.code}
                             type="button"
-                            onClick={() => !isToggling && handleToggleCountry(country.code, !country.actif)}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              !isToggling &&
+                              isSuperAdmin &&
+                              handleToggleCountry(country.code, !country.actif)
+                            }
+                            disabled={!isSuperAdmin || isToggling}
+                            whileHover={isSuperAdmin ? { scale: 1.02 } : {}}
+                            whileTap={isSuperAdmin ? { scale: 0.98 } : {}}
                             className={`relative flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3 transition-all ${
                               country.actif
                                 ? "border-[#FFC600] bg-gradient-to-b from-[#fff7d6] to-[#fffbeb] shadow-sm"
                                 : "border-gray-200 bg-gray-50 opacity-60"
-                            }`}
+                            } ${isSuperAdmin ? "cursor-pointer" : "cursor-not-allowed"}`}
                           >
                             <img
                               src={flagMap[country.code] || ""}
