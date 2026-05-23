@@ -41,7 +41,7 @@ const STATUS_CONFIG = {
     tone: "amber",
     Icon: Package,
   },
-  READY_FOR_PICKUP: {
+  READY: {
     label: "Pretes",
     description: "A remettre",
     tone: "cyan",
@@ -375,8 +375,14 @@ export default function Dashboard() {
   const topProducts = useMemo(() => stats?.topProducts || [], [stats]);
   const totalOrders = Number(stats?.totalOrders || 0);
   const totalRevenue = Number(stats?.totalRevenueFcfa || 0);
+  const grossOrders = Number(stats?.grossOrders || totalOrders);
+  const grossRevenue = Number(stats?.grossRevenueFcfa || totalRevenue);
+  const cancelledOrders = Number(stats?.cancelledOrders || 0);
+  const cancelledRevenue = Number(stats?.cancelledRevenueFcfa || 0);
+  const testCancelledOrders = Number(stats?.testCancelledOrders || 0);
+  const testCancelledRevenue = Number(stats?.testCancelledRevenueFcfa || 0);
   const paidRevenue = byStatus
-    .filter((row) => ["PAID", "PREPARATION", "READY_FOR_PICKUP", "FULFILLED"].includes(row.status))
+    .filter((row) => ["PAID", "READY", "FULFILLED"].includes(row.status))
     .reduce((sum, row) => sum + Number(row.revenueFcfa || 0), 0);
   const averageBasket = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
   const unitsSold = topProducts.reduce((sum, product) => sum + Number(product.qty || 0), 0);
@@ -406,14 +412,14 @@ export default function Dashboard() {
         <KpiCard
           label="Commandes suivies"
           value={formatNumber(totalOrders)}
-          detail="Hors brouillons"
+          detail={cancelledOrders > 0 ? `${formatNumber(cancelledOrders)} annulee(s) exclue(s)` : "Hors brouillons et annulations"}
           icon={ShoppingCart}
           tone="blue"
         />
         <KpiCard
-          label="CA commandes"
+          label="CA net commandes"
           value={formatMoney(totalRevenue)}
-          detail="Tous statuts non brouillon"
+          detail={cancelledRevenue > 0 ? `${formatMoney(cancelledRevenue)} exclu` : "Annulations exclues"}
           icon={Banknote}
           tone="emerald"
         />
@@ -433,6 +439,30 @@ export default function Dashboard() {
         />
       </div>
 
+      {cancelledOrders > 0 ? (
+        <Card className="border-amber-200 bg-amber-50 px-5 py-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <div className="text-sm font-semibold text-amber-950">
+                  Annulations exclues des indicateurs de vente
+                </div>
+                <div className="mt-1 text-sm text-amber-800">
+                  Le brut de la periode est {formatNumber(grossOrders)} commande(s) pour {formatMoney(grossRevenue)}.
+                  Le dashboard retient le net, hors {formatNumber(cancelledOrders)} commande(s) annulee(s).
+                </div>
+              </div>
+            </div>
+            {testCancelledOrders > 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-900">
+                Tests: {formatNumber(testCancelledOrders)} commande(s), {formatMoney(testCancelledRevenue)}
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card>
           <SectionHeader
@@ -445,7 +475,7 @@ export default function Dashboard() {
               </Link>
             }
           />
-          <StatusRows rows={byStatus} total={totalOrders} />
+          <StatusRows rows={byStatus} total={grossOrders} />
         </Card>
 
         <Card>
