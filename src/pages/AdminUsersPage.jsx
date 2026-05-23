@@ -220,32 +220,6 @@ function Field({ label, required, children }) {
   );
 }
 
-function RoleCatalog() {
-  return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {ROLE_GROUPS.map((group) => (
-        <div
-          key={group.label}
-          className="rounded-xl border border-gray-200 bg-gray-50 p-4"
-        >
-          <div className="text-sm font-semibold text-gray-900">{group.label}</div>
-          <div className="mt-3 space-y-3">
-            {group.roles.map((role) => (
-              <div
-                key={role.value}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-3"
-              >
-                <div className="text-sm font-medium text-gray-900">{role.label}</div>
-                <div className="mt-1 text-xs text-gray-500">{role.help}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ============================================================================
    Modal formulaire
 ============================================================================ */
@@ -620,8 +594,6 @@ export default function AdminUsersPage() {
             Gère ici les comptes administrateurs de l’application : rôles,
             pays, statut actif et accès à l’admin.
           </Alert>
-
-          <RoleCatalog />
 
           {error ? <Alert tone="red">{error}</Alert> : null}
           {info ? <Alert tone="emerald">{info}</Alert> : null}
