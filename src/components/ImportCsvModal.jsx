@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { importCsv } from "../services/productsService";
 
 const CSV_TEMPLATE = [
-  "sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details",
-  '123-ABC;"Aloe Vera Gel";15000;0.482;3.300;true;https://example.com/image.jpg;BUVABLE;12;;"Gel a boire"',
-  "456-DEF;Forever Fiber;12500;0.250;0.300;false;;NUTRITION;;1;",
+  "sku;nom;prixBaseFcfa;CLIENT_PRIVILEGIE;ANIMATEUR_ADJOINT;ANIMATEUR;MANAGER_ADJOINT;MANAGER;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details",
+  '123-ABC;"Aloe Vera Gel";15000;14250;10500;9300;8550;7800;0.482;3.300;true;https://example.com/image.jpg;BUVABLE;12;;"Gel a boire"',
+  "456-DEF;Forever Fiber;12500;;;;;;0.250;0.300;false;;NUTRITION;;1;",
 ].join("\n");
 
 function splitCsvLines(text) {
@@ -107,6 +107,11 @@ function normalizeHeaderName(raw) {
     details: "details",
     detail: "details",
     description: "details",
+    clientprivilegie: "CLIENT_PRIVILEGIE",
+    animateuradjoint: "ANIMATEUR_ADJOINT",
+    animateur: "ANIMATEUR",
+    manageradjoint: "MANAGER_ADJOINT",
+    manager: "MANAGER",
   };
 
   return map[base] || String(raw || "").trim();
@@ -171,6 +176,26 @@ function normalizeRow(r) {
         ? ""
         : toNumberOrNaN(r.maxQtyPerOrder),
     details: toNullableString(r.details),
+    CLIENT_PRIVILEGIE:
+      (r.CLIENT_PRIVILEGIE ?? "").toString().trim() === ""
+        ? ""
+        : toNumberOrNaN(r.CLIENT_PRIVILEGIE),
+    ANIMATEUR_ADJOINT:
+      (r.ANIMATEUR_ADJOINT ?? "").toString().trim() === ""
+        ? ""
+        : toNumberOrNaN(r.ANIMATEUR_ADJOINT),
+    ANIMATEUR:
+      (r.ANIMATEUR ?? "").toString().trim() === ""
+        ? ""
+        : toNumberOrNaN(r.ANIMATEUR),
+    MANAGER_ADJOINT:
+      (r.MANAGER_ADJOINT ?? "").toString().trim() === ""
+        ? ""
+        : toNumberOrNaN(r.MANAGER_ADJOINT),
+    MANAGER:
+      (r.MANAGER ?? "").toString().trim() === ""
+        ? ""
+        : toNumberOrNaN(r.MANAGER),
   };
 }
 
@@ -298,6 +323,11 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
       if (!Number.isFinite(n) || n < 1) e.push("maxQtyPerOrder");
       else if (!Number.isInteger(n)) e.push("maxQtyPerOrder(int)");
     }
+    ["CLIENT_PRIVILEGIE", "ANIMATEUR_ADJOINT", "ANIMATEUR", "MANAGER_ADJOINT", "MANAGER"].forEach((key) => {
+      if (r[key] === "") return;
+      const n = Number(r[key]);
+      if (!Number.isFinite(n) || n < 0) e.push(key);
+    });
 
     return e;
   }, []);
@@ -320,6 +350,11 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
 
   const invalidCount = invalidRows.length;
 
+  const close = useCallback(() => {
+    if (busy) return;
+    onClose?.();
+  }, [busy, onClose]);
+
   useEffect(() => {
     if (!open) return;
     const onEsc = (e) => {
@@ -327,12 +362,7 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
     };
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [open, busy, onClose]);
-
-  const close = () => {
-    if (busy) return;
-    onClose?.();
-  };
+  }, [open, close]);
 
   const downloadTemplate = () => {
     if (busy) return;
@@ -387,6 +417,11 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
           r.maxQtyPerOrder === undefined
             ? null
             : Number(r.maxQtyPerOrder),
+        CLIENT_PRIVILEGIE: r.CLIENT_PRIVILEGIE === "" ? undefined : Number(r.CLIENT_PRIVILEGIE),
+        ANIMATEUR_ADJOINT: r.ANIMATEUR_ADJOINT === "" ? undefined : Number(r.ANIMATEUR_ADJOINT),
+        ANIMATEUR: r.ANIMATEUR === "" ? undefined : Number(r.ANIMATEUR),
+        MANAGER_ADJOINT: r.MANAGER_ADJOINT === "" ? undefined : Number(r.MANAGER_ADJOINT),
+        MANAGER: r.MANAGER === "" ? undefined : Number(r.MANAGER),
       }));
 
       const res = await importCsv(rows);
@@ -427,8 +462,9 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
             <div className="text-xs text-gray-500 mt-1">
               Colonnes attendues :{" "}
               <span className="font-mono">
-                sku, nom, prixBaseFcfa, cc, poidsKg, actif, imageUrl, category,
-                stockQty, maxQtyPerOrder, details
+                sku, nom, prixBaseFcfa, CLIENT_PRIVILEGIE, ANIMATEUR_ADJOINT,
+                ANIMATEUR, MANAGER_ADJOINT, MANAGER, cc, poidsKg, actif,
+                imageUrl, category, stockQty, maxQtyPerOrder, details
               </span>{" "}
               • séparateur <b>;</b> ou <b>,</b>
             </div>
@@ -466,7 +502,7 @@ export default function ImportCsvModal({ open, onClose, onDone }) {
                 }}
                 disabled={busy}
                 placeholder={`sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details
-123-ABC;Aloe Vera Gel;15000;0.482;3.300;true;https://...;BUVABLE;12;1;Gel à boire...`}
+123-ABC;Aloe Vera Gel;15000;14250;10500;9300;8550;7800;0.482;3.300;true;https://...;BUVABLE;12;1;Gel à boire...`}
               />
               <div className="mt-2 flex gap-2">
                 <button

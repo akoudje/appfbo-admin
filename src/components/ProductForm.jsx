@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ProductThumb from "./ProductThumb";
+import { getCountryCode } from "../services/api";
+
+const GRADE_PRICE_FIELDS = [
+  { key: "CLIENT_PRIVILEGIE", label: "Client privilégié" },
+  { key: "ANIMATEUR_ADJOINT", label: "Animateur adjoint" },
+  { key: "ANIMATEUR", label: "Animateur" },
+  { key: "MANAGER_ADJOINT", label: "Manager adjoint" },
+  { key: "MANAGER", label: "Manager" },
+];
 
 const DEFAULT_CATEGORIES = [
   { value: "NON_CLASSE", label: "Non classé" },
@@ -47,6 +56,11 @@ function validateField(name, value) {
       if (!Number.isFinite(Number(value))) return "La limite est invalide";
       if (Number(value) < 1) return "La limite doit être ≥ 1";
       if (!Number.isInteger(Number(value))) return "La limite doit être un entier";
+      return "";
+    case "gradePrice":
+      if (value === "" || value === null || value === undefined) return "";
+      if (!Number.isFinite(Number(value))) return "Le prix est invalide";
+      if (Number(value) < 0) return "Le prix doit être positif";
       return "";
     case "category":
       return !String(value || "").trim() ? "La catégorie est requise" : "";
@@ -141,6 +155,7 @@ export default function ProductForm({
 }) {
   const navigate = useNavigate();
   const isEdit = mode === "edit";
+  const isBfa = getCountryCode() === "BFA";
 
   const categories =
     Array.isArray(categoryOptions) && categoryOptions.length ? categoryOptions : DEFAULT_CATEGORIES;
@@ -156,6 +171,7 @@ export default function ProductForm({
     category: "NON_CLASSE",
     stockQty: "0",
     maxQtyPerOrder: "",
+    gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => ({ ...acc, [item.key]: "" }), {}),
     details: "",
   });
 
@@ -188,6 +204,14 @@ export default function ProductForm({
           initialValues.maxQtyPerOrder === undefined
             ? ""
             : String(initialValues.maxQtyPerOrder),
+        gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => {
+          acc[item.key] =
+            initialValues.gradePrices?.[item.key] === null ||
+            initialValues.gradePrices?.[item.key] === undefined
+              ? ""
+              : String(initialValues.gradePrices[item.key]);
+          return acc;
+        }, {}),
         details: initialValues.details || "",
       };
       setForm(next);
@@ -204,6 +228,7 @@ export default function ProductForm({
         category: "NON_CLASSE",
         stockQty: "0",
         maxQtyPerOrder: "",
+        gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => ({ ...acc, [item.key]: "" }), {}),
         details: "",
       };
       setForm(next);
@@ -235,8 +260,17 @@ export default function ProductForm({
       category: validateField("category", form.category),
       stockQty: validateField("stockQty", form.stockQty),
       maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
+      ...(isBfa
+        ? GRADE_PRICE_FIELDS.reduce((acc, item) => {
+            acc[`gradePrices.${item.key}`] = validateField(
+              "gradePrice",
+              form.gradePrices?.[item.key],
+            );
+            return acc;
+          }, {})
+        : {}),
     };
-  }, [form]);
+  }, [form, isBfa]);
 
   const hasErrors = Object.values(validateForm).some((x) => x);
 
@@ -245,6 +279,10 @@ export default function ProductForm({
     if (!snap) return true;
     const keys = Object.keys(snap);
     for (const k of keys) {
+      if (typeof snap[k] === "object" || typeof form[k] === "object") {
+        if (JSON.stringify(snap[k] || {}) !== JSON.stringify(form[k] || {})) return true;
+        continue;
+      }
       if (String(snap[k] ?? "") !== String(form[k] ?? "")) return true;
     }
     return false;
@@ -256,6 +294,21 @@ export default function ProductForm({
     setForm((p) => ({ ...p, [field]: value }));
     setTouched((p) => ({ ...p, [field]: true }));
     if (errors[field]) setErrors((p) => ({ ...p, [field]: "" }));
+    if (banner) setBanner(null);
+  };
+
+  const handleGradePriceChange = (grade, value) => {
+    setForm((p) => ({
+      ...p,
+      gradePrices: {
+        ...(p.gradePrices || {}),
+        [grade]: value,
+      },
+    }));
+    setTouched((p) => ({ ...p, [`gradePrices.${grade}`]: true }));
+    if (errors[`gradePrices.${grade}`]) {
+      setErrors((p) => ({ ...p, [`gradePrices.${grade}`]: "" }));
+    }
     if (banner) setBanner(null);
   };
 
@@ -281,6 +334,15 @@ export default function ProductForm({
       category: validateField("category", form.category),
       stockQty: validateField("stockQty", form.stockQty),
       maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
+      ...(isBfa
+        ? GRADE_PRICE_FIELDS.reduce((acc, item) => {
+            acc[`gradePrices.${item.key}`] = validateField(
+              "gradePrice",
+              form.gradePrices?.[item.key],
+            );
+            return acc;
+          }, {})
+        : {}),
     };
     setErrors(validationErrors);
     if (Object.values(validationErrors).some((e) => e)) {
@@ -313,6 +375,17 @@ export default function ProductForm({
         stockQty: Number(form.stockQty ?? 0),
         maxQtyPerOrder:
           form.maxQtyPerOrder === "" ? null : Number(form.maxQtyPerOrder),
+        ...(isBfa
+          ? {
+              gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => {
+                const raw = form.gradePrices?.[item.key];
+                if (raw !== "" && raw !== null && raw !== undefined) {
+                  acc[item.key] = Number(raw);
+                }
+                return acc;
+              }, {}),
+            }
+          : {}),
       }, {
         imageFile: !isEdit ? pendingImageFile : null,
       });
@@ -751,6 +824,48 @@ export default function ProductForm({
             )}
           </div>
         </div>
+
+        {isBfa && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold text-blue-950">
+                Prix AS400 par grade - Burkina Faso
+              </h2>
+              <p className="mt-1 text-xs text-blue-800">
+                Ces prix remplacent le calcul par remise pour les précommandes BFA.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+              {GRADE_PRICE_FIELDS.map((item) => {
+                const errorKey = `gradePrices.${item.key}`;
+                return (
+                  <div key={item.key}>
+                    <label className="block text-xs font-medium text-blue-950 mb-1">
+                      {item.label}
+                    </label>
+                    <input
+                      className={`w-full px-3 py-2 border rounded-lg bg-white ${
+                        errors[errorKey] && touched[errorKey]
+                          ? "border-red-300"
+                          : "border-blue-200"
+                      }`}
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={form.gradePrices?.[item.key] ?? ""}
+                      onChange={(e) => handleGradePriceChange(item.key, e.target.value)}
+                      disabled={loading}
+                      placeholder="FCFA"
+                    />
+                    {errors[errorKey] && touched[errorKey] && (
+                      <p className="mt-1 text-xs text-red-600">{errors[errorKey]}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* actif */}
         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
