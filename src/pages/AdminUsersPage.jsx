@@ -145,14 +145,14 @@ function formatDateTime(value) {
   });
 }
 
-function emptyForm() {
+function emptyForm(countryCode = "CIV") {
   return {
     id: null,
     fullName: "",
     email: "",
     password: "",
     role: "",
-    countryCode: "CIV",
+    countryCode,
     actif: true,
   };
 }
@@ -259,6 +259,8 @@ function UserFormModal({
   onClose,
   onSubmit,
   saving = false,
+  countryOptions = COUNTRY_OPTIONS,
+  countryLocked = false,
 }) {
   if (!open) return null;
 
@@ -345,9 +347,9 @@ function UserFormModal({
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 value={value.countryCode}
                 onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
-                disabled={saving}
+                disabled={saving || countryLocked}
               >
-                {COUNTRY_OPTIONS.map((country) => (
+                {countryOptions.map((country) => (
                   <option key={country.value} value={country.value}>
                     {country.label}
                   </option>
@@ -413,7 +415,9 @@ function UserFormModal({
 ============================================================================ */
 
 export default function AdminUsersPage() {
-  const { role: currentRole } = useAdminAuth();
+  const { admin, role: currentRole } = useAdminAuth();
+  const isSuperAdmin = currentRole === "SUPER_ADMIN";
+  const ownCountryCode = admin?.countryCode || "CIV";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -458,6 +462,13 @@ export default function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => users, [users]);
   const activeFiltersCount = [search, roleFilter, countryFilter, statusFilter].filter(Boolean).length;
+  const manageableCountryOptions = useMemo(
+    () =>
+      isSuperAdmin
+        ? COUNTRY_OPTIONS
+        : COUNTRY_OPTIONS.filter((country) => country.value === ownCountryCode),
+    [isSuperAdmin, ownCountryCode],
+  );
   const manageableRoleGroups = useMemo(() => {
     const allowedRoles = ROLE_ASSIGNMENT_MATRIX[currentRole] || new Set();
 
@@ -471,7 +482,7 @@ export default function AdminUsersPage() {
     setError("");
     setInfo("");
     setModalMode("create");
-    setForm(emptyForm());
+    setForm(emptyForm(isSuperAdmin ? "CIV" : ownCountryCode));
     setModalOpen(true);
   };
 
@@ -485,7 +496,7 @@ export default function AdminUsersPage() {
       email: user.email || "",
       password: "",
       role: user.role || "",
-      countryCode: user.countryCode || "CIV",
+      countryCode: isSuperAdmin ? user.countryCode || "CIV" : ownCountryCode,
       actif: Boolean(user.actif),
     });
     setModalOpen(true);
@@ -571,7 +582,7 @@ export default function AdminUsersPage() {
       }
 
       setModalOpen(false);
-      setForm(emptyForm());
+      setForm(emptyForm(isSuperAdmin ? "CIV" : ownCountryCode));
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible d’enregistrer l’utilisateur");
     } finally {
@@ -663,9 +674,10 @@ export default function AdminUsersPage() {
                 className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 value={countryFilter}
                 onChange={(e) => setCountryFilter(e.target.value)}
+                disabled={!isSuperAdmin}
               >
-                <option value="">Tous les pays</option>
-                {COUNTRY_OPTIONS.map((country) => (
+                <option value="">{isSuperAdmin ? "Tous les pays" : getCountryLabel(ownCountryCode)}</option>
+                {manageableCountryOptions.map((country) => (
                   <option key={country.value} value={country.value}>
                     {country.label}
                   </option>
@@ -832,6 +844,8 @@ export default function AdminUsersPage() {
         onClose={() => !saving && setModalOpen(false)}
         onSubmit={handleSubmitForm}
         saving={saving}
+        countryOptions={manageableCountryOptions}
+        countryLocked={!isSuperAdmin}
       />
     </div>
   );

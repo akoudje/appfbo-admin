@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { setCountryCode } from "../services/api";
 import { setAdminToken, setAdminUser } from "../services/auth";
 import { getDefaultWorkspaceRoute } from "../auth/workspaces";
 import { foreverLogoHomeUrl } from "../lib/assetUrls";
@@ -66,6 +66,9 @@ export default function Login() {
       // Stockage des informations
       setAdminToken(token);
       setAdminUser(user);
+      if (user?.countryCode) {
+        setCountryCode(user.countryCode);
+      }
 
       // Redirection
       navigate(

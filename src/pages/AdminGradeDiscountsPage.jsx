@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import useAdminAuth from "../hooks/useAdminAuth";
+import { getCountryCode } from "../services/api";
 import { gradeDiscountsService } from "../services/gradeDiscountsService";
 
 const COUNTRY_OPTIONS = [
@@ -45,7 +47,10 @@ function Alert({ tone = "blue", children }) {
 }
 
 export default function AdminGradeDiscountsPage() {
-  const [countryCode, setCountryCode] = useState("CIV");
+  const { admin, role } = useAdminAuth();
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const lockedCountryCode = admin?.countryCode || getCountryCode();
+  const [countryCode, setCountryCode] = useState(() => getCountryCode());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState([]);
@@ -55,6 +60,13 @@ export default function AdminGradeDiscountsPage() {
   const selectedCountry = useMemo(
     () => COUNTRY_OPTIONS.find((c) => c.code === countryCode),
     [countryCode]
+  );
+  const visibleCountryOptions = useMemo(
+    () =>
+      isSuperAdmin
+        ? COUNTRY_OPTIONS
+        : COUNTRY_OPTIONS.filter((c) => c.code === lockedCountryCode),
+    [isSuperAdmin, lockedCountryCode],
   );
 
   const load = async (nextCountryCode = countryCode) => {
@@ -76,6 +88,12 @@ export default function AdminGradeDiscountsPage() {
     load(countryCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countryCode]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && countryCode !== lockedCountryCode) {
+      setCountryCode(lockedCountryCode);
+    }
+  }, [countryCode, isSuperAdmin, lockedCountryCode]);
 
   const updateItem = (grade, value) => {
     setItems((prev) =>
@@ -120,9 +138,9 @@ export default function AdminGradeDiscountsPage() {
               className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
               value={countryCode}
               onChange={(e) => setCountryCode(e.target.value)}
-              disabled={loading || saving}
+              disabled={loading || saving || !isSuperAdmin}
             >
-              {COUNTRY_OPTIONS.map((c) => (
+              {visibleCountryOptions.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name}
                 </option>

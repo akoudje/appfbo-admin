@@ -2,7 +2,7 @@
 // Axios API helper with country + auth headers
 
 import axios from "axios";
-import { getAdminToken, clearAdminSession } from "./auth";
+import { getAdminToken, getAdminUser, clearAdminSession } from "./auth";
 
 const COUNTRY_STORAGE_KEY = "countryCode";
 const DEFAULT_COUNTRY_CODE = "CIV";
@@ -13,12 +13,21 @@ const DEFAULT_COUNTRY_CODE = "CIV";
 
 export function getCountryCode() {
   if (typeof window === "undefined") return DEFAULT_COUNTRY_CODE;
+  const admin = getAdminUser();
+  if (admin?.role && admin.role !== "SUPER_ADMIN" && admin.countryCode) {
+    return String(admin.countryCode).trim().toUpperCase();
+  }
   const raw = window.localStorage.getItem(COUNTRY_STORAGE_KEY);
   return (raw || DEFAULT_COUNTRY_CODE).trim().toUpperCase();
 }
 
 export function setCountryCode(code) {
-  const normalized = String(code || DEFAULT_COUNTRY_CODE).trim().toUpperCase();
+  const admin = getAdminUser();
+  const allowedCountry =
+    admin?.role && admin.role !== "SUPER_ADMIN" && admin.countryCode
+      ? admin.countryCode
+      : code;
+  const normalized = String(allowedCountry || DEFAULT_COUNTRY_CODE).trim().toUpperCase();
   if (typeof window !== "undefined") {
     window.localStorage.setItem(COUNTRY_STORAGE_KEY, normalized);
   }
