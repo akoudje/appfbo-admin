@@ -53,6 +53,7 @@ const DEFAULT_SETTINGS = {
   countries: {
     supportPhone: "",
     pickupAddress: "",
+    defaultPointDeVente: "",
     enableWave: true,
     enableOrangeMoney: true,
     enableCash: true,
@@ -606,6 +607,7 @@ export default function AdminSettingsPage() {
             ...prev.countries,
             supportPhone: data.supportPhone || "",
             pickupAddress: data.pickupAddress || "",
+            defaultPointDeVente: data.defaultPointDeVente || "",
             enableWave: Boolean(data.enableWave),
             enableOrangeMoney: Boolean(data.enableOrangeMoney),
             enableCash: Boolean(data.enableCash),
@@ -728,6 +730,7 @@ export default function AdminSettingsPage() {
         closedOnSaturday: settings.commercial.closedOnSaturday,
         supportPhone: settings.countries.supportPhone,
         pickupAddress: settings.countries.pickupAddress,
+        defaultPointDeVente: settings.countries.defaultPointDeVente,
         enableWave: settings.countries.enableWave,
         enableOrangeMoney: settings.countries.enableOrangeMoney,
         enableCash: settings.countries.enableCash,
@@ -1105,6 +1108,21 @@ export default function AdminSettingsPage() {
                         }))
                       }
                       placeholder="+225 07 00 00 00 00"
+                    />
+                  </Field>
+                  <Field label="Point de vente par défaut" hint="Ville ou agence utilisée pour les nouvelles précommandes du pays">
+                    <TextInput
+                      value={settings.countries.defaultPointDeVente}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          countries: {
+                            ...prev.countries,
+                            defaultPointDeVente: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="ABIDJAN, OUAGADOUGOU, LOME..."
                     />
                   </Field>
                 </div>
