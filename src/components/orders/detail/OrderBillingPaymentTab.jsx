@@ -343,14 +343,15 @@ function isPdfProof(url = "") {
   return /\.pdf(\?|#|$)/i.test(String(url || ""));
 }
 
-function printProof(url) {
+function printProof(url, mimeType = "") {
   if (!url || typeof window === "undefined") return;
 
   const popup = window.open("", "_blank", "width=980,height=800");
   if (!popup) return;
 
   const safeUrl = String(url).replace(/"/g, "&quot;");
-  const isPdf = isPdfProof(url);
+  const isPdf =
+    String(mimeType || "").toLowerCase().includes("pdf") || isPdfProof(url);
   const content = isPdf
     ? `<iframe src="${safeUrl}" style="width:100%;height:100%;border:0;"></iframe>`
     : `<img src="${safeUrl}" alt="Preuve paiement" style="max-width:100%;max-height:100%;object-fit:contain;" />`;
@@ -1161,9 +1162,14 @@ function ManualPaymentCard({
     typeof onUploadBankProof === "function";
 
   const legacyProofUrl = resolveAssetUrl(
-    order?.manualPaymentProofUrl || order?.paymentProofUrl || "",
+    latestBankProof?.fileUrl ||
+      order?.manualPaymentProofUrl ||
+      order?.paymentProofUrl ||
+      "",
   );
   const effectiveProofUrl = proofBlobUrl || legacyProofUrl;
+  const effectiveProofMimeType =
+    proofBlobMimeType || latestBankProof?.fileMimeType || "";
   const effectiveProofRef =
     latestBankProof?.reference ||
     order?.manualPaymentReference ||
@@ -1181,10 +1187,12 @@ function ManualPaymentCard({
     null;
   const showPdfPreview = proofBlobUrl
     ? String(proofBlobMimeType || "").toLowerCase().includes("pdf")
-    : isPdfProof(effectiveProofUrl);
+    : String(effectiveProofMimeType || "").toLowerCase().includes("pdf") ||
+      isPdfProof(effectiveProofUrl);
   const showImagePreview = proofBlobUrl
     ? String(proofBlobMimeType || "").toLowerCase().startsWith("image/")
-    : isImageProof(effectiveProofUrl);
+    : String(effectiveProofMimeType || "").toLowerCase().startsWith("image/") ||
+      isImageProof(effectiveProofUrl);
 
   React.useEffect(() => {
     let objectUrl = "";
@@ -1221,9 +1229,16 @@ function ManualPaymentCard({
         if (!active) return;
         setProofBlobUrl("");
         setProofBlobMimeType("");
+        const hasDirectProofUrl = Boolean(
+          latestBankProof?.fileUrl ||
+            order?.manualPaymentProofUrl ||
+            order?.paymentProofUrl,
+        );
         setProofBlobError(
-          e?.response?.data?.message ||
-            "Impossible de charger la preuve sécurisée.",
+          hasDirectProofUrl
+            ? ""
+            : e?.response?.data?.message ||
+                "Impossible de charger la preuve sécurisée.",
         );
       } finally {
         if (active) setProofBlobLoading(false);
@@ -1238,9 +1253,11 @@ function ManualPaymentCard({
     };
   }, [
     latestBankProof?.fileMimeType,
+    latestBankProof?.fileUrl,
     latestBankProof?.id,
     order?.id,
     order?.manualPaymentProofUrl,
+    order?.paymentProofUrl,
   ]);
 
   const handleUploadSelectedProof = async () => {
@@ -1452,7 +1469,7 @@ function ManualPaymentCard({
                       </a>
                       <button
                         type="button"
-                        onClick={() => printProof(effectiveProofUrl)}
+                        onClick={() => printProof(effectiveProofUrl, effectiveProofMimeType)}
                         className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white"
                       >
                         Imprimer la preuve
