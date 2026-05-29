@@ -428,6 +428,10 @@ function BillingActionCard({
   const canEditNotificationContacts = !["FULFILLED", "CANCELLED"].includes(
     String(order?.status || "").toUpperCase(),
   );
+  const paymentMode = String(order?.preorderPaymentMode || order?.paymentMode || "")
+    .trim()
+    .toUpperCase();
+  const isBankProofFlow = ["BANK_TRANSFER", "ECOBANK_PAY"].includes(paymentMode);
   
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -672,10 +676,14 @@ function BillingActionCard({
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
               <div>
                 <div className="text-sm font-semibold text-amber-900">
-                  Coordonnées utilisées pour les prochains envois
+                  {isBankProofFlow
+                    ? "Renvoyer le lien de dépôt de preuve bancaire"
+                    : "Coordonnées utilisées pour les prochains envois"}
                 </div>
                 <div className="text-xs text-amber-800">
-                  Toute modification est conservée sur cette commande jusqu'à sa clôture.
+                  {isBankProofFlow
+                    ? "Renseigne un autre numéro si le client veut recevoir le lien sur WhatsApp/SMS ailleurs."
+                    : "Toute modification est conservée sur cette commande jusqu'à sa clôture."}
                 </div>
               </div>
               <button
@@ -736,7 +744,7 @@ function BillingActionCard({
                 disabled={saving || typeof onResendInvoiceNotification !== "function"}
                 className="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors"
               >
-                Renvoyer par SMS
+                {isBankProofFlow ? "Envoyer le lien par SMS" : "Renvoyer par SMS"}
               </button>
               <button
                 type="button"
@@ -1128,6 +1136,7 @@ function ManualPaymentCard({
   verifyNote,
   setVerifyNote,
   onProof,
+  onUploadBankProof,
   onVerify,
   order,
 }) {
@@ -1142,6 +1151,14 @@ function ManualPaymentCard({
   const [proofBlobMimeType, setProofBlobMimeType] = React.useState("");
   const [proofBlobLoading, setProofBlobLoading] = React.useState(false);
   const [proofBlobError, setProofBlobError] = React.useState("");
+  const [selectedProofFile, setSelectedProofFile] = React.useState(null);
+  const selectedProofFileInputRef = React.useRef(null);
+  const canUploadProofFile =
+    !isPaid &&
+    ["INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
+      String(status || "").toUpperCase(),
+    ) &&
+    typeof onUploadBankProof === "function";
 
   const legacyProofUrl = resolveAssetUrl(
     order?.manualPaymentProofUrl || order?.paymentProofUrl || "",
@@ -1226,6 +1243,15 @@ function ManualPaymentCard({
     order?.manualPaymentProofUrl,
   ]);
 
+  const handleUploadSelectedProof = async () => {
+    if (!selectedProofFile || typeof onUploadBankProof !== "function") return;
+    await onUploadBankProof(selectedProofFile);
+    setSelectedProofFile(null);
+    if (selectedProofFileInputRef.current) {
+      selectedProofFileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
@@ -1279,10 +1305,25 @@ function ManualPaymentCard({
                 placeholder="Capture reçue par SMS/WhatsApp..."
               />
             </Field>
+
+            <Field
+              label="Fichier preuve"
+              optional
+              hint="JPG, PNG ou PDF. Utile quand la preuve arrive par WhatsApp."
+            >
+              <input
+                ref={selectedProofFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,application/pdf"
+                className="w-full rounded-lg border border-gray-200 bg-white text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200 disabled:bg-gray-50 disabled:opacity-60"
+                onChange={(e) => setSelectedProofFile(e.target.files?.[0] || null)}
+                disabled={!canUploadProofFile || saving}
+              />
+            </Field>
             
-            <div className="flex items-center justify-between gap-3">
+            <div className="grid gap-2 sm:grid-cols-2">
               <button
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
                   !canProof || saving || step1Completed
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
@@ -1293,9 +1334,21 @@ function ManualPaymentCard({
               >
                 {saving ? "..." : "📸 Enregistrer la preuve"}
               </button>
-              <span className="text-xs text-gray-500">
-                {step1Completed ? "✓ Reçue" : "INVOICED requis"}
-              </span>
+              <button
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  !canUploadProofFile || saving || !selectedProofFile
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+                }`}
+                onClick={handleUploadSelectedProof}
+                disabled={!canUploadProofFile || saving || !selectedProofFile}
+                type="button"
+              >
+                {saving ? "..." : "Uploader le fichier"}
+              </button>
+            </div>
+            <div className="text-xs text-gray-500">
+              {step1Completed ? "✓ Preuve reçue" : "INVOICED requis"}
             </div>
           </div>
 
@@ -1475,6 +1528,7 @@ export default function OrderBillingPaymentTab({
   setVerifyNote,
   onCashPay,
   onProof,
+  onUploadBankProof,
   onVerify,
   reload,
   showReinvoiceHint = false,
@@ -1739,6 +1793,7 @@ export default function OrderBillingPaymentTab({
             verifyNote={verifyNote}
             setVerifyNote={setVerifyNote}
             onProof={onProof}
+            onUploadBankProof={onUploadBankProof}
             onVerify={onVerify}
             order={order}
           />

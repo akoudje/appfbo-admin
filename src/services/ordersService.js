@@ -115,6 +115,21 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/proof`, body))
       .data,
 
+  uploadBankProof: async (id, { file, reference, declaredAmountFcfa, note } = {}) => {
+    const formData = new FormData();
+    if (file) formData.append("file", file);
+    if (reference) formData.append("reference", reference);
+    if (declaredAmountFcfa) formData.append("declaredAmountFcfa", declaredAmountFcfa);
+    if (note) formData.append("note", note);
+
+    return (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/bank-proof/upload`,
+        formData,
+      )
+    ).data;
+  },
+
   verifyPayment: async (id, body) =>
     (
       await api.post(

@@ -737,6 +737,38 @@ const doInvoice = async () => {
     }
   };
 
+  const doUploadBankProof = async (file) => {
+    if (!file) {
+      setError("Sélectionne le fichier de preuve à uploader.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.uploadBankProof(id, {
+        file,
+        reference: normalizeStr(proofRef) || undefined,
+        declaredAmountFcfa:
+          normalizeStr(order?.as400InvoiceTotalFcfa || order?.totalFcfa) ||
+          undefined,
+        note: normalizeStr(proofNote) || undefined,
+      });
+
+      await handleActionResult(result, "Preuve bancaire déjà enregistrée.");
+      setInfo("Preuve bancaire uploadée et passée en attente de validation.");
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible d'uploader la preuve bancaire",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const doVerifyPayment = async () => {
     try {
       setSaving(true);
@@ -1410,6 +1442,7 @@ const doInvoice = async () => {
               onInvoice={doInvoice}
               onCopyWhatsApp={copyWhatsApp}
               onProof={doProof}
+              onUploadBankProof={doUploadBankProof}
               onVerify={doVerifyPayment}
               onCashPay={doCashPay}
               billingMessage={billingMessage}
@@ -1472,6 +1505,7 @@ const doInvoice = async () => {
               cashAmountReceivedFcfa={cashAmountReceivedFcfa}
               setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
               onProof={doProof}
+              onUploadBankProof={doUploadBankProof}
               onVerify={doVerifyPayment} // ✅ FIX
               onCashPay={doCashPay}
               onInitiateWave={doInitiateWave}
