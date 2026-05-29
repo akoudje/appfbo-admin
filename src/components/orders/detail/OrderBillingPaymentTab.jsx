@@ -343,6 +343,18 @@ function isPdfProof(url = "") {
   return /\.pdf(\?|#|$)/i.test(String(url || ""));
 }
 
+function normalizeCloudinaryPdfUrl(url = "", mimeType = "") {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (
+    String(mimeType || "").toLowerCase().includes("pdf") &&
+    raw.includes("/image/upload/")
+  ) {
+    return raw.replace("/image/upload/", "/raw/upload/");
+  }
+  return raw;
+}
+
 function printProof(url, mimeType = "") {
   if (!url || typeof window === "undefined") return;
 
@@ -1167,9 +1179,15 @@ function ManualPaymentCard({
       order?.paymentProofUrl ||
       "",
   );
-  const effectiveProofUrl = proofBlobUrl || legacyProofUrl;
   const effectiveProofMimeType =
     proofBlobMimeType || latestBankProof?.fileMimeType || "";
+  const normalizedLegacyProofUrl = normalizeCloudinaryPdfUrl(
+    legacyProofUrl,
+    effectiveProofMimeType,
+  );
+  const effectiveProofUrl = proofBlobUrl || normalizedLegacyProofUrl;
+  const hasDirectProofUrl = Boolean(normalizedLegacyProofUrl);
+  const isProxyFallbackProof = !proofBlobUrl && hasDirectProofUrl;
   const effectiveProofRef =
     latestBankProof?.reference ||
     order?.manualPaymentReference ||
@@ -1193,6 +1211,7 @@ function ManualPaymentCard({
     ? String(proofBlobMimeType || "").toLowerCase().startsWith("image/")
     : String(effectiveProofMimeType || "").toLowerCase().startsWith("image/") ||
       isImageProof(effectiveProofUrl);
+  const canRenderPdfInline = showPdfPreview && Boolean(proofBlobUrl);
 
   React.useEffect(() => {
     let objectUrl = "";
@@ -1229,11 +1248,6 @@ function ManualPaymentCard({
         if (!active) return;
         setProofBlobUrl("");
         setProofBlobMimeType("");
-        const hasDirectProofUrl = Boolean(
-          latestBankProof?.fileUrl ||
-            order?.manualPaymentProofUrl ||
-            order?.paymentProofUrl,
-        );
         setProofBlobError(
           hasDirectProofUrl
             ? ""
@@ -1255,6 +1269,7 @@ function ManualPaymentCard({
     latestBankProof?.fileMimeType,
     latestBankProof?.fileUrl,
     latestBankProof?.id,
+    hasDirectProofUrl,
     order?.id,
     order?.manualPaymentProofUrl,
     order?.paymentProofUrl,
@@ -1436,13 +1451,20 @@ function ManualPaymentCard({
 
                 {effectiveProofUrl ? (
                   <>
-                    {showPdfPreview ? (
+                    {canRenderPdfInline ? (
                       <div className="h-80 overflow-hidden rounded-lg border border-gray-200 bg-white">
                         <iframe
                           title="Aperçu preuve PDF"
                           src={effectiveProofUrl}
                           className="h-full w-full border-0"
                         />
+                      </div>
+                    ) : showPdfPreview ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-900">
+                        <div className="font-semibold">Aperçu PDF non disponible dans cette fenêtre.</div>
+                        <div className="mt-1 text-xs">
+                          Ouvrez la preuve dans un nouvel onglet, puis imprimez-la depuis le lecteur PDF du navigateur.
+                        </div>
                       </div>
                     ) : showImagePreview ? (
                       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white p-2">
@@ -1482,7 +1504,7 @@ function ManualPaymentCard({
                   </div>
                 )}
 
-                {proofBlobError ? (
+                {proofBlobError && !isProxyFallbackProof ? (
                   <div className="text-xs text-red-600">{proofBlobError}</div>
                 ) : null}
               </div>
