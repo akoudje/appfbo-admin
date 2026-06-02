@@ -15,34 +15,6 @@ const ORDER_STATUS_OPTIONS = [
   { value: "CANCELLED", label: "Annulée" },
 ];
 
-const PAYMENT_STATUS_OPTIONS = [
-  { value: "", label: "Tous les paiements" },
-  { value: "UNPAID", label: "Non payé" },
-  { value: "PAYMENT_PENDING", label: "Paiement en attente" },
-  { value: "PAID", label: "Payé" },
-  { value: "FAILED", label: "Échec paiement" },
-];
-
-const BILLING_WORK_STATUS_OPTIONS = [
-  { value: "", label: "Toute la facturation" },
-  { value: "QUEUED", label: "En file" },
-  { value: "ASSIGNED", label: "Assignée" },
-  { value: "IN_PROGRESS", label: "En cours" },
-  { value: "WAITING_CUSTOMER_DATA", label: "Attente infos client" },
-  { value: "WAITING_PAYMENT", label: "Attente paiement" },
-  { value: "ESCALATED", label: "Escaladée" },
-  { value: "RELEASED", label: "Relâchée" },
-  { value: "DONE", label: "Terminée" },
-];
-
-const PRIORITY_OPTIONS = [
-  { value: "", label: "Toutes priorités" },
-  { value: "LOW", label: "Faible" },
-  { value: "NORMAL", label: "Normale" },
-  { value: "HIGH", label: "Haute" },
-  { value: "URGENT", label: "Urgente" },
-];
-
 const SORT_OPTIONS = [
   { value: "createdAt", label: "Date création" },
   { value: "updatedAt", label: "Dernière mise à jour" },
@@ -95,11 +67,6 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
     filters.q,
     filters.dateFrom,
     filters.dateTo,
-    filters.paymentStatus,
-    filters.billingWorkStatus,
-    filters.priority,
-    filters.as400Reference,
-    filters.as400Amount,
     filters.lateWaveReview,
     filters.assignedOnly,
     filters.hasAssignee,
@@ -127,10 +94,10 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="relative">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1.5fr)_180px_150px_150px_190px]">
+          <div className="relative md:col-span-2 xl:col-span-1">
             <svg
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
               viewBox="0 0 24 24"
@@ -145,7 +112,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
               <path d="m21 21-4.3-4.3" />
             </svg>
             <input
-              className="block w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="block h-10 w-full rounded-lg border border-gray-300 py-2 pl-9 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
               placeholder="Rechercher par numéro FBO, nom, facture..."
               value={localQ}
               onChange={(e) => setLocalQ(e.target.value)}
@@ -162,7 +129,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
           </div>
 
           <select
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
             value={filters.status || ""}
             onChange={(e) => onFilterChange({ status: e.target.value })}
           >
@@ -173,68 +140,15 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             ))}
           </select>
 
-          <select
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filters.paymentStatus || ""}
-            onChange={(e) => onFilterChange({ paymentStatus: e.target.value })}
-          >
-            {PAYMENT_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filters.billingWorkStatus || ""}
-            onChange={(e) => onFilterChange({ billingWorkStatus: e.target.value })}
-          >
-            {BILLING_WORK_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filters.priority || ""}
-            onChange={(e) => onFilterChange({ priority: e.target.value })}
-          >
-            {PRIORITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
           <input
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="Référence AS400"
-            value={filters.as400Reference || ""}
-            onChange={(e) => onFilterChange({ as400Reference: e.target.value })}
-          />
-
-          <input
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            inputMode="numeric"
-            placeholder="Montant AS400"
-            value={filters.as400Amount || ""}
-            onChange={(e) => onFilterChange({ as400Amount: e.target.value })}
-          />
-
-          <input
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
             type="date"
             value={filters.dateFrom || ""}
             onChange={(e) => onFilterChange({ dateFrom: e.target.value })}
           />
 
           <input
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
             type="date"
             value={filters.dateTo || ""}
             min={filters.dateFrom || undefined}
@@ -242,27 +156,20 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
           />
 
           <select
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
             value={filters.sort || "createdAt"}
-            onChange={(e) => onFilterChange({ sort: e.target.value })}
+            onChange={(e) => onFilterChange({ sort: e.target.value, dir: "desc" })}
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                Trier par : {option.label}
+                {option.label}
               </option>
             ))}
           </select>
+        </div>
 
-          <select
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filters.dir || "desc"}
-            onChange={(e) => onFilterChange({ dir: e.target.value })}
-          >
-            <option value="desc">Décroissant</option>
-            <option value="asc">Croissant</option>
-          </select>
-
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 lg:col-span-3">
+        <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
@@ -270,13 +177,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                 onChange={(e) =>
                   onFilterChange({
                     lateWaveReview: e.target.checked,
-                    ...(e.target.checked
-                      ? {
-                          status: "",
-                          paymentStatus: "",
-                          billingWorkStatus: "",
-                        }
-                      : {}),
+                    ...(e.target.checked ? { status: "" } : {}),
                   })
                 }
               />
@@ -307,10 +208,12 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                     ...(e.target.checked ? { assignedOnly: false } : {}),
                   })
                 }
-              />
+                />
               Assignées
             </label>
+          </div>
 
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => handleQuickDate("today")}
               className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
@@ -334,7 +237,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             </button>
             <button
               onClick={onClear}
-              className="ml-auto text-xs text-gray-500 hover:text-gray-700"
+              className="px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
               type="button"
             >
               Effacer tout
@@ -351,48 +254,9 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                 </FilterChip>
               )}
 
-              {filters.paymentStatus && (
-                <FilterChip
-                  tone="green"
-                  onRemove={() => onFilterChange({ paymentStatus: "" })}
-                >
-                  Paiement: {filters.paymentStatus}
-                </FilterChip>
-              )}
-
-              {filters.billingWorkStatus && (
-                <FilterChip
-                  tone="purple"
-                  onRemove={() => onFilterChange({ billingWorkStatus: "" })}
-                >
-                  Facturation: {filters.billingWorkStatus}
-                </FilterChip>
-              )}
-
-              {filters.priority && (
-                <FilterChip
-                  tone="amber"
-                  onRemove={() => onFilterChange({ priority: "" })}
-                >
-                  Priorité: {filters.priority}
-                </FilterChip>
-              )}
-
               {filters.q && (
                 <FilterChip onRemove={() => onFilterChange({ q: "" })}>
                   Recherche: {filters.q}
-                </FilterChip>
-              )}
-
-              {filters.as400Reference && (
-                <FilterChip onRemove={() => onFilterChange({ as400Reference: "" })}>
-                  AS400: {filters.as400Reference}
-                </FilterChip>
-              )}
-
-              {filters.as400Amount && (
-                <FilterChip onRemove={() => onFilterChange({ as400Amount: "" })}>
-                  Montant AS400: {filters.as400Amount}
                 </FilterChip>
               )}
 
