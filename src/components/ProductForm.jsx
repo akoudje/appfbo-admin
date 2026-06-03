@@ -261,7 +261,7 @@ export default function ProductForm({
       category: validateField("category", form.category),
       stockQty: validateField("stockQty", form.stockQty),
       maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
-      ...(isBfa
+      ...(usesDirectGradePricing
         ? GRADE_PRICE_FIELDS.reduce((acc, item) => {
             acc[`gradePrices.${item.key}`] = validateField(
               "gradePrice",
@@ -271,7 +271,7 @@ export default function ProductForm({
           }, {})
         : {}),
     };
-  }, [form, isBfa]);
+  }, [form, usesDirectGradePricing]);
 
   const hasErrors = Object.values(validateForm).some((x) => x);
 
@@ -335,7 +335,7 @@ export default function ProductForm({
       category: validateField("category", form.category),
       stockQty: validateField("stockQty", form.stockQty),
       maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
-      ...(isBfa
+      ...(usesDirectGradePricing
         ? GRADE_PRICE_FIELDS.reduce((acc, item) => {
             acc[`gradePrices.${item.key}`] = validateField(
               "gradePrice",
@@ -376,7 +376,7 @@ export default function ProductForm({
         stockQty: Number(form.stockQty ?? 0),
         maxQtyPerOrder:
           form.maxQtyPerOrder === "" ? null : Number(form.maxQtyPerOrder),
-        ...(isBfa
+        ...(usesDirectGradePricing
           ? {
               gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => {
                 const raw = form.gradePrices?.[item.key];
