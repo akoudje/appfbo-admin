@@ -57,21 +57,10 @@ const DETAIL_TABS = [
 const STORAGE_KEY = "sales_report_filters";
 
 // ==================== UTILS ====================
-const readSavedFilters = () => {
-  if (typeof localStorage === "undefined") return {};
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
-  } catch {
-    return {};
-  }
-};
-
 const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-
-const monthStartIso = (iso = todayIso()) => `${String(iso).slice(0, 7)}-01`;
 
 const formatCount = (value) => new Intl.NumberFormat("fr-FR").format(Number(value || 0));
 
@@ -422,7 +411,7 @@ const FiltersPanel = ({
   
   const handleReset = () => {
     setLocalDate(todayIso());
-    setLocalDateFrom(monthStartIso());
+    setLocalDateFrom(todayIso());
     setLocalDateTo(todayIso());
     setPeriod("day");
     setPaymentMode("");
@@ -431,7 +420,7 @@ const FiltersPanel = ({
     onReset({
       period: "day",
       date: todayIso(),
-      dateFrom: monthStartIso(),
+      dateFrom: todayIso(),
       dateTo: todayIso(),
       paymentMode: "",
       invoicerId: "",
@@ -745,14 +734,13 @@ const KpiCard = ({ title, value, trend, icon: Icon, color }) => {
 // ==================== MAIN COMPONENT ====================
 export default function DailySalesReportPage() {
   const navigate = useNavigate();
-  const savedFilters = useMemo(() => readSavedFilters(), []);
-  const [period, setPeriod] = useState(savedFilters.period || "day");
-  const [date, setDate] = useState(savedFilters.date || todayIso());
-  const [dateFrom, setDateFrom] = useState(savedFilters.dateFrom || monthStartIso());
-  const [dateTo, setDateTo] = useState(savedFilters.dateTo || todayIso());
-  const [paymentMode, setPaymentMode] = useState(savedFilters.paymentMode || "");
-  const [invoicerId, setInvoicerId] = useState(savedFilters.invoicerId || "");
-  const [cashierId, setCashierId] = useState(savedFilters.cashierId || "");
+  const [period, setPeriod] = useState("day");
+  const [date, setDate] = useState(todayIso());
+  const [dateFrom, setDateFrom] = useState(todayIso());
+  const [dateTo, setDateTo] = useState(todayIso());
+  const [paymentMode, setPaymentMode] = useState("");
+  const [invoicerId, setInvoicerId] = useState("");
+  const [cashierId, setCashierId] = useState("");
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -860,7 +848,7 @@ export default function DailySalesReportPage() {
   const resetFilters = (nextFilters = null) => {
     const resetDate = nextFilters?.date || todayIso();
     const resetPeriod = nextFilters?.period || "day";
-    const resetDateFrom = nextFilters?.dateFrom || monthStartIso();
+    const resetDateFrom = nextFilters?.dateFrom || todayIso();
     const resetDateTo = nextFilters?.dateTo || todayIso();
     setPaymentMode(nextFilters?.paymentMode || "");
     setInvoicerId(nextFilters?.invoicerId || "");

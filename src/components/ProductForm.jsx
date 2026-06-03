@@ -155,7 +155,8 @@ export default function ProductForm({
 }) {
   const navigate = useNavigate();
   const isEdit = mode === "edit";
-  const isBfa = getCountryCode() === "BFA";
+  const countryCode = getCountryCode();
+  const usesDirectGradePricing = ["BFA", "CIV"].includes(countryCode);
 
   const categories =
     Array.isArray(categoryOptions) && categoryOptions.length ? categoryOptions : DEFAULT_CATEGORIES;
@@ -825,14 +826,14 @@ export default function ProductForm({
           </div>
         </div>
 
-        {isBfa && (
+        {usesDirectGradePricing && (
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
             <div className="mb-3">
               <h2 className="text-sm font-semibold text-blue-950">
-                Prix AS400 par grade - Burkina Faso
+                Prix AS400 par grade - {countryCode}
               </h2>
               <p className="mt-1 text-xs text-blue-800">
-                Ces prix remplacent le calcul par remise pour les précommandes BFA.
+                Ces prix remplacent le calcul par remise pour les précommandes {countryCode}.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
