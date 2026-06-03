@@ -2,7 +2,8 @@
 
 export function formatFcfa(n) {
   const v = Number(n || 0);
-  return `${v.toLocaleString()} FCFA`;
+  const display = v > 0 && v % 1 !== 0 ? Math.ceil(v) : Math.round(v);
+  return `${display.toLocaleString("fr-FR")} FCFA`;
 }
 
 export function formatDateTime(v) {

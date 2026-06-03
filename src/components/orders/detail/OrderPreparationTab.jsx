@@ -47,7 +47,10 @@ function formatDate(value) {
 }
 
 function formatFcfa(value) {
-  return `${new Intl.NumberFormat("fr-FR").format(Number(value || 0))} FCFA`;
+  const n = Number(value || 0);
+  const safe = Number.isFinite(n) ? n : 0;
+  const display = safe > 0 && safe % 1 !== 0 ? Math.ceil(safe) : Math.round(safe);
+  return `${new Intl.NumberFormat("fr-FR").format(display)} FCFA`;
 }
 
 const ANOMALY_OPTIONS = [
