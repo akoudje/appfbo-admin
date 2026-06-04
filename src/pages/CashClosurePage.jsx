@@ -5,10 +5,13 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
+  CreditCard,
+  Landmark,
   Loader2,
   RefreshCw,
   Save,
   ShieldCheck,
+  Smartphone,
   XCircle,
 } from "lucide-react";
 import { cashClosureService } from "../services/cashClosureService";
@@ -47,6 +50,15 @@ function discrepancyClass(value) {
   if (n === 0) return "text-emerald-700";
   if (n < 0) return "text-red-700";
   return "text-amber-700";
+}
+
+function paymentModeIcon(paymentMode) {
+  const mode = String(paymentMode || "").toUpperCase();
+  if (mode === "ESPECES") return Banknote;
+  if (["WAVE", "ORANGE_MONEY", "ECOBANK_PAY"].includes(mode)) return Smartphone;
+  if (mode === "TPE_CARD") return CreditCard;
+  if (mode === "BANK_TRANSFER") return Landmark;
+  return Banknote;
 }
 
 function SummaryCard({ icon: Icon, label, value, hint, tone = "gray" }) {
@@ -300,65 +312,73 @@ export default function CashClosurePage() {
             />
           </div>
 
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-5 py-4">
-              <h2 className="text-base font-bold text-gray-950">Point par mode de paiement</h2>
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-bold text-gray-950">Déclaration des encaissements</h2>
+              <p className="text-sm text-gray-500">
+                Renseignez les montants réellement constatés à la caisse pour chaque moyen de paiement.
+              </p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                  <tr>
-                    <th className="px-5 py-3">Mode</th>
-                    <th className="px-5 py-3 text-right">Transactions</th>
-                    <th className="px-5 py-3 text-right">Attendu</th>
-                    <th className="px-5 py-3">Déclaré</th>
-                    <th className="px-5 py-3 text-right">Écart</th>
-                    <th className="px-5 py-3">Observation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-10 text-center text-gray-500">
-                        Aucune transaction caisse pour cette journée.
-                      </td>
-                    </tr>
-                  ) : (
-                    lines.map((line) => (
-                      <tr key={line.paymentMode} className="border-t border-gray-100">
-                        <td className="px-5 py-4 font-semibold text-gray-950">{line.label}</td>
-                        <td className="px-5 py-4 text-right text-gray-700">{line.transactionCount}</td>
-                        <td className="px-5 py-4 text-right font-semibold text-gray-950">
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {lines.map((line) => {
+                const Icon = paymentModeIcon(line.paymentMode);
+                return (
+                  <div key={line.paymentMode} className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-white p-2 text-gray-700 shadow-sm ring-1 ring-gray-200">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-950">{line.label}</div>
+                          <div className="text-xs text-gray-500">
+                            {line.transactionCount} transaction(s) détectée(s)
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`text-right text-sm font-bold ${discrepancyClass(line.discrepancyFcfa)}`}>
+                        {formatFcfa(line.discrepancyFcfa)}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Attendu
+                        </label>
+                        <div className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-right font-bold text-gray-900">
                           {formatFcfa(line.expectedFcfa)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <input
-                            type="number"
-                            min="0"
-                            value={toInputAmount(line.declaredFcfa)}
-                            onChange={(event) => updateLine(line.paymentMode, "declaredFcfa", event.target.value)}
-                            disabled={!editable || saving}
-                            className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-right font-semibold outline-none focus:border-gray-900 disabled:bg-gray-100"
-                          />
-                        </td>
-                        <td className={`px-5 py-4 text-right font-bold ${discrepancyClass(line.discrepancyFcfa)}`}>
-                          {formatFcfa(line.discrepancyFcfa)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <input
-                            type="text"
-                            value={line.note || ""}
-                            onChange={(event) => updateLine(line.paymentMode, "note", event.target.value)}
-                            disabled={!editable || saving}
-                            placeholder="Observation"
-                            className="w-full min-w-64 rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900 disabled:bg-gray-100"
-                          />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Déclaré
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={toInputAmount(line.declaredFcfa)}
+                          onChange={(event) => updateLine(line.paymentMode, "declaredFcfa", event.target.value)}
+                          disabled={!editable || saving}
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-right font-bold text-gray-950 outline-none focus:border-gray-900 disabled:bg-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Observation
+                    </label>
+                    <textarea
+                      value={line.note || ""}
+                      onChange={(event) => updateLine(line.paymentMode, "note", event.target.value)}
+                      disabled={!editable || saving}
+                      rows={2}
+                      placeholder="Référence, détail du dépôt, justification d'écart..."
+                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900 disabled:bg-gray-100"
+                    />
+                  </div>
+                );
+              })}
             </div>
           </section>
 
