@@ -61,6 +61,26 @@ function paymentModeIcon(paymentMode) {
   return Banknote;
 }
 
+const DECLARATION_PAYMENT_MODES = new Set([
+  "ESPECES",
+  "WAVE",
+  "ORANGE_MONEY",
+  "TPE_CARD",
+  "BANK_TRANSFER",
+  "ECOBANK_PAY",
+]);
+
+function isVisibleDeclarationLine(line) {
+  const mode = String(line?.paymentMode || "").toUpperCase();
+  if (DECLARATION_PAYMENT_MODES.has(mode)) return true;
+  return (
+    Number(line?.expectedFcfa || 0) > 0 ||
+    Number(line?.declaredFcfa || 0) > 0 ||
+    Number(line?.transactionCount || 0) > 0 ||
+    String(line?.note || "").trim().length > 0
+  );
+}
+
 function SummaryCard({ icon: Icon, label, value, hint, tone = "gray" }) {
   const tones = {
     gray: "border-gray-200 bg-white",
@@ -136,6 +156,11 @@ export default function CashClosurePage() {
     };
   }, [lines]);
 
+  const visibleLines = useMemo(
+    () => lines.filter(isVisibleDeclarationLine),
+    [lines],
+  );
+
   function updateLine(paymentMode, field, value) {
     setLines((current) =>
       current.map((line) =>
@@ -161,7 +186,7 @@ export default function CashClosurePage() {
     try {
       const data = await cashClosureService.update(closure.id, {
         note,
-        lines: lines.map((line) => ({
+        lines: visibleLines.map((line) => ({
           paymentMode: line.paymentMode,
           declaredFcfa: Number(line.declaredFcfa || 0),
           note: line.note || "",
@@ -320,7 +345,7 @@ export default function CashClosurePage() {
               </p>
             </div>
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {lines.map((line) => {
+              {visibleLines.map((line) => {
                 const Icon = paymentModeIcon(line.paymentMode);
                 return (
                   <div key={line.paymentMode} className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
