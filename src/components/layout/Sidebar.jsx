@@ -44,6 +44,7 @@ import {
   List,
   AlertTriangle,
   Info,
+  ShieldCheck,
 } from "lucide-react";
 
 // ============================================
@@ -124,6 +125,17 @@ const NAV_ITEMS = [
     description: "Paiements et encaissements",
     color: "from-purple-500 to-pink-500",
     shortcut: "4",
+  },
+  {
+    key: "cash-closures",
+    to: "/cash-closures",
+    label: "Clôture caisse",
+    permission: Permission.PAYMENT_VALIDATE,
+    icon: ShieldCheck,
+    badge: null,
+    description: "Point journalier des encaissements",
+    color: "from-emerald-500 to-teal-500",
+    shortcut: "C",
   },
   {
     key: "preparation",

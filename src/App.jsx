@@ -23,6 +23,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
 import SubmittedOrdersPrintPage from "./pages/SubmittedOrdersPrintPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
+import CashClosurePage from "./pages/CashClosurePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 import SmsCampaignsPage from "./pages/SmsCampaignsPage";
@@ -174,6 +175,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à l’espace caisse." />}
                     >
                       <CashierWorkspacePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/cash-closures"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PAYMENT_VALIDATE}
+                      fallback={<AccessDenied message="Accès refusé à la clôture caisse." />}
+                    >
+                      <CashClosurePage />
                     </RequirePermission>
                   }
                 />
