@@ -76,6 +76,14 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/invoice`, body))
       .data,
 
+  relaunchPayment: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/relaunch-payment`,
+        body,
+      )
+    ).data,
+
   replaceBillingItem: async (id, itemId, body) =>
     (
       await api.post(

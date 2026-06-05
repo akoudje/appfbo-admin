@@ -332,9 +332,15 @@ export default function OrdersTable({
                     <div className="font-semibold text-gray-900">
                       {formatAmount(order.totalFcfa)}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {order._count?.items || 0} article(s)
-                    </div>
+                    {Number(order._count?.items || 0) > 0 ? (
+                      <div className="text-xs text-gray-500">
+                        {order._count?.items || 0} article(s)
+                      </div>
+                    ) : (
+                      <div className="mt-1 inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                        Anomalie : aucun article
+                      </div>
+                    )}
                   </td>
 
                   <td className="px-6 py-4">

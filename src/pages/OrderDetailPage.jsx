@@ -159,6 +159,8 @@ export default function OrderDetailPage() {
   const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
+  const [relaunchPaymentHours, setRelaunchPaymentHours] = useState("24");
+  const [relaunchPaymentNote, setRelaunchPaymentNote] = useState("");
   const [invoicePreview, setInvoicePreview] = useState(null);
   const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
 
@@ -325,6 +327,21 @@ export default function OrderDetailPage() {
   }, [status, isWave, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
+  const canRelaunchPayment = useMemo(() => {
+    if (status !== "CANCELLED" || paymentStatus === "PAID") return false;
+    const logs = Array.isArray(order?.logs) ? order.logs : [];
+    const hasAutoCancelLog = logs.some(
+      (log) =>
+        String(log?.action || "").toUpperCase() === "CANCEL" &&
+        String(log?.meta?.mode || "").toUpperCase() ===
+          "AUTO_CANCEL_UNPAID_AFTER_EXPIRY_WINDOW",
+    );
+    const reason = String(order?.cancelReason || "").toLowerCase();
+    return (
+      hasAutoCancelLog ||
+      (reason.includes("automatique") && reason.includes("sans paiement"))
+    );
+  }, [order?.cancelReason, order?.logs, paymentStatus, status]);
   const canReplaceBillingItems =
     canAccessBilling &&
     ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
@@ -713,6 +730,30 @@ const doInvoice = async () => {
     setSaving(false);
   }
 };
+
+  const doRelaunchPayment = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const hours = Number.parseFloat(String(relaunchPaymentHours || "").replace(",", "."));
+      const result = await ordersService.relaunchPayment(id, {
+        durationHours: Number.isFinite(hours) && hours > 0 ? hours : 24,
+        note: normalizeStr(relaunchPaymentNote) || undefined,
+      });
+      setOrder(result);
+      setInfo("Commande relancée : un nouveau délai de paiement a été envoyé au client.");
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de relancer le paiement de cette commande",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const doProof = async () => {
     try {
@@ -1404,6 +1445,7 @@ const doInvoice = async () => {
               {...commonTabProps}
               saving={saving || waveLoading}
               canInvoice={canInvoice}
+              canRelaunchPayment={canRelaunchPayment}
               canProof={canProof}
               canVerify={canVerify}
               canCashPay={canCashPay}
@@ -1423,6 +1465,10 @@ const doInvoice = async () => {
               setPaymentLink={setPaymentLink}
               invoiceNote={invoiceNote}
               setInvoiceNote={setInvoiceNote}
+              relaunchPaymentHours={relaunchPaymentHours}
+              setRelaunchPaymentHours={setRelaunchPaymentHours}
+              relaunchPaymentNote={relaunchPaymentNote}
+              setRelaunchPaymentNote={setRelaunchPaymentNote}
               proofUrl={proofUrl}
               setProofUrl={setProofUrl}
               proofRef={proofRef}
@@ -1440,6 +1486,7 @@ const doInvoice = async () => {
               cashAmountReceivedFcfa={cashAmountReceivedFcfa}
               setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
               onInvoice={doInvoice}
+              onRelaunchPayment={doRelaunchPayment}
               onCopyWhatsApp={copyWhatsApp}
               onProof={doProof}
               onUploadBankProof={doUploadBankProof}

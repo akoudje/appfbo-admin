@@ -413,6 +413,7 @@ function getLatestAttempt(order) {
 
 function BillingActionCard({
   canInvoice,
+  canRelaunchPayment = false,
   saving,
   isCash,
   invoiceRef,
@@ -425,9 +426,14 @@ function BillingActionCard({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
+  relaunchPaymentHours,
+  setRelaunchPaymentHours,
+  relaunchPaymentNote,
+  setRelaunchPaymentNote,
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
+  onRelaunchPayment,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
   onSaveNotificationContacts = null,
@@ -483,6 +489,52 @@ function BillingActionCard({
             <div className="font-medium text-gray-700">{humanizeEnum(order?.preorderPaymentMode)}</div>
           </div>
         </div>
+
+        {canRelaunchPayment && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <div>
+              <div className="text-sm font-semibold text-amber-900">
+                Relancer le paiement
+              </div>
+              <div className="text-xs text-amber-800">
+                La commande annulée automatiquement sera réactivée sans ressaisie, avec un nouveau délai de paiement.
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
+              <Field label="Délai">
+                <div className="relative">
+                  <input
+                    className="w-full px-3 pr-14 py-2.5 rounded-lg border border-amber-200 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-60 text-sm"
+                    value={relaunchPaymentHours || ""}
+                    onChange={(e) => setRelaunchPaymentHours?.(e.target.value)}
+                    inputMode="decimal"
+                    disabled={saving}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-700">
+                    heures
+                  </span>
+                </div>
+              </Field>
+              <Field label="Note" optional>
+                <input
+                  className="w-full px-3 py-2.5 rounded-lg border border-amber-200 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-60 text-sm"
+                  value={relaunchPaymentNote || ""}
+                  onChange={(e) => setRelaunchPaymentNote?.(e.target.value)}
+                  placeholder="Ex : délai accordé au client jusqu'à demain"
+                  disabled={saving}
+                />
+              </Field>
+            </div>
+            <button
+              type="button"
+              onClick={onRelaunchPayment}
+              disabled={saving}
+              className="w-full px-4 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? "Relance en cours..." : "Relancer et renvoyer le lien de paiement"}
+            </button>
+          </div>
+        )}
 
         {/* Champs principaux */}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -1524,6 +1576,7 @@ export default function OrderBillingPaymentTab({
   order,
   saving,
   canInvoice,
+  canRelaunchPayment = false,
   invoiceRef,
   setInvoiceRef,
   invoiceWaTo,
@@ -1534,10 +1587,15 @@ export default function OrderBillingPaymentTab({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
+  relaunchPaymentHours,
+  setRelaunchPaymentHours,
+  relaunchPaymentNote,
+  setRelaunchPaymentNote,
   invoicePreview,
   invoicePreviewLoading,
   paymentLink,
   onInvoice,
+  onRelaunchPayment,
   isCash,
   isAutoPayment,
   onInitiateWave,
@@ -1739,6 +1797,7 @@ export default function OrderBillingPaymentTab({
         <div>
           <BillingActionCard
             canInvoice={canInvoice}
+            canRelaunchPayment={canRelaunchPayment}
             saving={saving}
             isCash={isCash}
             invoiceRef={invoiceRef}
@@ -1751,9 +1810,14 @@ export default function OrderBillingPaymentTab({
             setInvoiceGrade={setInvoiceGrade}
             invoiceAmountFcfa={invoiceAmountFcfa}
             setInvoiceAmountFcfa={setInvoiceAmountFcfa}
+            relaunchPaymentHours={relaunchPaymentHours}
+            setRelaunchPaymentHours={setRelaunchPaymentHours}
+            relaunchPaymentNote={relaunchPaymentNote}
+            setRelaunchPaymentNote={setRelaunchPaymentNote}
             invoicePreview={invoicePreview}
             invoicePreviewLoading={invoicePreviewLoading}
             onInvoice={onInvoice}
+            onRelaunchPayment={onRelaunchPayment}
             canSwitchToManualPayment={canSwitchToManualPayment}
             onSwitchToManualPayment={onSwitchToManualPayment}
             onSaveNotificationContacts={onSaveNotificationContacts}
