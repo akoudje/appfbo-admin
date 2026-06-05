@@ -159,7 +159,7 @@ export default function OrderDetailPage() {
   const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
   const [paymentLink, setPaymentLink] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
-  const [relaunchPaymentHours, setRelaunchPaymentHours] = useState("24");
+  const [relaunchPaymentMinutes, setRelaunchPaymentMinutes] = useState("10");
   const [relaunchPaymentNote, setRelaunchPaymentNote] = useState("");
   const [invoicePreview, setInvoicePreview] = useState(null);
   const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
@@ -737,9 +737,9 @@ const doInvoice = async () => {
       setError("");
       setInfo("");
 
-      const hours = Number.parseFloat(String(relaunchPaymentHours || "").replace(",", "."));
+      const minutes = Number.parseInt(String(relaunchPaymentMinutes || ""), 10);
       const result = await ordersService.relaunchPayment(id, {
-        durationHours: Number.isFinite(hours) && hours > 0 ? hours : 24,
+        durationMinutes: Number.isFinite(minutes) ? minutes : 10,
         note: normalizeStr(relaunchPaymentNote) || undefined,
       });
       setOrder(result);
@@ -1465,8 +1465,8 @@ const doInvoice = async () => {
               setPaymentLink={setPaymentLink}
               invoiceNote={invoiceNote}
               setInvoiceNote={setInvoiceNote}
-              relaunchPaymentHours={relaunchPaymentHours}
-              setRelaunchPaymentHours={setRelaunchPaymentHours}
+              relaunchPaymentMinutes={relaunchPaymentMinutes}
+              setRelaunchPaymentMinutes={setRelaunchPaymentMinutes}
               relaunchPaymentNote={relaunchPaymentNote}
               setRelaunchPaymentNote={setRelaunchPaymentNote}
               proofUrl={proofUrl}

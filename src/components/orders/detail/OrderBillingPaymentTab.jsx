@@ -426,8 +426,8 @@ function BillingActionCard({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
-  relaunchPaymentHours,
-  setRelaunchPaymentHours,
+  relaunchPaymentMinutes,
+  setRelaunchPaymentMinutes,
   relaunchPaymentNote,
   setRelaunchPaymentNote,
   invoicePreview,
@@ -505,13 +505,17 @@ function BillingActionCard({
                 <div className="relative">
                   <input
                     className="w-full px-3 pr-14 py-2.5 rounded-lg border border-amber-200 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-60 text-sm"
-                    value={relaunchPaymentHours || ""}
-                    onChange={(e) => setRelaunchPaymentHours?.(e.target.value)}
-                    inputMode="decimal"
+                    value={relaunchPaymentMinutes || ""}
+                    onChange={(e) => setRelaunchPaymentMinutes?.(e.target.value)}
+                    inputMode="numeric"
+                    type="number"
+                    min="10"
+                    max="30"
+                    step="1"
                     disabled={saving}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-700">
-                    heures
+                    min
                   </span>
                 </div>
               </Field>
@@ -520,7 +524,7 @@ function BillingActionCard({
                   className="w-full px-3 py-2.5 rounded-lg border border-amber-200 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-60 text-sm"
                   value={relaunchPaymentNote || ""}
                   onChange={(e) => setRelaunchPaymentNote?.(e.target.value)}
-                  placeholder="Ex : délai accordé au client jusqu'à demain"
+                  placeholder="Ex : relance exceptionnelle accordée au client"
                   disabled={saving}
                 />
               </Field>
@@ -1587,8 +1591,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceGrade,
   invoiceAmountFcfa,
   setInvoiceAmountFcfa,
-  relaunchPaymentHours,
-  setRelaunchPaymentHours,
+  relaunchPaymentMinutes,
+  setRelaunchPaymentMinutes,
   relaunchPaymentNote,
   setRelaunchPaymentNote,
   invoicePreview,
@@ -1810,8 +1814,8 @@ export default function OrderBillingPaymentTab({
             setInvoiceGrade={setInvoiceGrade}
             invoiceAmountFcfa={invoiceAmountFcfa}
             setInvoiceAmountFcfa={setInvoiceAmountFcfa}
-            relaunchPaymentHours={relaunchPaymentHours}
-            setRelaunchPaymentHours={setRelaunchPaymentHours}
+            relaunchPaymentMinutes={relaunchPaymentMinutes}
+            setRelaunchPaymentMinutes={setRelaunchPaymentMinutes}
             relaunchPaymentNote={relaunchPaymentNote}
             setRelaunchPaymentNote={setRelaunchPaymentNote}
             invoicePreview={invoicePreview}
