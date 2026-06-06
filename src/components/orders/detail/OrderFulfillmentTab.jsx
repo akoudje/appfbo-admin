@@ -191,6 +191,14 @@ export default function OrderFulfillmentTab({
   setFulfillmentMode,
   fulfillNote,
   setFulfillNote,
+  pickupRecipientType,
+  setPickupRecipientType,
+  pickupRecipientName,
+  setPickupRecipientName,
+  pickupRecipientPhone,
+  setPickupRecipientPhone,
+  pickupConfirmationNote,
+  setPickupConfirmationNote,
   notificationPhone,
   setNotificationPhone,
   notificationEmail,
@@ -208,6 +216,8 @@ export default function OrderFulfillmentTab({
   const canBeFulfilled = isReady && !isFulfilled;
   const isPickupOrder = order?.deliveryMode === "RETRAIT_SITE_FLP";
   const missingPickupCode = isPickupOrder && !String(pickupCode || "").trim();
+  const missingPickupRecipient =
+    isPickupOrder && !String(pickupRecipientName || "").trim();
   const hasDeliveryInfo = Boolean(order?.deliveryTracking || order?.fulfilledBy || order?.fulfilledAt);
   const orderItems = Array.isArray(order?.items) ? order.items : [];
   const totalUnits = orderItems.reduce((sum, item) => sum + Number(item?.qty || 0), 0);
@@ -450,6 +460,54 @@ export default function OrderFulfillmentTab({
                 </Field>
               )}
 
+              {isPickupOrder ? (
+                <>
+                  <Field label="Récupéré par">
+                    <select
+                      className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={pickupRecipientType || "CUSTOMER"}
+                      onChange={(e) => setPickupRecipientType?.(e.target.value)}
+                      disabled={!canFulfill || saving}
+                    >
+                      <option value="CUSTOMER">Client lui-même</option>
+                      <option value="MANDATARY">Mandataire / proche</option>
+                      <option value="DELIVERY_AGENT">Livreur</option>
+                      <option value="OTHER">Autre</option>
+                    </select>
+                  </Field>
+
+                  <Field label="Nom du récupérant">
+                    <input
+                      className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={pickupRecipientName || ""}
+                      onChange={(e) => setPickupRecipientName?.(e.target.value)}
+                      placeholder="Nom de la personne qui récupère"
+                      disabled={!canFulfill || saving}
+                    />
+                  </Field>
+
+                  <Field label="Téléphone récupérant" optional>
+                    <input
+                      className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={pickupRecipientPhone || ""}
+                      onChange={(e) => setPickupRecipientPhone?.(e.target.value)}
+                      placeholder="+225..."
+                      disabled={!canFulfill || saving}
+                    />
+                  </Field>
+
+                  <Field label="Note de remise" optional>
+                    <input
+                      className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={pickupConfirmationNote || ""}
+                      onChange={(e) => setPickupConfirmationNote?.(e.target.value)}
+                      placeholder="Ex: envoyé par le FBO"
+                      disabled={!canFulfill || saving}
+                    />
+                  </Field>
+                </>
+              ) : null}
+
               <Field label={isPickupOrder ? "Point de retrait" : "Transporteur"} optional>
                 <input
                   className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
@@ -531,11 +589,12 @@ export default function OrderFulfillmentTab({
               <button
                 className={`w-full px-6 py-3 rounded-lg font-medium transition-all ${
                   !canFulfill || saving || missingPickupCode
+                  || missingPickupRecipient
                     ? "opacity-50 cursor-not-allowed bg-gray-400"
                     : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow"
                 }`}
                 onClick={onFulfill}
-                disabled={!canFulfill || saving || missingPickupCode}
+                disabled={!canFulfill || saving || missingPickupCode || missingPickupRecipient}
               >
                 {saving ? "Clôture en cours..." : "Confirmer la clôture"}
               </button>
@@ -544,6 +603,8 @@ export default function OrderFulfillmentTab({
                 {canFulfill
                   ? missingPickupCode
                     ? "Code retrait requis avant validation."
+                    : missingPickupRecipient
+                      ? "Nom du récupérant requis avant validation."
                     : "La clôture enverra automatiquement un SMS de confirmation au client."
                   : "Statut READY requis pour clôturer."}
               </div>
@@ -634,6 +695,9 @@ export default function OrderFulfillmentTab({
               highlight={Boolean(order?.pickupCodeVerifiedAt)}
             />
             <Row label="Mode de remise" value={order?.fulfillmentMode || "—"} />
+            <Row label="Récupéré par" value={order?.pickupRecipientName || "—"} />
+            <Row label="Type récupérant" value={order?.pickupRecipientType || "—"} />
+            <Row label="Téléphone récupérant" value={order?.pickupRecipientPhone || "—"} />
             <Row label="Point de retrait" value={order?.pickupPointLabel || "—"} />
             <Row label="Transporteur" value={order?.deliveryCarrier || "—"} />
           </div>

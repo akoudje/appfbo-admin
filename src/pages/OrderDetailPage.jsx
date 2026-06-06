@@ -181,6 +181,10 @@ export default function OrderDetailPage() {
   const [deliveryCarrier, setDeliveryCarrier] = useState("");
   const [fulfillmentMode, setFulfillmentMode] = useState("");
   const [fulfillNote, setFulfillNote] = useState("");
+  const [pickupRecipientType, setPickupRecipientType] = useState("CUSTOMER");
+  const [pickupRecipientName, setPickupRecipientName] = useState("");
+  const [pickupRecipientPhone, setPickupRecipientPhone] = useState("");
+  const [pickupConfirmationNote, setPickupConfirmationNote] = useState("");
 
   const [cancelReason, setCancelReason] = useState("");
 
@@ -235,6 +239,10 @@ export default function OrderDetailPage() {
       setPickupPointLabel(data?.pickupPointLabel || "");
       setDeliveryCarrier(data?.deliveryCarrier || "");
       setFulfillmentMode(data?.fulfillmentMode || "");
+      setPickupRecipientType(data?.pickupRecipientType || "CUSTOMER");
+      setPickupRecipientName(data?.pickupRecipientName || data?.fboNomComplet || "");
+      setPickupRecipientPhone(data?.pickupRecipientPhone || "");
+      setPickupConfirmationNote(data?.pickupConfirmationNote || "");
       setInvoiceNote("");
       setCancelReason("");
     } catch (e) {
@@ -1016,6 +1024,10 @@ const doInvoice = async () => {
         pickupPointLabel: normalizeStr(pickupPointLabel) || undefined,
         deliveryCarrier: normalizeStr(deliveryCarrier) || undefined,
         fulfillmentMode: normalizeStr(fulfillmentMode) || undefined,
+        pickupRecipientType: normalizeStr(pickupRecipientType) || undefined,
+        pickupRecipientName: normalizeStr(pickupRecipientName) || undefined,
+        pickupRecipientPhone: normalizeStr(pickupRecipientPhone) || undefined,
+        pickupConfirmationNote: normalizeStr(pickupConfirmationNote) || undefined,
         note: normalizeStr(fulfillNote) || undefined,
       });
 
@@ -1085,6 +1097,10 @@ const doInvoice = async () => {
         pickupPointLabel: normalizeStr(pickupPointLabel) || undefined,
         deliveryCarrier: normalizeStr(deliveryCarrier) || undefined,
         fulfillmentMode: normalizeStr(fulfillmentMode) || undefined,
+        pickupRecipientType: normalizeStr(pickupRecipientType) || undefined,
+        pickupRecipientName: normalizeStr(pickupRecipientName) || undefined,
+        pickupRecipientPhone: normalizeStr(pickupRecipientPhone) || undefined,
+        pickupConfirmationNote: normalizeStr(pickupConfirmationNote) || undefined,
         note:
           normalizeStr(fulfillNote) ||
           "Commande déjà livrée physiquement. Clôture admin sans notification.",
@@ -1609,6 +1625,14 @@ const doInvoice = async () => {
               setFulfillmentMode={setFulfillmentMode}
               fulfillNote={fulfillNote}
               setFulfillNote={setFulfillNote}
+              pickupRecipientType={pickupRecipientType}
+              setPickupRecipientType={setPickupRecipientType}
+              pickupRecipientName={pickupRecipientName}
+              setPickupRecipientName={setPickupRecipientName}
+              pickupRecipientPhone={pickupRecipientPhone}
+              setPickupRecipientPhone={setPickupRecipientPhone}
+              pickupConfirmationNote={pickupConfirmationNote}
+              setPickupConfirmationNote={setPickupConfirmationNote}
               notificationPhone={invoiceWaTo}
               setNotificationPhone={setInvoiceWaTo}
               notificationEmail={invoiceEmail}
