@@ -163,6 +163,22 @@ function formatFcfa(value) {
   }).format(Number(value || 0));
 }
 
+const PICKUP_RECIPIENT_TYPE_LABELS = {
+  CUSTOMER: "Client lui-même",
+  MANDATARY: "Mandataire / proche",
+  DELIVERY_AGENT: "Livreur",
+  OTHER: "Autre",
+};
+
+function formatPickupRecipientType(value) {
+  const key = String(value || "").toUpperCase();
+  return PICKUP_RECIPIENT_TYPE_LABELS[key] || value || "—";
+}
+
+function formatAdminName(admin, fallback = "—") {
+  return admin?.fullName || admin?.email || fallback || "—";
+}
+
 function getItemSku(item) {
   return item?.productSkuSnapshot || item?.product?.sku || "—";
 }
@@ -218,7 +234,16 @@ export default function OrderFulfillmentTab({
   const missingPickupCode = isPickupOrder && !String(pickupCode || "").trim();
   const missingPickupRecipient =
     isPickupOrder && !String(pickupRecipientName || "").trim();
-  const hasDeliveryInfo = Boolean(order?.deliveryTracking || order?.fulfilledBy || order?.fulfilledAt);
+  const closedByLabel = formatAdminName(order?.fulfilledByAdmin, order?.fulfilledBy);
+  const pickupCodeVerifiedByLabel = formatAdminName(order?.pickupCodeVerifiedBy);
+  const hasDeliveryInfo = Boolean(
+    order?.deliveryTracking ||
+    order?.fulfilledByAdmin ||
+    order?.fulfilledBy ||
+    order?.fulfilledAt ||
+    order?.pickupCodeVerifiedAt ||
+    order?.pickupRecipientName,
+  );
   const orderItems = Array.isArray(order?.items) ? order.items : [];
   const totalUnits = orderItems.reduce((sum, item) => sum + Number(item?.qty || 0), 0);
 
@@ -299,8 +324,8 @@ export default function OrderFulfillmentTab({
       return (
         <Alert tone="blue" title="✅ Commande clôturée">
           <p>Cette commande a été finalisée le <strong>{formatDateTime(order?.fulfilledAt)}</strong>.</p>
-          {order?.fulfilledBy && (
-            <p className="mt-1">Par <strong>{order.fulfilledBy}</strong>.</p>
+          {closedByLabel !== "—" && (
+            <p className="mt-1">Par <strong>{closedByLabel}</strong>.</p>
           )}
         </Alert>
       );
@@ -683,7 +708,7 @@ export default function OrderFulfillmentTab({
             />
             <Row 
               label="Clôturée par" 
-              value={order?.fulfilledBy} 
+              value={closedByLabel} 
             />
             <Row 
               label="Date de clôture" 
@@ -694,13 +719,33 @@ export default function OrderFulfillmentTab({
               value={formatDateTime(order?.pickupCodeVerifiedAt)}
               highlight={Boolean(order?.pickupCodeVerifiedAt)}
             />
+            <Row
+              label="Code vérifié par"
+              value={pickupCodeVerifiedByLabel}
+            />
             <Row label="Mode de remise" value={order?.fulfillmentMode || "—"} />
             <Row label="Récupéré par" value={order?.pickupRecipientName || "—"} />
-            <Row label="Type récupérant" value={order?.pickupRecipientType || "—"} />
+            <Row label="Type récupérant" value={formatPickupRecipientType(order?.pickupRecipientType)} />
             <Row label="Téléphone récupérant" value={order?.pickupRecipientPhone || "—"} />
             <Row label="Point de retrait" value={order?.pickupPointLabel || "—"} />
             <Row label="Transporteur" value={order?.deliveryCarrier || "—"} />
           </div>
+
+          {isPickupOrder && isFulfilled && !order?.pickupRecipientName ? (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Les informations du récupérant ne sont pas renseignées sur cette clôture.
+              Cela peut arriver pour une commande clôturée avant la mise à jour du formulaire de remise.
+            </div>
+          ) : null}
+
+          {order?.pickupConfirmationNote && (
+            <div className="mt-4">
+              <div className="text-xs text-gray-500 mb-1">Note de remise :</div>
+              <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200 whitespace-pre-wrap">
+                {order.pickupConfirmationNote}
+              </div>
+            </div>
+          )}
 
           {order?.fulfillNote && (
             <div className="mt-4">
