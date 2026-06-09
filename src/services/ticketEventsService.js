@@ -13,8 +13,14 @@ export const ticketEventsService = {
   listOrders: async (params = {}) =>
     (await api.get("/admin/ticket-events/orders", { params })).data,
 
+  expireOrders: async (body = {}) =>
+    (await api.post("/admin/ticket-events/orders/expire", body)).data,
+
   markOrderPaid: async (orderId, body = {}) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/paid`, body)).data,
+
+  cancelOrder: async (orderId, body = {}) =>
+    (await api.post(`/admin/ticket-events/orders/${orderId}/cancel`, body)).data,
 
   checkInTicket: async (body = {}) =>
     (await api.post("/admin/ticket-events/check-in", body)).data,

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Permission, hasPermission } from "../auth/permissions";
+import useAdminAuth from "../hooks/useAdminAuth";
 import { ticketEventsService } from "../services/ticketEventsService";
 
 const EVENT_STATUSES = [
@@ -92,6 +94,7 @@ function emptyTicketTypeForm() {
 }
 
 export default function TicketEventsPage() {
+  const { role, permissions } = useAdminAuth();
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [orders, setOrders] = useState([]);
@@ -112,6 +115,7 @@ export default function TicketEventsPage() {
   const selectedEventPublicUrl = selectedEvent
     ? `/events/${selectedEvent.slug}`
     : "";
+  const canValidatePayment = hasPermission(role, Permission.PAYMENT_VALIDATE, permissions);
 
   async function load() {
     try {
@@ -195,6 +199,41 @@ export default function TicketEventsPage() {
       await load();
     } catch (err) {
       setError(err?.response?.data?.message || "Validation paiement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelOrder(order) {
+    if (!window.confirm(`Annuler la réservation ${order.orderNumber} ?`)) return;
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      await ticketEventsService.cancelOrder(order.id, {
+        note: "Réservation annulée depuis le module billetterie.",
+      });
+      setMessage(`Réservation ${order.orderNumber} annulée.`);
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Annulation réservation impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function expireOrders() {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const response = await ticketEventsService.expireOrders({
+        eventId: selectedEvent?.id || undefined,
+      });
+      setMessage(`${response.expired || 0} réservation(s) échue(s) expirée(s).`);
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Expiration des réservations impossible.");
     } finally {
       setSaving(false);
     }
@@ -432,6 +471,9 @@ export default function TicketEventsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold">Commandes de billets</h2>
           <div className="flex gap-2">
+            <button type="button" onClick={expireOrders} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
+              Expirer échues
+            </button>
             <input
               value={orderQuery}
               onChange={(e) => setOrderQuery(e.target.value)}
@@ -469,12 +511,25 @@ export default function TicketEventsPage() {
                   <td className="px-3 py-2">{formatFcfa(order.totalFcfa)}</td>
                   <td className="px-3 py-2">{order.status}</td>
                   <td className="px-3 py-2">
-                    {order.status !== "PAID" ? (
-                      <button type="button" onClick={() => markPaid(order)} disabled={saving} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                        Marquer payé
-                      </button>
-                    ) : (
+                    {order.status === "PAID" ? (
                       <span className="text-xs text-emerald-700">Payé</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {canValidatePayment ? (
+                          <button type="button" onClick={() => markPaid(order)} disabled={saving} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                            Marquer payé
+                          </button>
+                        ) : (
+                          <span className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-500">
+                            Paiement caisse
+                          </span>
+                        )}
+                        {order.status !== "CANCELLED" ? (
+                          <button type="button" onClick={() => cancelOrder(order)} disabled={saving} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
+                            Annuler
+                          </button>
+                        ) : null}
+                      </div>
                     )}
                   </td>
                 </tr>
