@@ -104,6 +104,7 @@ export default function TicketEventsPage() {
   const [checkInValue, setCheckInValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPoster, setUploadingPoster] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -183,6 +184,28 @@ export default function TicketEventsPage() {
       setError(err?.response?.data?.message || "Enregistrement billet impossible.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadPoster(file) {
+    if (!file) return;
+    try {
+      setUploadingPoster(true);
+      setError("");
+      setMessage("");
+      const uploaded = await ticketEventsService.uploadPoster({
+        file,
+        slug: eventForm.slug || eventForm.title || "event-poster",
+      });
+      setEventForm((current) => ({
+        ...current,
+        posterUrl: uploaded?.url || "",
+      }));
+      setMessage("Affiche uploadée. Enregistrez l'événement pour la conserver.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Upload de l'affiche impossible.");
+    } finally {
+      setUploadingPoster(false);
     }
   }
 
@@ -379,6 +402,32 @@ export default function TicketEventsPage() {
               <Field label="Affiche URL">
                 <input className={inputClass()} value={eventForm.posterUrl} onChange={(e) => setEventForm({ ...eventForm, posterUrl: e.target.value })} />
               </Field>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className={`inline-flex items-center justify-center rounded-xl border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-800 ${uploadingPoster ? "opacity-60" : "cursor-pointer hover:bg-amber-50"}`}>
+                  {uploadingPoster ? "Upload en cours..." : "Uploader l'affiche"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    disabled={uploadingPoster || saving}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) uploadPoster(file);
+                    }}
+                  />
+                </label>
+                <span className="text-xs text-gray-500">PNG, JPG, WEBP ou GIF. Maximum 5 MB.</span>
+              </div>
+              {eventForm.posterUrl ? (
+                <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                  <img
+                    src={eventForm.posterUrl}
+                    alt="Aperçu affiche événement"
+                    className="max-h-64 w-full object-contain"
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="md:col-span-2">
               <Field label="Description">
