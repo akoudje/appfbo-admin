@@ -16,6 +16,27 @@ import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
 
 const BILLING_PRESET_STORAGE_PREFIX = "billing_queue_preset_v1";
+const BILLING_ORDER_ACTIVE_STATUSES = new Set([
+  "SUBMITTED",
+  "INVOICED",
+  "PAYMENT_PENDING",
+]);
+const BILLING_QUEUE_STATUSES = new Set(["QUEUED", "RELEASED"]);
+const BILLING_ACTIVE_WORK_STATUSES = new Set([
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "WAITING_CUSTOMER_DATA",
+  "WAITING_PAYMENT",
+]);
+const BILLING_GLOBAL_WORK_STATUSES = new Set([
+  ...BILLING_QUEUE_STATUSES,
+  ...BILLING_ACTIVE_WORK_STATUSES,
+  "ESCALATED",
+]);
+
+function isBillingOrderActive(row) {
+  return BILLING_ORDER_ACTIVE_STATUSES.has(String(row?.status || "").toUpperCase());
+}
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -168,6 +189,7 @@ export default function BillingQueuePage() {
       const commonFilters = {
         page: 1,
         pageSize: 100,
+        billingQueueScope: true,
         q: qValue || undefined,
         billingPriority: priorityValue || undefined,
         dateFrom: dateFromValue || undefined,
@@ -396,79 +418,52 @@ export default function BillingQueuePage() {
     if (!Array.isArray(rows)) return [];
     const isMine = (row) =>
       Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
+    const activeRows = rows.filter(isBillingOrderActive);
 
     if (tab === "queue") {
       if (isBillingManager) {
-        return rows.filter((r) =>
-          [
-            "QUEUED",
-            "RELEASED",
-            "ASSIGNED",
-            "IN_PROGRESS",
-            "WAITING_CUSTOMER_DATA",
-            "WAITING_PAYMENT",
-            "ESCALATED",
-          ].includes(r.billingWorkStatus),
+        return activeRows.filter((r) =>
+          BILLING_GLOBAL_WORK_STATUSES.has(r.billingWorkStatus),
         );
       }
-      return rows.filter((r) => ["QUEUED", "RELEASED"].includes(r.billingWorkStatus));
+      return activeRows.filter((r) => BILLING_QUEUE_STATUSES.has(r.billingWorkStatus));
     }
 
     if (tab === "waiting-payment") {
-      return rows.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT");
+      return activeRows.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT");
     }
 
     if (tab === "escalated") {
-      return rows.filter((r) => r.billingWorkStatus === "ESCALATED");
+      return activeRows.filter((r) => r.billingWorkStatus === "ESCALATED");
     }
 
     if (isBillingManager) {
-      return rows.filter((r) =>
-        ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
-          r.billingWorkStatus,
-        ),
+      return activeRows.filter((r) =>
+        BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus),
       );
     }
 
-    return rows.filter(
+    return activeRows.filter(
       (r) =>
         isMine(r) &&
-        ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
-          r.billingWorkStatus,
-        ),
+        BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus),
     );
   }, [rows, tab, currentAdminId, isBillingManager]);
 
   const activeFilterCount = [query, priority, dateFrom, dateTo].filter(Boolean).length;
 
   const stats = useMemo(() => {
-    const all = Array.isArray(rows) ? rows : [];
+    const all = (Array.isArray(rows) ? rows : []).filter(isBillingOrderActive);
     const isMine = (row) =>
       Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
 
     return {
-      queue: all.filter((r) =>
-        isBillingManager
-          ? [
-              "QUEUED",
-              "RELEASED",
-              "ASSIGNED",
-              "IN_PROGRESS",
-              "WAITING_CUSTOMER_DATA",
-              "WAITING_PAYMENT",
-              "ESCALATED",
-            ].includes(r.billingWorkStatus)
-          : ["QUEUED", "RELEASED"].includes(r.billingWorkStatus),
-      ).length,
+      queue: all.filter((r) => BILLING_QUEUE_STATUSES.has(r.billingWorkStatus)).length,
       my: all.filter((r) =>
         isBillingManager
-          ? ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
-              r.billingWorkStatus,
-            )
+          ? BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus)
           : isMine(r) &&
-            ["ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA", "WAITING_PAYMENT"].includes(
-              r.billingWorkStatus,
-            ),
+            BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus),
       ).length,
       waitingPayment: all.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT").length,
       escalated: all.filter((r) => r.billingWorkStatus === "ESCALATED").length,
