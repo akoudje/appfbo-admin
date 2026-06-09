@@ -46,9 +46,9 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.STOCK_MANAGER:
       return new Set(["stock"]);
     case AdminRole.MARKETING_MANAGER:
-      return new Set(["marketing", "sms-campaigns", "products", "reports"]);
+      return new Set(["marketing", "sms-campaigns", "ticket-events", "products", "reports"]);
     case AdminRole.MARKETING_ASSISTANT:
-      return new Set(["marketing", "sms-campaigns", "reports"]);
+      return new Set(["marketing", "sms-campaigns", "ticket-events", "reports"]);
     default:
       return new Set([
         "dashboard",
@@ -63,6 +63,7 @@ export function getWorkspaceNavKeys(role) {
         "settings",
         "marketing",
         "sms-campaigns",
+        "ticket-events",
       ]);
   }
 }
