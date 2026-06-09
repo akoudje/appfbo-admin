@@ -27,6 +27,7 @@ import CashClosurePage from "./pages/CashClosurePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 import SmsCampaignsPage from "./pages/SmsCampaignsPage";
+import TicketEventsPage from "./pages/TicketEventsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
@@ -331,6 +332,18 @@ export default function App() {
                 <Route
                   path="/marketing/sms-campaigns"
                   element={<SmsCampaignsRoute />}
+                />
+
+                <Route
+                  path="/marketing/ticket-events"
+                  element={
+                    <RequirePermission
+                      permission={Permission.MARKETING_WRITE}
+                      fallback={<AccessDenied message="Accès refusé aux événements." />}
+                    >
+                      <TicketEventsPage />
+                    </RequirePermission>
+                  }
                 />
 
                 <Route path="*" element={<div className="p-6">Not found</div>} />

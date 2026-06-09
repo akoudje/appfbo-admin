@@ -242,6 +242,24 @@ const SETTINGS_ITEMS = [
     color: "from-sky-500 to-blue-500",
     shortcut: "-",
   },
+  {
+    key: "ticket-events",
+    to: "/marketing/ticket-events",
+    label: "Événements",
+    permission: Permission.MARKETING_WRITE,
+    icon: Star,
+    description: "Billetterie et participants",
+    allowedRoles: [
+      AdminRole.SUPER_ADMIN,
+      AdminRole.TECH_ADMIN,
+      AdminRole.OPERATIONS_DIRECTOR,
+      AdminRole.SALES_DIRECTOR,
+      AdminRole.MARKETING_MANAGER,
+      AdminRole.MARKETING_ASSISTANT,
+    ],
+    color: "from-amber-500 to-yellow-500",
+    shortcut: "E",
+  },
 ];
 
 // Badge de notification amélioré avec animation
