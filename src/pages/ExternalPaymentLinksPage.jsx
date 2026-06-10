@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Link as LinkIcon, Search } from "lucide-react";
+import { Copy, ExternalLink, Link as LinkIcon, Search } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
 
 function emptyForm() {
@@ -10,7 +10,6 @@ function emptyForm() {
     invoiceReference: "",
     title: "Paiement commande Forever",
     instructions: "",
-    expiresAt: "",
   };
 }
 
@@ -105,7 +104,11 @@ export default function ExternalPaymentLinksPage() {
       setSaving(true);
       setError("");
       setMessage("");
-      const created = await externalPaymentLinksService.create(form);
+      const created = await externalPaymentLinksService.create({
+        invoiceReference: form.invoiceReference,
+        baseAmountFcfa: form.baseAmountFcfa,
+        customerPhone: form.customerPhone,
+      });
       setForm(emptyForm());
       setMessage(`Lien généré : ${created.publicUrl}`);
       await load();
@@ -125,13 +128,13 @@ export default function ExternalPaymentLinksPage() {
     }
   }
 
-  async function setLinkStatus(link, nextStatus) {
+  async function cancelLink(link) {
     try {
       setSaving(true);
       setError("");
       setMessage("");
-      await externalPaymentLinksService.updateStatus(link.id, nextStatus);
-      setMessage(`Lien ${link.reference} mis à jour.`);
+      await externalPaymentLinksService.updateStatus(link.id, "CANCELLED");
+      setMessage(`Lien ${link.reference} annulé.`);
       await load();
     } catch (err) {
       setError(err?.response?.data?.message || "Mise à jour impossible.");
@@ -192,9 +195,6 @@ export default function ExternalPaymentLinksPage() {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
               Paiement Wave uniquement
             </div>
-            <Field label="Expiration">
-              <input type="datetime-local" className={inputClass()} value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
-            </Field>
           </div>
           <button type="submit" disabled={saving} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
             <LinkIcon className="h-4 w-4" />
@@ -262,13 +262,14 @@ export default function ExternalPaymentLinksPage() {
                           <Copy className="h-3.5 w-3.5" />
                           Copier
                         </button>
-                        {link.status !== "PAID" ? (
-                          <button type="button" onClick={() => setLinkStatus(link, "PAID")} disabled={saving} className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
-                            Payé
-                          </button>
+                        {link.publicUrl ? (
+                          <a href={link.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Ouvrir
+                          </a>
                         ) : null}
                         {link.status === "ACTIVE" ? (
-                          <button type="button" onClick={() => setLinkStatus(link, "CANCELLED")} disabled={saving} className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50">
+                          <button type="button" onClick={() => cancelLink(link)} disabled={saving} className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50">
                             Annuler
                           </button>
                         ) : null}
