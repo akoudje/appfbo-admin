@@ -2,14 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, Link as LinkIcon, Search } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
 
-const PAYMENT_METHODS = [
-  { value: "WAVE", label: "Wave" },
-  { value: "ORANGE_MONEY", label: "Orange Money" },
-  { value: "BANK_TRANSFER", label: "Virement bancaire" },
-  { value: "ECOBANK_PAY", label: "Ecobank Pay" },
-  { value: "ESPECES", label: "Espèces" },
-];
-
 function emptyForm() {
   return {
     customerName: "",
@@ -153,7 +145,7 @@ export default function ExternalPaymentLinksPage() {
         </p>
         <h1 className="text-2xl font-bold text-gray-950">Liens hors précommande</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Générez un lien sécurisé pour les commandes créées hors application de précommande.
+          Générez un lien Wave sécurisé pour les commandes créées hors application de précommande.
         </p>
       </div>
 
@@ -194,11 +186,9 @@ export default function ExternalPaymentLinksPage() {
                 <input type="number" min="1" className={inputClass()} value={form.amountFcfa} onChange={(e) => setForm({ ...form, amountFcfa: e.target.value })} />
               </Field>
               <Field label="Mode">
-                <select className={inputClass()} value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
-                  {PAYMENT_METHODS.map((method) => (
-                    <option key={method.value} value={method.value}>{method.label}</option>
-                  ))}
-                </select>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+                  Wave uniquement
+                </div>
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
