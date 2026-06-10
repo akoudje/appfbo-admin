@@ -28,6 +28,7 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import TicketEventsPage from "./pages/TicketEventsPage";
+import TicketEventFormPage from "./pages/TicketEventFormPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
@@ -342,6 +343,30 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux événements." />}
                     >
                       <TicketEventsPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/marketing/ticket-events/new"
+                  element={
+                    <RequirePermission
+                      permission={Permission.MARKETING_WRITE}
+                      fallback={<AccessDenied message="Accès refusé aux événements." />}
+                    >
+                      <TicketEventFormPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/marketing/ticket-events/:id/edit"
+                  element={
+                    <RequirePermission
+                      permission={Permission.MARKETING_WRITE}
+                      fallback={<AccessDenied message="Accès refusé aux événements." />}
+                    >
+                      <TicketEventFormPage />
                     </RequirePermission>
                   }
                 />

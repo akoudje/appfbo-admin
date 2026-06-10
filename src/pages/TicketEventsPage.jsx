@@ -1,22 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { CalendarDays, Edit, Plus, QrCode, Search, Ticket, Video, X } from "lucide-react";
 import { Permission, hasPermission } from "../auth/permissions";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { ticketEventsService } from "../services/ticketEventsService";
-
-const EVENT_STATUSES = [
-  { value: "DRAFT", label: "Brouillon" },
-  { value: "PUBLISHED", label: "Publié" },
-  { value: "CLOSED", label: "Ventes fermées" },
-  { value: "CANCELLED", label: "Annulé" },
-];
-
-function toDatetimeLocal(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offsetMs = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -29,94 +16,46 @@ function formatFcfa(value) {
   return `${Number(value || 0).toLocaleString("fr-FR")} FCFA`;
 }
 
-function Field({ label, children }) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
-      {children}
-    </label>
-  );
-}
-
 function inputClass() {
   return "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200";
 }
 
-function emptyEventForm() {
-  return {
-    id: "",
-    title: "Master Class Intelligence Artificielle & Marketing Relationnel",
-    slug: "master-class-ia-marketing-relationnel-2026",
-    subtitle: "Forever Level Up 2026",
-    description: "L'IA au service de relations plus humaines, plus pertinentes, plus durables.",
-    venueName: "",
-    venueAddress: "",
-    startsAt: "2026-07-05T09:00",
-    endsAt: "",
-    posterUrl: "",
-    status: "DRAFT",
-    capacity: "",
-    salesOpenAt: "",
-    salesCloseAt: "",
+function statusBadge(status) {
+  const classes = {
+    PUBLISHED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    DRAFT: "bg-gray-50 text-gray-700 border-gray-200",
+    CLOSED: "bg-amber-50 text-amber-700 border-amber-200",
+    CANCELLED: "bg-red-50 text-red-700 border-red-200",
+    PAID: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    PENDING_PAYMENT: "bg-amber-50 text-amber-700 border-amber-200",
+    EXPIRED: "bg-gray-50 text-gray-500 border-gray-200",
   };
-}
-
-function eventToForm(event) {
-  return {
-    id: event?.id || "",
-    title: event?.title || "",
-    slug: event?.slug || "",
-    subtitle: event?.subtitle || "",
-    description: event?.description || "",
-    venueName: event?.venueName || "",
-    venueAddress: event?.venueAddress || "",
-    startsAt: toDatetimeLocal(event?.startsAt),
-    endsAt: toDatetimeLocal(event?.endsAt),
-    posterUrl: event?.posterUrl || "",
-    status: event?.status || "DRAFT",
-    capacity: event?.capacity || "",
-    salesOpenAt: toDatetimeLocal(event?.salesOpenAt),
-    salesCloseAt: toDatetimeLocal(event?.salesCloseAt),
-  };
-}
-
-function emptyTicketTypeForm() {
-  return {
-    id: "",
-    label: "Billet standard",
-    description: "",
-    priceFcfa: "",
-    capacity: "",
-    maxPerOrder: 10,
-    active: true,
-    sortOrder: 0,
-  };
+  return classes[status] || "bg-gray-50 text-gray-700 border-gray-200";
 }
 
 export default function TicketEventsPage() {
   const { role, permissions } = useAdminAuth();
   const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
   const [orders, setOrders] = useState([]);
-  const [eventForm, setEventForm] = useState(emptyEventForm);
-  const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [orderQuery, setOrderQuery] = useState("");
   const [checkInValue, setCheckInValue] = useState("");
+  const [scannerActive, setScannerActive] = useState(false);
+  const [scannerSupported, setScannerSupported] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingPoster, setUploadingPoster] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanLoopRef = useRef(null);
+
+  const canValidatePayment = hasPermission(role, Permission.PAYMENT_VALIDATE, permissions);
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) || events[0] || null,
     [events, selectedEventId],
   );
-
-  const selectedEventPublicUrl = selectedEvent
-    ? `/events/${selectedEvent.slug}`
-    : "";
-  const canValidatePayment = hasPermission(role, Permission.PAYMENT_VALIDATE, permissions);
 
   async function load() {
     try {
@@ -124,17 +63,15 @@ export default function TicketEventsPage() {
       setError("");
       const [eventsResponse, ordersResponse] = await Promise.all([
         ticketEventsService.listEvents(),
-        ticketEventsService.listOrders({ q: orderQuery || undefined }),
+        ticketEventsService.listOrders({
+          eventId: selectedEventId || undefined,
+          q: orderQuery || undefined,
+        }),
       ]);
       const nextEvents = eventsResponse?.data || [];
       setEvents(nextEvents);
       setOrders(ordersResponse?.data || []);
-      const nextSelected =
-        nextEvents.find((event) => event.id === selectedEventId) || nextEvents[0] || null;
-      if (nextSelected) {
-        setSelectedEventId(nextSelected.id);
-        setEventForm(eventToForm(nextSelected));
-      }
+      if (!selectedEventId && nextEvents[0]?.id) setSelectedEventId(nextEvents[0].id);
     } catch (err) {
       setError(err?.response?.data?.message || "Chargement impossible.");
     } finally {
@@ -148,66 +85,9 @@ export default function TicketEventsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedEvent) return;
-    setEventForm(eventToForm(selectedEvent));
-  }, [selectedEvent]);
-
-  async function saveEvent(event) {
-    event.preventDefault();
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      const saved = await ticketEventsService.saveEvent(eventForm);
-      setMessage("Événement enregistré.");
-      setSelectedEventId(saved.id);
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Enregistrement événement impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function saveTicketType(event) {
-    event.preventDefault();
-    if (!selectedEvent?.id) return;
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      await ticketEventsService.saveTicketType(selectedEvent.id, ticketTypeForm);
-      setTicketTypeForm(emptyTicketTypeForm());
-      setMessage("Type de billet enregistré.");
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Enregistrement billet impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function uploadPoster(file) {
-    if (!file) return;
-    try {
-      setUploadingPoster(true);
-      setError("");
-      setMessage("");
-      const uploaded = await ticketEventsService.uploadPoster({
-        file,
-        slug: eventForm.slug || eventForm.title || "event-poster",
-      });
-      setEventForm((current) => ({
-        ...current,
-        posterUrl: uploaded?.url || "",
-      }));
-      setMessage("Affiche uploadée. Enregistrez l'événement pour la conserver.");
-    } catch (err) {
-      setError(err?.response?.data?.message || "Upload de l'affiche impossible.");
-    } finally {
-      setUploadingPoster(false);
-    }
-  }
+    return () => stopScanner();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function markPaid(order) {
     try {
@@ -228,18 +108,18 @@ export default function TicketEventsPage() {
   }
 
   async function cancelOrder(order) {
-    if (!window.confirm(`Annuler la réservation ${order.orderNumber} ?`)) return;
+    if (!window.confirm(`Annuler l'achat ${order.orderNumber} ?`)) return;
     try {
       setSaving(true);
       setError("");
       setMessage("");
       await ticketEventsService.cancelOrder(order.id, {
-        note: "Réservation annulée depuis le module billetterie.",
+        note: "Achat ticket annulé depuis le module billetterie.",
       });
-      setMessage(`Réservation ${order.orderNumber} annulée.`);
+      setMessage(`Achat ${order.orderNumber} annulé.`);
       await load();
     } catch (err) {
-      setError(err?.response?.data?.message || "Annulation réservation impossible.");
+      setError(err?.response?.data?.message || "Annulation achat impossible.");
     } finally {
       setSaving(false);
     }
@@ -253,22 +133,23 @@ export default function TicketEventsPage() {
       const response = await ticketEventsService.expireOrders({
         eventId: selectedEvent?.id || undefined,
       });
-      setMessage(`${response.expired || 0} réservation(s) échue(s) expirée(s).`);
+      setMessage(`${response.expired || 0} achat(s) non payé(s) expiré(s).`);
       await load();
     } catch (err) {
-      setError(err?.response?.data?.message || "Expiration des réservations impossible.");
+      setError(err?.response?.data?.message || "Expiration des achats impossible.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function checkIn(event) {
-    event.preventDefault();
+  async function checkIn(tokenOrCode = checkInValue) {
+    const raw = String(tokenOrCode || "").trim();
+    if (!raw) return;
     try {
       setSaving(true);
       setError("");
       setMessage("");
-      const ticket = await ticketEventsService.checkInTicket({ tokenOrCode: checkInValue });
+      const ticket = await ticketEventsService.checkInTicket({ tokenOrCode: raw });
       setCheckInValue("");
       setMessage(`Entrée validée : ${ticket.holderFullName} (${ticket.ticketCode}).`);
       await load();
@@ -279,21 +160,68 @@ export default function TicketEventsPage() {
     }
   }
 
-  const eventStats = useMemo(() => {
-    const relatedOrders = selectedEvent
-      ? orders.filter((order) => order.eventId === selectedEvent.id)
-      : [];
-    const paidOrders = relatedOrders.filter((order) => order.status === "PAID");
-    const tickets = relatedOrders.flatMap((order) => order.tickets || []);
+  async function startScanner() {
+    if (!("BarcodeDetector" in window)) {
+      setScannerSupported(false);
+      return;
+    }
+    try {
+      setScannerSupported(true);
+      setScannerActive(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+      const scan = async () => {
+        if (!videoRef.current || !streamRef.current) return;
+        try {
+          const codes = await detector.detect(videoRef.current);
+          const value = codes?.[0]?.rawValue;
+          if (value) {
+            stopScanner();
+            await checkIn(value);
+            return;
+          }
+        } catch {
+          // La prochaine frame réessaiera.
+        }
+        scanLoopRef.current = window.setTimeout(scan, 450);
+      };
+      scanLoopRef.current = window.setTimeout(scan, 650);
+    } catch (err) {
+      setScannerActive(false);
+      setError(err?.message || "Impossible d'activer la caméra.");
+    }
+  }
+
+  function stopScanner() {
+    if (scanLoopRef.current) window.clearTimeout(scanLoopRef.current);
+    scanLoopRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    streamRef.current = null;
+    setScannerActive(false);
+  }
+
+  const stats = useMemo(() => {
+    const paidOrders = orders.filter((order) => order.status === "PAID");
+    const tickets = orders.flatMap((order) => order.tickets || []);
     return {
-      orders: relatedOrders.length,
+      events: events.length,
+      orders: orders.length,
       paidOrders: paidOrders.length,
-      tickets: tickets.length,
       activeTickets: tickets.filter((ticket) => ticket.status === "ACTIVE").length,
       usedTickets: tickets.filter((ticket) => ticket.status === "USED").length,
       revenue: paidOrders.reduce((sum, order) => sum + Number(order.totalFcfa || 0), 0),
     };
-  }, [orders, selectedEvent]);
+  }, [events, orders]);
 
   return (
     <div className="space-y-4">
@@ -302,21 +230,18 @@ export default function TicketEventsPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">
             Billetterie événementielle
           </p>
-          <h1 className="text-2xl font-bold text-gray-950">Événements & billets</h1>
+          <h1 className="text-2xl font-bold text-gray-950">Gestion des événements</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Créez les événements, suivez les commandes de billets et validez les entrées.
+            Pilotez les événements, les achats de tickets et le contrôle d'accès.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedEventId("");
-            setEventForm(emptyEventForm());
-          }}
-          className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
+        <Link
+          to="/marketing/ticket-events/new"
+          className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
         >
+          <Plus className="h-4 w-4" />
           Nouvel événement
-        </button>
+        </Link>
       </div>
 
       {error ? (
@@ -330,205 +255,169 @@ export default function TicketEventsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">Commandes</div>
-          <div className="mt-1 text-2xl font-bold">{eventStats.orders}</div>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="text-sm text-gray-500">Payées</div>
-          <div className="mt-1 text-2xl font-bold">{eventStats.paidOrders}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">Billets</div>
-          <div className="mt-1 text-2xl font-bold">{eventStats.tickets}</div>
-        </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div className="text-sm text-gray-500">Entrées</div>
-          <div className="mt-1 text-2xl font-bold">{eventStats.usedTickets}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">Recette</div>
-          <div className="mt-1 text-2xl font-bold">{formatFcfa(eventStats.revenue)}</div>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <Stat label="Événements" value={stats.events} />
+        <Stat label="Achats" value={stats.orders} />
+        <Stat label="Payés" value={stats.paidOrders} />
+        <Stat label="Tickets actifs" value={stats.activeTickets} />
+        <Stat label="Entrées" value={stats.usedTickets} />
+        <Stat label="Recette" value={formatFcfa(stats.revenue)} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
-        <form onSubmit={saveEvent} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold">Fiche événement</h2>
-            {selectedEventPublicUrl ? (
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                {selectedEventPublicUrl}
-              </span>
-            ) : null}
+            <h2 className="text-lg font-bold">Événements</h2>
+            {loading ? <span className="text-sm text-gray-500">Chargement...</span> : null}
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <Field label="Titre">
-              <input className={inputClass()} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} />
-            </Field>
-            <Field label="Slug public">
-              <input className={inputClass()} value={eventForm.slug} onChange={(e) => setEventForm({ ...eventForm, slug: e.target.value })} />
-            </Field>
-            <Field label="Sous-titre">
-              <input className={inputClass()} value={eventForm.subtitle} onChange={(e) => setEventForm({ ...eventForm, subtitle: e.target.value })} />
-            </Field>
-            <Field label="Statut">
-              <select className={inputClass()} value={eventForm.status} onChange={(e) => setEventForm({ ...eventForm, status: e.target.value })}>
-                {EVENT_STATUSES.map((status) => (
-                  <option key={status.value} value={status.value}>{status.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Début">
-              <input type="datetime-local" className={inputClass()} value={eventForm.startsAt} onChange={(e) => setEventForm({ ...eventForm, startsAt: e.target.value })} />
-            </Field>
-            <Field label="Fin">
-              <input type="datetime-local" className={inputClass()} value={eventForm.endsAt} onChange={(e) => setEventForm({ ...eventForm, endsAt: e.target.value })} />
-            </Field>
-            <Field label="Lieu">
-              <input className={inputClass()} value={eventForm.venueName} onChange={(e) => setEventForm({ ...eventForm, venueName: e.target.value })} />
-            </Field>
-            <Field label="Capacité globale">
-              <input type="number" min="0" className={inputClass()} value={eventForm.capacity} onChange={(e) => setEventForm({ ...eventForm, capacity: e.target.value })} />
-            </Field>
-            <Field label="Ouverture ventes">
-              <input type="datetime-local" className={inputClass()} value={eventForm.salesOpenAt} onChange={(e) => setEventForm({ ...eventForm, salesOpenAt: e.target.value })} />
-            </Field>
-            <Field label="Fermeture ventes">
-              <input type="datetime-local" className={inputClass()} value={eventForm.salesCloseAt} onChange={(e) => setEventForm({ ...eventForm, salesCloseAt: e.target.value })} />
-            </Field>
-            <div className="md:col-span-2">
-              <Field label="Affiche URL">
-                <input className={inputClass()} value={eventForm.posterUrl} onChange={(e) => setEventForm({ ...eventForm, posterUrl: e.target.value })} />
-              </Field>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className={`inline-flex items-center justify-center rounded-xl border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-800 ${uploadingPoster ? "opacity-60" : "cursor-pointer hover:bg-amber-50"}`}>
-                  {uploadingPoster ? "Upload en cours..." : "Uploader l'affiche"}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    className="hidden"
-                    disabled={uploadingPoster || saving}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = "";
-                      if (file) uploadPoster(file);
-                    }}
-                  />
-                </label>
-                <span className="text-xs text-gray-500">PNG, JPG, WEBP ou GIF. Maximum 5 MB.</span>
+            {events.map((event) => (
+              <div
+                key={event.id}
+                onClick={() => setSelectedEventId(event.id)}
+                role="button"
+                tabIndex={0}
+                className={`overflow-hidden rounded-2xl border text-left transition ${
+                  selectedEvent?.id === event.id
+                    ? "border-amber-300 bg-amber-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+                onKeyDown={(keyboardEvent) => {
+                  if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                    setSelectedEventId(event.id);
+                  }
+                }}
+              >
+                <div className="flex gap-3 p-3">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                    {event.posterUrl ? (
+                      <img src={event.posterUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-amber-600">
+                        <CalendarDays className="h-6 w-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-bold text-gray-950">{event.title}</div>
+                    <div className="mt-1 text-xs text-gray-500">{formatDateTime(event.startsAt)}</div>
+                    <div className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusBadge(event.status)}`}>
+                      {event.status}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Link
+                        to={`/marketing/ticket-events/${event.id}/edit`}
+                        onClick={(clickEvent) => clickEvent.stopPropagation()}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        Modifier
+                      </Link>
+                      <a
+                        href={`/events/${event.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(clickEvent) => clickEvent.stopPropagation()}
+                        className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+                      >
+                        Voir public
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
-              {eventForm.posterUrl ? (
-                <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                  <img
-                    src={eventForm.posterUrl}
-                    alt="Aperçu affiche événement"
-                    className="max-h-64 w-full object-contain"
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="md:col-span-2">
-              <Field label="Description">
-                <textarea rows={3} className={inputClass()} value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} />
-              </Field>
-            </div>
-            <div className="md:col-span-2">
-              <Field label="Adresse">
-                <textarea rows={2} className={inputClass()} value={eventForm.venueAddress} onChange={(e) => setEventForm({ ...eventForm, venueAddress: e.target.value })} />
-              </Field>
-            </div>
+            ))}
+            {!events.length && !loading ? (
+              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+                Aucun événement créé.
+              </div>
+            ) : null}
           </div>
-          <button type="submit" disabled={saving} className="mt-4 rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-black disabled:opacity-50">
-            {saving ? "Enregistrement..." : "Enregistrer événement"}
-          </button>
-        </form>
+        </section>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Événements</h2>
-            <div className="mt-3 space-y-2">
-              {loading ? <div className="text-sm text-gray-500">Chargement...</div> : null}
-              {events.map((event) => (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={() => setSelectedEventId(event.id)}
-                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
-                    selectedEvent?.id === event.id
-                      ? "border-amber-300 bg-amber-50"
-                      : "border-gray-200 bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="font-semibold text-gray-950">{event.title}</div>
-                  <div className="text-xs text-gray-500">{event.status} • {formatDateTime(event.startsAt)}</div>
-                </button>
-              ))}
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-emerald-950">Contrôle des tickets</h2>
+              <p className="mt-1 text-sm text-emerald-800">
+                Scannez le QR code du ticket numérique ou saisissez le code.
+              </p>
             </div>
+            <QrCode className="h-7 w-7 text-emerald-700" />
           </div>
 
-          <form onSubmit={saveTicketType} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Type de billet</h2>
-            <div className="mt-3 grid gap-3">
-              <Field label="Libellé">
-                <input className={inputClass()} value={ticketTypeForm.label} onChange={(e) => setTicketTypeForm({ ...ticketTypeForm, label: e.target.value })} />
-              </Field>
-              <Field label="Prix FCFA">
-                <input type="number" min="0" className={inputClass()} value={ticketTypeForm.priceFcfa} onChange={(e) => setTicketTypeForm({ ...ticketTypeForm, priceFcfa: e.target.value })} />
-              </Field>
-              <Field label="Capacité">
-                <input type="number" min="0" className={inputClass()} value={ticketTypeForm.capacity} onChange={(e) => setTicketTypeForm({ ...ticketTypeForm, capacity: e.target.value })} />
-              </Field>
-              <Field label="Max par commande">
-                <input type="number" min="1" className={inputClass()} value={ticketTypeForm.maxPerOrder} onChange={(e) => setTicketTypeForm({ ...ticketTypeForm, maxPerOrder: e.target.value })} />
-              </Field>
-            </div>
-            <button type="submit" disabled={saving || !selectedEvent?.id} className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              Ajouter le billet
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              checkIn();
+            }}
+            className="mt-4 flex gap-2"
+          >
+            <input
+              className={inputClass()}
+              value={checkInValue}
+              onChange={(event) => setCheckInValue(event.target.value)}
+              placeholder="QR token ou code ticket"
+            />
+            <button
+              type="submit"
+              disabled={saving || !checkInValue.trim()}
+              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Valider
             </button>
-
-            <div className="mt-4 space-y-2">
-              {(selectedEvent?.ticketTypes || []).map((type) => (
-                <div key={type.id} className="rounded-xl border border-gray-200 p-3 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="font-semibold">{type.label}</span>
-                    <span>{formatFcfa(type.priceFcfa)}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {Number(type._count?.tickets || 0)} réservé(s)
-                    {type.capacity ? ` / ${type.capacity}` : ""}
-                  </div>
-                </div>
-              ))}
-            </div>
           </form>
 
-          <form onSubmit={checkIn} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <h2 className="text-lg font-bold text-emerald-950">Validation entrée</h2>
-            <div className="mt-3 flex gap-2">
-              <input className={inputClass()} value={checkInValue} onChange={(e) => setCheckInValue(e.target.value)} placeholder="Scanner ou saisir code billet" />
-              <button type="submit" disabled={saving || !checkInValue.trim()} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-                Valider
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!scannerActive ? (
+              <button
+                type="button"
+                onClick={startScanner}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800"
+              >
+                <Video className="h-4 w-4" />
+                Scanner caméra
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={stopScanner}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700"
+              >
+                <X className="h-4 w-4" />
+                Arrêter
+              </button>
+            )}
+          </div>
+
+          {!scannerSupported ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Le scan caméra n'est pas supporté par ce navigateur. Utilisez la saisie manuelle.
             </div>
-          </form>
-        </div>
+          ) : null}
+
+          {scannerActive ? (
+            <video ref={videoRef} className="mt-4 aspect-video w-full rounded-xl bg-black object-cover" muted playsInline />
+          ) : null}
+        </section>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold">Commandes de billets</h2>
-          <div className="flex gap-2">
+          <h2 className="text-lg font-bold">Achats de tickets</h2>
+          <div className="flex flex-wrap gap-2">
             <button type="button" onClick={expireOrders} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
-              Expirer échues
+              Expirer non payés
             </button>
-            <input
-              value={orderQuery}
-              onChange={(e) => setOrderQuery(e.target.value)}
-              placeholder="Recherche nom, téléphone, FBO..."
-              className={inputClass()}
-            />
+            <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+              <Search className="h-4 w-4 text-gray-400" />
+              <input
+                value={orderQuery}
+                onChange={(event) => setOrderQuery(event.target.value)}
+                placeholder="Nom, téléphone, FBO..."
+                className="min-w-52 bg-transparent text-sm outline-none"
+              />
+            </label>
             <button type="button" onClick={load} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
               Rechercher
             </button>
@@ -538,10 +427,10 @@ export default function TicketEventsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>
-                <th className="px-3 py-2">Commande</th>
+                <th className="px-3 py-2">Achat</th>
                 <th className="px-3 py-2">Acheteur</th>
                 <th className="px-3 py-2">Événement</th>
-                <th className="px-3 py-2">Billets</th>
+                <th className="px-3 py-2">Tickets</th>
                 <th className="px-3 py-2">Montant</th>
                 <th className="px-3 py-2">Statut</th>
                 <th className="px-3 py-2">Action</th>
@@ -558,7 +447,11 @@ export default function TicketEventsPage() {
                   <td className="px-3 py-2">{order.event?.title || "—"}</td>
                   <td className="px-3 py-2">{order.tickets?.length || 0}</td>
                   <td className="px-3 py-2">{formatFcfa(order.totalFcfa)}</td>
-                  <td className="px-3 py-2">{order.status}</td>
+                  <td className="px-3 py-2">
+                    <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </td>
                   <td className="px-3 py-2">
                     {order.status === "PAID" ? (
                       <span className="text-xs text-emerald-700">Payé</span>
@@ -585,13 +478,22 @@ export default function TicketEventsPage() {
               ))}
               {!orders.length ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-gray-500">Aucune commande billet.</td>
+                  <td colSpan={7} className="px-3 py-8 text-center text-gray-500">Aucun achat de ticket.</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <div className="text-sm text-gray-500">{label}</div>
+      <div className="mt-1 text-2xl font-bold">{value}</div>
     </div>
   );
 }
