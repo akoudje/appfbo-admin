@@ -4,16 +4,11 @@ import { externalPaymentLinksService } from "../services/externalPaymentLinksSer
 
 function emptyForm() {
   return {
-    customerName: "",
     customerPhone: "",
-    customerEmail: "",
-    customerFboNumber: "",
-    amountFcfa: "",
+    baseAmountFcfa: "",
     paymentMethod: "WAVE",
     invoiceReference: "",
-    externalReference: "",
     title: "Paiement commande Forever",
-    description: "",
     instructions: "",
     expiresAt: "",
   };
@@ -25,6 +20,12 @@ function inputClass() {
 
 function formatFcfa(value) {
   return `${Number(value || 0).toLocaleString("fr-FR")} FCFA`;
+}
+
+function computeWaveFee(value) {
+  const base = Number.parseInt(value, 10);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  return Math.ceil(base * 0.01);
 }
 
 function formatDateTime(value) {
@@ -63,6 +64,8 @@ export default function ExternalPaymentLinksPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const feePreview = computeWaveFee(form.baseAmountFcfa);
+  const totalPreview = (Number.parseInt(form.baseAmountFcfa, 10) || 0) + feePreview;
 
   const totals = useMemo(() => {
     const active = links.filter((link) => link.status === "ACTIVE");
@@ -145,7 +148,7 @@ export default function ExternalPaymentLinksPage() {
         </p>
         <h1 className="text-2xl font-bold text-gray-950">Liens hors précommande</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Générez un lien Wave sécurisé pour les commandes créées hors application de précommande.
+          Générez un lien Wave avec majoration automatique de 1% de frais.
         </p>
       </div>
 
@@ -167,44 +170,28 @@ export default function ExternalPaymentLinksPage() {
         <form onSubmit={createLink} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-bold">Générer un lien</h2>
           <div className="mt-4 grid gap-3">
-            <Field label="Nom client">
-              <input className={inputClass()} value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+            <Field label="Réf. facture">
+              <input className={inputClass()} value={form.invoiceReference} onChange={(e) => setForm({ ...form, invoiceReference: e.target.value })} />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Téléphone">
-                <input className={inputClass()} value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
-              </Field>
-              <Field label="N° FBO">
-                <input className={inputClass()} value={form.customerFboNumber} onChange={(e) => setForm({ ...form, customerFboNumber: e.target.value })} />
-              </Field>
+            <Field label="Montant sans frais">
+              <input type="number" min="1" className={inputClass()} value={form.baseAmountFcfa} onChange={(e) => setForm({ ...form, baseAmountFcfa: e.target.value })} />
+            </Field>
+            <Field label="Téléphone FBO">
+              <input className={inputClass()} value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
+            </Field>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Frais Wave 1%</span>
+                <span className="font-bold">{formatFcfa(feePreview)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-3 text-base">
+                <span className="font-bold">Total à payer</span>
+                <span className="font-black">{formatFcfa(totalPreview)}</span>
+              </div>
             </div>
-            <Field label="Email">
-              <input className={inputClass()} value={form.customerEmail} onChange={(e) => setForm({ ...form, customerEmail: e.target.value })} />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Montant FCFA">
-                <input type="number" min="1" className={inputClass()} value={form.amountFcfa} onChange={(e) => setForm({ ...form, amountFcfa: e.target.value })} />
-              </Field>
-              <Field label="Mode">
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
-                  Wave uniquement
-                </div>
-              </Field>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+              Paiement Wave uniquement
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Réf. facture">
-                <input className={inputClass()} value={form.invoiceReference} onChange={(e) => setForm({ ...form, invoiceReference: e.target.value })} />
-              </Field>
-              <Field label="Réf. AS400/externe">
-                <input className={inputClass()} value={form.externalReference} onChange={(e) => setForm({ ...form, externalReference: e.target.value })} />
-              </Field>
-            </div>
-            <Field label="Titre">
-              <input className={inputClass()} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </Field>
-            <Field label="Instructions">
-              <textarea rows={3} className={inputClass()} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} />
-            </Field>
             <Field label="Expiration">
               <input type="datetime-local" className={inputClass()} value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
             </Field>
@@ -253,13 +240,18 @@ export default function ExternalPaymentLinksPage() {
                   <tr key={link.id} className="border-t border-gray-100">
                     <td className="px-3 py-2">
                       <div className="font-mono text-xs">{link.reference}</div>
-                      <div className="text-xs text-gray-500">{link.invoiceReference || link.externalReference || "—"}</div>
+                      <div className="text-xs text-gray-500">Facture {link.invoiceReference || "—"}</div>
                     </td>
                     <td className="px-3 py-2">
-                      <div className="font-semibold">{link.customerName}</div>
-                      <div className="text-xs text-gray-500">{link.customerPhone || link.customerEmail || "—"}</div>
+                      <div className="font-semibold">{link.customerPhone || "—"}</div>
+                      <div className="text-xs text-gray-500">Téléphone FBO</div>
                     </td>
-                    <td className="px-3 py-2 font-semibold">{formatFcfa(link.amountFcfa)}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-semibold">{formatFcfa(link.amountFcfa)}</div>
+                      <div className="text-xs text-gray-500">
+                        Base {formatFcfa(link.baseAmountFcfa || link.amountFcfa)} + frais {formatFcfa(link.serviceFeeFcfa)}
+                      </div>
+                    </td>
                     <td className="px-3 py-2">
                       <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusClass(link.status)}`}>{link.status}</span>
                     </td>
