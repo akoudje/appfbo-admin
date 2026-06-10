@@ -31,6 +31,7 @@ import TicketEventsPage from "./pages/TicketEventsPage";
 import TicketEventFormPage from "./pages/TicketEventFormPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
+import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
 
 function AccessDenied({ message = "Accès refusé." }) {
@@ -201,6 +202,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux demandes de lien de paiement." />}
                     >
                       <PaymentLinkRequestsPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/billing/external-payment-links"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PAYMENT_VALIDATE}
+                      fallback={<AccessDenied message="Accès refusé aux liens hors précommande." />}
+                    >
+                      <ExternalPaymentLinksPage />
                     </RequirePermission>
                   }
                 />
