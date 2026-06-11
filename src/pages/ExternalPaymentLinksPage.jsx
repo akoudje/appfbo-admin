@@ -258,6 +258,7 @@ export default function ExternalPaymentLinksPage() {
               <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="px-3 py-2">Référence</th>
+                  <th className="px-3 py-2">Source</th>
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Montant</th>
                   <th className="px-3 py-2">Statut</th>
@@ -273,6 +274,11 @@ export default function ExternalPaymentLinksPage() {
                     <td className="px-3 py-2">
                       <div className="font-mono text-xs">{link.reference}</div>
                       <div className="text-xs text-gray-500">Facture {link.invoiceReference || "—"}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-600">
+                        {link.source === "QR_FORM" ? "QR" : "Admin"}
+                      </span>
                     </td>
                     <td className="px-3 py-2">
                       <div className="font-semibold">{link.customerPhone || "—"}</div>
@@ -356,12 +362,12 @@ export default function ExternalPaymentLinksPage() {
                 ))}
                 {!links.length && !loading ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-8 text-center text-gray-500">Aucun lien externe.</td>
+                    <td colSpan={9} className="px-3 py-8 text-center text-gray-500">Aucun lien externe.</td>
                   </tr>
                 ) : null}
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-8 text-center text-gray-500">Chargement...</td>
+                    <td colSpan={9} className="px-3 py-8 text-center text-gray-500">Chargement...</td>
                   </tr>
                 ) : null}
               </tbody>
