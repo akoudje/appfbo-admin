@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ExternalLink, Link as LinkIcon, Plus, RefreshCw, Search, Send, X } from "lucide-react";
+import QRCode from "qrcode";
+import { Copy, Download, ExternalLink, Link as LinkIcon, Plus, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
 
 function emptyForm() {
@@ -72,6 +73,8 @@ export default function ExternalPaymentLinksPage() {
   const [saving, setSaving] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [resendDraft, setResendDraft] = useState({ id: "", phone: "" });
+  const [qrConfig, setQrConfig] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const feePreview = computeWaveFee(form.baseAmountFcfa);
@@ -107,6 +110,27 @@ export default function ExternalPaymentLinksPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    externalPaymentLinksService.getQrConfig()
+      .then(async (config) => {
+        const dataUrl = await QRCode.toDataURL(config.url, {
+          width: 320,
+          margin: 2,
+          color: { dark: "#000000", light: "#FFFFFF" },
+        });
+        if (!mounted) return;
+        setQrConfig(config);
+        setQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (mounted) setQrConfig(null);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   async function createLink(event) {
@@ -184,6 +208,15 @@ export default function ExternalPaymentLinksPage() {
     }
   }
 
+  async function copyText(value, label = "Copié.") {
+    try {
+      await navigator.clipboard.writeText(value || "");
+      setMessage(label);
+    } catch {
+      setMessage(value || "");
+    }
+  }
+
   async function cancelLink(link) {
     try {
       setSaving(true);
@@ -224,6 +257,46 @@ export default function ExternalPaymentLinksPage() {
         <Stat label="Payés" value={totals.paid} />
         <Stat label="Montant payé" value={formatFcfa(totals.paidAmount)} />
       </div>
+
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="rounded-2xl bg-white p-3 text-amber-700">
+              <QrCode className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-gray-950">QR de génération Wave</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                À imprimer ou afficher en caisse pour générer rapidement un lien depuis un téléphone.
+              </p>
+              {qrConfig?.url ? (
+                <div className="mt-2 truncate rounded-lg bg-white px-3 py-2 font-mono text-xs text-gray-600">
+                  {qrConfig.url}
+                </div>
+              ) : (
+                <div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-red-600">
+                  Token QR non configuré côté backend.
+                </div>
+              )}
+            </div>
+          </div>
+          {qrDataUrl ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <img src={qrDataUrl} alt="QR génération lien Wave" className="h-28 w-28 rounded-xl border border-amber-200 bg-white p-2" />
+              <div className="grid gap-2">
+                <button type="button" onClick={() => copyText(qrConfig.url, "URL QR copiée.")} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-gray-800">
+                  <Copy className="h-4 w-4" />
+                  Copier l'URL
+                </button>
+                <a href={qrDataUrl} download="qr-generation-lien-wave.png" className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-3 py-2 text-xs font-bold text-white">
+                  <Download className="h-4 w-4" />
+                  Télécharger QR
+                </a>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">

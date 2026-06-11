@@ -4,6 +4,9 @@ export const externalPaymentLinksService = {
   list: async (params = {}) =>
     (await api.get("/admin/external-payment-links", { params })).data,
 
+  getQrConfig: async () =>
+    (await api.get("/admin/external-payment-links/qr-config")).data,
+
   create: async (body) =>
     (await api.post("/admin/external-payment-links", body)).data,
 
