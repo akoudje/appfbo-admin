@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ExternalLink, Link as LinkIcon, Plus, Search, Send, X } from "lucide-react";
+import { Copy, ExternalLink, Link as LinkIcon, Plus, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
 
 function emptyForm() {
@@ -156,6 +156,25 @@ export default function ExternalPaymentLinksPage() {
     }
   }
 
+  async function syncWave(link) {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const updated = await externalPaymentLinksService.syncWave(link.id);
+      setMessage(
+        updated.status === "PAID"
+          ? `Paiement confirmé pour ${updated.reference}.`
+          : `Synchronisation effectuée. Statut Wave: ${updated.providerStatus || updated.status}.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Synchronisation Wave impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function copyLink(link) {
     try {
       await navigator.clipboard.writeText(link.publicUrl);
@@ -302,6 +321,12 @@ export default function ExternalPaymentLinksPage() {
                             <ExternalLink className="h-3.5 w-3.5" />
                             Ouvrir
                           </a>
+                        ) : null}
+                        {link.status === "ACTIVE" ? (
+                          <button type="button" onClick={() => syncWave(link)} disabled={saving || !link.providerSessionId} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Synchroniser
+                          </button>
                         ) : null}
                         {link.status === "ACTIVE" ? (
                           <button type="button" onClick={() => setResendDraft({ id: link.id, phone: link.smsTo || link.customerPhone || "" })} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:opacity-50">

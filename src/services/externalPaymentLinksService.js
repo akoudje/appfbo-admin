@@ -10,6 +10,9 @@ export const externalPaymentLinksService = {
   resendSms: async (id, body = {}) =>
     (await api.post(`/admin/external-payment-links/${id}/resend-sms`, body)).data,
 
+  syncWave: async (id) =>
+    (await api.post(`/admin/external-payment-links/${id}/sync-wave`, {})).data,
+
   updateStatus: async (id, status) =>
     (await api.patch(`/admin/external-payment-links/${id}/status`, { status })).data,
 };
