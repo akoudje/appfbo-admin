@@ -221,6 +221,17 @@ function formatFcfa(value) {
   }).format(num);
 }
 
+function parseFcfaInput(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const num = Number(
+    String(value)
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(",", "."),
+  );
+  return Number.isFinite(num) ? Math.round(num) : null;
+}
+
 function formatDateTime(value) {
   if (!value) return "—";
   try {
@@ -413,6 +424,7 @@ function getLatestAttempt(order) {
 
 function BillingActionCard({
   canInvoice,
+  canCorrectAs400Invoice = false,
   canRelaunchPayment = false,
   saving,
   isCash,
@@ -436,6 +448,7 @@ function BillingActionCard({
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
+  onCorrectAs400Invoice = null,
   onRelaunchPayment,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
@@ -447,9 +460,42 @@ function BillingActionCard({
   order,
 }) {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const [confirmationMode, setConfirmationMode] = React.useState(null);
   const canEditNotificationContacts = !["FULFILLED", "CANCELLED"].includes(
     String(order?.status || "").toUpperCase(),
   );
+  const canEditBillingFields = (canInvoice || canCorrectAs400Invoice) && !saving;
+  const duplicateReference = invoicePreview?.as400ReferenceDuplicate || null;
+  const platformAmountFcfa = Number(
+    invoicePreview?.pricingTotals?.totalFcfa ??
+      order?.computedGradeTotalFcfa ??
+      order?.totalFcfa ??
+      0,
+  );
+  const as400AmountFcfa =
+    invoicePreview?.effectiveInvoiceTotalFcfa ??
+    parseFcfaInput(invoiceAmountFcfa) ??
+    Number(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0);
+  const amountDeltaFcfa = Number(as400AmountFcfa || 0) - platformAmountFcfa;
+  const hasAmountDelta = Boolean(invoicePreview) && amountDeltaFcfa !== 0;
+  const canSubmitInvoice = canInvoice && !saving && Boolean(invoiceGrade) && Boolean(invoiceRef);
+  const canSubmitCorrection =
+    canCorrectAs400Invoice &&
+    !saving &&
+    Boolean(invoiceRef) &&
+    parseFcfaInput(invoiceAmountFcfa) !== null;
+  const closeConfirmation = () => setConfirmationMode(null);
+  const confirmAction = () => {
+    const payload = {
+      confirmDuplicateAs400Reference: Boolean(duplicateReference),
+    };
+    if (confirmationMode === "correct") {
+      onCorrectAs400Invoice?.(payload);
+    } else {
+      onInvoice?.(payload);
+    }
+    closeConfirmation();
+  };
   const paymentMode = String(order?.preorderPaymentMode || order?.paymentMode || "")
     .trim()
     .toUpperCase();
@@ -576,7 +622,7 @@ function BillingActionCard({
                 value={invoiceRef || ""}
                 onChange={(e) => setInvoiceRef?.(e.target.value)}
                 placeholder="AS400-REF-001"
-                disabled={!canInvoice || saving}
+                disabled={!canEditBillingFields}
               />
             </div>
           </Field>
@@ -586,7 +632,7 @@ function BillingActionCard({
               className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all disabled:opacity-60 text-sm"
               value={invoiceGrade || ""}
               onChange={(e) => setInvoiceGrade?.(e.target.value)}
-              disabled={!canInvoice || saving}
+              disabled={!canEditBillingFields}
             >
               <option value="">Sélectionner un grade</option>
               {BILLING_GRADE_OPTIONS.map((grade) => (
@@ -626,7 +672,7 @@ function BillingActionCard({
                 onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
                 placeholder="0"
                 inputMode="numeric"
-                disabled={!canInvoice || saving}
+                disabled={!canEditBillingFields}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
                 FCFA
@@ -634,6 +680,40 @@ function BillingActionCard({
             </div>
           </Field>
         </div>
+
+        {duplicateReference ? (
+          <Alert tone="amber" title="Référence AS400 déjà utilisée">
+            <div className="text-sm">
+              La référence est déjà liée à la commande{" "}
+              <span className="font-semibold">
+                {duplicateReference.preorderNumber || duplicateReference.id}
+              </span>
+              {" "}({duplicateReference.fboNomComplet || duplicateReference.fboNumero || "client non renseigné"}).
+            </div>
+          </Alert>
+        ) : null}
+
+        {invoicePreview ? (
+          <div
+            className={`rounded-lg border px-3 py-2 text-sm ${
+              hasAmountDelta
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold">Écart plateforme vs AS400</span>
+              <span className="font-bold">
+                {amountDeltaFcfa > 0 ? "+" : ""}
+                {formatFcfa(amountDeltaFcfa)}
+              </span>
+            </div>
+            <div className="mt-1 text-xs opacity-80">
+              Plateforme : {formatFcfa(platformAmountFcfa)} · AS400 :{" "}
+              {formatFcfa(as400AmountFcfa)}
+            </div>
+          </div>
+        ) : null}
         
         {/* Bouton options avancées */}
         <button
@@ -697,6 +777,16 @@ function BillingActionCard({
                       {formatFcfa(invoicePreview.effectiveInvoiceTotalFcfa || 0)}
                     </div>
 
+                    <div className="text-blue-700">Écart :</div>
+                    <div
+                      className={`font-semibold ${
+                        amountDeltaFcfa === 0 ? "text-emerald-700" : "text-amber-700"
+                      }`}
+                    >
+                      {amountDeltaFcfa > 0 ? "+" : ""}
+                      {formatFcfa(amountDeltaFcfa)}
+                    </div>
+
                     <div className="text-blue-700">Frais opérateur :</div>
                     <div className="font-medium text-blue-900">
                       {formatFcfa(invoicePreview.payment?.paymentServiceFeeFcfa || 0)}
@@ -725,14 +815,12 @@ function BillingActionCard({
         <div className="flex items-center gap-3 pt-2">
           <button
             className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
-              !canInvoice || saving || !invoiceGrade || !invoiceRef
+              !canSubmitInvoice
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800"
             }`}
-            onClick={onInvoice}
-            disabled={
-              !canInvoice || saving || !invoiceGrade || !invoiceRef
-            }
+            onClick={() => setConfirmationMode("invoice")}
+            disabled={!canSubmitInvoice}
             type="button"
           >
             {saving ? (
@@ -752,6 +840,21 @@ function BillingActionCard({
               </>
             )}
           </button>
+
+          {canCorrectAs400Invoice ? (
+            <button
+              type="button"
+              onClick={() => setConfirmationMode("correct")}
+              disabled={!canSubmitCorrection}
+              className={`px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                canSubmitCorrection
+                  ? "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  : "border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              Corriger facture AS400
+            </button>
+          ) : null}
           
           {canSwitchToManualPayment && (
             <button
@@ -891,6 +994,95 @@ function BillingActionCard({
             </div>
           </div>
         )}
+
+        {confirmationMode ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-2xl">
+              <div className="border-b border-gray-100 px-5 py-4">
+                <h3 className="text-base font-semibold text-gray-900">
+                  {confirmationMode === "correct"
+                    ? "Confirmer la correction AS400"
+                    : "Confirmer la facturation"}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Vérifiez ces informations avant de continuer.
+                </p>
+              </div>
+              <div className="space-y-3 px-5 py-4 text-sm">
+                {duplicateReference ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                    <div className="font-semibold">Attention doublon AS400</div>
+                    <div className="mt-1 text-xs">
+                      Déjà utilisé sur{" "}
+                      {duplicateReference.preorderNumber || duplicateReference.id}
+                      {" "}({duplicateReference.fboNomComplet || duplicateReference.fboNumero || "client non renseigné"}).
+                    </div>
+                  </div>
+                ) : null}
+                <div className="grid gap-2 rounded-lg bg-gray-50 px-3 py-3">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Référence AS400</span>
+                    <span className="font-semibold text-gray-900 break-all">{invoiceRef || "—"}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Grade</span>
+                    <span className="font-semibold text-gray-900">
+                      {GRADE_LABELS[invoiceGrade] || invoiceGrade || "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Montant plateforme</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatFcfa(platformAmountFcfa)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Montant AS400</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatFcfa(as400AmountFcfa)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Écart</span>
+                    <span className={`font-bold ${amountDeltaFcfa === 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                      {amountDeltaFcfa > 0 ? "+" : ""}
+                      {formatFcfa(amountDeltaFcfa)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Notification</span>
+                    <span className="font-semibold text-gray-900 text-right break-all">
+                      {[invoiceWaTo, invoiceEmail].filter(Boolean).join(" / ") || "—"}
+                    </span>
+                  </div>
+                </div>
+                {confirmationMode === "correct" ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Les paiements non finalisés liés à l’ancien montant seront annulés. Le prochain paiement utilisera le nouveau montant AS400.
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeConfirmation}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmAction}
+                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+                >
+                  {confirmationMode === "correct"
+                    ? "Confirmer la correction"
+                    : "Confirmer et facturer"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -1606,6 +1798,7 @@ export default function OrderBillingPaymentTab({
   order,
   saving,
   canInvoice,
+  canCorrectAs400Invoice = false,
   canRelaunchPayment = false,
   invoiceRef,
   setInvoiceRef,
@@ -1628,6 +1821,7 @@ export default function OrderBillingPaymentTab({
   invoicePreviewLoading,
   paymentLink,
   onInvoice,
+  onCorrectAs400Invoice = null,
   onRelaunchPayment,
   isCash,
   isAutoPayment,
@@ -1830,6 +2024,7 @@ export default function OrderBillingPaymentTab({
         <div>
           <BillingActionCard
             canInvoice={canInvoice}
+            canCorrectAs400Invoice={canCorrectAs400Invoice}
             canRelaunchPayment={canRelaunchPayment}
             saving={saving}
             isCash={isCash}
@@ -1853,6 +2048,7 @@ export default function OrderBillingPaymentTab({
             invoicePreview={invoicePreview}
             invoicePreviewLoading={invoicePreviewLoading}
             onInvoice={onInvoice}
+            onCorrectAs400Invoice={onCorrectAs400Invoice}
             onRelaunchPayment={onRelaunchPayment}
             canSwitchToManualPayment={canSwitchToManualPayment}
             onSwitchToManualPayment={onSwitchToManualPayment}

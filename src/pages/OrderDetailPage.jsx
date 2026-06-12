@@ -336,6 +336,11 @@ export default function OrderDetailPage() {
   }, [status, isWave, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
+  const canCorrectAs400Invoice =
+    canAccessBilling &&
+    Boolean(order?.factureReference || order?.invoicedAt) &&
+    paymentStatus !== "PAID" &&
+    !["PAID", "READY", "FULFILLED", "CANCELLED"].includes(status);
   const canRelaunchPayment = useMemo(() => {
     if (status !== "CANCELLED" || paymentStatus === "PAID") return false;
     const logs = Array.isArray(order?.logs) ? order.logs : [];
@@ -525,7 +530,7 @@ export default function OrderDetailPage() {
       !order?.id ||
       !canAccessBilling ||
       !invoiceGrade ||
-      status !== "SUBMITTED"
+      (!canInvoice && !canCorrectAs400Invoice)
     ) {
       setInvoicePreview(null);
       setInvoicePreviewLoading(false);
@@ -538,6 +543,7 @@ export default function OrderDetailPage() {
       .getInvoicePreview(order.id, {
         fboGrade: invoiceGrade,
         invoiceAmountFcfa,
+        factureReference: invoiceRef,
       })
       .then((data) => {
         if (!cancelled) {
@@ -558,7 +564,15 @@ export default function OrderDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [canAccessBilling, invoiceAmountFcfa, invoiceGrade, order?.id, status]);
+  }, [
+    canAccessBilling,
+    canCorrectAs400Invoice,
+    canInvoice,
+    invoiceAmountFcfa,
+    invoiceGrade,
+    invoiceRef,
+    order?.id,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -716,7 +730,7 @@ export default function OrderDetailPage() {
     }
   };
 
-const doInvoice = async () => {
+const doInvoice = async (options = {}) => {
   try {
     setSaving(true);
     setError("");
@@ -729,6 +743,8 @@ const doInvoice = async () => {
       fboGrade: normalizeStr(invoiceGrade) || undefined,
       invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
+      confirmDuplicateAs400Reference:
+        options?.confirmDuplicateAs400Reference === true,
     };
 
     await ordersService.invoice(id, body);
@@ -739,6 +755,33 @@ const doInvoice = async () => {
     setSaving(false);
   }
 };
+
+  const doCorrectAs400Invoice = async (options = {}) => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.correctAs400Invoice(id, {
+        factureReference: normalizeStr(invoiceRef) || undefined,
+        invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
+        note: normalizeStr(invoiceNote) || undefined,
+        confirmDuplicateAs400Reference:
+          options?.confirmDuplicateAs400Reference === true,
+      });
+
+      setOrder(result?.order || result);
+      setInfo(
+        result?.message ||
+          "Facture AS400 corrigée. Le prochain paiement utilisera le nouveau montant.",
+      );
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de corriger la facture AS400");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const doRelaunchPayment = async () => {
     try {
@@ -1467,6 +1510,7 @@ const doInvoice = async () => {
               {...commonTabProps}
               saving={saving || waveLoading}
               canInvoice={canInvoice}
+              canCorrectAs400Invoice={canCorrectAs400Invoice}
               canRelaunchPayment={canRelaunchPayment}
               canProof={canProof}
               canVerify={canVerify}
@@ -1511,6 +1555,7 @@ const doInvoice = async () => {
               cashAmountReceivedFcfa={cashAmountReceivedFcfa}
               setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
               onInvoice={doInvoice}
+              onCorrectAs400Invoice={doCorrectAs400Invoice}
               onRelaunchPayment={doRelaunchPayment}
               onCopyWhatsApp={copyWhatsApp}
               onProof={doProof}
