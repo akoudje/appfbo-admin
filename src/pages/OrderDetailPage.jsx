@@ -161,6 +161,7 @@ export default function OrderDetailPage() {
   const [invoiceNote, setInvoiceNote] = useState("");
   const [relaunchPaymentMinutes, setRelaunchPaymentMinutes] = useState("10");
   const [relaunchPaymentNote, setRelaunchPaymentNote] = useState("");
+  const [relaunchPaymentAsCash, setRelaunchPaymentAsCash] = useState(false);
   const [invoicePreview, setInvoicePreview] = useState(null);
   const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
 
@@ -749,9 +750,14 @@ const doInvoice = async () => {
       const result = await ordersService.relaunchPayment(id, {
         durationMinutes: Number.isFinite(minutes) ? minutes : 10,
         note: normalizeStr(relaunchPaymentNote) || undefined,
+        switchToCash: Boolean(relaunchPaymentAsCash),
       });
       setOrder(result);
-      setInfo("Commande relancée : un nouveau délai de paiement a été envoyé au client.");
+      setInfo(
+        relaunchPaymentAsCash
+          ? "Commande relancée en mode caisse."
+          : "Commande relancée : un nouveau délai de paiement a été envoyé au client.",
+      );
       await load();
     } catch (e) {
       setError(
@@ -1485,6 +1491,9 @@ const doInvoice = async () => {
               setRelaunchPaymentMinutes={setRelaunchPaymentMinutes}
               relaunchPaymentNote={relaunchPaymentNote}
               setRelaunchPaymentNote={setRelaunchPaymentNote}
+              relaunchPaymentAsCash={relaunchPaymentAsCash}
+              setRelaunchPaymentAsCash={setRelaunchPaymentAsCash}
+              canRelaunchPaymentAsCash={isGlobalAdmin}
               proofUrl={proofUrl}
               setProofUrl={setProofUrl}
               proofRef={proofRef}

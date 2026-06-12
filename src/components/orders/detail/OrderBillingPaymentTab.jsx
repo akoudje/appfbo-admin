@@ -430,6 +430,9 @@ function BillingActionCard({
   setRelaunchPaymentMinutes,
   relaunchPaymentNote,
   setRelaunchPaymentNote,
+  relaunchPaymentAsCash = false,
+  setRelaunchPaymentAsCash,
+  canRelaunchPaymentAsCash = false,
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
@@ -529,13 +532,36 @@ function BillingActionCard({
                 />
               </Field>
             </div>
+            {canRelaunchPaymentAsCash ? (
+              <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  checked={Boolean(relaunchPaymentAsCash)}
+                  onChange={(e) => setRelaunchPaymentAsCash?.(e.target.checked)}
+                  disabled={saving}
+                />
+                <span>
+                  <span className="block font-semibold text-amber-900">
+                    Relancer en mode caisse
+                  </span>
+                  <span className="block text-xs text-amber-800">
+                    La commande sera basculée en paiement espèces/caisse au lieu de renvoyer un lien de paiement distant.
+                  </span>
+                </span>
+              </label>
+            ) : null}
             <button
               type="button"
               onClick={onRelaunchPayment}
               disabled={saving}
               className="w-full px-4 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
-              {saving ? "Relance en cours..." : "Relancer et renvoyer le lien de paiement"}
+              {saving
+                ? "Relance en cours..."
+                : relaunchPaymentAsCash
+                  ? "Relancer en mode caisse"
+                  : "Relancer et renvoyer le lien de paiement"}
             </button>
           </div>
         )}
@@ -1595,6 +1621,9 @@ export default function OrderBillingPaymentTab({
   setRelaunchPaymentMinutes,
   relaunchPaymentNote,
   setRelaunchPaymentNote,
+  relaunchPaymentAsCash = false,
+  setRelaunchPaymentAsCash,
+  canRelaunchPaymentAsCash = false,
   invoicePreview,
   invoicePreviewLoading,
   paymentLink,
@@ -1818,6 +1847,9 @@ export default function OrderBillingPaymentTab({
             setRelaunchPaymentMinutes={setRelaunchPaymentMinutes}
             relaunchPaymentNote={relaunchPaymentNote}
             setRelaunchPaymentNote={setRelaunchPaymentNote}
+            relaunchPaymentAsCash={relaunchPaymentAsCash}
+            setRelaunchPaymentAsCash={setRelaunchPaymentAsCash}
+            canRelaunchPaymentAsCash={canRelaunchPaymentAsCash}
             invoicePreview={invoicePreview}
             invoicePreviewLoading={invoicePreviewLoading}
             onInvoice={onInvoice}
