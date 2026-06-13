@@ -59,6 +59,7 @@ const DEFAULT_SETTINGS = {
     enableCash: true,
     enableBankTransfer: true,
     enableEcobankPay: false,
+    enablePiSpi: false,
     enableDelivery: true,
     enablePickup: true,
     bankAccountLabel: "",
@@ -75,6 +76,10 @@ const DEFAULT_SETTINGS = {
     ecobankPayTerminalId: "",
     ecobankPayQrImageUrl: "",
     ecobankPayInstructions: "",
+    piSpiAlias: "",
+    piSpiMerchantName: "",
+    piSpiQrImageUrl: "",
+    piSpiInstructions: "",
   },
   commercial: {
     minCartTotalFcfa: 100,
@@ -613,6 +618,7 @@ export default function AdminSettingsPage() {
             enableCash: Boolean(data.enableCash),
             enableBankTransfer: data.enableBankTransfer ?? true,
             enableEcobankPay: Boolean(data.enableEcobankPay),
+            enablePiSpi: Boolean(data.enablePiSpi),
             enableDelivery: Boolean(data.enableDelivery),
             enablePickup: Boolean(data.enablePickup),
             bankAccountLabel: data.bankAccountLabel || "",
@@ -631,6 +637,10 @@ export default function AdminSettingsPage() {
             ecobankPayTerminalId: data.ecobankPayTerminalId || "",
             ecobankPayQrImageUrl: data.ecobankPayQrImageUrl || "",
             ecobankPayInstructions: data.ecobankPayInstructions || "",
+            piSpiAlias: data.piSpiAlias || "",
+            piSpiMerchantName: data.piSpiMerchantName || "",
+            piSpiQrImageUrl: data.piSpiQrImageUrl || "",
+            piSpiInstructions: data.piSpiInstructions || "",
           },
           commercial: {
             ...prev.commercial,
@@ -736,6 +746,7 @@ export default function AdminSettingsPage() {
         enableCash: settings.countries.enableCash,
         enableBankTransfer: settings.countries.enableBankTransfer,
         enableEcobankPay: settings.countries.enableEcobankPay,
+        enablePiSpi: settings.countries.enablePiSpi,
         enableDelivery: settings.countries.enableDelivery,
         enablePickup: settings.countries.enablePickup,
         bankAccountLabel: settings.countries.bankAccountLabel,
@@ -752,6 +763,10 @@ export default function AdminSettingsPage() {
         ecobankPayTerminalId: settings.countries.ecobankPayTerminalId,
         ecobankPayQrImageUrl: settings.countries.ecobankPayQrImageUrl,
         ecobankPayInstructions: settings.countries.ecobankPayInstructions,
+        piSpiAlias: settings.countries.piSpiAlias,
+        piSpiMerchantName: settings.countries.piSpiMerchantName,
+        piSpiQrImageUrl: settings.countries.piSpiQrImageUrl,
+        piSpiInstructions: settings.countries.piSpiInstructions,
         currencyLabel: settings.commercial.currencyLabel,
         pricingDisclaimer: settings.commercial.pricingDisclaimer,
         themePrimaryColor: settings.theme.primaryColor,
@@ -1205,6 +1220,18 @@ export default function AdminSettingsPage() {
                     icon={CreditCard}
                   />
                   <ToggleCard
+                    label="PI SPI"
+                    hint="QR PI SPI avec dépôt de preuve"
+                    checked={settings.countries.enablePiSpi}
+                    onChange={(checked) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        countries: { ...prev.countries, enablePiSpi: checked },
+                      }))
+                    }
+                    icon={CreditCard}
+                  />
+                  <ToggleCard
                     label="Livraison"
                     hint="Livraison à domicile"
                     checked={settings.countries.enableDelivery}
@@ -1323,6 +1350,83 @@ export default function AdminSettingsPage() {
                               }
                               rows={3}
                               placeholder="Scannez le QR Ecobank Pay, payez le montant exact, puis déposez une capture."
+                            />
+                          </Field>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Section PI SPI */}
+                <div className="rounded-xl border border-[#e7dec8] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedSections(prev => ({ ...prev, piSpi: !prev.piSpi }))}
+                    className="w-full flex items-center justify-between px-5 py-4 bg-[#fcfbf7] hover:bg-[#f8f4e7] transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-[#5D4B3C]" />
+                      <span className="font-semibold text-[#5D4B3C]">Paramètres PI SPI</span>
+                    </div>
+                    {expandedSections.piSpi ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                  </button>
+                  <AnimatePresence>
+                    {expandedSections.piSpi && (
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: "auto" }}
+                        exit={{ height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-5 border-t border-[#e7dec8] grid gap-4 sm:grid-cols-2">
+                          <Field label="Nom client / marchand">
+                            <TextInput
+                              value={settings.countries.piSpiMerchantName}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, piSpiMerchantName: e.target.value },
+                                }))
+                              }
+                              placeholder="FOREVER LIVING PRODUCTS CI"
+                            />
+                          </Field>
+                          <Field label="Alias PI SPI">
+                            <TextInput
+                              value={settings.countries.piSpiAlias}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, piSpiAlias: e.target.value },
+                                }))
+                              }
+                              placeholder="edf16237-6b72-4155-831a-f9cb64a30434"
+                            />
+                          </Field>
+                          <Field label="URL QR code" hint="Image publique du QR PI SPI">
+                            <TextInput
+                              value={settings.countries.piSpiQrImageUrl}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, piSpiQrImageUrl: e.target.value },
+                                }))
+                              }
+                              placeholder="/pi-spi-ci-qr.png"
+                            />
+                          </Field>
+                          <Field label="Instructions">
+                            <TextArea
+                              value={settings.countries.piSpiInstructions}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  countries: { ...prev.countries, piSpiInstructions: e.target.value },
+                                }))
+                              }
+                              rows={3}
+                              placeholder="Scannez le QR PI SPI, vérifiez le bénéficiaire, payez le montant exact, puis déposez une capture."
                             />
                           </Field>
                         </div>
