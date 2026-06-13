@@ -36,6 +36,7 @@ const PAYMENT_MODE_OPTIONS = [
   { value: "ORANGE_MONEY", label: "Orange Money" },
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
   { value: "ECOBANK_PAY", label: "Ecobank Pay" },
+  { value: "PI_SPI", label: "PI SPI" },
 ];
 
 const PERIOD_OPTIONS = [

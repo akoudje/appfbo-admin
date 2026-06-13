@@ -313,7 +313,7 @@ export default function OrderDetailPage() {
     role === AdminRole.SUPER_ADMIN || role === AdminRole.TECH_ADMIN;
   const canSwitchPaymentToCash =
     isGlobalAdmin &&
-    (isWave || paymentModeRaw === "BANK_TRANSFER" || paymentModeRaw === "ECOBANK_PAY") &&
+    (isWave || paymentModeRaw === "BANK_TRANSFER" || paymentModeRaw === "ECOBANK_PAY" || paymentModeRaw === "PI_SPI") &&
     ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
       status,
     );

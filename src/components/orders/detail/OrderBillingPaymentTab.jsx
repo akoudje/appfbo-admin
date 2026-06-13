@@ -499,7 +499,7 @@ function BillingActionCard({
   const paymentMode = String(order?.preorderPaymentMode || order?.paymentMode || "")
     .trim()
     .toUpperCase();
-  const isBankProofFlow = ["BANK_TRANSFER", "ECOBANK_PAY"].includes(paymentMode);
+  const isBankProofFlow = ["BANK_TRANSFER", "ECOBANK_PAY", "PI_SPI"].includes(paymentMode);
   
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

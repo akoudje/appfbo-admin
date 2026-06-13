@@ -1413,7 +1413,7 @@ export default function AdminSettingsPage() {
                                   countries: { ...prev.countries, piSpiQrImageUrl: e.target.value },
                                 }))
                               }
-                              placeholder="/pi-spi-ci-qr.png"
+                              placeholder="/QR%20code%20pi%20spi.png"
                             />
                           </Field>
                           <Field label="Instructions">

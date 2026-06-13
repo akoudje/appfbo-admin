@@ -55,7 +55,7 @@ function discrepancyClass(value) {
 function paymentModeIcon(paymentMode) {
   const mode = String(paymentMode || "").toUpperCase();
   if (mode === "ESPECES") return Banknote;
-  if (["WAVE", "ORANGE_MONEY", "ECOBANK_PAY"].includes(mode)) return Smartphone;
+  if (["WAVE", "ORANGE_MONEY", "ECOBANK_PAY", "PI_SPI"].includes(mode)) return Smartphone;
   if (mode === "TPE_CARD") return CreditCard;
   if (mode === "BANK_TRANSFER") return Landmark;
   return Banknote;
@@ -68,6 +68,7 @@ const DECLARATION_PAYMENT_MODES = new Set([
   "TPE_CARD",
   "BANK_TRANSFER",
   "ECOBANK_PAY",
+  "PI_SPI",
 ]);
 
 function isVisibleDeclarationLine(line) {
