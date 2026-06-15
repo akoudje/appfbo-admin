@@ -195,9 +195,12 @@ export default function OrderDetailPage() {
   const [replacementLoading, setReplacementLoading] = useState(false);
   const [replacingItemId, setReplacingItemId] = useState("");
 
-  const load = async () => {
+  const load = async (options = {}) => {
+    const preserveFormDrafts = Boolean(options.preserveFormDrafts);
+    const silent = Boolean(options.silent);
+
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
 
       const [data, messageData] = await Promise.all([
@@ -208,50 +211,52 @@ export default function OrderDetailPage() {
       setOrder(data);
       setMessages(Array.isArray(messageData) ? messageData : []);
 
-      setInvoiceRef(data?.factureReference || "");
-      setInvoiceWaTo(data?.factureWhatsappTo || "");
-      setInvoiceEmail(data?.fboEmail || "");
-      setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
-      setInvoiceAmountFcfa(
-        data?.as400InvoiceTotalFcfa !== null &&
-        data?.as400InvoiceTotalFcfa !== undefined
-          ? String(data.as400InvoiceTotalFcfa)
-          : "",
-      );
-      setPaymentLink(data?.paymentLink || "");
-      setInvoicePreview(null);
+      if (!preserveFormDrafts) {
+        setInvoiceRef(data?.factureReference || "");
+        setInvoiceWaTo(data?.factureWhatsappTo || "");
+        setInvoiceEmail(data?.fboEmail || "");
+        setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
+        setInvoiceAmountFcfa(
+          data?.as400InvoiceTotalFcfa !== null &&
+          data?.as400InvoiceTotalFcfa !== undefined
+            ? String(data.as400InvoiceTotalFcfa)
+            : "",
+        );
+        setPaymentLink(data?.paymentLink || "");
+        setInvoicePreview(null);
 
-      setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
-      setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
-      setProofNote(
-        data?.manualPaymentProofNote || data?.paymentProofNote || "",
-      );
+        setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
+        setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
+        setProofNote(
+          data?.manualPaymentProofNote || data?.paymentProofNote || "",
+        );
 
-      setPackingNote(data?.packingNote || "");
-      setDeliveryTracking(data?.deliveryTracking || "");
-      setPickupCode("");
+        setPackingNote(data?.packingNote || "");
+        setDeliveryTracking(data?.deliveryTracking || "");
+        setPickupCode("");
 
-      setVerifyNote("");
-      setCashNote("");
-      setCashReceiptNumber("");
-      setCashDeskLabel("");
-      setCashAmountReceivedFcfa("");
-      setFulfillNote("");
-      setPickupPointLabel(data?.pickupPointLabel || "");
-      setDeliveryCarrier(data?.deliveryCarrier || "");
-      setFulfillmentMode(data?.fulfillmentMode || "");
-      setPickupRecipientType(data?.pickupRecipientType || "CUSTOMER");
-      setPickupRecipientName(data?.pickupRecipientName || data?.fboNomComplet || "");
-      setPickupRecipientPhone(data?.pickupRecipientPhone || "");
-      setPickupConfirmationNote(data?.pickupConfirmationNote || "");
-      setInvoiceNote("");
-      setCancelReason("");
+        setVerifyNote("");
+        setCashNote("");
+        setCashReceiptNumber("");
+        setCashDeskLabel("");
+        setCashAmountReceivedFcfa("");
+        setFulfillNote("");
+        setPickupPointLabel(data?.pickupPointLabel || "");
+        setDeliveryCarrier(data?.deliveryCarrier || "");
+        setFulfillmentMode(data?.fulfillmentMode || "");
+        setPickupRecipientType(data?.pickupRecipientType || "CUSTOMER");
+        setPickupRecipientName(data?.pickupRecipientName || data?.fboNomComplet || "");
+        setPickupRecipientPhone(data?.pickupRecipientPhone || "");
+        setPickupConfirmationNote(data?.pickupConfirmationNote || "");
+        setInvoiceNote("");
+        setCancelReason("");
+      }
     } catch (e) {
       setError(
         e?.response?.data?.message || "Impossible de charger la commande",
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -328,7 +333,7 @@ export default function OrderDetailPage() {
     if (!isWave) return;
 
     const timer = setInterval(() => {
-      load();
+      load({ preserveFormDrafts: true, silent: true });
     }, 10000);
 
     return () => clearInterval(timer);
