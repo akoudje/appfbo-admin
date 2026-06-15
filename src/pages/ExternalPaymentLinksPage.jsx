@@ -73,6 +73,7 @@ export default function ExternalPaymentLinksPage() {
   const [saving, setSaving] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [resendDraft, setResendDraft] = useState({ id: "", phone: "" });
+  const [attachDraft, setAttachDraft] = useState({ id: "", preorderNumber: "" });
   const [qrConfig, setQrConfig] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [message, setMessage] = useState("");
@@ -194,6 +195,24 @@ export default function ExternalPaymentLinksPage() {
       await load();
     } catch (err) {
       setError(err?.response?.data?.message || "Synchronisation Wave impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function attachToOrder(link, preorderNumber = "") {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const result = await externalPaymentLinksService.attachToOrder(link.id, {
+        preorderNumber,
+      });
+      setMessage(result?.message || `Paiement ${link.reference} rattaché à la commande.`);
+      setAttachDraft({ id: "", preorderNumber: "" });
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Rattachement impossible.");
     } finally {
       setSaving(false);
     }
@@ -418,6 +437,11 @@ export default function ExternalPaymentLinksPage() {
                             Annuler
                           </button>
                         ) : null}
+                        {link.status === "PAID" ? (
+                          <button type="button" onClick={() => setAttachDraft({ id: link.id, preorderNumber: "" })} disabled={saving} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:opacity-50">
+                            Rattacher commande
+                          </button>
+                        ) : null}
                       </div>
                       {resendDraft.id === link.id ? (
                         <div className="mt-2 flex min-w-[280px] flex-wrap gap-2 rounded-xl border border-amber-100 bg-amber-50 p-2">
@@ -426,6 +450,27 @@ export default function ExternalPaymentLinksPage() {
                             Envoyer
                           </button>
                           <button type="button" onClick={() => setResendDraft({ id: "", phone: "" })} className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-600">
+                            Fermer
+                          </button>
+                        </div>
+                      ) : null}
+                      {attachDraft.id === link.id ? (
+                        <div className="mt-2 flex min-w-[320px] flex-wrap gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
+                          <input
+                            className="min-w-0 flex-1 rounded-lg border border-emerald-200 px-2 py-1 text-xs outline-none focus:border-emerald-400"
+                            value={attachDraft.preorderNumber}
+                            onChange={(e) => setAttachDraft({ id: link.id, preorderNumber: e.target.value })}
+                            placeholder="PO-CIV-20260615-0051"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => attachToOrder(link, attachDraft.preorderNumber)}
+                            disabled={saving || !attachDraft.preorderNumber.trim()}
+                            className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            Rattacher
+                          </button>
+                          <button type="button" onClick={() => setAttachDraft({ id: "", preorderNumber: "" })} className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-600">
                             Fermer
                           </button>
                         </div>
