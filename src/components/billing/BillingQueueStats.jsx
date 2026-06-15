@@ -20,9 +20,10 @@ function StatCard({ label, value, tone = "gray" }) {
 
 export default function BillingQueueStats({ stats }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard label="En attente de traitement" value={stats.queue} tone="blue" />
       <StatCard label="Mes dossiers" value={stats.my} tone="gray" />
+      <StatCard label="Attente paiement" value={stats.waitingPayment} tone="amber" />
       <StatCard label="Escaladés" value={stats.escalated} tone="red" />
     </div>
   );

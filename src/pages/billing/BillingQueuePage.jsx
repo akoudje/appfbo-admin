@@ -48,7 +48,7 @@ function normalizeBillingTab(value, fallback = "my") {
   const tab = String(value || "")
     .trim()
     .toLowerCase();
-  const allowed = new Set(["my", "queue", "escalated"]);
+  const allowed = new Set(["my", "queue", "waiting-payment", "escalated"]);
   if (allowed.has(tab)) return tab;
   return fallback;
 }
@@ -207,6 +207,12 @@ export default function BillingQueuePage() {
           ...commonFilters,
           billingWorkStatus: "RELEASED",
           sort: "billingQueueEnteredAt",
+          dir: "asc",
+        }),
+        ordersService.getAll({
+          ...commonFilters,
+          billingWorkStatus: "WAITING_PAYMENT",
+          sort: "billingLastActivityAt",
           dir: "asc",
         }),
         ordersService.getAll({
@@ -412,6 +418,10 @@ export default function BillingQueuePage() {
       return activeRows.filter((r) => BILLING_QUEUE_STATUSES.has(r.billingWorkStatus));
     }
 
+    if (tab === "waiting-payment") {
+      return activeRows.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT");
+    }
+
     if (tab === "escalated") {
       return activeRows.filter((r) => r.billingWorkStatus === "ESCALATED");
     }
@@ -444,6 +454,7 @@ export default function BillingQueuePage() {
           : isMine(r) &&
             BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus),
       ).length,
+      waitingPayment: all.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT").length,
       escalated: all.filter((r) => r.billingWorkStatus === "ESCALATED").length,
     };
   }, [rows, currentAdminId, isBillingManager]);

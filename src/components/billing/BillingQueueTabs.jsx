@@ -30,6 +30,13 @@ export default function BillingQueueTabs({ tab, setTab, isBillingManager = false
           {isBillingManager ? "Activité facturiers" : "Mes dossiers"}
         </TabButton>
 
+        <TabButton
+          active={tab === "waiting-payment"}
+          onClick={() => setTab("waiting-payment")}
+        >
+          En attente paiement
+        </TabButton>
+
         <TabButton active={tab === "escalated"} onClick={() => setTab("escalated")}>
           Escaladés
         </TabButton>
