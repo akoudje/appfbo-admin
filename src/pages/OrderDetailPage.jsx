@@ -322,6 +322,11 @@ export default function OrderDetailPage() {
     ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
       status,
     );
+  const canSwitchPaymentToWave =
+    isGlobalAdmin &&
+    isCash &&
+    paymentStatus !== "PAID" &&
+    ["INVOICED", "PAYMENT_PENDING"].includes(status);
   const canFulfillNoNotification =
     [AdminRole.SUPER_ADMIN, AdminRole.TECH_ADMIN, AdminRole.OPERATIONS_DIRECTOR].includes(
       role,
@@ -1012,6 +1017,32 @@ const doInvoice = async (options = {}) => {
     }
   };
 
+  const doSwitchPaymentToWave = async () => {
+    try {
+      setWaveLoading(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.switchPaymentToWave(id, {
+        phone: normalizeStr(invoiceWaTo) || undefined,
+      });
+
+      setInfo(
+        result?.paymentLink
+          ? "Mode de paiement basculé vers Wave. Le lien est prêt: vous pouvez le renvoyer au client."
+          : "Mode de paiement basculé vers Wave. Paiement initié.",
+      );
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de basculer le mode de paiement vers Wave",
+      );
+    } finally {
+      setWaveLoading(false);
+    }
+  };
+
   const doPrepare = async () => {
     try {
       setSaving(true);
@@ -1587,6 +1618,8 @@ const doInvoice = async (options = {}) => {
               showReinvoiceHint={showReinvoiceHint}
               canSwitchToManualPayment={canSwitchPaymentToCash}
               onSwitchToManualPayment={doSwitchPaymentToManual}
+              canSwitchToWavePayment={canSwitchPaymentToWave}
+              onSwitchToWavePayment={doSwitchPaymentToWave}
               canReplaceBillingItems={canReplaceBillingItems}
               replacementProducts={replacementProducts}
               replacementQuery={replacementQuery}

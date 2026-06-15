@@ -452,6 +452,8 @@ function BillingActionCard({
   onRelaunchPayment,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
+  canSwitchToWavePayment = false,
+  onSwitchToWavePayment = null,
   onSaveNotificationContacts = null,
   onResendInvoiceNotification = null,
   billingNotificationState = null,
@@ -865,6 +867,18 @@ function BillingActionCard({
               title="Basculer ce règlement distant vers un encaissement à la caisse"
             >
               Basculer en caisse
+            </button>
+          )}
+
+          {canSwitchToWavePayment && (
+            <button
+              type="button"
+              onClick={onSwitchToWavePayment}
+              disabled={saving}
+              className="px-4 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 disabled:opacity-50 whitespace-nowrap transition-colors"
+              title="Basculer ce règlement caisse vers un lien de paiement Wave suivi par la commande"
+            >
+              Basculer en Wave
             </button>
           )}
         </div>
@@ -1858,6 +1872,8 @@ export default function OrderBillingPaymentTab({
   showReinvoiceHint = false,
   canSwitchToManualPayment = false,
   onSwitchToManualPayment = null,
+  canSwitchToWavePayment = false,
+  onSwitchToWavePayment = null,
   onSaveNotificationContacts = null,
   onResendInvoiceNotification = null,
   billingNotificationState = null,
@@ -1884,8 +1900,6 @@ export default function OrderBillingPaymentTab({
       paymentModeRaw.includes("MOBILE") ||
       paymentModeRaw.includes("MOMO"));
   const isManualFlow = !isCash && !isWaveFlow;
-  const hasInvoice = ["INVOICED", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED", "PAYMENT_PENDING"].includes(status);
-
   const paymentStatus = payment?.status || order?.paymentStatus || null;
   const paymentProvider = payment?.provider || order?.paymentProvider || null;
   const paymentSessionId = latestAttempt?.providerSessionId || payment?.providerReference || order?.paymentRef || "—";
@@ -2052,6 +2066,8 @@ export default function OrderBillingPaymentTab({
             onRelaunchPayment={onRelaunchPayment}
             canSwitchToManualPayment={canSwitchToManualPayment}
             onSwitchToManualPayment={onSwitchToManualPayment}
+            canSwitchToWavePayment={canSwitchToWavePayment}
+            onSwitchToWavePayment={onSwitchToWavePayment}
             onSaveNotificationContacts={onSaveNotificationContacts}
             onResendInvoiceNotification={onResendInvoiceNotification}
             billingNotificationState={billingNotificationState}

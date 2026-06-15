@@ -119,6 +119,14 @@ export const ordersService = {
       )
     ).data,
 
+  switchPaymentToWave: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/switch-payment-to-wave`,
+        body,
+      )
+    ).data,
+
   resendConfirmationSms: async (id, body = {}) =>
     (
       await api.post(
