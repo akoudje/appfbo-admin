@@ -26,12 +26,6 @@ const BILLING_ACTIVE_WORK_STATUSES = new Set([
   "ASSIGNED",
   "IN_PROGRESS",
   "WAITING_CUSTOMER_DATA",
-  "WAITING_PAYMENT",
-]);
-const BILLING_GLOBAL_WORK_STATUSES = new Set([
-  ...BILLING_QUEUE_STATUSES,
-  ...BILLING_ACTIVE_WORK_STATUSES,
-  "ESCALATED",
 ]);
 
 function isBillingOrderActive(row) {
@@ -54,7 +48,7 @@ function normalizeBillingTab(value, fallback = "my") {
   const tab = String(value || "")
     .trim()
     .toLowerCase();
-  const allowed = new Set(["my", "queue", "waiting-payment", "escalated"]);
+  const allowed = new Set(["my", "queue", "escalated"]);
   if (allowed.has(tab)) return tab;
   return fallback;
 }
@@ -213,12 +207,6 @@ export default function BillingQueuePage() {
           ...commonFilters,
           billingWorkStatus: "RELEASED",
           sort: "billingQueueEnteredAt",
-          dir: "asc",
-        }),
-        ordersService.getAll({
-          ...commonFilters,
-          billingWorkStatus: "WAITING_PAYMENT",
-          sort: "billingLastActivityAt",
           dir: "asc",
         }),
         ordersService.getAll({
@@ -421,16 +409,7 @@ export default function BillingQueuePage() {
     const activeRows = rows.filter(isBillingOrderActive);
 
     if (tab === "queue") {
-      if (isBillingManager) {
-        return activeRows.filter((r) =>
-          BILLING_GLOBAL_WORK_STATUSES.has(r.billingWorkStatus),
-        );
-      }
       return activeRows.filter((r) => BILLING_QUEUE_STATUSES.has(r.billingWorkStatus));
-    }
-
-    if (tab === "waiting-payment") {
-      return activeRows.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT");
     }
 
     if (tab === "escalated") {
@@ -465,7 +444,6 @@ export default function BillingQueuePage() {
           : isMine(r) &&
             BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus),
       ).length,
-      waitingPayment: all.filter((r) => r.billingWorkStatus === "WAITING_PAYMENT").length,
       escalated: all.filter((r) => r.billingWorkStatus === "ESCALATED").length,
     };
   }, [rows, currentAdminId, isBillingManager]);

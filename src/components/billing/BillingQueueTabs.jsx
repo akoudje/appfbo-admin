@@ -1,5 +1,5 @@
 // admin-app/src/components/billing/BillingQueueTabs.jsx
-// Composant d'affichage des onglets de la file de facturation, avec les différentes vues (mes dossiers, file commune, en attente de paiement, escaladés). Permet de changer de vue en cliquant sur les onglets.
+// Composant d'affichage des onglets de la file de facturation.
 
 function TabButton({ active, children, onClick }) {
   return (
@@ -28,13 +28,6 @@ export default function BillingQueueTabs({ tab, setTab, isBillingManager = false
 
         <TabButton active={tab === "my"} onClick={() => setTab("my")}>
           {isBillingManager ? "Activité facturiers" : "Mes dossiers"}
-        </TabButton>
-        
-        <TabButton
-          active={tab === "waiting-payment"}
-          onClick={() => setTab("waiting-payment")}
-        >
-          En attente paiement
         </TabButton>
 
         <TabButton active={tab === "escalated"} onClick={() => setTab("escalated")}>

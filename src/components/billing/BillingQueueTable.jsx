@@ -87,7 +87,7 @@ export default function BillingQueueTable({
               <th className="px-4 py-3 font-medium">Montant</th>
               <th className="px-4 py-3 font-medium">État</th>
               <th className="px-4 py-3 font-medium">Assigné à</th>
-              <th className="px-4 py-3 font-medium">Ancienneté</th>
+              <th className="px-4 py-3 font-medium">Dates</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -100,7 +100,6 @@ export default function BillingQueueTable({
                 "ASSIGNED",
                 "IN_PROGRESS",
                 "WAITING_CUSTOMER_DATA",
-                "WAITING_PAYMENT",
               ].includes(row?.billingWorkStatus);
               const canStart = isMine && ["ASSIGNED", "IN_PROGRESS"].includes(row?.billingWorkStatus);
               const canRelease = isMine && isActiveBilling;
@@ -144,7 +143,15 @@ export default function BillingQueueTable({
                   <td className="px-4 py-3">{assignedName}</td>
 
                   <td className="px-4 py-3">
-                    <div className="text-sm">{formatDateTime(row.billingQueueEnteredAt)}</div>
+                    <div className="text-sm">
+                      Soumise: {formatDateTime(row.submittedAt || row.createdAt)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Préfacturée: {formatDateTime(row.billingCompletedAt || row.invoicedAt)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      File: {formatDateTime(row.billingQueueEnteredAt)}
+                    </div>
                     <div className="text-xs text-gray-500">
                       SLA {formatDateTime(row.billingSlaDeadlineAt)}
                     </div>

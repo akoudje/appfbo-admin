@@ -1,5 +1,5 @@
 // admin-app/src/components/billing/BillingQueueStats.jsx
-// Composant d'affichage des statistiques de la queue de facturation, avec des cartes pour chaque statut (dans la queue, mes dossiers, attente paiement, escaladés).
+// Composant d'affichage des statistiques de la queue de facturation.
 
 function StatCard({ label, value, tone = "gray" }) {
   const tones = {
@@ -20,10 +20,9 @@ function StatCard({ label, value, tone = "gray" }) {
 
 export default function BillingQueueStats({ stats }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label="Dans la queue" value={stats.queue} tone="blue" />
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatCard label="En attente de traitement" value={stats.queue} tone="blue" />
       <StatCard label="Mes dossiers" value={stats.my} tone="gray" />
-      <StatCard label="Attente paiement" value={stats.waitingPayment} tone="amber" />
       <StatCard label="Escaladés" value={stats.escalated} tone="red" />
     </div>
   );
