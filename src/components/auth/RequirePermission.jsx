@@ -4,13 +4,17 @@
 
 
 import { usePermission } from "../../hooks/usePermission";
+import { useAnyPermission } from "../../hooks/usePermission";
 
 export default function RequirePermission({
   permission,
+  permissions,
   fallback = null,
   children,
 }) {
-  const allowed = usePermission(permission);
+  const allowedSingle = usePermission(permission);
+  const allowedAny = useAnyPermission(permissions || []);
+  const allowed = Array.isArray(permissions) ? allowedAny : allowedSingle;
 
   if (!allowed) return fallback;
   return children;
