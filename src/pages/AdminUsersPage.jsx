@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usersService } from "../services/usersService";
 import useAdminAuth from "../hooks/useAdminAuth";
+import { Permission, getRolePermissions } from "../auth/permissions";
 
 /* ============================================================================
    Config métier
@@ -102,6 +103,49 @@ const COUNTRY_OPTIONS = [
   { value: "NER", label: "Niger" },
 ];
 
+const PERMISSION_OPTIONS = [
+  {
+    value: Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
+    label: "Génération de liens Wave hors application",
+    help: "Accès à la page de génération et de suivi des liens de paiement Wave.",
+  },
+  {
+    value: Permission.INVOICE_CREATE,
+    label: "Facturation",
+    help: "Accès aux actions de facturation des précommandes.",
+  },
+  {
+    value: Permission.PAYMENT_VALIDATE,
+    label: "Caisse et validation paiement",
+    help: "Accès aux actions d'encaissement et de validation des paiements.",
+  },
+  {
+    value: Permission.PREPARATION_UPDATE,
+    label: "Préparation commandes",
+    help: "Accès aux actions de préparation et clôture opérationnelle.",
+  },
+  {
+    value: Permission.EXPORT_READ,
+    label: "Rapports et exports",
+    help: "Accès aux rapports et exports disponibles.",
+  },
+  {
+    value: Permission.MARKETING_WRITE,
+    label: "Marketing",
+    help: "Accès aux campagnes marketing et SMS.",
+  },
+  {
+    value: Permission.PRODUCT_WRITE,
+    label: "Produits et stock",
+    help: "Accès aux modifications du catalogue produits.",
+  },
+  {
+    value: Permission.USER_ADMIN,
+    label: "Administration utilisateurs",
+    help: "Création et modification des comptes administrateurs.",
+  },
+];
+
 const ROLE_ASSIGNMENT_MATRIX = {
   SUPER_ADMIN: new Set(ROLE_OPTIONS.map((role) => role.value)),
   TECH_ADMIN: new Set(
@@ -154,6 +198,35 @@ function emptyForm(countryCode = "CIV") {
     role: "",
     countryCode,
     actif: true,
+    permissionAllow: [],
+    permissionDeny: [],
+  };
+}
+
+function permissionOverrideState(value, permission) {
+  if (Array.isArray(value.permissionDeny) && value.permissionDeny.includes(permission)) {
+    return "deny";
+  }
+  if (Array.isArray(value.permissionAllow) && value.permissionAllow.includes(permission)) {
+    return "allow";
+  }
+  return "inherit";
+}
+
+function withPermissionOverride(value, permission, nextState) {
+  const allow = new Set(value.permissionAllow || []);
+  const deny = new Set(value.permissionDeny || []);
+
+  allow.delete(permission);
+  deny.delete(permission);
+
+  if (nextState === "allow") allow.add(permission);
+  if (nextState === "deny") deny.add(permission);
+
+  return {
+    ...value,
+    permissionAllow: [...allow],
+    permissionDeny: [...deny],
   };
 }
 
@@ -235,6 +308,7 @@ function UserFormModal({
   saving = false,
   countryOptions = COUNTRY_OPTIONS,
   countryLocked = false,
+  canManagePermissionOverrides = false,
 }) {
   if (!open) return null;
 
@@ -242,7 +316,7 @@ function UserFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
@@ -357,6 +431,55 @@ function UserFormModal({
               </div>
             </div>
           </label>
+
+          {canManagePermissionOverrides ? (
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="mb-3">
+                <div className="text-sm font-semibold text-gray-900">Droits spécifiques</div>
+                <div className="text-xs text-gray-500">
+                  Laisse “Hérité du rôle” par défaut. “Autoriser” ajoute un droit, “Refuser” retire un droit même s’il vient du rôle.
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {PERMISSION_OPTIONS.map((permission) => {
+                  const inherited = getRolePermissions(value.role).includes(permission.value);
+                  const state = permissionOverrideState(value, permission.value);
+
+                  return (
+                    <div
+                      key={permission.value}
+                      className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 p-3 md:grid-cols-[1fr_190px]"
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {permission.label}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                          {permission.help}
+                        </div>
+                        <div className="mt-1 text-[11px] font-medium text-gray-400">
+                          Rôle actuel: {inherited ? "autorisé" : "non autorisé"}
+                        </div>
+                      </div>
+                      <select
+                        className="rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                        value={state}
+                        onChange={(e) =>
+                          onChange(withPermissionOverride(value, permission.value, e.target.value))
+                        }
+                        disabled={saving}
+                      >
+                        <option value="inherit">Hérité du rôle</option>
+                        <option value="allow">Autoriser</option>
+                        <option value="deny">Refuser</option>
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
@@ -472,6 +595,8 @@ export default function AdminUsersPage() {
       role: user.role || "",
       countryCode: isSuperAdmin ? user.countryCode || "CIV" : ownCountryCode,
       actif: Boolean(user.actif),
+      permissionAllow: Array.isArray(user.permissionAllow) ? user.permissionAllow : [],
+      permissionDeny: Array.isArray(user.permissionDeny) ? user.permissionDeny : [],
     });
     setModalOpen(true);
   };
@@ -535,6 +660,12 @@ export default function AdminUsersPage() {
           role: form.role,
           countryCode: form.countryCode,
           actif: Boolean(form.actif),
+          ...(isSuperAdmin
+            ? {
+                permissionAllow: form.permissionAllow,
+                permissionDeny: form.permissionDeny,
+              }
+            : {}),
         });
 
         setUsers((prev) => [created, ...prev]);
@@ -547,6 +678,12 @@ export default function AdminUsersPage() {
           role: form.role,
           countryCode: form.countryCode,
           actif: Boolean(form.actif),
+          ...(isSuperAdmin
+            ? {
+                permissionAllow: form.permissionAllow,
+                permissionDeny: form.permissionDeny,
+              }
+            : {}),
         });
 
         setUsers((prev) =>
@@ -741,6 +878,16 @@ export default function AdminUsersPage() {
 
                       <td className="border-b border-gray-100 px-4 py-4">
                         <Badge tone="violet">{getRoleLabel(user.role)}</Badge>
+                        {Array.isArray(user.permissionDeny) && user.permissionDeny.length ? (
+                          <div className="mt-2">
+                            <Badge tone="red">{user.permissionDeny.length} droit refusé</Badge>
+                          </div>
+                        ) : null}
+                        {Array.isArray(user.permissionAllow) && user.permissionAllow.length ? (
+                          <div className="mt-2">
+                            <Badge tone="emerald">{user.permissionAllow.length} droit ajouté</Badge>
+                          </div>
+                        ) : null}
                       </td>
 
                       <td className="border-b border-gray-100 px-4 py-4">
@@ -818,6 +965,7 @@ export default function AdminUsersPage() {
         saving={saving}
         countryOptions={manageableCountryOptions}
         countryLocked={!isSuperAdmin}
+        canManagePermissionOverrides={isSuperAdmin}
       />
     </div>
   );

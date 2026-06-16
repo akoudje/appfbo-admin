@@ -33,6 +33,7 @@ export const Permission = {
   PREORDER_UPDATE_STATUS: "PREORDER_UPDATE_STATUS",
   INVOICE_CREATE: "INVOICE_CREATE",
   PAYMENT_VALIDATE: "PAYMENT_VALIDATE",
+  EXTERNAL_PAYMENT_LINKS_MANAGE: "EXTERNAL_PAYMENT_LINKS_MANAGE",
   PREPARATION_UPDATE: "PREPARATION_UPDATE",
   EXPORT_READ: "EXPORT_READ",
 };
@@ -67,6 +68,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREORDER_READ,
     Permission.PREORDER_UPDATE_STATUS,
     Permission.INVOICE_CREATE,
+    Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     Permission.EXPORT_READ,
   ],
 
@@ -75,6 +77,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREORDER_READ,
     Permission.PREORDER_UPDATE_STATUS,
     Permission.INVOICE_CREATE,
+    Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     Permission.EXPORT_READ,
   ],
 
@@ -106,6 +109,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.COUNTRY_READ,
     Permission.PREORDER_READ,
     Permission.PAYMENT_VALIDATE,
+    Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     Permission.EXPORT_READ,
   ],
 
@@ -113,12 +117,14 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.COUNTRY_READ,
     Permission.PREORDER_READ,
     Permission.PAYMENT_VALIDATE,
+    Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
   ],
 
   [AdminRole.INVOICER]: [
     Permission.COUNTRY_READ,
     Permission.PREORDER_READ,
     Permission.INVOICE_CREATE,
+    Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
   ],
 
   [AdminRole.ORDER_PREPARER]: [

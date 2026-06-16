@@ -210,7 +210,7 @@ export default function App() {
                   path="/billing/external-payment-links"
                   element={
                     <RequirePermission
-                      permissions={[Permission.INVOICE_CREATE, Permission.PAYMENT_VALIDATE]}
+                      permission={Permission.EXTERNAL_PAYMENT_LINKS_MANAGE}
                       fallback={<AccessDenied message="Accès refusé aux liens hors précommande." />}
                     >
                       <ExternalPaymentLinksPage />

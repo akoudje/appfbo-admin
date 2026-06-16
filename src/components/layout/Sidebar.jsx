@@ -131,7 +131,7 @@ const NAV_ITEMS = [
     key: "external-payment-links",
     to: "/billing/external-payment-links",
     label: "Liens hors app",
-    permissions: [Permission.INVOICE_CREATE, Permission.PAYMENT_VALIDATE],
+    permission: Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     icon: Link2,
     badge: null,
     description: "Paiements hors précommande",
@@ -589,6 +589,13 @@ function filterItems(items, role, permissions) {
 
     // Vérification des clés de workspace
     if (item.key && !allowedKeys.has(item.key)) {
+      if (
+        item.key === "external-payment-links" &&
+        item.permission &&
+        hasPermission(role, item.permission, permissions)
+      ) {
+        return true;
+      }
       return false;
     }
 

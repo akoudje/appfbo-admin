@@ -10,10 +10,9 @@ import { getRolePermissions } from "../auth/permissions";
 export default function useAdminAuth() {
   const admin = useMemo(() => getAdminUser(), []);
 
-  const permissions =
-    Array.isArray(admin?.permissions) && admin.permissions.length > 0
-      ? admin.permissions
-      : getRolePermissions(admin?.role);
+  const permissions = Array.isArray(admin?.permissions)
+    ? admin.permissions
+    : getRolePermissions(admin?.role);
 
   return {
     admin,
