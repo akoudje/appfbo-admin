@@ -453,7 +453,10 @@ const FiltersPanel = ({
               <input
                 type="date"
                 value={localDateFrom}
-                onChange={(e) => setLocalDateFrom(e.target.value)}
+                onChange={(e) => {
+                  setLocalDateFrom(e.target.value);
+                  setDateFrom(e.target.value);
+                }}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
               />
             </div>
@@ -462,7 +465,10 @@ const FiltersPanel = ({
               <input
                 type="date"
                 value={localDateTo}
-                onChange={(e) => setLocalDateTo(e.target.value)}
+                onChange={(e) => {
+                  setLocalDateTo(e.target.value);
+                  setDateTo(e.target.value);
+                }}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
               />
             </div>
@@ -475,7 +481,10 @@ const FiltersPanel = ({
             <input
               type="date"
               value={localDate}
-              onChange={(e) => setLocalDate(e.target.value)}
+              onChange={(e) => {
+                setLocalDate(e.target.value);
+                setDate(e.target.value);
+              }}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:ring-1 focus:ring-black"
             />
           </div>
@@ -804,9 +813,11 @@ export default function DailySalesReportPage() {
         invoicerId: nextInvoicerId,
         cashierId: nextCashierId,
       });
+      return data;
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger le rapport.");
       console.error("Load error:", e);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -870,20 +881,32 @@ export default function DailySalesReportPage() {
     });
   };
 
-  const downloadCsv = () => {
-    if (!report) return;
-    const csvData = buildCsv(report);
+  const currentFilterPayload = useCallback(() => ({
+    period,
+    date,
+    dateFrom,
+    dateTo,
+    paymentMode,
+    invoicerId,
+    cashierId,
+  }), [period, date, dateFrom, dateTo, paymentMode, invoicerId, cashierId]);
+
+  const downloadCsv = async () => {
+    const reportData = await load(currentFilterPayload());
+    if (!reportData) return;
+    const csvData = buildCsv(reportData);
     const blob = new Blob(["\uFEFF" + csvData], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `rapport-ventes-${report.period?.type || period}-${report.date || date}.csv`;
+    link.download = `rapport-ventes-${reportData.period?.type || period}-${reportData.date || date}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  const printReport = () => {
-    if (!report) return;
+  const printReport = async () => {
+    const reportData = await load(currentFilterPayload());
+    if (!reportData) return;
     window.setTimeout(() => window.print(), 50);
   };
 
