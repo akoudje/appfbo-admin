@@ -91,6 +91,20 @@ const metricDelta = (metric, amount = false, negativeIsGood = false) => {
   return { delta, percent, tone, isUp: delta > 0, isDown: delta < 0 };
 };
 
+const safeRatio = (numerator, denominator) => {
+  const num = Number(numerator || 0);
+  const den = Number(denominator || 0);
+  if (!den) return 0;
+  return num / den;
+};
+
+const formatPercent = (value, digits = 0) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
+
+const formatAverageFcfa = (amount, count) => {
+  const avg = safeRatio(amount, count);
+  return formatFcfa(Math.round(avg));
+};
+
 // ==================== COMPONENTS ====================
 
 const DeltaPill = ({ metric, amount = false, negativeIsGood = false }) => {
@@ -152,6 +166,57 @@ const ExecutiveMetric = ({
         <span className="text-xs text-gray-500">{hint || "vs. hier"}</span>
         {!loading && <DeltaPill metric={metric} amount={amountDelta} negativeIsGood={negativeIsGood} />}
       </div>
+    </div>
+  );
+};
+
+const AdvancedMetricCard = ({ label, value, hint, tone = "gray", icon: Icon = BarChart3 }) => {
+  const tones = {
+    gray: "border-gray-200 bg-white text-gray-900",
+    blue: "border-blue-200 bg-blue-50 text-blue-950",
+    green: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    red: "border-red-200 bg-red-50 text-red-950",
+  };
+  return (
+    <div className={`rounded-xl border p-4 ${tones[tone] || tones.gray}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{label}</div>
+          <div className="mt-2 text-2xl font-bold">{value}</div>
+          {hint ? <div className="mt-1 text-xs opacity-75">{hint}</div> : null}
+        </div>
+        <div className="rounded-lg bg-white/70 p-2 ring-1 ring-black/5">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PaymentMixPanel = ({ rows = [], totalAmount = 0 }) => {
+  if (!rows.length) {
+    return <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">Aucun paiement sur la période.</div>;
+  }
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => {
+        const amount = Number(row.amountFcfa || 0);
+        const ratio = safeRatio(amount, totalAmount);
+        return (
+          <div key={row.key || row.label} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-semibold text-gray-800">{humanize(row.key || row.label)}</span>
+              <span className="text-xs font-semibold text-gray-600">
+                {formatFcfa(amount)} · {formatPercent(ratio)}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-gray-100">
+              <div className="h-2 rounded-full bg-gray-900" style={{ width: `${Math.max(3, ratio * 100)}%` }} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -650,6 +715,11 @@ const PrintRowsTable = ({ title, rows = [], type }) => {
 const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
   if (!report) return null;
   const periodLabel = report?.period?.label || report.date;
+  const submittedCount = Number(report?.submitted?.count || 0);
+  const invoicedCount = Number(report?.invoiced?.count || 0);
+  const paidCount = Number(report?.paid?.count || 0);
+  const cancelledCount = Number(report?.cancelled?.count || 0);
+  const pendingInvoicedAmount = Number(report?.pending?.invoicedNotPaid?.amountFcfa || 0);
   return (
     <div className="print-report hidden">
       <div className="flex items-start justify-between border-b border-gray-300 pb-3">
@@ -684,6 +754,17 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
           <div className="text-xs text-gray-600">{formatFcfa(report.cancelled?.amountFcfa || 0)}</div>
         </div>
       </div>
+
+      <section className="mt-4 rounded-lg border border-gray-200 p-3">
+        <h2 className="text-sm font-bold">Indicateurs avancés</h2>
+        <div className="mt-2 grid grid-cols-5 gap-2 text-xs">
+          <div>Préfacturation<br /><strong>{formatPercent(safeRatio(invoicedCount, submittedCount))}</strong></div>
+          <div>Encaissement<br /><strong>{formatPercent(safeRatio(paidCount, invoicedCount || submittedCount))}</strong></div>
+          <div>Annulation<br /><strong>{formatPercent(safeRatio(cancelledCount, submittedCount + cancelledCount))}</strong></div>
+          <div>Panier encaissé<br /><strong>{formatAverageFcfa(report.paid?.amountFcfa, paidCount)}</strong></div>
+          <div>Reste à encaisser<br /><strong>{formatFcfa(pendingInvoicedAmount)}</strong></div>
+        </div>
+      </section>
 
       <section className="mt-4 rounded-lg border border-gray-200 p-3">
         <h2 className="text-sm font-bold">Flux de la période</h2>
@@ -852,6 +933,29 @@ export default function DailySalesReportPage() {
     paid: report?.critical?.paidNotLaunched?.length || 0,
   };
   const hasCritical = priorityCounts.submitted + priorityCounts.invoiced + priorityCounts.paid > 0;
+  const advancedStats = useMemo(() => {
+    const submittedCount = Number(report?.submitted?.count || 0);
+    const submittedAmount = Number(report?.submitted?.amountFcfa || 0);
+    const invoicedCount = Number(report?.invoiced?.count || 0);
+    const invoicedAmount = Number(report?.invoiced?.amountFcfa || 0);
+    const paidCount = Number(report?.paid?.count || 0);
+    const paidAmount = Number(report?.paid?.amountFcfa || 0);
+    const cancelledCount = Number(report?.cancelled?.count || 0);
+    const cancelledAmount = Number(report?.cancelled?.amountFcfa || 0);
+    const pendingSubmittedAmount = Number(report?.pending?.submittedNotInvoiced?.amountFcfa || 0);
+    const pendingInvoicedAmount = Number(report?.pending?.invoicedNotPaid?.amountFcfa || 0);
+    const pendingPaidAmount = Number(report?.pending?.paidNotLaunched?.amountFcfa || 0);
+    return {
+      invoiceRate: safeRatio(invoicedCount, submittedCount),
+      cashRate: safeRatio(paidCount, invoicedCount || submittedCount),
+      cancellationRate: safeRatio(cancelledCount, submittedCount + cancelledCount),
+      submittedAverage: formatAverageFcfa(submittedAmount, submittedCount),
+      paidAverage: formatAverageFcfa(paidAmount, paidCount),
+      pendingCollectionAmount: pendingInvoicedAmount,
+      operationalBacklogAmount: pendingSubmittedAmount + pendingInvoicedAmount + pendingPaidAmount,
+      realizedNetAmount: paidAmount - cancelledAmount,
+    };
+  }, [report]);
   const reportPeriodLabel = report?.period?.label || date;
   const periodOptionLabel =
     PERIOD_OPTIONS.find((option) => option.value === (report?.period?.type || period))?.label ||
@@ -1309,6 +1413,72 @@ export default function DailySalesReportPage() {
               negativeIsGood
               loading={loading}
             />
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+            <Section title="Indicateurs avancés" icon={BarChart3}>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdvancedMetricCard
+                  icon={ReceiptText}
+                  label="Taux de préfacturation"
+                  value={formatPercent(advancedStats.invoiceRate)}
+                  hint="Préfacturées / soumises"
+                  tone="blue"
+                />
+                <AdvancedMetricCard
+                  icon={Banknote}
+                  label="Taux d'encaissement"
+                  value={formatPercent(advancedStats.cashRate)}
+                  hint="Payées / préfacturées"
+                  tone="green"
+                />
+                <AdvancedMetricCard
+                  icon={XCircle}
+                  label="Taux d'annulation"
+                  value={formatPercent(advancedStats.cancellationRate)}
+                  hint="Annulées / total traité"
+                  tone={advancedStats.cancellationRate > 0.08 ? "red" : "gray"}
+                />
+                <AdvancedMetricCard
+                  icon={ShoppingCart}
+                  label="Panier moyen soumis"
+                  value={advancedStats.submittedAverage}
+                  hint={`Panier moyen encaissé : ${advancedStats.paidAverage}`}
+                  tone="amber"
+                />
+                <AdvancedMetricCard
+                  icon={AlertTriangle}
+                  label="Reste à encaisser"
+                  value={formatFcfa(advancedStats.pendingCollectionAmount)}
+                  hint="Préfacturées non payées"
+                  tone={advancedStats.pendingCollectionAmount > 0 ? "red" : "green"}
+                />
+                <AdvancedMetricCard
+                  icon={Clock}
+                  label="Charge bloquée"
+                  value={formatFcfa(advancedStats.operationalBacklogAmount)}
+                  hint="Soumises, impayées et payées non lancées"
+                  tone={advancedStats.operationalBacklogAmount > 0 ? "amber" : "green"}
+                />
+                <AdvancedMetricCard
+                  icon={CheckCircle}
+                  label="Net réalisé"
+                  value={formatFcfa(advancedStats.realizedNetAmount)}
+                  hint="Encaissement moins annulations"
+                  tone="green"
+                />
+                <AdvancedMetricCard
+                  icon={UserCheck}
+                  label="Productivité"
+                  value={formatMinutes(report.performance?.averageSubmitToInvoiceMinutes)}
+                  hint="Délai moyen soumission → préfacturation"
+                  tone="gray"
+                />
+              </div>
+            </Section>
+            <Section title="Mix d'encaissement" icon={Banknote}>
+              <PaymentMixPanel rows={report.paid?.byPaymentMode || []} totalAmount={report.paid?.amountFcfa || 0} />
+            </Section>
           </div>
 
           {/* Flow */}
