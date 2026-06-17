@@ -780,7 +780,7 @@ const PrintRowsTable = ({ title, rows = [], type }) => {
   );
 };
 
-const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
+const PrintableDailyReport = ({ report }) => {
   if (!report) return null;
   const periodLabel = report?.period?.label || report.date;
   const submittedCount = Number(report?.submitted?.count || 0);
@@ -788,6 +788,12 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
   const paidCount = Number(report?.paid?.count || 0);
   const cancelledCount = Number(report?.cancelled?.count || 0);
   const pendingInvoicedAmount = Number(report?.pending?.invoicedNotPaid?.amountFcfa || 0);
+  const printableConversionRate = submittedCount ? `${Math.round((paidCount / submittedCount) * 100)}%` : "0%";
+  const printablePriorityCounts = {
+    submitted: report?.critical?.submittedNotInvoiced?.length || 0,
+    invoiced: report?.critical?.invoicedNotPaid?.length || 0,
+    paid: report?.critical?.paidNotLaunched?.length || 0,
+  };
   return (
     <div className="print-report hidden">
       <div className="flex items-start justify-between border-b border-gray-300 pb-3">
@@ -814,7 +820,7 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
         <div className="rounded-lg border border-gray-200 p-3">
           <div className="text-xs font-semibold uppercase text-gray-500">Encaissé</div>
           <div className="text-xl font-bold">{formatFcfa(report.paid?.amountFcfa || 0)}</div>
-          <div className="text-xs text-gray-600">{formatCount(report.paid?.count)} commandes • {conversionRate}</div>
+          <div className="text-xs text-gray-600">{formatCount(report.paid?.count)} commandes • {printableConversionRate}</div>
         </div>
         <div className="rounded-lg border border-gray-200 p-3">
           <div className="text-xs font-semibold uppercase text-gray-500">Annulées</div>
@@ -880,9 +886,9 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
       <section className="mt-4 rounded-lg border border-amber-200 p-3">
         <h2 className="text-sm font-bold">À traiter en priorité</h2>
         <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-          <div>Soumises non préfacturées<br /><strong>{formatCount(priorityCounts.submitted)}</strong></div>
-          <div>Préfacturées non payées<br /><strong>{formatCount(priorityCounts.invoiced)}</strong></div>
-          <div>Payées non lancées<br /><strong>{formatCount(priorityCounts.paid)}</strong></div>
+          <div>Soumises non préfacturées<br /><strong>{formatCount(printablePriorityCounts.submitted)}</strong></div>
+          <div>Préfacturées non payées<br /><strong>{formatCount(printablePriorityCounts.invoiced)}</strong></div>
+          <div>Payées non lancées<br /><strong>{formatCount(printablePriorityCounts.paid)}</strong></div>
         </div>
       </section>
 
@@ -933,6 +939,7 @@ export default function DailySalesReportPage() {
   const [invoicerId, setInvoicerId] = useState("");
   const [cashierId, setCashierId] = useState("");
   const [report, setReport] = useState(null);
+  const [printReportData, setPrintReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [knownInvoicers, setKnownInvoicers] = useState([]);
@@ -1111,7 +1118,8 @@ export default function DailySalesReportPage() {
   const printReport = async () => {
     const reportData = await load(currentFilterPayload());
     if (!reportData) return;
-    window.setTimeout(() => window.print(), 50);
+    setPrintReportData(reportData);
+    window.setTimeout(() => window.print(), 250);
   };
 
   const handleViewOrder = (orderId) => {
@@ -1380,7 +1388,7 @@ export default function DailySalesReportPage() {
           animation: fadeIn 0.3s ease-out;
         }
       `}</style>
-      <PrintableDailyReport report={report} conversionRate={conversionRate} priorityCounts={priorityCounts} />
+      <PrintableDailyReport report={printReportData || report} />
 
       <div className="screen-report space-y-6">
       {/* Header */}
