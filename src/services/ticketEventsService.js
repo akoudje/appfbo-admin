@@ -10,6 +10,9 @@ export const ticketEventsService = {
   saveTicketType: async (eventId, body) =>
     (await api.post(`/admin/ticket-events/${eventId}/ticket-types`, body)).data,
 
+  deleteTicketType: async (eventId, ticketTypeId) =>
+    (await api.delete(`/admin/ticket-events/${eventId}/ticket-types/${ticketTypeId}`)).data,
+
   uploadPoster: async ({ file, slug }) => {
     const formData = new FormData();
     formData.append("file", file);
