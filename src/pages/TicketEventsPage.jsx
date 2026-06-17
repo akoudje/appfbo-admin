@@ -14,8 +14,6 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { Permission, hasPermission } from "../auth/permissions";
-import useAdminAuth from "../hooks/useAdminAuth";
 import { ticketEventsService } from "../services/ticketEventsService";
 
 const TABS = [
@@ -90,7 +88,6 @@ function Field({ label, children }) {
 }
 
 export default function TicketEventsPage() {
-  const { role, permissions } = useAdminAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -109,8 +106,6 @@ export default function TicketEventsPage() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const scanLoopRef = useRef(null);
-
-  const canValidatePayment = hasPermission(role, Permission.PAYMENT_VALIDATE, permissions);
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) || events[0] || null,
@@ -242,24 +237,6 @@ export default function TicketEventsPage() {
       await load({ eventId: selectedEvent.id });
     } catch (err) {
       setError(err?.response?.data?.message || "Modification du type de ticket impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function markPaid(order) {
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      await ticketEventsService.markOrderPaid(order.id, {
-        paymentMethod: order.paymentMethod || "MANUAL",
-        paymentReference: order.paymentReference || order.orderNumber,
-      });
-      setMessage(`Commande ${order.orderNumber} marquée payée.`);
-      await load({ eventId: selectedEventId });
-    } catch (err) {
-      setError(err?.response?.data?.message || "Validation paiement impossible.");
     } finally {
       setSaving(false);
     }
@@ -548,10 +525,8 @@ export default function TicketEventsPage() {
                     orderStatus={orderStatus}
                     setOrderStatus={setOrderStatus}
                     saving={saving}
-                    canValidatePayment={canValidatePayment}
                     onLoad={(overrides) => load({ eventId: selectedEvent.id, ...overrides })}
                     onExpire={expireOrders}
-                    onMarkPaid={markPaid}
                     onSyncWave={syncWavePayment}
                     onCancel={cancelOrder}
                   />
@@ -713,10 +688,8 @@ function OrdersTab({
   orderStatus,
   setOrderStatus,
   saving,
-  canValidatePayment,
   onLoad,
   onExpire,
-  onMarkPaid,
   onSyncWave,
   onCancel,
 }) {
@@ -799,11 +772,6 @@ function OrdersTab({
                     <span className="text-xs text-emerald-700">Payé</span>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {canValidatePayment ? (
-                        <button type="button" onClick={() => onMarkPaid(order)} disabled={saving} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                          Marquer payé
-                        </button>
-                      ) : null}
                       {String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE" ? (
                         <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
                           <RefreshCw className="h-3.5 w-3.5" />
