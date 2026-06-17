@@ -777,7 +777,12 @@ function OrdersTab({
                   <div className="font-semibold">{order.buyerFullName}</div>
                   <div className="text-xs text-gray-500">{order.buyerPhone}</div>
                 </td>
-                <td className="px-3 py-2">{order.tickets?.length || 0}</td>
+                <td className="px-3 py-2">
+                  <div>{order.tickets?.length || order.quantity || 0}</div>
+                  {order.ticketType?.label ? (
+                    <div className="text-xs text-gray-500">{order.ticketType.label}</div>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2">{formatFcfa(order.totalFcfa)}</td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.paymentProvider || order.paymentMethod || "—"}</div>
