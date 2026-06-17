@@ -48,6 +48,7 @@ const PERIOD_OPTIONS = [
 
 const DETAIL_TABS = [
   { key: "overview", label: "Vue générale", icon: BarChart3 },
+  { key: "monthly", label: "Évolution mensuelle", icon: CalendarDays },
   { key: "invoiced", label: "Préfacturation", icon: ReceiptText },
   { key: "paid", label: "Paiements", icon: Banknote },
   { key: "cancelled", label: "Annulations", icon: XCircle },
@@ -217,6 +218,73 @@ const PaymentMixPanel = ({ rows = [], totalAmount = 0 }) => {
           </div>
         );
       })}
+    </div>
+  );
+};
+
+const MonthlyEvolutionPanel = ({ rows = [] }) => {
+  if (!rows.length) {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+        Aucune donnée mensuelle disponible pour cette période.
+      </div>
+    );
+  }
+  const maxPaid = Math.max(...rows.map((row) => Number(row.paid?.amountFcfa || 0)), 1);
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-gray-200 p-4">
+        <h3 className="text-sm font-bold text-gray-900">Chiffre d'affaires encaissé par mois</h3>
+        <div className="mt-4 space-y-3">
+          {rows.map((row) => {
+            const amount = Number(row.paid?.amountFcfa || 0);
+            const width = `${Math.max(3, (amount / maxPaid) * 100)}%`;
+            return (
+              <div key={row.key} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-gray-800">{row.label}</span>
+                  <span className="font-bold text-gray-950">{formatFcfa(amount)}</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-gray-100">
+                  <div className="h-2.5 rounded-full bg-[#FFC600]" style={{ width }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-gray-200">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Mois</th>
+              <th className="px-4 py-3 text-right">Soumises</th>
+              <th className="px-4 py-3 text-right">Préfacturées</th>
+              <th className="px-4 py-3 text-right">Payées</th>
+              <th className="px-4 py-3 text-right">CA encaissé</th>
+              <th className="px-4 py-3 text-right">Annulées</th>
+              <th className="px-4 py-3 text-right">Taux enc.</th>
+              <th className="px-4 py-3 text-right">Panier moyen</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {rows.map((row) => (
+              <tr key={row.key} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-semibold text-gray-900">{row.label}</td>
+                <td className="px-4 py-3 text-right">{formatCount(row.submitted?.count)}</td>
+                <td className="px-4 py-3 text-right">{formatCount(row.invoiced?.count)}</td>
+                <td className="px-4 py-3 text-right">{formatCount(row.paid?.count)}</td>
+                <td className="px-4 py-3 text-right font-semibold">{formatFcfa(row.paid?.amountFcfa || 0)}</td>
+                <td className="px-4 py-3 text-right">{formatCount(row.cancelled?.count)}</td>
+                <td className="px-4 py-3 text-right">{row.conversionRate || 0}%</td>
+                <td className="px-4 py-3 text-right">{formatFcfa(row.averagePaidFcfa || 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
@@ -777,6 +845,38 @@ const PrintableDailyReport = ({ report, conversionRate, priorityCounts }) => {
         </div>
       </section>
 
+      {report.monthly?.rows?.length ? (
+        <section className="mt-4 break-inside-avoid rounded-lg border border-gray-200 p-3">
+          <h2 className="text-sm font-bold">Évolution mensuelle</h2>
+          <table className="mt-2 w-full border-collapse text-[10px]">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="px-2 py-1 text-left">Mois</th>
+                <th className="px-2 py-1 text-right">Soumises</th>
+                <th className="px-2 py-1 text-right">Préfacturées</th>
+                <th className="px-2 py-1 text-right">Payées</th>
+                <th className="px-2 py-1 text-right">CA encaissé</th>
+                <th className="px-2 py-1 text-right">Annulées</th>
+                <th className="px-2 py-1 text-right">Taux enc.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.monthly.rows.map((row) => (
+                <tr key={`print-${row.key}`} className="border-b border-gray-100">
+                  <td className="px-2 py-1 font-semibold">{row.label}</td>
+                  <td className="px-2 py-1 text-right">{formatCount(row.submitted?.count)}</td>
+                  <td className="px-2 py-1 text-right">{formatCount(row.invoiced?.count)}</td>
+                  <td className="px-2 py-1 text-right">{formatCount(row.paid?.count)}</td>
+                  <td className="px-2 py-1 text-right">{formatFcfa(row.paid?.amountFcfa || 0)}</td>
+                  <td className="px-2 py-1 text-right">{formatCount(row.cancelled?.count)}</td>
+                  <td className="px-2 py-1 text-right">{row.conversionRate || 0}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+
       <section className="mt-4 rounded-lg border border-amber-200 p-3">
         <h2 className="text-sm font-bold">À traiter en priorité</h2>
         <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
@@ -1023,6 +1123,11 @@ export default function DailySalesReportPage() {
     if (!report) return null;
     
     const tabsContent = {
+      monthly: (
+        <Section title="Évolution mensuelle de la période" icon={CalendarDays}>
+          <MonthlyEvolutionPanel rows={report.monthly?.rows || []} />
+        </Section>
+      ),
       invoiced: (
         <div className="grid gap-6 xl:grid-cols-[400px_1fr]">
           <Section title="Préfacturation par facturier" icon={UserCheck}>
@@ -1172,6 +1277,40 @@ export default function DailySalesReportPage() {
     const lines = [
       ["Section", "Commande", "FBO", "Numero FBO", "Mode paiement", "Montant", "Acteur", "Date", "Motif"].map(escapeCsv).join(","),
     ];
+
+    if (reportData?.monthly?.rows?.length) {
+      lines.push("");
+      lines.push(["Evolution mensuelle"].map(escapeCsv).join(","));
+      lines.push([
+        "Mois",
+        "Soumises",
+        "Montant soumis",
+        "Prefacturees",
+        "Montant prefacture",
+        "Payees",
+        "CA encaisse",
+        "Annulees",
+        "Montant annule",
+        "Taux encaissement",
+        "Panier moyen encaisse",
+      ].map(escapeCsv).join(","));
+      reportData.monthly.rows.forEach((row) => {
+        lines.push([
+          row.label,
+          row.submitted?.count || 0,
+          row.submitted?.amountFcfa || 0,
+          row.invoiced?.count || 0,
+          row.invoiced?.amountFcfa || 0,
+          row.paid?.count || 0,
+          row.paid?.amountFcfa || 0,
+          row.cancelled?.count || 0,
+          row.cancelled?.amountFcfa || 0,
+          `${row.conversionRate || 0}%`,
+          row.averagePaidFcfa || 0,
+        ].map(escapeCsv).join(","));
+      });
+      lines.push("");
+    }
     
     const append = (section, rows, dateField, actorField) => {
       rows?.forEach((row) => {
