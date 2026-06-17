@@ -26,6 +26,9 @@ export const ticketEventsService = {
   markOrderPaid: async (orderId, body = {}) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/paid`, body)).data,
 
+  syncWavePayment: async (orderId) =>
+    (await api.post(`/admin/ticket-events/orders/${orderId}/wave/sync`, {})).data,
+
   cancelOrder: async (orderId, body = {}) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/cancel`, body)).data,
 

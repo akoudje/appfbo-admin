@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, Edit, Plus, QrCode, Search, Ticket, Video, X } from "lucide-react";
+import { CalendarDays, Edit, Plus, QrCode, RefreshCw, Search, Ticket, Video, X } from "lucide-react";
 import { Permission, hasPermission } from "../auth/permissions";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { ticketEventsService } from "../services/ticketEventsService";
@@ -39,6 +39,7 @@ export default function TicketEventsPage() {
   const [orders, setOrders] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [orderQuery, setOrderQuery] = useState("");
+  const [orderStatus, setOrderStatus] = useState("");
   const [checkInValue, setCheckInValue] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
   const [scannerSupported, setScannerSupported] = useState(true);
@@ -57,15 +58,23 @@ export default function TicketEventsPage() {
     [events, selectedEventId],
   );
 
-  async function load() {
+  async function load(overrides = {}) {
     try {
       setLoading(true);
       setError("");
+      const eventId = Object.prototype.hasOwnProperty.call(overrides, "eventId")
+        ? overrides.eventId
+        : selectedEventId;
+      const q = Object.prototype.hasOwnProperty.call(overrides, "q") ? overrides.q : orderQuery;
+      const status = Object.prototype.hasOwnProperty.call(overrides, "status")
+        ? overrides.status
+        : orderStatus;
       const [eventsResponse, ordersResponse] = await Promise.all([
         ticketEventsService.listEvents(),
         ticketEventsService.listOrders({
-          eventId: selectedEventId || undefined,
-          q: orderQuery || undefined,
+          eventId: eventId || undefined,
+          q: q || undefined,
+          status: status || undefined,
         }),
       ]);
       const nextEvents = eventsResponse?.data || [];
@@ -102,6 +111,21 @@ export default function TicketEventsPage() {
       await load();
     } catch (err) {
       setError(err?.response?.data?.message || "Validation paiement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function syncWavePayment(order) {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const updated = await ticketEventsService.syncWavePayment(order.id);
+      setMessage(`Statut Wave actualisé pour ${updated.orderNumber || order.orderNumber}.`);
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Synchronisation Wave impossible.");
     } finally {
       setSaving(false);
     }
@@ -274,7 +298,10 @@ export default function TicketEventsPage() {
             {events.map((event) => (
               <div
                 key={event.id}
-                onClick={() => setSelectedEventId(event.id)}
+                onClick={() => {
+                  setSelectedEventId(event.id);
+                  load({ eventId: event.id });
+                }}
                 role="button"
                 tabIndex={0}
                 className={`overflow-hidden rounded-2xl border text-left transition ${
@@ -285,6 +312,7 @@ export default function TicketEventsPage() {
                 onKeyDown={(keyboardEvent) => {
                   if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                     setSelectedEventId(event.id);
+                    load({ eventId: event.id });
                   }
                 }}
               >
@@ -409,6 +437,21 @@ export default function TicketEventsPage() {
             <button type="button" onClick={expireOrders} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
               Expirer non payés
             </button>
+            <select
+              value={orderStatus}
+              onChange={(event) => {
+                const next = event.target.value;
+                setOrderStatus(next);
+                load({ status: next });
+              }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+            >
+              <option value="">Tous les statuts</option>
+              <option value="PENDING_PAYMENT">En attente</option>
+              <option value="PAID">Payés</option>
+              <option value="EXPIRED">Expirés</option>
+              <option value="CANCELLED">Annulés</option>
+            </select>
             <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
               <Search className="h-4 w-4 text-gray-400" />
               <input
@@ -418,7 +461,7 @@ export default function TicketEventsPage() {
                 className="min-w-52 bg-transparent text-sm outline-none"
               />
             </label>
-            <button type="button" onClick={load} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
+            <button type="button" onClick={() => load()} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
               Rechercher
             </button>
           </div>
@@ -432,6 +475,7 @@ export default function TicketEventsPage() {
                 <th className="px-3 py-2">Événement</th>
                 <th className="px-3 py-2">Tickets</th>
                 <th className="px-3 py-2">Montant</th>
+                <th className="px-3 py-2">Paiement</th>
                 <th className="px-3 py-2">Statut</th>
                 <th className="px-3 py-2">Action</th>
               </tr>
@@ -447,6 +491,13 @@ export default function TicketEventsPage() {
                   <td className="px-3 py-2">{order.event?.title || "—"}</td>
                   <td className="px-3 py-2">{order.tickets?.length || 0}</td>
                   <td className="px-3 py-2">{formatFcfa(order.totalFcfa)}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-semibold">{order.paymentProvider || order.paymentMethod || "—"}</div>
+                    <div className="text-xs text-gray-500">{order.paymentStatus || "—"}</div>
+                    {order.paymentReference ? (
+                      <div className="font-mono text-[11px] text-gray-400">{order.paymentReference}</div>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2">
                     <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(order.status)}`}>
                       {order.status}
@@ -466,6 +517,12 @@ export default function TicketEventsPage() {
                             Paiement caisse
                           </span>
                         )}
+                        {String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE" ? (
+                          <button type="button" onClick={() => syncWavePayment(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Sync Wave
+                          </button>
+                        ) : null}
                         {order.status !== "CANCELLED" ? (
                           <button type="button" onClick={() => cancelOrder(order)} disabled={saving} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
                             Annuler
@@ -478,7 +535,7 @@ export default function TicketEventsPage() {
               ))}
               {!orders.length ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-gray-500">Aucun achat de ticket.</td>
+                  <td colSpan={8} className="px-3 py-8 text-center text-gray-500">Aucun achat de ticket.</td>
                 </tr>
               ) : null}
             </tbody>
