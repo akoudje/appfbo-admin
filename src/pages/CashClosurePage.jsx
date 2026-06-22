@@ -12,6 +12,7 @@ import {
   Save,
   ShieldCheck,
   Smartphone,
+  X,
   XCircle,
 } from "lucide-react";
 import { cashClosureService } from "../services/cashClosureService";
@@ -176,6 +177,7 @@ export default function CashClosurePage() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [draftLoading, setDraftLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [declarationOpen, setDeclarationOpen] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -231,6 +233,7 @@ export default function CashClosurePage() {
       loadDraft();
     } else {
       setDraftLoading(false);
+      setDeclarationOpen(false);
       setClosure(null);
       setLines([]);
       setNote("");
@@ -323,6 +326,7 @@ export default function CashClosurePage() {
       setClosure(data.closure);
       setLines(data.closure?.lines || []);
       setMessage("Clôture soumise au contrôle.");
+      setDeclarationOpen(false);
       await loadSummary();
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "Erreur lors de la soumission.");
@@ -597,110 +601,48 @@ export default function CashClosurePage() {
             />
           </div>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-base font-bold text-gray-950">Déclaration des encaissements du jour</h2>
-              <p className="text-sm text-gray-500">
-                Renseignez les montants réellement constatés à la caisse pour chaque moyen de paiement.
-              </p>
-            </div>
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleLines.map((line) => {
-                const Icon = paymentModeIcon(line.paymentMode);
-                return (
-                  <div key={line.paymentMode} className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-white p-2 text-gray-700 shadow-sm ring-1 ring-gray-200">
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-950">{line.label}</div>
-                          <div className="text-xs text-gray-500">
-                            {line.transactionCount} transaction(s) détectée(s)
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`text-right text-sm font-bold ${discrepancyClass(line.discrepancyFcfa)}`}>
-                        {formatFcfa(line.discrepancyFcfa)}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Attendu</label>
-                        <div className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-right font-bold text-gray-900">
-                          {formatFcfa(line.expectedFcfa)}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Déclaré</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={toInputAmount(line.declaredFcfa)}
-                          onChange={(event) => updateLine(line.paymentMode, "declaredFcfa", event.target.value)}
-                          disabled={!editable || saving}
-                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-right font-bold text-gray-950 outline-none focus:border-gray-900 disabled:bg-gray-100"
-                        />
-                      </div>
-                    </div>
-
-                    <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Observation
-                    </label>
-                    <textarea
-                      value={line.note || ""}
-                      onChange={(event) => updateLine(line.paymentMode, "note", event.target.value)}
-                      disabled={!editable || saving}
-                      rows={2}
-                      placeholder="Référence, détail du dépôt, justification d'écart..."
-                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900 disabled:bg-gray-100"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
           <section className="grid gap-4 lg:grid-cols-[1fr_420px]">
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <label className="text-sm font-bold text-gray-900">Note de clôture</label>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                disabled={!editable || saving}
-                rows={4}
-                className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-900 disabled:bg-gray-100"
-                placeholder="Écart constaté, justification, remarque de caisse..."
-              />
-            </div>
-
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="text-sm font-bold text-gray-900">Actions</div>
-              <div className="mt-4 flex flex-col gap-2">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-950">Déclaration journalière</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Saisie des montants réellement constatés à la caisse pour le {dateKey}.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={saveDraft}
-                  disabled={!editable || saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Enregistrer le brouillon
-                </button>
-                <button
-                  type="button"
-                  onClick={submitClosure}
-                  disabled={!editable || saving}
+                  onClick={() => setDeclarationOpen(true)}
+                  disabled={saving}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-black disabled:opacity-60"
                 >
-                  <ShieldCheck className="h-4 w-4" />
-                  Soumettre au contrôle
+                  <Save className="h-4 w-4" />
+                  {editable ? "Déclarer les encaissements" : "Consulter la déclaration"}
                 </button>
               </div>
 
+              <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Lignes</div>
+                  <div className="mt-1 font-bold text-gray-950">{visibleLines.length}</div>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Note</div>
+                  <div className="mt-1 font-bold text-gray-950">{note ? "Renseignée" : "Aucune"}</div>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Écart</div>
+                  <div className={`mt-1 font-bold ${discrepancyClass(localTotals.discrepancy)}`}>
+                    {formatFcfa(localTotals.discrepancy)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="text-sm font-bold text-gray-900">Contrôle</div>
               {canReview && submitted ? (
-                <div className="mt-5 border-t border-gray-200 pt-5">
+                <div className="mt-4">
                   <label className="text-sm font-bold text-gray-900">Note de contrôle</label>
                   <textarea
                     value={reviewNote}
@@ -730,11 +672,140 @@ export default function CashClosurePage() {
                     </button>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-4 text-sm text-gray-500">
+                  La validation ou le rejet est disponible lorsqu'une clôture est soumise au contrôle.
+                </div>
+              )}
             </div>
           </section>
         </>
       )}
+
+      {declarationOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-950">Déclaration des encaissements du jour</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {dateKey} · {localTotals.count} transaction(s) · écart {formatFcfa(localTotals.discrepancy)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeclarationOpen(false)}
+                disabled={saving}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-5 py-5">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleLines.map((line) => {
+                  const Icon = paymentModeIcon(line.paymentMode);
+                  return (
+                    <div key={line.paymentMode} className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-xl bg-white p-2 text-gray-700 shadow-sm ring-1 ring-gray-200">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-gray-950">{line.label}</div>
+                            <div className="text-xs text-gray-500">
+                              {line.transactionCount} transaction(s) détectée(s)
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`text-right text-sm font-bold ${discrepancyClass(line.discrepancyFcfa)}`}>
+                          {formatFcfa(line.discrepancyFcfa)}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Attendu</label>
+                          <div className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-right font-bold text-gray-900">
+                            {formatFcfa(line.expectedFcfa)}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Déclaré</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={toInputAmount(line.declaredFcfa)}
+                            onChange={(event) => updateLine(line.paymentMode, "declaredFcfa", event.target.value)}
+                            disabled={!editable || saving}
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-right font-bold text-gray-950 outline-none focus:border-gray-900 disabled:bg-gray-100"
+                          />
+                        </div>
+                      </div>
+
+                      <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Observation
+                      </label>
+                      <textarea
+                        value={line.note || ""}
+                        onChange={(event) => updateLine(line.paymentMode, "note", event.target.value)}
+                        disabled={!editable || saving}
+                        rows={2}
+                        placeholder="Référence, détail du dépôt, justification d'écart..."
+                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900 disabled:bg-gray-100"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 rounded-xl border border-gray-200 bg-white p-4">
+                <label className="text-sm font-bold text-gray-900">Note de clôture</label>
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  disabled={!editable || saving}
+                  rows={3}
+                  className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-900 disabled:bg-gray-100"
+                  placeholder="Écart constaté, justification, remarque de caisse..."
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-gray-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeclarationOpen(false)}
+                disabled={saving}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Fermer
+              </button>
+              <button
+                type="button"
+                onClick={saveDraft}
+                disabled={!editable || saving}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Enregistrer le brouillon
+              </button>
+              <button
+                type="button"
+                onClick={submitClosure}
+                disabled={!editable || saving}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-black disabled:opacity-60"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Soumettre au contrôle
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
