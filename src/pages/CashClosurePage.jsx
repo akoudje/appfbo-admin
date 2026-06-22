@@ -16,7 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { cashClosureService } from "../services/cashClosureService";
-import { formatFcfa, formatDateTime } from "../lib/format";
+import { formatFcfa } from "../lib/format";
 
 const PERIOD_OPTIONS = [
   { value: "day", label: "Jour" },
@@ -298,7 +298,6 @@ export default function CashClosurePage() {
         lines: visibleLines.map((line) => ({
           paymentMode: line.paymentMode,
           declaredFcfa: Number(line.declaredFcfa || 0),
-          note: line.note || "",
         })),
       });
       setClosure(data.closure);
@@ -416,6 +415,18 @@ export default function CashClosurePage() {
               />
             </label>
           )}
+
+          {periodMode === "day" && !draftLoading ? (
+            <button
+              type="button"
+              onClick={() => setDeclarationOpen(true)}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-black disabled:opacity-60"
+            >
+              <Save className="h-4 w-4" />
+              {editable ? "Déclarer les encaissements" : "Consulter la déclaration"}
+            </button>
+          ) : null}
 
           <button
             type="button"
@@ -559,128 +570,43 @@ export default function CashClosurePage() {
         </div>
       </section>
 
-      {periodMode !== "day" ? null : loading ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${statusClass(closure?.status)}`}>
-              {statusLabel(closure?.status)}
-            </span>
-            <span className="text-sm text-gray-600">
-              Caissière : <strong>{closure?.cashier?.label || "Non renseigné"}</strong>
-            </span>
-            <span className="text-sm text-gray-500">
-              Dernière mise à jour : {formatDateTime(closure?.updatedAt)}
-            </span>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-4">
-            <SummaryCard
-              icon={Banknote}
-              label="Attendu jour"
-              value={formatFcfa(localTotals.expected)}
-              hint={`${localTotals.count} transaction(s)`}
-              tone="blue"
-            />
-            <SummaryCard icon={Save} label="Déclaré jour" value={formatFcfa(localTotals.declared)} hint="Saisie caisse" />
-            <SummaryCard
-              icon={localTotals.discrepancy === 0 ? CheckCircle2 : AlertTriangle}
-              label="Écart jour"
-              value={formatFcfa(localTotals.discrepancy)}
-              hint={localTotals.discrepancy === 0 ? "Aucun écart" : "À justifier avant validation"}
-              tone={localTotals.discrepancy === 0 ? "green" : "amber"}
-            />
-            <SummaryCard
-              icon={Clock}
-              label="Statut"
-              value={statusLabel(closure?.status)}
-              hint={closure?.submittedAt ? `Soumise : ${formatDateTime(closure.submittedAt)}` : "Non soumise"}
-            />
-          </div>
-
-          <section className="grid gap-4 lg:grid-cols-[1fr_420px]">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-gray-950">Déclaration journalière</h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Saisie des montants réellement constatés à la caisse pour le {dateKey}.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDeclarationOpen(true)}
-                  disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-black disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {editable ? "Déclarer les encaissements" : "Consulter la déclaration"}
-                </button>
-              </div>
-
-              <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Lignes</div>
-                  <div className="mt-1 font-bold text-gray-950">{visibleLines.length}</div>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Note</div>
-                  <div className="mt-1 font-bold text-gray-950">{note ? "Renseignée" : "Aucune"}</div>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Écart</div>
-                  <div className={`mt-1 font-bold ${discrepancyClass(localTotals.discrepancy)}`}>
-                    {formatFcfa(localTotals.discrepancy)}
-                  </div>
-                </div>
-              </div>
+      {periodMode === "day" && canReview && submitted ? (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex-1">
+              <div className="text-sm font-bold text-gray-900">Contrôle de la clôture</div>
+              <label className="mt-4 block text-sm font-bold text-gray-900">Note de contrôle</label>
+              <textarea
+                value={reviewNote}
+                onChange={(event) => setReviewNote(event.target.value)}
+                rows={3}
+                className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-900"
+                placeholder="Motif de validation ou de rejet..."
+              />
             </div>
-
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="text-sm font-bold text-gray-900">Contrôle</div>
-              {canReview && submitted ? (
-                <div className="mt-4">
-                  <label className="text-sm font-bold text-gray-900">Note de contrôle</label>
-                  <textarea
-                    value={reviewNote}
-                    onChange={(event) => setReviewNote(event.target.value)}
-                    rows={3}
-                    className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-900"
-                    placeholder="Motif de validation ou de rejet..."
-                  />
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => review("reject")}
-                      disabled={saving}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Rejeter
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => review("approve")}
-                      disabled={saving}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Valider
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 text-sm text-gray-500">
-                  La validation ou le rejet est disponible lorsqu'une clôture est soumise au contrôle.
-                </div>
-              )}
+            <div className="grid grid-cols-2 gap-2 lg:w-80">
+              <button
+                type="button"
+                onClick={() => review("reject")}
+                disabled={saving}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+              >
+                <XCircle className="h-4 w-4" />
+                Rejeter
+              </button>
+              <button
+                type="button"
+                onClick={() => review("approve")}
+                disabled={saving}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Valider
+              </button>
             </div>
-          </section>
-        </>
-      )}
+          </div>
+        </section>
+      ) : null}
 
       {declarationOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -746,17 +672,6 @@ export default function CashClosurePage() {
                         </div>
                       </div>
 
-                      <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Observation
-                      </label>
-                      <textarea
-                        value={line.note || ""}
-                        onChange={(event) => updateLine(line.paymentMode, "note", event.target.value)}
-                        disabled={!editable || saving}
-                        rows={2}
-                        placeholder="Référence, détail du dépôt, justification d'écart..."
-                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900 disabled:bg-gray-100"
-                      />
                     </div>
                   );
                 })}
