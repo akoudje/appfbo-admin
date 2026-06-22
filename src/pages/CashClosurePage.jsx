@@ -354,6 +354,7 @@ export default function CashClosurePage() {
 
   const loadDraft = useCallback(async () => {
     setDraftLoading(true);
+    setSummaryLoading(true);
     try {
       const data = await cashClosureService.getDraft({ date: dateKey });
       setClosure(data.closure || null);
@@ -370,6 +371,7 @@ export default function CashClosurePage() {
       addNotification("error", err?.response?.data?.message || err.message || "Impossible de charger la clôture.");
     } finally {
       setDraftLoading(false);
+      setSummaryLoading(false);
     }
   }, [dateKey, addNotification]);
 
