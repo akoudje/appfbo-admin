@@ -7,6 +7,9 @@ export const cashClosureService = {
   getDraft: async (params = {}) =>
     (await api.get("/admin/cash-closures/draft", { params })).data,
 
+  summary: async (params = {}) =>
+    (await api.get("/admin/cash-closures/summary", { params })).data,
+
   update: async (closureId, body = {}) =>
     (await api.put(`/admin/cash-closures/${closureId}`, body)).data,
 

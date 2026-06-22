@@ -17,9 +17,72 @@ import {
 import { cashClosureService } from "../services/cashClosureService";
 import { formatFcfa, formatDateTime } from "../lib/format";
 
+const PERIOD_OPTIONS = [
+  { value: "day", label: "Jour" },
+  { value: "week", label: "Semaine" },
+  { value: "month", label: "Mois" },
+  { value: "custom", label: "Période" },
+];
+
+const DECLARATION_PAYMENT_MODES = new Set([
+  "ESPECES",
+  "WAVE",
+  "ORANGE_MONEY",
+  "TPE_CARD",
+  "BANK_TRANSFER",
+  "ECOBANK_PAY",
+  "PI_SPI",
+]);
+
 function todayIso() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function parseIsoDate(value) {
+  const raw = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return new Date();
+  const [year, month, day] = raw.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toIsoDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getPeriodRange(mode, dateKey, customFrom, customTo) {
+  const anchor = parseIsoDate(dateKey);
+  if (mode === "week") {
+    const day = anchor.getDay() || 7;
+    const from = addDays(anchor, 1 - day);
+    const to = addDays(from, 6);
+    return { from: toIsoDate(from), to: toIsoDate(to) };
+  }
+  if (mode === "month") {
+    const from = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const to = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+    return { from: toIsoDate(from), to: toIsoDate(to) };
+  }
+  if (mode === "custom") {
+    return {
+      from: customFrom || dateKey,
+      to: customTo || customFrom || dateKey,
+    };
+  }
+  return { from: dateKey, to: dateKey };
+}
+
+function periodLabel(mode, range) {
+  if (mode === "day") return `Point du ${range.from}`;
+  if (mode === "week") return `Semaine du ${range.from} au ${range.to}`;
+  if (mode === "month") return `Mois du ${range.from} au ${range.to}`;
+  return `Période du ${range.from} au ${range.to}`;
 }
 
 function toInputAmount(value) {
@@ -55,21 +118,13 @@ function discrepancyClass(value) {
 function paymentModeIcon(paymentMode) {
   const mode = String(paymentMode || "").toUpperCase();
   if (mode === "ESPECES") return Banknote;
-  if (["WAVE", "ORANGE_MONEY", "ECOBANK_PAY", "PI_SPI"].includes(mode)) return Smartphone;
+  if (["WAVE", "ORANGE_MONEY", "ECOBANK_PAY", "PI_SPI", "MTN_MOMO", "MOOV_MONEY"].includes(mode)) {
+    return Smartphone;
+  }
   if (mode === "TPE_CARD") return CreditCard;
   if (mode === "BANK_TRANSFER") return Landmark;
   return Banknote;
 }
-
-const DECLARATION_PAYMENT_MODES = new Set([
-  "ESPECES",
-  "WAVE",
-  "ORANGE_MONEY",
-  "TPE_CARD",
-  "BANK_TRANSFER",
-  "ECOBANK_PAY",
-  "PI_SPI",
-]);
 
 function isVisibleDeclarationLine(line) {
   const mode = String(line?.paymentMode || "").toUpperCase();
@@ -109,18 +164,43 @@ function SummaryCard({ icon: Icon, label, value, hint, tone = "gray" }) {
 
 export default function CashClosurePage() {
   const [dateKey, setDateKey] = useState(todayIso());
+  const [periodMode, setPeriodMode] = useState("day");
+  const [customFrom, setCustomFrom] = useState(todayIso());
+  const [customTo, setCustomTo] = useState(todayIso());
+  const [summaryData, setSummaryData] = useState(null);
   const [closure, setClosure] = useState(null);
   const [lines, setLines] = useState([]);
   const [note, setNote] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [canReview, setCanReview] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [draftLoading, setDraftLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  const periodRange = useMemo(
+    () => getPeriodRange(periodMode, dateKey, customFrom, customTo),
+    [periodMode, dateKey, customFrom, customTo],
+  );
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setError("");
+    try {
+      const data = await cashClosureService.summary(periodRange);
+      setSummaryData(data);
+      setCanReview(Boolean(data.permissions?.canReview));
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || "Impossible de charger la synthèse caisse.");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [periodRange]);
+
   const loadDraft = useCallback(async () => {
-    setLoading(true);
+    setDraftLoading(true);
+    setSummaryLoading(true);
     setError("");
     setMessage("");
     try {
@@ -131,19 +211,39 @@ export default function CashClosurePage() {
       setNote(nextClosure?.note || "");
       setReviewNote("");
       setCanReview(Boolean(data.permissions?.canReview));
+      const summary = await cashClosureService.summary({ from: dateKey, to: dateKey });
+      setSummaryData(summary);
+      setCanReview(Boolean(summary.permissions?.canReview || data.permissions?.canReview));
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "Impossible de charger la clôture.");
     } finally {
-      setLoading(false);
+      setDraftLoading(false);
+      setSummaryLoading(false);
     }
   }, [dateKey]);
 
   useEffect(() => {
-    loadDraft();
-  }, [loadDraft]);
+    if (periodMode !== "day") loadSummary();
+  }, [periodMode, loadSummary]);
+
+  useEffect(() => {
+    if (periodMode === "day") {
+      loadDraft();
+    } else {
+      setDraftLoading(false);
+      setClosure(null);
+      setLines([]);
+      setNote("");
+      setReviewNote("");
+    }
+  }, [periodMode, loadDraft]);
 
   const editable = ["DRAFT", "REJECTED"].includes(String(closure?.status || "").toUpperCase());
   const submitted = String(closure?.status || "").toUpperCase() === "SUBMITTED";
+  const loading = summaryLoading || (periodMode === "day" && draftLoading);
+  const summary = summaryData?.summary || {};
+  const byPaymentMode = summaryData?.byPaymentMode || [];
+  const closures = summaryData?.closures || [];
 
   const localTotals = useMemo(() => {
     const expected = lines.reduce((sum, line) => sum + Number(line.expectedFcfa || 0), 0);
@@ -157,10 +257,7 @@ export default function CashClosurePage() {
     };
   }, [lines]);
 
-  const visibleLines = useMemo(
-    () => lines.filter(isVisibleDeclarationLine),
-    [lines],
-  );
+  const visibleLines = useMemo(() => lines.filter(isVisibleDeclarationLine), [lines]);
 
   function updateLine(paymentMode, field, value) {
     setLines((current) =>
@@ -177,6 +274,14 @@ export default function CashClosurePage() {
           : line,
       ),
     );
+  }
+
+  async function refreshAll() {
+    if (periodMode === "day") {
+      await loadDraft();
+      return;
+    }
+    await loadSummary();
   }
 
   async function saveDraft() {
@@ -197,6 +302,7 @@ export default function CashClosurePage() {
       setLines(data.closure?.lines || []);
       setNote(data.closure?.note || "");
       setMessage("Clôture enregistrée.");
+      await loadSummary();
       return true;
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "Erreur lors de l'enregistrement.");
@@ -217,6 +323,7 @@ export default function CashClosurePage() {
       setClosure(data.closure);
       setLines(data.closure?.lines || []);
       setMessage("Clôture soumise au contrôle.");
+      await loadSummary();
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "Erreur lors de la soumission.");
     } finally {
@@ -236,6 +343,7 @@ export default function CashClosurePage() {
       setLines(data.closure?.lines || []);
       setReviewNote("");
       setMessage(action === "approve" ? "Clôture validée." : "Clôture rejetée.");
+      await loadSummary();
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "Erreur lors du contrôle.");
     } finally {
@@ -245,27 +353,69 @@ export default function CashClosurePage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <div className="text-sm font-semibold uppercase tracking-wide text-gray-500">Caisse</div>
-          <h1 className="mt-1 text-2xl font-bold text-gray-950">Clôture journalière</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Point de caisse par mode de paiement, avec écart entre l'attendu et le déclaré.
+          <h1 className="mt-1 text-2xl font-bold text-gray-950">Point et clôture de caisse</h1>
+          <p className="mt-1 max-w-3xl text-sm text-gray-500">
+            Suivi des encaissements par moyen de paiement pour le contrôle quotidien, hebdomadaire,
+            mensuel ou personnalisé.
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm">
-            <CalendarDays className="h-4 w-4 text-gray-500" />
-            <input
-              type="date"
-              value={dateKey}
-              onChange={(event) => setDateKey(event.target.value || todayIso())}
-              className="bg-transparent outline-none"
-            />
-          </label>
+          <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+            {PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPeriodMode(option.value)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-bold ${
+                  periodMode === option.value
+                    ? "bg-gray-950 text-white"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {periodMode === "custom" ? (
+            <>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(event) => setCustomFrom(event.target.value || todayIso())}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+              />
+              <input
+                type="date"
+                value={customTo}
+                onChange={(event) => setCustomTo(event.target.value || customFrom || todayIso())}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+              />
+            </>
+          ) : (
+            <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm">
+              <CalendarDays className="h-4 w-4 text-gray-500" />
+              <input
+                type="date"
+                value={dateKey}
+                onChange={(event) => {
+                  const nextDate = event.target.value || todayIso();
+                  setDateKey(nextDate);
+                  setCustomFrom(nextDate);
+                  setCustomTo(nextDate);
+                }}
+                className="bg-transparent outline-none"
+              />
+            </label>
+          )}
+
           <button
             type="button"
-            onClick={loadDraft}
+            onClick={refreshAll}
             disabled={loading || saving}
             className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-60"
           >
@@ -289,7 +439,123 @@ export default function CashClosurePage() {
         </div>
       ) : null}
 
-      {loading ? (
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-gray-950">{periodLabel(periodMode, periodRange)}</h2>
+            <p className="text-sm text-gray-500">
+              {summary.closureCount || 0} clôture(s), {summary.transactionCount || 0} transaction(s) prises en compte.
+            </p>
+          </div>
+          {summaryLoading ? <Loader2 className="h-5 w-5 animate-spin text-gray-500" /> : null}
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <SummaryCard
+            icon={Banknote}
+            label="Attendu période"
+            value={formatFcfa(summary.totalExpectedFcfa)}
+            hint="Montant issu des paiements détectés"
+            tone="blue"
+          />
+          <SummaryCard
+            icon={Save}
+            label="Déclaré période"
+            value={formatFcfa(summary.totalDeclaredFcfa)}
+            hint="Montant saisi par la caisse"
+          />
+          <SummaryCard
+            icon={Number(summary.discrepancyFcfa || 0) === 0 ? CheckCircle2 : AlertTriangle}
+            label="Écart période"
+            value={formatFcfa(summary.discrepancyFcfa)}
+            hint={Number(summary.discrepancyFcfa || 0) === 0 ? "Aucun écart" : "Contrôle nécessaire"}
+            tone={Number(summary.discrepancyFcfa || 0) === 0 ? "green" : "amber"}
+          />
+          <SummaryCard
+            icon={Clock}
+            label="Clôtures"
+            value={String(summary.closureCount || 0)}
+            hint="Journées enregistrées"
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <h3 className="text-sm font-bold text-gray-950">Répartition par moyen de paiement</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Moyen</th>
+                    <th className="px-4 py-3 text-right">Attendu</th>
+                    <th className="px-4 py-3 text-right">Déclaré</th>
+                    <th className="px-4 py-3 text-right">Écart</th>
+                    <th className="px-4 py-3 text-right">Transactions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {byPaymentMode.map((line) => {
+                    const Icon = paymentModeIcon(line.paymentMode);
+                    return (
+                      <tr key={line.paymentMode}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 font-semibold text-gray-900">
+                            <Icon className="h-4 w-4 text-gray-500" />
+                            {line.label}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatFcfa(line.expectedFcfa)}</td>
+                        <td className="px-4 py-3 text-right">{formatFcfa(line.declaredFcfa)}</td>
+                        <td className={`px-4 py-3 text-right font-bold ${discrepancyClass(line.discrepancyFcfa)}`}>
+                          {formatFcfa(line.discrepancyFcfa)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600">{line.transactionCount || 0}</td>
+                      </tr>
+                    );
+                  })}
+                  {!byPaymentMode.length ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        Aucun encaissement enregistré sur cette période.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-950">Clôtures de la période</h3>
+            <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">
+              {closures.map((item) => (
+                <div key={item.id} className="rounded-lg border border-gray-200 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-gray-950">{item.dateKey}</div>
+                      <div className="text-xs text-gray-500">{item.cashier?.label || "Caissière non renseignée"}</div>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[11px] font-bold ring-1 ${statusClass(item.status)}`}>
+                      {statusLabel(item.status)}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div>Attendu: <strong>{formatFcfa(item.totalExpectedFcfa)}</strong></div>
+                    <div className={discrepancyClass(item.discrepancyFcfa)}>
+                      Écart: <strong>{formatFcfa(item.discrepancyFcfa)}</strong>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!closures.length ? <div className="text-sm text-gray-500">Aucune clôture sur cette période.</div> : null}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {periodMode !== "day" ? null : loading ? (
         <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white">
           <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
         </div>
@@ -310,21 +576,15 @@ export default function CashClosurePage() {
           <div className="grid gap-4 md:grid-cols-4">
             <SummaryCard
               icon={Banknote}
-              label="Attendu"
+              label="Attendu jour"
               value={formatFcfa(localTotals.expected)}
               hint={`${localTotals.count} transaction(s)`}
               tone="blue"
             />
-            <SummaryCard
-              icon={Save}
-              label="Déclaré"
-              value={formatFcfa(localTotals.declared)}
-              hint="Saisie caisse"
-              tone="gray"
-            />
+            <SummaryCard icon={Save} label="Déclaré jour" value={formatFcfa(localTotals.declared)} hint="Saisie caisse" />
             <SummaryCard
               icon={localTotals.discrepancy === 0 ? CheckCircle2 : AlertTriangle}
-              label="Écart"
+              label="Écart jour"
               value={formatFcfa(localTotals.discrepancy)}
               hint={localTotals.discrepancy === 0 ? "Aucun écart" : "À justifier avant validation"}
               tone={localTotals.discrepancy === 0 ? "green" : "amber"}
@@ -334,13 +594,12 @@ export default function CashClosurePage() {
               label="Statut"
               value={statusLabel(closure?.status)}
               hint={closure?.submittedAt ? `Soumise : ${formatDateTime(closure.submittedAt)}` : "Non soumise"}
-              tone="gray"
             />
           </div>
 
           <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-1">
-              <h2 className="text-base font-bold text-gray-950">Déclaration des encaissements</h2>
+              <h2 className="text-base font-bold text-gray-950">Déclaration des encaissements du jour</h2>
               <p className="text-sm text-gray-500">
                 Renseignez les montants réellement constatés à la caisse pour chaque moyen de paiement.
               </p>
@@ -369,17 +628,13 @@ export default function CashClosurePage() {
 
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Attendu
-                        </label>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Attendu</label>
                         <div className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-right font-bold text-gray-900">
                           {formatFcfa(line.expectedFcfa)}
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Déclaré
-                        </label>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Déclaré</label>
                         <input
                           type="number"
                           min="0"
