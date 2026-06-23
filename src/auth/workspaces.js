@@ -5,6 +5,7 @@ const DASHBOARD_ROLES = new Set([
   AdminRole.TECH_ADMIN,
   AdminRole.OPERATIONS_DIRECTOR,
   AdminRole.SALES_DIRECTOR,
+  AdminRole.FINANCE_MANAGER,
 ]);
 
 export function getDefaultWorkspaceRoute(role) {
@@ -15,6 +16,8 @@ export function getDefaultWorkspaceRoute(role) {
     case AdminRole.CAISSIERE:
     case AdminRole.COUNTER_MANAGER:
       return "/cashier";
+    case AdminRole.FINANCE_MANAGER:
+      return "/reports/daily-sales";
     case AdminRole.ORDER_PREPARER:
       return "/preparation";
     case AdminRole.STOCK_MANAGER:
@@ -38,7 +41,8 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.BILLING_MANAGER:
       return new Set(["orders", "billing", "reports"]);
     case AdminRole.COUNTER_MANAGER:
-      return new Set(["cashier", "external-payment-links", "cash-closures", "reports"]);
+    case AdminRole.FINANCE_MANAGER:
+      return new Set(["orders", "cashier", "external-payment-links", "cash-closures", "reports"]);
     case AdminRole.CAISSIERE:
       return new Set(["cashier", "external-payment-links", "cash-closures"]);
     case AdminRole.ORDER_PREPARER:
@@ -76,6 +80,7 @@ export function getDefaultOrderTabForRole(role) {
       return "billing";
     case AdminRole.CAISSIERE:
     case AdminRole.COUNTER_MANAGER:
+    case AdminRole.FINANCE_MANAGER:
       return "payment";
     case AdminRole.ORDER_PREPARER:
     case AdminRole.STOCK_MANAGER:
@@ -99,6 +104,7 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
       ];
     case AdminRole.CAISSIERE:
     case AdminRole.COUNTER_MANAGER:
+    case AdminRole.FINANCE_MANAGER:
       return [
         { key: "payment", label: "Paiement" },
         { key: "history", label: "Historique" },

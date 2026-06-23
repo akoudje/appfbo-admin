@@ -35,6 +35,11 @@ const ROLE_GROUPS = [
     label: "Supervision métier",
     roles: [
       {
+        value: "FINANCE_MANAGER",
+        label: "Comptable / responsable financier",
+        help: "Suit les encaissements, clôtures caisse, rapports financiers et liens de paiement.",
+      },
+      {
         value: "BILLING_MANAGER",
         label: "Responsable facturation",
         help: "Supervise la chaîne de facturation.",
@@ -152,6 +157,7 @@ const ROLE_ASSIGNMENT_MATRIX = {
     ROLE_OPTIONS.map((role) => role.value).filter((role) => role !== "SUPER_ADMIN"),
   ),
   OPERATIONS_DIRECTOR: new Set([
+    "FINANCE_MANAGER",
     "BILLING_MANAGER",
     "COUNTER_MANAGER",
     "STOCK_MANAGER",

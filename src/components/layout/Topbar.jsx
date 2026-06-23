@@ -33,6 +33,7 @@ function formatRoleLabel(role) {
     TECH_ADMIN: "Admin technique",
     OPERATIONS_DIRECTOR: "Directeur des opérations",
     SALES_DIRECTOR: "Directeur commercial",
+    FINANCE_MANAGER: "Responsable financier",
     MARKETING_MANAGER: "Responsable marketing",
     BILLING_MANAGER: "Responsable facturation",
     MARKETING_ASSISTANT: "Assistant marketing",
@@ -51,6 +52,7 @@ function getWorkspaceLabel(role) {
 
   if (["INVOICER", "BILLING_MANAGER"].includes(normalized)) return "Facturation";
   if (["CAISSIERE", "COUNTER_MANAGER"].includes(normalized)) return "Caisse";
+  if (["FINANCE_MANAGER"].includes(normalized)) return "Finance";
   if (["ORDER_PREPARER"].includes(normalized)) return "Préparation";
   if (["STOCK_MANAGER"].includes(normalized)) return "Stock";
   if (["MARKETING_MANAGER", "MARKETING_ASSISTANT"].includes(normalized)) return "Marketing";

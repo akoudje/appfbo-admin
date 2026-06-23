@@ -517,6 +517,7 @@ function UserProfileCard({ fullName, email, collapsed, role }) {
       [AdminRole.TECH_ADMIN]: "Tech Admin",
       [AdminRole.OPERATIONS_DIRECTOR]: "Opérations",
       [AdminRole.SALES_DIRECTOR]: "Commercial",
+      [AdminRole.FINANCE_MANAGER]: "Finance",
       [AdminRole.MARKETING_MANAGER]: "Resp. marketing",
       [AdminRole.MARKETING_ASSISTANT]: "Marketing",
     };
