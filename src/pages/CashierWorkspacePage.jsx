@@ -180,7 +180,200 @@ function displayAdminName(value) {
   return value?.fullName || value?.email || value?.id || "-";
 }
 
-function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncWave, onOpenDetails }) {
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function resolveReceiptAmount(row = {}) {
+  return (
+    row.cashierTransaction?.amountReceivedFcfa ||
+    row.activePayment?.amountPaidFcfa ||
+    row.activePayment?.amountExpectedFcfa ||
+    row.amountExpectedFcfa ||
+    row.totalFcfa ||
+    0
+  );
+}
+
+function printCashierReceipt(row, admin = {}) {
+  if (!row?.id || typeof window === "undefined") return false;
+
+  const popup = window.open("", "_blank", "width=420,height=720");
+  if (!popup) return false;
+
+  const cashierTx = row.cashierTransaction || {};
+  const orderNumber =
+    row.parcelNumber ||
+    row.preorderNumber ||
+    row.paymentCollectionCode ||
+    row.factureReference ||
+    row.id;
+  const paymentMode = humanizeEnum(row.preorderPaymentMode || row.paymentProvider);
+  const paidAt =
+    row.manualPaymentValidatedAt ||
+    row.paidAt ||
+    row.activePayment?.paidAt ||
+    cashierTx.createdAt ||
+    new Date().toISOString();
+  const cashierName = displayAdminName(
+    row.validatedBy ||
+      row.manualPaymentValidatedBy ||
+      cashierTx.cashier ||
+      admin,
+  );
+
+  const lines = [
+    ["Commande", orderNumber],
+    ["Client", row.fboNomComplet || "-"],
+    ["FBO", row.fboNumero || "-"],
+    ["Mode paiement", paymentMode],
+    ["Montant payé", formatFcfa(resolveReceiptAmount(row))],
+    ["Code caisse", row.paymentCollectionCode || "-"],
+    ["Facture AS400", row.factureReference || "-"],
+    ["N° reçu caisse", cashierTx.receiptNumber || "-"],
+    ["Poste caisse", cashierTx.cashDeskLabel || "-"],
+    ["Validé par", cashierName],
+    ["Date paiement", formatDateTime(paidAt)],
+  ];
+
+  popup.document.write(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reçu paiement ${escapeHtml(orderNumber)}</title>
+    <style>
+      @page { size: 80mm auto; margin: 5mm; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: #111827;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11px;
+      }
+      .receipt {
+        width: 70mm;
+        margin: 0 auto;
+      }
+      .brand {
+        border-bottom: 1px solid #111827;
+        padding-bottom: 8px;
+        text-align: center;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 16px;
+        letter-spacing: .08em;
+      }
+      .brand p {
+        margin: 4px 0 0;
+        color: #4b5563;
+        font-size: 10px;
+      }
+      .title {
+        margin: 10px 0;
+        border: 1px solid #111827;
+        padding: 6px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 28mm 1fr;
+        gap: 4px;
+        border-bottom: 1px dashed #d1d5db;
+        padding: 5px 0;
+      }
+      .label {
+        color: #4b5563;
+        font-weight: 700;
+      }
+      .value {
+        overflow-wrap: anywhere;
+        text-align: right;
+        font-weight: 700;
+      }
+      .amount {
+        margin: 10px 0;
+        border: 2px solid #111827;
+        padding: 8px;
+        text-align: center;
+      }
+      .amount .value {
+        display: block;
+        text-align: center;
+        font-size: 18px;
+      }
+      .footer {
+        margin-top: 12px;
+        color: #4b5563;
+        text-align: center;
+        font-size: 10px;
+      }
+      .no-print {
+        margin-top: 12px;
+        text-align: center;
+      }
+      button {
+        border: 0;
+        background: #059669;
+        color: white;
+        cursor: pointer;
+        font-weight: 700;
+        padding: 8px 12px;
+      }
+      @media print {
+        .no-print { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="receipt">
+      <header class="brand">
+        <h1>FOREVER</h1>
+        <p>Reçu de paiement caisse</p>
+      </header>
+      <div class="title">PAIEMENT CONFIRMÉ</div>
+      <section class="amount">
+        <span class="label">Montant payé</span>
+        <span class="value">${escapeHtml(formatFcfa(resolveReceiptAmount(row)))}</span>
+      </section>
+      ${lines
+        .filter(([label]) => label !== "Montant payé")
+        .map(
+          ([label, value]) => `
+            <div class="row">
+              <div class="label">${escapeHtml(label)}</div>
+              <div class="value">${escapeHtml(value)}</div>
+            </div>
+          `,
+        )
+        .join("")}
+      <p class="footer">
+        Document généré depuis l'espace caisse le ${escapeHtml(formatDateTime(new Date()))}.
+      </p>
+      <div class="no-print">
+        <button type="button" onclick="window.print()">Imprimer</button>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("load", function () {
+        setTimeout(function () { window.print(); }, 250);
+      });
+    </script>
+  </body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  return true;
+}
+
+function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncWave, onOpenDetails, onPrintReceipt }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -211,6 +404,7 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                 const canVerify = !isCash && !isWave && row.status === "PAYMENT_PENDING" && row.paymentStatus !== "PAID";
                 const canPrepare = row.status === "PAID";
                 const canSyncWave = isWave && row.paymentStatus !== "PAID";
+                const canPrintReceipt = row.paymentStatus === "PAID" || row.status === "PAID";
                 const disabled = busyId === row.id;
 
                 return (
@@ -257,7 +451,10 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                         {canPrepare ? (
                           <button type="button" onClick={() => onPrepare(row)} disabled={disabled} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Lancer prep</button>
                         ) : null}
-                        <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Détails</button>
+                        {canPrintReceipt ? (
+                          <button type="button" onClick={() => onPrintReceipt(row)} disabled={disabled} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Imprimer reçu</button>
+                        ) : null}
+                        <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Voir</button>
                       </div>
                     </td>
                   </tr>
@@ -271,7 +468,7 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
   );
 }
 
-function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
+function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintReceipt }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -324,7 +521,8 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Détails</button>
+                      <button type="button" onClick={() => onPrintReceipt(row)} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white">Imprimer reçu</button>
+                      <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Voir</button>
                       <button type="button" onClick={() => onOpenOrder(row.id)} className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white">Fiche</button>
                     </div>
                   </td>
@@ -423,7 +621,6 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
   const [proofBlobLoading, setProofBlobLoading] = useState(false);
   const [proofBlobError, setProofBlobError] = useState("");
 
-  const proofUrlRaw = latestBankProof?.fileUrl || "";
   const legacyProofUrl = resolveAssetUrl(order?.manualPaymentProofUrl || "");
   const proofUrl = proofBlobUrl || legacyProofUrl;
   const proofRef = latestBankProof?.reference || order?.manualPaymentReference || "-";
@@ -681,7 +878,7 @@ export default function CashierWorkspacePage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [attentionAlert, setAttentionAlert] = useState(null);
+  const [, setAttentionAlert] = useState(null);
 
   const [activeTab, setActiveTab] = useState("processing");
   const [quickPreset, setQuickPreset] = useState("ALL");
@@ -715,14 +912,6 @@ export default function CashierWorkspacePage() {
   const validationPeriodLabel = dateFrom || dateTo ? "sur période" : "aujourd'hui";
   const activeFilterCount = [query, paymentMode, dateFrom, dateTo].filter(Boolean).length;
 
-  const clearAttentionAlert = () => {
-    if (attentionTimerRef.current) {
-      clearTimeout(attentionTimerRef.current);
-      attentionTimerRef.current = null;
-    }
-    setAttentionAlert(null);
-  };
-
   const raiseAttentionAlert = (kind = "collect", count = 1, source = "poll") => {
     if (attentionTimerRef.current) {
       clearTimeout(attentionTimerRef.current);
@@ -747,14 +936,6 @@ export default function CashierWorkspacePage() {
       setAttentionAlert(null);
       attentionTimerRef.current = null;
     }, 45000);
-  };
-
-  const replayAttentionAlert = async () => {
-    if (!attentionAlert?.soundEventKey) return;
-    await sound.notify(attentionAlert.soundEventKey, {
-      signature: `manual-replay:${attentionAlert.soundEventKey}:${Date.now()}`,
-      cooldownMs: 0,
-    });
   };
 
   const load = async (overrides = {}) => {
@@ -988,6 +1169,13 @@ export default function CashierWorkspacePage() {
     }
   };
 
+  const handlePrintReceipt = (row) => {
+    const printed = printCashierReceipt(row, admin);
+    if (!printed) {
+      setError("Impossible d'ouvrir la fenêtre d'impression. Vérifie que le navigateur autorise les popups.");
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -1174,6 +1362,7 @@ export default function CashierWorkspacePage() {
               rows={toCollect}
               busyId={busyId}
               onOpenDetails={openDetails}
+              onPrintReceipt={handlePrintReceipt}
               onCashPay={(row) =>
                 runAction(row.id, async () => {
                   const payload = await askCashCollection(row);
@@ -1185,6 +1374,25 @@ export default function CashierWorkspacePage() {
                     note: "Encaissement espèces depuis l'espace caisse",
                     ...payload,
                   });
+                  printCashierReceipt(
+                    {
+                      ...row,
+                      status: "PAID",
+                      paymentStatus: "PAID",
+                      paidAt: new Date().toISOString(),
+                      manualPaymentValidatedAt: new Date().toISOString(),
+                      cashierTransaction: {
+                        ...(row.cashierTransaction || {}),
+                        receiptNumber: payload.receiptNumber,
+                        cashDeskLabel: payload.cashDeskLabel || row.cashierTransaction?.cashDeskLabel,
+                        amountReceivedFcfa: payload.amountReceivedFcfa,
+                        cashier: admin,
+                        createdAt: new Date().toISOString(),
+                      },
+                      validatedBy: admin,
+                    },
+                    admin,
+                  );
                   setInfo("Paiement espèces enregistré.");
                 })
               }
@@ -1219,6 +1427,7 @@ export default function CashierWorkspacePage() {
               rows={toLaunchPreparation}
               busyId={busyId}
               onOpenDetails={openDetails}
+              onPrintReceipt={handlePrintReceipt}
               onCashPay={() => {}}
               onVerify={() => {}}
               onPrepare={(row) =>
@@ -1241,6 +1450,7 @@ export default function CashierWorkspacePage() {
           emptyLabel="Aucune commande terminée avec ces filtres."
           onOpenDetails={openDetails}
           onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+          onPrintReceipt={handlePrintReceipt}
         />
       ) : null}
 
@@ -1250,6 +1460,7 @@ export default function CashierWorkspacePage() {
           emptyLabel={query?.trim() ? "Aucun résultat pour cette recherche." : "Saisis une recherche pour interroger toutes les commandes."}
           onOpenDetails={openDetails}
           onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+          onPrintReceipt={handlePrintReceipt}
         />
       ) : null}
 
