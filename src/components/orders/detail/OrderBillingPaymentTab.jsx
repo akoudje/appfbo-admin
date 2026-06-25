@@ -629,20 +629,20 @@ function BillingActionCard({
             </div>
           </Field>
           
-          <Field label="Grade de facturation">
-            <select
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all disabled:opacity-60 text-sm"
-              value={invoiceGrade || ""}
-              onChange={(e) => setInvoiceGrade?.(e.target.value)}
-              disabled={!canEditBillingFields}
-            >
-              <option value="">Sélectionner un grade</option>
-              {BILLING_GRADE_OPTIONS.map((grade) => (
-                <option key={grade} value={grade}>
-                  {GRADE_LABELS[grade] || grade}
-                </option>
-              ))}
-            </select>
+          <Field label="Montant AS400 (FCFA)">
+            <div className="relative">
+              <input
+                className="w-full pl-3 pr-12 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
+                value={invoiceAmountFcfa || ""}
+                onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
+                placeholder="0"
+                inputMode="numeric"
+                disabled={!canEditBillingFields}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                FCFA
+              </span>
+            </div>
           </Field>
 
           <Field label="Numéro du destinataire" optional>
@@ -666,20 +666,20 @@ function BillingActionCard({
             />
           </Field>
 
-          <Field label="Montant AS400 (FCFA)">
-            <div className="relative">
-              <input
-                className="w-full pl-3 pr-12 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
-                value={invoiceAmountFcfa || ""}
-                onChange={(e) => setInvoiceAmountFcfa?.(e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                disabled={!canEditBillingFields}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                FCFA
-              </span>
-            </div>
+          <Field label="Grade de facturation">
+            <select
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all disabled:opacity-60 text-sm"
+              value={invoiceGrade || ""}
+              onChange={(e) => setInvoiceGrade?.(e.target.value)}
+              disabled={!canEditBillingFields}
+            >
+              <option value="">Sélectionner un grade</option>
+              {BILLING_GRADE_OPTIONS.map((grade) => (
+                <option key={grade} value={grade}>
+                  {GRADE_LABELS[grade] || grade}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
 
