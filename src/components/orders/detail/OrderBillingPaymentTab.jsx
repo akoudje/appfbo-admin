@@ -305,7 +305,21 @@ function buildWaveReceiptHtml({
         margin-bottom: 14px;
         padding-bottom: 12px;
       }
-      .forever-logo { max-height: 34px; max-width: 180px; object-fit: contain; }
+      .forever-brand { align-items: center; color: #000; display: inline-flex; gap: 8px; line-height: 1; }
+      .forever-logo {
+        filter: grayscale(1) contrast(4) brightness(0);
+        max-height: 30px;
+        max-width: 48px;
+        object-fit: contain;
+        -webkit-filter: grayscale(1) contrast(4) brightness(0);
+      }
+      .forever-text {
+        color: #000;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: .14em;
+      }
       .wave-logo { max-height: 40px; max-width: 100px; object-fit: contain; }
       .box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; }
       .row { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
@@ -313,12 +327,21 @@ function buildWaveReceiptHtml({
       .label { color: #6b7280; font-size: 13px; }
       .value { font-weight: 600; text-align: right; }
       .amount { font-size: 18px; }
-      @media print { body { margin: 10mm; } }
+      @media print {
+        body { margin: 10mm; }
+        .forever-logo {
+          filter: grayscale(1) contrast(4) brightness(0);
+          -webkit-filter: grayscale(1) contrast(4) brightness(0);
+        }
+      }
     </style>
   </head>
   <body>
     <header class="receipt-header">
-      <img class="forever-logo" src="/forever-corporate-logo-black.png" alt="Forever" />
+      <span class="forever-brand" aria-label="Forever">
+        <img class="forever-logo" src="/logo-forever.png" alt="" />
+        <span class="forever-text">FOREVER</span>
+      </span>
       <img class="wave-logo" src="/wave.png" alt="Wave" />
     </header>
     <h1>Reçu de paiement Wave</h1>

@@ -267,14 +267,30 @@ function printCashierReceipt(row, admin = {}) {
       .logo-row {
         align-items: center;
         display: flex;
-        gap: 10px;
+        gap: 12px;
         justify-content: center;
         margin-bottom: 6px;
       }
+      .forever-brand {
+        align-items: center;
+        color: #000;
+        display: inline-flex;
+        gap: 4px;
+        line-height: 1;
+      }
       .forever-logo {
-        max-height: 18px;
-        max-width: 38mm;
+        filter: grayscale(1) contrast(4) brightness(0);
+        max-height: 14px;
+        max-width: 13mm;
         object-fit: contain;
+        -webkit-filter: grayscale(1) contrast(4) brightness(0);
+      }
+      .forever-text {
+        color: #000;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: .12em;
       }
       .wave-logo {
         max-height: 22px;
@@ -347,6 +363,10 @@ function printCashierReceipt(row, admin = {}) {
       }
       @media print {
         .no-print { display: none; }
+        .forever-logo {
+          filter: grayscale(1) contrast(4) brightness(0);
+          -webkit-filter: grayscale(1) contrast(4) brightness(0);
+        }
       }
     </style>
   </head>
@@ -354,7 +374,10 @@ function printCashierReceipt(row, admin = {}) {
     <main class="receipt">
       <header class="brand">
         <div class="logo-row">
-          <img class="forever-logo" src="/forever-corporate-logo-black.png" alt="Forever" />
+          <span class="forever-brand" aria-label="Forever">
+            <img class="forever-logo" src="/logo-forever.png" alt="" />
+            <span class="forever-text">FOREVER</span>
+          </span>
           <span class="logo-divider"></span>
           <img class="wave-logo" src="/wave.png" alt="Wave" />
         </div>
