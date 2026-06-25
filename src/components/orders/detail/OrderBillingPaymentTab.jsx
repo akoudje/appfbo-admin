@@ -296,6 +296,17 @@ function buildWaveReceiptHtml({
     <style>
       body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
       h1 { font-size: 20px; margin: 0 0 14px; }
+      .receipt-header {
+        align-items: center;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+      }
+      .forever-logo { max-height: 34px; max-width: 180px; object-fit: contain; }
+      .wave-logo { max-height: 40px; max-width: 100px; object-fit: contain; }
       .box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; }
       .row { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
       .row:last-child { border-bottom: 0; }
@@ -306,6 +317,10 @@ function buildWaveReceiptHtml({
     </style>
   </head>
   <body>
+    <header class="receipt-header">
+      <img class="forever-logo" src="/forever-corporate-logo-black.png" alt="Forever" />
+      <img class="wave-logo" src="/wave.png" alt="Wave" />
+    </header>
     <h1>Reçu de paiement Wave</h1>
     <div class="box">
       <div class="row"><div class="label">Précommande</div><div class="value">${escapeHtml(preorderNumber || "—")}</div></div>

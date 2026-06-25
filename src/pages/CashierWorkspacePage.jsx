@@ -264,10 +264,28 @@ function printCashierReceipt(row, admin = {}) {
         padding-bottom: 8px;
         text-align: center;
       }
-      .brand h1 {
-        margin: 0;
-        font-size: 16px;
-        letter-spacing: .08em;
+      .logo-row {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 6px;
+      }
+      .forever-logo {
+        max-height: 18px;
+        max-width: 38mm;
+        object-fit: contain;
+      }
+      .wave-logo {
+        max-height: 22px;
+        max-width: 18mm;
+        object-fit: contain;
+      }
+      .logo-divider {
+        background: #d1d5db;
+        display: inline-block;
+        height: 18px;
+        width: 1px;
       }
       .brand p {
         margin: 4px 0 0;
@@ -335,7 +353,11 @@ function printCashierReceipt(row, admin = {}) {
   <body>
     <main class="receipt">
       <header class="brand">
-        <h1>FOREVER</h1>
+        <div class="logo-row">
+          <img class="forever-logo" src="/forever-corporate-logo-black.png" alt="Forever" />
+          <span class="logo-divider"></span>
+          <img class="wave-logo" src="/wave.png" alt="Wave" />
+        </div>
         <p>Reçu de paiement caisse</p>
       </header>
       <div class="title">PAIEMENT CONFIRMÉ</div>
