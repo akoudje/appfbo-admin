@@ -298,6 +298,20 @@ export default function TicketEventsPage() {
     }
   }
 
+  async function resendOrderTicketsEmail(order) {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const result = await ticketEventsService.resendOrderTicketsEmail(order.id);
+      setMessage(`Ticket renvoyé à ${result.sentTo || order.buyerEmail || "l'acheteur"}.`);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Renvoi du ticket impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function expireOrders() {
     try {
       setSaving(true);
@@ -636,6 +650,7 @@ export default function TicketEventsPage() {
                     onExpire={expireOrders}
                     onSyncWave={syncWavePayment}
                     onCancel={cancelOrder}
+                    onResendTickets={resendOrderTicketsEmail}
                   />
                 ) : null}
                 {activeTab === "checkin" ? (
@@ -812,6 +827,7 @@ function OrdersTab({
   onExpire,
   onSyncWave,
   onCancel,
+  onResendTickets,
 }) {
   return (
     <div className="space-y-4">
@@ -889,7 +905,14 @@ function OrdersTab({
                 </td>
                 <td className="px-3 py-2">
                   {order.status === "PAID" ? (
-                    <span className="text-xs text-emerald-700">Payé</span>
+                    <button
+                      type="button"
+                      onClick={() => onResendTickets(order)}
+                      disabled={saving}
+                      className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
+                    >
+                      Renvoyer email
+                    </button>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE" ? (
