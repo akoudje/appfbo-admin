@@ -18,10 +18,6 @@ function toDatetimeLocal(value) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-function formatFcfa(value) {
-  return `${Number(value || 0).toLocaleString("fr-FR")} FCFA`;
-}
-
 function Field({ label, children }) {
   return (
     <label className="block space-y-1">
@@ -189,6 +185,16 @@ export default function TicketEventFormPage() {
                 ))}
               </select>
             </Field>
+            <div className="md:col-span-2">
+              <Field label="Sous-titre / édition">
+                <input
+                  className={inputClass()}
+                  value={eventForm.subtitle}
+                  onChange={(e) => setEventForm({ ...eventForm, subtitle: e.target.value })}
+                  placeholder="Ex. Forever Level Up 2026"
+                />
+              </Field>
+            </div>
             <Field label="Début">
               <input type="datetime-local" className={inputClass()} value={eventForm.startsAt} onChange={(e) => setEventForm({ ...eventForm, startsAt: e.target.value })} />
             </Field>
