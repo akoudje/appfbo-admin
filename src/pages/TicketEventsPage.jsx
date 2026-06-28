@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
+  AlertTriangle,
   CalendarDays,
+  CheckCircle2,
+  Clock3,
   Edit,
   Eye,
   Plus,
@@ -11,6 +14,7 @@ import {
   Search,
   Ticket,
   Trash2,
+  User,
   Video,
   X,
 } from "lucide-react";
@@ -97,6 +101,13 @@ export default function TicketEventsPage() {
   const [orderStatus, setOrderStatus] = useState("");
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
   const [checkInValue, setCheckInValue] = useState("");
+  const [checkInResult, setCheckInResult] = useState(null);
+  const [recentCheckIns, setRecentCheckIns] = useState([]);
+  const [checkInSession, setCheckInSession] = useState(null);
+  const [checkInEntryPoint, setCheckInEntryPoint] = useState("Entrée principale");
+  const [checkInDeviceName, setCheckInDeviceName] = useState("");
+  const [checkInLogs, setCheckInLogs] = useState([]);
+  const [checkInSummary, setCheckInSummary] = useState(null);
   const [scannerActive, setScannerActive] = useState(false);
   const [scannerSupported, setScannerSupported] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -175,9 +186,21 @@ export default function TicketEventsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (activeTab === "checkin" && selectedEventId) {
+      loadCheckInAudit({ eventId: selectedEventId, sessionId: checkInSession?.id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedEventId, checkInSession?.id]);
+
   function selectEvent(eventId) {
     setSelectedEventId(eventId);
     setTicketTypeForm(emptyTicketTypeForm());
+    setCheckInResult(null);
+    setRecentCheckIns([]);
+    setCheckInSession(null);
+    setCheckInLogs([]);
+    setCheckInSummary(null);
     updateUrl({ eventId });
     load({ eventId });
   }
@@ -292,19 +315,103 @@ export default function TicketEventsPage() {
     }
   }
 
-  async function checkIn(tokenOrCode = checkInValue) {
-    const raw = String(tokenOrCode || "").trim();
-    if (!raw) return;
+  async function loadCheckInAudit(overrides = {}) {
+    const eventId = Object.prototype.hasOwnProperty.call(overrides, "eventId")
+      ? overrides.eventId
+      : selectedEventId;
+    if (!eventId) return;
+    const sessionId = Object.prototype.hasOwnProperty.call(overrides, "sessionId")
+      ? overrides.sessionId
+      : checkInSession?.id;
+    try {
+      const [summary, logs] = await Promise.all([
+        ticketEventsService.getCheckInSummary({ eventId, sessionId: sessionId || undefined }),
+        ticketEventsService.listCheckInLogs({ eventId, sessionId: sessionId || undefined }),
+      ]);
+      setCheckInSummary(summary);
+      setCheckInLogs(logs?.data || []);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Chargement du contrôle d'accès impossible.");
+    }
+  }
+
+  async function openCheckInSession() {
+    if (!selectedEvent?.id) return;
     try {
       setSaving(true);
       setError("");
       setMessage("");
-      const ticket = await ticketEventsService.checkInTicket({ tokenOrCode: raw });
+      const session = await ticketEventsService.openCheckInSession({
+        eventId: selectedEvent.id,
+        entryPoint: checkInEntryPoint,
+        deviceName: checkInDeviceName,
+      });
+      setCheckInSession(session);
+      setMessage(`Session ouverte : ${session.entryPoint}.`);
+      await loadCheckInAudit({ eventId: selectedEvent.id, sessionId: session.id });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Ouverture de session impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function closeCheckInSession() {
+    if (!checkInSession?.id) return;
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const session = await ticketEventsService.closeCheckInSession(checkInSession.id);
+      setCheckInSession(session);
+      setMessage("Session de contrôle fermée.");
+      await loadCheckInAudit({ eventId: selectedEventId, sessionId: session.id });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Fermeture de session impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function checkIn(tokenOrCode = checkInValue) {
+    const raw = String(tokenOrCode || "").trim();
+    if (!raw || saving) return;
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const ticket = await ticketEventsService.checkInTicket({
+        tokenOrCode: raw,
+        eventId: selectedEventId || undefined,
+        sessionId: checkInSession?.closedAt ? undefined : checkInSession?.id,
+        entryPoint: checkInSession?.entryPoint || checkInEntryPoint,
+      });
+      const result = {
+        ok: true,
+        message: "Entrée validée",
+        ticket,
+        log: ticket.checkInLog || null,
+        scannedAt: new Date().toISOString(),
+      };
+      setCheckInResult(result);
+      setRecentCheckIns((items) => [result, ...items].slice(0, 8));
       setCheckInValue("");
       setMessage(`Entrée validée : ${ticket.holderFullName} (${ticket.ticketCode}).`);
       await load({ eventId: selectedEventId });
+      await loadCheckInAudit({ eventId: selectedEventId, sessionId: checkInSession?.id });
     } catch (err) {
-      setError(err?.response?.data?.message || "Validation entrée impossible.");
+      const result = {
+        ok: false,
+        message: err?.response?.data?.message || "Validation entrée impossible.",
+        ticket: err?.response?.data?.ticket || null,
+        log: err?.response?.data?.log || null,
+        scannedAt: new Date().toISOString(),
+      };
+      setCheckInResult(result);
+      if (result.ticket) setRecentCheckIns((items) => [result, ...items].slice(0, 8));
+      else if (result.log) setRecentCheckIns((items) => [result, ...items].slice(0, 8));
+      setError(result.message);
+      await loadCheckInAudit({ eventId: selectedEventId, sessionId: checkInSession?.id });
     } finally {
       setSaving(false);
     }
@@ -533,12 +640,25 @@ export default function TicketEventsPage() {
                 ) : null}
                 {activeTab === "checkin" ? (
                   <CheckInTab
+                    event={selectedEvent}
+                    session={checkInSession}
+                    entryPoint={checkInEntryPoint}
+                    setEntryPoint={setCheckInEntryPoint}
+                    deviceName={checkInDeviceName}
+                    setDeviceName={setCheckInDeviceName}
                     checkInValue={checkInValue}
                     setCheckInValue={setCheckInValue}
+                    result={checkInResult}
+                    recent={recentCheckIns}
+                    logs={checkInLogs}
+                    summary={checkInSummary}
                     saving={saving}
                     scannerActive={scannerActive}
                     scannerSupported={scannerSupported}
                     videoRef={videoRef}
+                    onOpenSession={openCheckInSession}
+                    onCloseSession={closeCheckInSession}
+                    onRefreshAudit={() => loadCheckInAudit({ eventId: selectedEvent.id, sessionId: checkInSession?.id })}
                     onCheckIn={checkIn}
                     onStartScanner={startScanner}
                     onStopScanner={stopScanner}
@@ -801,63 +921,355 @@ function OrdersTab({
 }
 
 function CheckInTab({
+  event,
+  session,
+  entryPoint,
+  setEntryPoint,
+  deviceName,
+  setDeviceName,
   checkInValue,
   setCheckInValue,
+  result,
+  recent,
+  logs,
+  summary,
   saving,
   scannerActive,
   scannerSupported,
   videoRef,
+  onOpenSession,
+  onCloseSession,
+  onRefreshAudit,
   onCheckIn,
   onStartScanner,
   onStopScanner,
 }) {
+  const sessionOpen = session && !session.closedAt;
+
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-bold text-emerald-950">Contrôle des tickets</h3>
-          <p className="mt-1 text-sm text-emerald-800">
-            Scannez le QR code du ticket numérique ou saisissez le code.
-          </p>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
+              Module contrôle accès
+            </p>
+            <h3 className="mt-1 text-xl font-black text-gray-950">Scanner un ticket</h3>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+              Validation limitée à l'événement sélectionné : {event?.title || "événement"}.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-gray-950 p-3 text-white">
+            <QrCode className="h-6 w-6" />
+          </div>
         </div>
-        <QrCode className="h-7 w-7 text-emerald-700" />
-      </div>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onCheckIn();
-        }}
-        className="mt-4 flex gap-2"
-      >
-        <input
-          className={inputClass()}
-          value={checkInValue}
-          onChange={(event) => setCheckInValue(event.target.value)}
-          placeholder="QR token ou code ticket"
-        />
-        <button type="submit" disabled={saving || !checkInValue.trim()} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-          Valider
-        </button>
-      </form>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {!scannerActive ? (
-          <button type="button" onClick={onStartScanner} className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
-            <Video className="h-4 w-4" />
-            Scanner caméra
+
+        <div className="mt-5 grid gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 lg:grid-cols-[1fr_1fr_auto]">
+          <Field label="Point d'entrée">
+            <input
+              className={inputClass()}
+              value={entryPoint}
+              disabled={sessionOpen}
+              onChange={(event) => setEntryPoint(event.target.value)}
+              placeholder="Entrée principale"
+            />
+          </Field>
+          <Field label="Appareil / poste">
+            <input
+              className={inputClass()}
+              value={deviceName}
+              disabled={sessionOpen}
+              onChange={(event) => setDeviceName(event.target.value)}
+              placeholder="Poste contrôle 1"
+            />
+          </Field>
+          <div className="flex items-end gap-2">
+            {sessionOpen ? (
+              <button
+                type="button"
+                onClick={onCloseSession}
+                disabled={saving}
+                className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-50"
+              >
+                Fermer session
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenSession}
+                disabled={saving || !entryPoint.trim()}
+                className="rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                Ouvrir session
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
+          <div className="text-sm">
+            <span className="font-bold text-gray-950">Session : </span>
+            <span className={sessionOpen ? "font-semibold text-emerald-700" : "font-semibold text-gray-500"}>
+              {sessionOpen ? `${session.entryPoint} ouverte depuis ${formatDateTime(session.openedAt)}` : "aucune session ouverte"}
+            </span>
+          </div>
+          <button type="button" onClick={onRefreshAudit} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Actualiser
           </button>
-        ) : (
-          <button type="button" onClick={onStopScanner} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700">
-            <X className="h-4 w-4" />
-            Arrêter
-          </button>
-        )}
+        </div>
       </div>
-      {!scannerSupported ? (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Le scan caméra n'est pas supporté par ce navigateur. Utilisez la saisie manuelle.
+
+      <CheckInSummary summary={summary} />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div>
+            <form
+              onSubmit={(submitEvent) => {
+                submitEvent.preventDefault();
+                onCheckIn();
+              }}
+              className="rounded-2xl border border-gray-200 bg-gray-50 p-3"
+            >
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                Code ticket ou QR token
+              </label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                  value={checkInValue}
+                  onChange={(inputEvent) => setCheckInValue(inputEvent.target.value)}
+                  placeholder="TCK-260628-XXXXXX"
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  disabled={saving || !checkInValue.trim()}
+                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  Valider
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!scannerActive ? (
+                <button
+                  type="button"
+                  onClick={onStartScanner}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 shadow-sm hover:bg-gray-50"
+                >
+                  <Video className="h-4 w-4" />
+                  Scanner caméra
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onStopScanner}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-700 shadow-sm hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" />
+                  Arrêter la caméra
+                </button>
+              )}
+            </div>
+
+            {!scannerSupported ? (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
+                Le scan caméra n'est pas supporté par ce navigateur. Utilisez la saisie manuelle.
+              </div>
+            ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black">
+            {scannerActive ? (
+              <video ref={videoRef} className="aspect-[4/5] h-full w-full object-cover" muted playsInline />
+            ) : (
+              <div className="flex aspect-[4/5] flex-col items-center justify-center p-6 text-center text-white">
+                <QrCode className="h-12 w-12 text-amber-300" />
+                <p className="mt-3 text-sm font-bold">Caméra inactive</p>
+                <p className="mt-1 text-xs text-gray-400">Activez le scanner ou saisissez le code manuellement.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <CheckInResultCard result={result} />
+        <RecentCheckIns items={recent} />
+      </div>
+    </div>
+      <CheckInAuditLog logs={logs} />
+    </div>
+  );
+}
+
+function checkInResultLabel(result) {
+  const labels = {
+    ACCEPTED: "Validé",
+    ALREADY_USED: "Déjà utilisé",
+    WRONG_EVENT: "Mauvais événement",
+    INACTIVE: "Non actif",
+    NOT_FOUND: "Introuvable",
+    INVALID: "Invalide",
+  };
+  return labels[result] || result || "—";
+}
+
+function checkInResultClass(result) {
+  if (result === "ACCEPTED") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (result === "ALREADY_USED") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-red-200 bg-red-50 text-red-700";
+}
+
+function CheckInSummary({ summary }) {
+  const data = summary || {};
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <Stat label="Tickets contrôlés" value={data.usedTickets || 0} />
+      <Stat label="Restants" value={data.remainingTickets || 0} />
+      <Stat label="Scans validés" value={data.accepted || 0} />
+      <Stat label="Scans refusés" value={data.refused || 0} />
+      <Stat label="Sessions actives" value={data.activeSessions?.length || 0} />
+    </div>
+  );
+}
+
+function CheckInAuditLog({ logs }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h4 className="text-base font-black text-gray-950">Journal de contrôle</h4>
+          <p className="mt-1 text-sm text-gray-500">Toutes les tentatives sont conservées, validées comme refusées.</p>
+        </div>
+        <span className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600">
+          {logs.length} ligne(s)
+        </span>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-3 py-2">Heure</th>
+              <th className="px-3 py-2">Résultat</th>
+              <th className="px-3 py-2">Participant</th>
+              <th className="px-3 py-2">Ticket</th>
+              <th className="px-3 py-2">Entrée</th>
+              <th className="px-3 py-2">Agent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs.map((log) => (
+              <tr key={log.id} className="border-t border-gray-100">
+                <td className="whitespace-nowrap px-3 py-2 text-gray-600">{formatDateTime(log.scannedAt)}</td>
+                <td className="px-3 py-2">
+                  <span className={`rounded-full border px-2 py-1 text-xs font-bold ${checkInResultClass(log.result)}`}>
+                    {checkInResultLabel(log.result)}
+                  </span>
+                  {log.reason ? <div className="mt-1 text-xs text-gray-500">{log.reason}</div> : null}
+                </td>
+                <td className="px-3 py-2 font-semibold text-gray-950">
+                  {log.ticket?.holderFullName || log.order?.buyerFullName || "—"}
+                </td>
+                <td className="px-3 py-2 font-mono text-xs text-gray-700">{log.ticketCode || log.ticket?.ticketCode || log.scannedValue || "—"}</td>
+                <td className="px-3 py-2 text-gray-700">{log.entryPoint || log.session?.entryPoint || "—"}</td>
+                <td className="px-3 py-2 text-gray-700">{log.checkedBy?.fullName || log.checkedBy?.email || "—"}</td>
+              </tr>
+            ))}
+            {!logs.length ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-8 text-center text-gray-500">
+                  Aucun contrôle enregistré pour ce filtre.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CheckInResultCard({ result }) {
+  if (!result) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+        <div className="flex items-center gap-2 text-gray-500">
+          <Clock3 className="h-5 w-5" />
+          <span className="text-sm font-bold">En attente d'un scan</span>
+        </div>
+        <p className="mt-3 text-sm text-gray-500">
+          Le dernier résultat de contrôle s'affichera ici avec le participant, le ticket et le statut.
+        </p>
+      </div>
+    );
+  }
+
+  const ticket = result.ticket || {};
+  const tone = result.ok
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    : "border-red-200 bg-red-50 text-red-950";
+  const Icon = result.ok ? CheckCircle2 : AlertTriangle;
+
+  return (
+    <div className={`rounded-2xl border p-4 ${tone}`}>
+      <div className="flex items-start gap-3">
+        <div className={`rounded-full p-2 ${result.ok ? "bg-emerald-600 text-white" : "bg-red-600 text-white"}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h4 className="text-lg font-black">{result.ok ? "Entrée validée" : "Entrée refusée"}</h4>
+          <p className="mt-0.5 text-sm font-semibold opacity-80">{result.message}</p>
+        </div>
+      </div>
+
+      {ticket.id ? (
+        <div className="mt-4 space-y-3 rounded-xl bg-white/80 p-3 text-sm text-gray-950">
+          <Info label="Participant" value={ticket.holderFullName || ticket.order?.buyerFullName || "—"} />
+          <Info label="Code ticket" value={ticket.ticketCode || "—"} />
+          <Info label="Type" value={ticket.ticketType?.label || "Standard"} />
+          <Info label="Événement" value={ticket.event?.title || "—"} />
+          {ticket.checkedInAt ? <Info label="Déjà contrôlé le" value={formatDateTime(ticket.checkedInAt)} /> : null}
+          {ticket.checkedInBy ? <Info label="Contrôlé par" value={ticket.checkedInBy.fullName || ticket.checkedInBy.email} /> : null}
         </div>
       ) : null}
-      {scannerActive ? <video ref={videoRef} className="mt-4 aspect-video w-full rounded-xl bg-black object-cover" muted playsInline /> : null}
+    </div>
+  );
+}
+
+function RecentCheckIns({ items }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <h4 className="text-sm font-black uppercase tracking-wide text-gray-700">Derniers contrôles</h4>
+      <div className="mt-3 space-y-2">
+        {items.length ? (
+          items.map((item, index) => (
+            <div key={`${item.ticket?.id || item.scannedAt}-${index}`} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className={`rounded-full p-1.5 ${item.ok ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                {item.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-gray-950">
+                  {item.ticket?.holderFullName || item.ticket?.ticketCode || item.message}
+                </div>
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                  <User className="h-3 w-3" />
+                  <span className="truncate">{item.ticket?.ticketCode || "Code non reconnu"}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+            Aucun ticket contrôlé sur cette session.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

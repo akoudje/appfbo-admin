@@ -37,4 +37,16 @@ export const ticketEventsService = {
 
   checkInTicket: async (body = {}) =>
     (await api.post("/admin/ticket-events/check-in", body)).data,
+
+  openCheckInSession: async (body = {}) =>
+    (await api.post("/admin/ticket-events/check-in/sessions", body)).data,
+
+  closeCheckInSession: async (sessionId) =>
+    (await api.post(`/admin/ticket-events/check-in/sessions/${sessionId}/close`, {})).data,
+
+  listCheckInLogs: async (params = {}) =>
+    (await api.get("/admin/ticket-events/check-in/logs", { params })).data,
+
+  getCheckInSummary: async (params = {}) =>
+    (await api.get("/admin/ticket-events/check-in/summary", { params })).data,
 };
