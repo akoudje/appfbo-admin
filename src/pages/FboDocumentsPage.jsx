@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileCheck2, Printer, Search, ShieldCheck, XCircle } from "lucide-react";
+import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle } from "lucide-react";
 import QRCode from "qrcode";
 import { fboDocumentsService } from "../services/fboDocumentsService";
 
@@ -34,6 +34,210 @@ function documentPublicVerifyUrl(doc) {
   return `${window.location.origin}${path}`;
 }
 
+function safeFileName(value) {
+  return String(value || "document")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+function dataUrlToBytes(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function createPdfBlobFromCanvas(canvas) {
+  const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.94);
+  const jpegBytes = dataUrlToBytes(jpegDataUrl);
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const imageRatio = canvas.width / canvas.height;
+  let drawWidth = pageWidth;
+  let drawHeight = pageWidth / imageRatio;
+  let drawX = 0;
+  let drawY = (pageHeight - drawHeight) / 2;
+  if (drawHeight > pageHeight) {
+    drawHeight = pageHeight;
+    drawWidth = pageHeight * imageRatio;
+    drawX = (pageWidth - drawWidth) / 2;
+    drawY = 0;
+  }
+
+  const header = "%PDF-1.4\n";
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`,
+    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`,
+    "\nendstream\nendobj\n",
+  ];
+  const content = `q\n${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm\n/Im0 Do\nQ\n`;
+  objects.push(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`);
+
+  const parts = [header];
+  const offsets = [0];
+  let length = header.length;
+  for (const object of objects) {
+    offsets.push(length);
+    if (object.includes("stream\n") && object.includes("/Im0")) {
+      const [before, after] = object.split("stream\n");
+      parts.push(before, "stream\n", jpegBytes, after);
+      length += before.length + "stream\n".length + jpegBytes.length + after.length;
+    } else {
+      parts.push(object);
+      length += object.length;
+    }
+  }
+  const xrefOffset = length;
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= objects.length; i += 1) {
+    xref += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  const trailer = `${xref}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  parts.push(trailer);
+  return new Blob(parts, { type: "application/pdf" });
+}
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const testLine = line ? `${line} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) lines.push(line);
+  lines.forEach((item, index) => ctx.fillText(item, x, y + index * lineHeight));
+  return y + lines.length * lineHeight;
+}
+
+async function downloadActivityCertificatePdf(document) {
+  if (!document) return;
+  const [logo, qr] = await Promise.all([
+    loadImage("/logo-forever.png"),
+    QRCode.toDataURL(documentPublicVerifyUrl(document), {
+      margin: 1,
+      width: 160,
+      errorCorrectionLevel: "M",
+    }).then(loadImage),
+  ]);
+
+  const canvas = window.document.createElement("canvas");
+  canvas.width = 1240;
+  canvas.height = 1754;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#111111";
+  if (logo) {
+    const logoWidth = 270;
+    const logoHeight = (logo.height / logo.width) * logoWidth;
+    ctx.drawImage(logo, (canvas.width - logoWidth) / 2, 72, logoWidth, logoHeight);
+  } else {
+    ctx.font = "44px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText("FOREVER", canvas.width / 2, 118);
+  }
+
+  ctx.strokeStyle = "#f4c430";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(170, 170);
+  ctx.lineTo(canvas.width - 170, 170);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.font = "bold 34px Georgia, serif";
+  ctx.fillText("ATTESTATION D'ACTIVITE", canvas.width / 2, 270);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#111111";
+  ctx.beginPath();
+  ctx.moveTo(430, 282);
+  ctx.lineTo(810, 282);
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.font = "28px Georgia, serif";
+  let y = 430;
+  const x = 145;
+  const maxWidth = 950;
+  const lineHeight = 42;
+  ctx.fillText("Monsieur / Madame,", x, y);
+  y += 76;
+
+  const paragraphs = [
+    `Je, soussigné, Madame ${document.signatoryName}, ${String(document.signatoryTitle || "").toLowerCase()} de Forever Living Products Côte d'Ivoire (FLP CI), atteste que Monsieur / Madame ${document.fboFullName} est un Forever Business owner des produits de notre société, enregistrée sous le numéro ${document.fboNumber}.`,
+    "Créée en 1978, Forever Living Products International (FLPI) est une société internationale présente dans plus de 160 pays et compte plusieurs millions de distributeurs dans le monde.",
+    "Premier producteur mondial d'Aloe Vera et de Produits de la Ruche, FLPI commercialise une gamme complète de produits de bien-être et de beauté comprenant des compléments alimentaires, du maquillage et des soins de la peau.",
+    `Monsieur / Madame ${document.fboFullName} est autorisé à vendre les produits Forever partout où elle trouvera des acheteurs et clients potentiels et sa rémunération est établie en fonction du flux de son activité et de ses ventes.`,
+    "En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.",
+  ];
+  for (const paragraph of paragraphs) {
+    y = drawWrappedText(ctx, paragraph, x, y, maxWidth, lineHeight) + 34;
+  }
+
+  ctx.textAlign = "right";
+  ctx.fillText(`Fait à ${document.city}, le ${formatDate(document.issuedAt)}`, canvas.width - 150, y + 34);
+  y += 210;
+  ctx.font = "bold 28px Georgia, serif";
+  ctx.fillText(String(document.signatoryName || "").toUpperCase(), canvas.width - 160, y);
+  ctx.font = "bold 22px Georgia, serif";
+  ctx.fillText(String(document.signatoryTitle || "").toUpperCase(), canvas.width - 160, y + 38);
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(canvas.width - 515, y + 8);
+  ctx.lineTo(canvas.width - 160, y + 8);
+  ctx.moveTo(canvas.width - 515, y + 46);
+  ctx.lineTo(canvas.width - 160, y + 46);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#dddddd";
+  ctx.beginPath();
+  ctx.moveTo(145, 1560);
+  ctx.lineTo(canvas.width - 145, 1560);
+  ctx.stroke();
+  ctx.font = "18px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#666666";
+  ctx.fillText(`Document : ${document.documentNumber}`, 145, 1610);
+  ctx.fillText(`Vérification : ${documentPublicVerifyUrl(document)}`, 145, 1640);
+  if (qr) {
+    ctx.drawImage(qr, canvas.width - 300, 1580, 130, 130);
+    ctx.textAlign = "center";
+    ctx.font = "bold 16px Arial, sans-serif";
+    ctx.fillText("Verifier", canvas.width - 235, 1725);
+  }
+
+  const blob = createPdfBlobFromCanvas(canvas);
+  const link = window.document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `attestation-fbo-${safeFileName(document.fboNumber)}-${safeFileName(document.documentNumber)}.pdf`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
 function ActivityCertificate({ document }) {
   const [qrDataUrl, setQrDataUrl] = useState("");
 
@@ -57,11 +261,24 @@ function ActivityCertificate({ document }) {
 
   if (!document) return null;
   return (
-    <article className="mx-auto min-h-[1050px] max-w-[760px] bg-white px-16 py-20 text-[18px] leading-7 text-black shadow-sm print:shadow-none">
-      <div className="mb-20 text-center">
+    <article className="relative mx-auto min-h-[1050px] max-w-[760px] overflow-hidden bg-white px-16 py-16 text-[18px] leading-7 text-black shadow-sm print:shadow-none">
+      <div className="pointer-events-none absolute inset-x-0 top-[430px] text-center text-[92px] font-black tracking-[0.2em] text-gray-100/70">
+        FOREVER
+      </div>
+      <header className="relative mb-16 text-center">
+        <img src="/logo-forever.png" alt="Forever" className="mx-auto h-10 w-auto object-contain" />
+        <div className="mx-auto mt-5 h-1 w-56 bg-[#FFC600]" />
+        <div className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
+          Document officiel FBO Service
+        </div>
+      </header>
+
+      <div className="relative mb-14 text-center">
         <h1 className="text-2xl font-black uppercase underline">Attestation d'activité</h1>
+        <div className="mt-3 font-mono text-xs font-bold text-gray-500">{document.documentNumber}</div>
       </div>
 
+      <div className="relative">
       <p className="mb-7">Monsieur / Madame,</p>
 
       <p className="mb-7 text-justify">
@@ -97,10 +314,12 @@ function ActivityCertificate({ document }) {
       </div>
 
       <div className="text-right">
-        <div className="inline-block text-center">
+        <div className="inline-block min-w-[260px] border-t border-dashed border-gray-300 pt-8 text-center">
           <div className="font-black uppercase underline">{document.signatoryName}</div>
           <div className="font-black uppercase underline">{document.signatoryTitle}</div>
+          <div className="mt-4 text-xs font-semibold uppercase text-gray-400">Signature et cachet</div>
         </div>
+      </div>
       </div>
 
       <div className="mt-20 flex items-end justify-between gap-6 border-t border-gray-300 pt-4 text-xs leading-5 text-gray-600">
@@ -226,14 +445,24 @@ export default function FboDocumentsPage() {
           </p>
         </div>
         {currentDocument ? (
-          <button
-            type="button"
-            onClick={printDocument}
-            className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white"
-          >
-            <Printer className="h-4 w-4" />
-            Imprimer / PDF
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => downloadActivityCertificatePdf(currentDocument)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#FFC600] px-4 py-2 text-sm font-black text-black"
+            >
+              <Download className="h-4 w-4" />
+              Télécharger PDF
+            </button>
+            <button
+              type="button"
+              onClick={printDocument}
+              className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimer
+            </button>
+          </div>
         ) : null}
       </div>
 
