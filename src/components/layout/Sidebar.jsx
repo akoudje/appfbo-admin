@@ -1,7 +1,7 @@
 // admin-app/src/components/layout/Sidebar.jsx
 // Composant de la barre latérale de navigation avec icônes Lucide React optimisées
 import { NavLink } from "react-router-dom";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { createElement, useState, useRef, useEffect, useMemo } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { AdminRole, Permission, hasPermission } from "../../auth/permissions";
 import { getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
@@ -18,6 +18,7 @@ import {
   Store,
   FileBarChart,
   FileCheck2,
+  BookHeart,
   
   // Administration - Icônes distinctes pour éviter la confusion
   SlidersHorizontal,
@@ -284,6 +285,24 @@ const SETTINGS_ITEMS = [
     color: "from-amber-500 to-yellow-500",
     shortcut: "E",
   },
+  {
+    key: "memorials",
+    to: "/marketing/memorials",
+    label: "Livre d'hommage",
+    permission: Permission.MARKETING_WRITE,
+    icon: BookHeart,
+    description: "Validation des hommages",
+    allowedRoles: [
+      AdminRole.SUPER_ADMIN,
+      AdminRole.TECH_ADMIN,
+      AdminRole.OPERATIONS_DIRECTOR,
+      AdminRole.SALES_DIRECTOR,
+      AdminRole.MARKETING_MANAGER,
+      AdminRole.MARKETING_ASSISTANT,
+    ],
+    color: "from-rose-500 to-amber-500",
+    shortcut: "H",
+  },
 ];
 
 // Badge de notification amélioré avec animation
@@ -306,7 +325,7 @@ function NotificationBadge({ count, type = "default" }) {
 }
 
 // Icône avec indicateur d'activité
-function IconWithIndicator({ icon: Icon, isActive, color }) {
+function IconWithIndicator({ icon, isActive, color }) {
   return (
     <div className="relative">
       <div
@@ -314,7 +333,7 @@ function IconWithIndicator({ icon: Icon, isActive, color }) {
           isActive ? "scale-110" : "group-hover:scale-105"
         }`}
       >
-        <Icon className="w-5 h-5" />
+        {createElement(icon, { className: "w-5 h-5" })}
       </div>
       {isActive && (
         <div
@@ -506,7 +525,7 @@ function NavSection({ title, items, collapsed, onItemClick, showDescriptions = f
 }
 
 // Carte profil utilisateur enrichie
-function UserProfileCard({ fullName, email, collapsed, role }) {
+function UserProfileCard({ fullName, email, role }) {
   const [isHovered, setIsHovered] = useState(false);
 
   const getInitials = () => {
