@@ -17,6 +17,7 @@ import {
   PackageOpen,
   Store,
   FileBarChart,
+  FileCheck2,
   
   // Administration - Icônes distinctes pour éviter la confusion
   SlidersHorizontal,
@@ -203,6 +204,17 @@ const NAV_ITEMS = [
     description: "Analyses et statistiques",
     color: "from-rose-500 to-red-500",
     shortcut: "8",
+  },
+  {
+    key: "fbo-documents",
+    to: "/fbo-documents",
+    label: "Documents FBO",
+    permission: Permission.PREORDER_READ,
+    icon: FileCheck2,
+    badge: null,
+    description: "Attestations et traçabilité",
+    color: "from-slate-600 to-gray-800",
+    shortcut: "D",
   },
 ];
 

@@ -39,7 +39,7 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.INVOICER:
       return new Set(["billing", "external-payment-links"]);
     case AdminRole.BILLING_MANAGER:
-      return new Set(["orders", "billing", "reports"]);
+      return new Set(["orders", "billing", "reports", "fbo-documents"]);
     case AdminRole.COUNTER_MANAGER:
     case AdminRole.FINANCE_MANAGER:
       return new Set(["orders", "cashier", "external-payment-links", "cash-closures", "reports"]);
@@ -50,7 +50,7 @@ export function getWorkspaceNavKeys(role) {
     case AdminRole.STOCK_MANAGER:
       return new Set(["stock"]);
     case AdminRole.MARKETING_MANAGER:
-      return new Set(["marketing", "sms-campaigns", "ticket-events", "products", "reports"]);
+      return new Set(["marketing", "sms-campaigns", "ticket-events", "products", "reports", "fbo-documents"]);
     case AdminRole.MARKETING_ASSISTANT:
       return new Set(["marketing", "sms-campaigns", "ticket-events", "reports"]);
     default:
@@ -65,6 +65,7 @@ export function getWorkspaceNavKeys(role) {
         "stock",
         "products",
         "reports",
+        "fbo-documents",
         "settings",
         "marketing",
         "sms-campaigns",

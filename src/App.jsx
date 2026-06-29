@@ -29,6 +29,7 @@ import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
 import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import TicketEventsPage from "./pages/TicketEventsPage";
 import TicketEventFormPage from "./pages/TicketEventFormPage";
+import FboDocumentsPage from "./pages/FboDocumentsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
@@ -298,6 +299,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à l’édition produit." />}
                     >
                       <ProductEdit />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/fbo-documents"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREORDER_READ}
+                      fallback={<AccessDenied message="Accès refusé aux documents FBO." />}
+                    >
+                      <FboDocumentsPage />
                     </RequirePermission>
                   }
                 />
