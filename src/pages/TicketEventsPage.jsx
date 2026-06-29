@@ -39,6 +39,145 @@ function formatFcfa(value) {
   return `${Number(value || 0).toLocaleString("fr-FR")} FCFA`;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getTicketWaveDetails(order = {}) {
+  const payload = order.providerPayloadJson || {};
+  const wavePayload = payload._wave?.detailsPayload || payload._wave?.statusPayload || payload;
+  return {
+    provider: order.paymentProvider || order.paymentMethod || "—",
+    statusLabel:
+      order.providerStatusLabel ||
+      wavePayload.payment_status_label ||
+      wavePayload.checkout_status_label ||
+      wavePayload.payment_status ||
+      wavePayload.checkout_status ||
+      order.paymentStatus ||
+      "—",
+    sessionId:
+      order.providerSessionId ||
+      wavePayload.id ||
+      wavePayload.checkout_session?.id ||
+      "—",
+    transactionId:
+      order.providerTransactionId ||
+      order.paymentReference ||
+      wavePayload.transaction_id ||
+      wavePayload.checkout_session?.transaction_id ||
+      "—",
+    payerPhone:
+      order.providerPayerPhone ||
+      wavePayload.payer_phone ||
+      wavePayload.customer_msisdn ||
+      wavePayload.phone_number ||
+      wavePayload.payment_method?.phone_number ||
+      wavePayload.checkout_session?.payer_phone ||
+      "—",
+    paidAt:
+      order.paidAt ||
+      wavePayload.when_completed ||
+      wavePayload.completed_at ||
+      wavePayload.paid_at ||
+      null,
+    hasRawPayload: Boolean(order.providerPayloadJson),
+  };
+}
+
+function printTicketWaveReceipt(order = {}) {
+  if (!order?.id || typeof window === "undefined") return false;
+  const details = getTicketWaveDetails(order);
+  const popup = window.open("", "_blank", "width=430,height=720");
+  if (!popup) return false;
+
+  const rows = [
+    ["Achat", order.orderNumber || "-"],
+    ["Événement", order.event?.title || "-"],
+    ["Acheteur", order.buyerFullName || "-"],
+    ["Téléphone acheteur", order.buyerPhone || "-"],
+    ["FBO", order.buyerFboNumber || order.buyerFboName || "-"],
+    ["Tickets", String(order.tickets?.length || order.quantity || 0)],
+    ["Type ticket", order.ticketType?.label || "-"],
+    ["Provider", details.provider],
+    ["Statut Wave", details.statusLabel],
+    ["Session Wave", details.sessionId],
+    ["Transaction Wave", details.transactionId],
+    ["Numéro payeur Wave", details.payerPhone],
+    ["Date paiement", formatDateTime(details.paidAt)],
+  ];
+
+  popup.document.write(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reçu ticket ${escapeHtml(order.orderNumber || "")}</title>
+    <style>
+      @page { size: 80mm auto; margin: 5mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #111827; font-family: Arial, Helvetica, sans-serif; font-size: 11px; }
+      .receipt { width: 70mm; margin: 0 auto; }
+      .brand { border-bottom: 1px solid #111827; padding-bottom: 8px; text-align: center; }
+      .logo-row { align-items: center; display: flex; gap: 10px; justify-content: center; margin-bottom: 6px; }
+      .forever-text { color: #000; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 700; letter-spacing: .12em; }
+      .wave-logo { max-height: 22px; max-width: 18mm; object-fit: contain; }
+      .divider { background: #d1d5db; display: inline-block; height: 18px; width: 1px; }
+      .brand p { margin: 4px 0 0; color: #4b5563; font-size: 10px; }
+      .title { margin: 10px 0; border: 1px solid #111827; padding: 6px; text-align: center; font-size: 13px; font-weight: 700; }
+      .amount { margin: 10px 0; border: 2px solid #111827; padding: 8px; text-align: center; }
+      .amount .value { display: block; text-align: center; font-size: 18px; font-weight: 700; }
+      .row { display: grid; grid-template-columns: 28mm 1fr; gap: 4px; border-bottom: 1px dashed #d1d5db; padding: 5px 0; }
+      .label { color: #4b5563; font-weight: 700; }
+      .value { overflow-wrap: anywhere; text-align: right; font-weight: 700; }
+      .footer { margin-top: 12px; color: #4b5563; text-align: center; font-size: 10px; }
+      .no-print { margin-top: 12px; text-align: center; }
+      button { border: 0; background: #059669; color: white; cursor: pointer; font-weight: 700; padding: 8px 12px; }
+      @media print { .no-print { display: none; } }
+    </style>
+  </head>
+  <body>
+    <main class="receipt">
+      <header class="brand">
+        <div class="logo-row">
+          <span class="forever-text">FOREVER</span>
+          <span class="divider"></span>
+          <img class="wave-logo" src="/wave.png" alt="Wave" />
+        </div>
+        <p>Reçu de paiement ticket</p>
+      </header>
+      <div class="title">PAIEMENT WAVE CONFIRMÉ</div>
+      <section class="amount">
+        <span class="label">Montant payé</span>
+        <span class="value">${escapeHtml(formatFcfa(order.totalFcfa))}</span>
+      </section>
+      ${rows
+        .map(
+          ([label, value]) => `
+            <div class="row">
+              <div class="label">${escapeHtml(label)}</div>
+              <div class="value">${escapeHtml(value)}</div>
+            </div>
+          `,
+        )
+        .join("")}
+      <p class="footer">Document généré depuis l'espace admin le ${escapeHtml(formatDateTime(new Date()))}.</p>
+      <div class="no-print"><button type="button" onclick="window.print()">Imprimer</button></div>
+    </main>
+    <script>
+      window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 250); });
+    </script>
+  </body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  return true;
+}
+
 function inputClass() {
   return "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200";
 }
@@ -879,8 +1018,12 @@ function OrdersTab({
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => (
-              <tr key={order.id} className="border-t border-gray-100">
+            {orders.map((order) => {
+              const waveDetails = getTicketWaveDetails(order);
+              const isWave = String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE";
+              const isPaid = order.status === "PAID" || order.paymentStatus === "SUCCEEDED";
+              return (
+              <tr key={order.id} className="border-t border-gray-100 align-top">
                 <td className="px-3 py-2 font-mono text-xs">{order.orderNumber}</td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.buyerFullName}</div>
@@ -896,7 +1039,22 @@ function OrdersTab({
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.paymentProvider || order.paymentMethod || "—"}</div>
                   <div className="text-xs text-gray-500">{order.paymentStatus || "—"}</div>
-                  {order.paymentReference ? <div className="font-mono text-[11px] text-gray-400">{order.paymentReference}</div> : null}
+                  {isWave ? (
+                    <div className="mt-1 space-y-0.5 text-[11px] text-gray-500">
+                      <div><span className="font-semibold text-gray-600">Payeur:</span> {waveDetails.payerPhone}</div>
+                      <div><span className="font-semibold text-gray-600">Transaction:</span> <span className="font-mono">{waveDetails.transactionId}</span></div>
+                      <div><span className="font-semibold text-gray-600">Session:</span> <span className="font-mono">{waveDetails.sessionId}</span></div>
+                      <div><span className="font-semibold text-gray-600">Provider:</span> {waveDetails.statusLabel}</div>
+                      {waveDetails.hasRawPayload ? (
+                        <div className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">
+                          <Eye className="h-3 w-3" />
+                          Payload Wave conservé
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : order.paymentReference ? (
+                    <div className="font-mono text-[11px] text-gray-400">{order.paymentReference}</div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(order.status)}`}>
@@ -904,33 +1062,38 @@ function OrdersTab({
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  {order.status === "PAID" ? (
-                    <button
-                      type="button"
-                      onClick={() => onResendTickets(order)}
-                      disabled={saving}
-                      className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
-                    >
-                      Renvoyer email
-                    </button>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE" ? (
-                        <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
-                          <RefreshCw className="h-3.5 w-3.5" />
-                          Sync Wave
-                        </button>
-                      ) : null}
-                      {order.status !== "CANCELLED" ? (
-                        <button type="button" onClick={() => onCancel(order)} disabled={saving} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
-                          Annuler
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {isWave ? (
+                      <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Sync Wave
+                      </button>
+                    ) : null}
+                    {isPaid && isWave ? (
+                      <button type="button" onClick={() => printTicketWaveReceipt(order)} disabled={saving} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                        Imprimer reçu
+                      </button>
+                    ) : null}
+                    {isPaid ? (
+                      <button
+                        type="button"
+                        onClick={() => onResendTickets(order)}
+                        disabled={saving}
+                        className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
+                      >
+                        Renvoyer email
+                      </button>
+                    ) : null}
+                    {!isPaid && order.status !== "CANCELLED" ? (
+                      <button type="button" onClick={() => onCancel(order)} disabled={saving} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
+                        Annuler
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
             {!orders.length ? (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-gray-500">Aucun achat de ticket.</td>

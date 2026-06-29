@@ -283,6 +283,8 @@ function buildWaveReceiptHtml({
   fboNumero,
   paymentProvider,
   paymentTxnId,
+  paymentSessionId,
+  providerStatusLabel,
   payerPhone,
   paidAt,
   amountPaid,
@@ -351,6 +353,8 @@ function buildWaveReceiptHtml({
       <div class="row"><div class="label">Client</div><div class="value">${escapeHtml(customerName || "—")}</div></div>
       <div class="row"><div class="label">Numéro FBO</div><div class="value">${escapeHtml(fboNumero || "—")}</div></div>
       <div class="row"><div class="label">Provider</div><div class="value">${escapeHtml(paymentProvider || "WAVE")}</div></div>
+      <div class="row"><div class="label">Statut provider</div><div class="value">${escapeHtml(providerStatusLabel || "—")}</div></div>
+      <div class="row"><div class="label">Session Wave</div><div class="value">${escapeHtml(paymentSessionId || "—")}</div></div>
       <div class="row"><div class="label">Transaction</div><div class="value">${escapeHtml(paymentTxnId || "—")}</div></div>
       <div class="row"><div class="label">Numéro payeur</div><div class="value">${escapeHtml(payerPhone || "—")}</div></div>
       <div class="row"><div class="label">Date paiement</div><div class="value">${escapeHtml(paidAt || "—")}</div></div>
@@ -1147,6 +1151,7 @@ function WavePaymentCard({
   payerPhone,
   paymentSessionId,
   paymentTxnId,
+  providerStatusLabel,
   paidAtValue,
   amountPaidValue,
   canUseWave,
@@ -1226,6 +1231,7 @@ function WavePaymentCard({
               <div className="space-y-1 pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
                 <Row label="Client Ref" value={visibleClientRef || "—"} copyable={Boolean(visibleClientRef)} />
                 <Row label="Provider" value={paymentProvider || "WAVE"} />
+                <Row label="Statut provider" value={providerStatusLabel || "—"} />
                 <Row label="Session" value={paymentSessionId} copyable={paymentSessionId !== "—"} />
                 <Row label="Transaction" value={paymentTxnId} copyable={paymentTxnId !== "—"} />
                 <Row label="Payé le" value={formatDateTime(paidAtValue)} highlight={isPaymentSucceeded} />
@@ -1942,6 +1948,14 @@ export default function OrderBillingPaymentTab({
   const paymentProvider = payment?.provider || order?.paymentProvider || null;
   const paymentSessionId = latestAttempt?.providerSessionId || payment?.providerReference || order?.paymentRef || "—";
   const paymentTxnId = payment?.providerTxnId || latestAttempt?.providerTransactionId || order?.paymentRef || "—";
+  const providerStatusLabel =
+    latestAttempt?.providerStatusLabel ||
+    latestAttempt?.normalizedPayloadJson?.providerStatusLabel ||
+    latestAttempt?.responsePayloadJson?.payment_status_label ||
+    latestAttempt?.responsePayloadJson?.checkout_status_label ||
+    payment?.status ||
+    order?.paymentStatus ||
+    "";
   const visibleClientRef =
     order?.preorderNumber ||
     payment?.clientReference ||
@@ -1950,8 +1964,13 @@ export default function OrderBillingPaymentTab({
     "";
   const payerPhone =
     latestAttempt?.providerPayerPhone ||
-    latestAttempt?.requestPayloadJson?.restrictPayerMobile ||
     latestAttempt?.normalizedPayloadJson?.providerPayerPhone ||
+    latestAttempt?.responsePayloadJson?.payer_phone ||
+    latestAttempt?.responsePayloadJson?.customer_msisdn ||
+    latestAttempt?.responsePayloadJson?.phone_number ||
+    latestAttempt?.responsePayloadJson?._wave?.detailsPayload?.payer_phone ||
+    latestAttempt?.responsePayloadJson?._wave?.detailsPayload?.customer_msisdn ||
+    latestAttempt?.requestPayloadJson?.restrictPayerMobile ||
     latestAttempt?.payerPhone ||
     payment?.payerPhone ||
     payment?.customerPhone ||
@@ -2017,6 +2036,8 @@ export default function OrderBillingPaymentTab({
       fboNumero: order?.fboNumero || "—",
       paymentProvider: paymentProvider || "WAVE",
       paymentTxnId,
+      paymentSessionId,
+      providerStatusLabel,
       payerPhone,
       paidAt: formatDateTime(paidAtValue),
       amountPaid: formatFcfa(amountPaidValue),
@@ -2035,7 +2056,9 @@ export default function OrderBillingPaymentTab({
     paidAtValue,
     payerPhone,
     paymentProvider,
+    paymentSessionId,
     paymentTxnId,
+    providerStatusLabel,
   ]);
 
   return (
@@ -2125,6 +2148,7 @@ export default function OrderBillingPaymentTab({
           payerPhone={payerPhone}
           paymentSessionId={paymentSessionId}
           paymentTxnId={paymentTxnId}
+          providerStatusLabel={providerStatusLabel}
           paidAtValue={paidAtValue}
           amountPaidValue={amountPaidValue}
           canUseWave={isWaveFlow}

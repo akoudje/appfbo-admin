@@ -214,6 +214,31 @@ function printCashierReceipt(row, admin = {}) {
     row.factureReference ||
     row.id;
   const paymentMode = humanizeEnum(row.preorderPaymentMode || row.paymentProvider);
+  const isWave =
+    String(row.paymentProvider || "").toUpperCase() === "WAVE" ||
+    String(row.preorderPaymentMode || "").toUpperCase() === "WAVE" ||
+    String(row.activePayment?.provider || "").toUpperCase() === "WAVE";
+  const waveDetails = {
+    payerPhone:
+      row.payerPhone ||
+      row.latestAttempt?.providerPayerPhone ||
+      row.activePayment?.providerPayerPhone ||
+      "-",
+    transactionId:
+      row.activePayment?.providerTxnId ||
+      row.latestAttempt?.providerTransactionId ||
+      row.cashierTransaction?.providerReference ||
+      "-",
+    sessionId:
+      row.activePayment?.providerReference ||
+      row.latestAttempt?.providerSessionId ||
+      "-",
+    providerStatus:
+      row.latestAttempt?.providerStatusLabel ||
+      row.activePayment?.status ||
+      row.paymentStatus ||
+      "-",
+  };
   const paidAt =
     row.manualPaymentValidatedAt ||
     row.paidAt ||
@@ -237,6 +262,14 @@ function printCashierReceipt(row, admin = {}) {
     ["Facture AS400", row.factureReference || "-"],
     ["N° reçu caisse", cashierTx.receiptNumber || "-"],
     ["Poste caisse", cashierTx.cashDeskLabel || "-"],
+    ...(isWave
+      ? [
+          ["Transaction Wave", waveDetails.transactionId],
+          ["Session Wave", waveDetails.sessionId],
+          ["Numéro payeur Wave", waveDetails.payerPhone],
+          ["Statut provider", waveDetails.providerStatus],
+        ]
+      : []),
     ["Validé par", cashierName],
     ["Date paiement", formatDateTime(paidAt)],
   ];
@@ -757,6 +790,9 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
                 <div><strong>Statut:</strong> {humanizeEnum(order.status)} / {humanizeEnum(order.paymentStatus)}</div>
                 <div><strong>Mode paiement:</strong> {humanizeEnum(order.preorderPaymentMode)} ({order.paymentProvider || "-"})</div>
                 <div><strong>Téléphone payeur:</strong> {attempt?.providerPayerPhone || "-"}</div>
+                <div><strong>Transaction Wave:</strong> {order?.activePayment?.providerTxnId || attempt?.providerTransactionId || "-"}</div>
+                <div><strong>Session Wave:</strong> {order?.activePayment?.providerReference || attempt?.providerSessionId || "-"}</div>
+                <div><strong>Statut provider:</strong> {attempt?.providerStatusLabel || order?.activePayment?.status || "-"}</div>
                 <div><strong>N° reçu caisse:</strong> {cashierTx?.receiptNumber || "-"}</div>
                 <div><strong>Poste caisse:</strong> {cashierTx?.cashDeskLabel || "-"}</div>
                 <div><strong>Validé par:</strong> {displayAdminName(validatedBy)}</div>
