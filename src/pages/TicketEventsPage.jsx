@@ -1019,7 +1019,6 @@ function OrdersTab({
           </thead>
           <tbody>
             {orders.map((order) => {
-              const waveDetails = getTicketWaveDetails(order);
               const isWave = String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE";
               const isPaid = order.status === "PAID" || order.paymentStatus === "SUCCEEDED";
               return (
@@ -1039,20 +1038,7 @@ function OrdersTab({
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.paymentProvider || order.paymentMethod || "—"}</div>
                   <div className="text-xs text-gray-500">{order.paymentStatus || "—"}</div>
-                  {isWave ? (
-                    <div className="mt-1 space-y-0.5 text-[11px] text-gray-500">
-                      <div><span className="font-semibold text-gray-600">Payeur:</span> {waveDetails.payerPhone}</div>
-                      <div><span className="font-semibold text-gray-600">Transaction:</span> <span className="font-mono">{waveDetails.transactionId}</span></div>
-                      <div><span className="font-semibold text-gray-600">Session:</span> <span className="font-mono">{waveDetails.sessionId}</span></div>
-                      <div><span className="font-semibold text-gray-600">Provider:</span> {waveDetails.statusLabel}</div>
-                      {waveDetails.hasRawPayload ? (
-                        <div className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">
-                          <Eye className="h-3 w-3" />
-                          Payload Wave conservé
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : order.paymentReference ? (
+                  {!isWave && order.paymentReference ? (
                     <div className="font-mono text-[11px] text-gray-400">{order.paymentReference}</div>
                   ) : null}
                 </td>
