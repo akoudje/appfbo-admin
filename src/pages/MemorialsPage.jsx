@@ -5,10 +5,12 @@ import {
   Copy,
   ExternalLink,
   Heart,
+  Image as ImageIcon,
   Loader2,
   RefreshCw,
   Save,
   Search,
+  Upload,
   X,
 } from "lucide-react";
 import { memorialsService } from "../services/memorialsService";
@@ -78,6 +80,7 @@ export default function MemorialsPage() {
   const [form, setForm] = useState(fromMemorial());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -136,6 +139,25 @@ export default function MemorialsPage() {
       setError(err?.response?.data?.message || "Enregistrement impossible.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadCover(file) {
+    if (!file) return;
+    try {
+      setUploadingCover(true);
+      setError("");
+      setMessage("");
+      const uploaded = await memorialsService.uploadCover({
+        file,
+        slug: form.slug || "livre-blanc",
+      });
+      setForm((current) => ({ ...current, coverImageUrl: uploaded?.url || "" }));
+      setMessage("Affiche uploadée. Enregistrez la page pour la conserver.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Impossible d'uploader l'affiche.");
+    } finally {
+      setUploadingCover(false);
     }
   }
 
@@ -236,10 +258,65 @@ export default function MemorialsPage() {
                 <input type="date" className={inputClass()} value={form.deathDate} onChange={(e) => updateForm("deathDate", e.target.value)} />
               </label>
             </div>
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Photo de couverture URL</span>
-              <input className={inputClass()} value={form.coverImageUrl} onChange={(e) => updateForm("coverImageUrl", e.target.value)} />
-            </label>
+            <div className="space-y-2 rounded-2xl border border-blue-100 bg-blue-50/40 p-3">
+              <div className="flex items-start gap-2">
+                <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-blue-800">Affiche hommage</span>
+                  <p className="mt-1 text-xs leading-5 text-blue-700">
+                    Uploadez l'affiche créée pour habiller la page publique, ou collez une URL déjà hébergée.
+                  </p>
+                </div>
+              </div>
+              <label className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-800 ${uploadingCover || saving ? "opacity-60" : "cursor-pointer hover:bg-blue-50"}`}>
+                {uploadingCover ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploadingCover ? "Upload en cours..." : "Uploader l'affiche"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={uploadingCover || saving}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) uploadCover(file);
+                  }}
+                />
+              </label>
+              <input
+                className={inputClass()}
+                value={form.coverImageUrl}
+                onChange={(e) => updateForm("coverImageUrl", e.target.value)}
+                placeholder="URL générée après upload ou https://..."
+              />
+              {form.coverImageUrl ? (
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                  <img
+                    src={form.coverImageUrl}
+                    alt="Aperçu de l'affiche hommage"
+                    className="max-h-72 w-full object-contain"
+                  />
+                  <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-3 py-2 text-xs">
+                    <span className="truncate text-gray-500" title={form.coverImageUrl}>
+                      Aperçu de l'affiche
+                    </span>
+                    <a
+                      href={form.coverImageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 font-semibold text-blue-700"
+                    >
+                      Ouvrir
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-blue-200 bg-white p-4 text-center text-xs font-semibold text-blue-700">
+                  Aucune affiche renseignée pour le moment.
+                </div>
+              )}
+            </div>
             <label className="block space-y-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Biographie</span>
               <textarea rows={6} className={inputClass()} value={form.biography} onChange={(e) => updateForm("biography", e.target.value)} />
