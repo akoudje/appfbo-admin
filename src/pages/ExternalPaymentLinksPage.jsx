@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
-import { Copy, Download, ExternalLink, Link as LinkIcon, Plus, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
+import { Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
 
 function emptyForm() {
@@ -33,6 +33,148 @@ function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getExternalWaveDetails(link = {}) {
+  const payload = link.providerPayloadJson || {};
+  return {
+    provider: link.provider || link.paymentMethod || "WAVE",
+    statusLabel:
+      link.providerStatusLabel ||
+      payload.payment_status_label ||
+      payload.checkout_status_label ||
+      payload.payment_status ||
+      payload.checkout_status ||
+      link.providerStatus ||
+      link.status ||
+      "—",
+    sessionId:
+      link.providerSessionId ||
+      payload.id ||
+      payload.checkout_session?.id ||
+      "—",
+    transactionId:
+      link.providerTransactionId ||
+      payload.transaction_id ||
+      payload.checkout_session?.transaction_id ||
+      "—",
+    payerPhone:
+      link.providerPayerPhone ||
+      payload.payer_phone ||
+      payload.customer_msisdn ||
+      payload.phone_number ||
+      payload.payment_method?.phone_number ||
+      payload.checkout_session?.payer_phone ||
+      "—",
+    paidAt:
+      link.paidAt ||
+      payload.when_completed ||
+      payload.completed_at ||
+      payload.paid_at ||
+      null,
+  };
+}
+
+function printExternalWaveReceipt(link = {}) {
+  if (!link?.id || typeof window === "undefined") return false;
+  const details = getExternalWaveDetails(link);
+  const popup = window.open("", "_blank", "width=430,height=720");
+  if (!popup) return false;
+
+  const rows = [
+    ["Référence", link.reference || "-"],
+    ["Facture", link.invoiceReference || "-"],
+    ["Client", link.customerName || "-"],
+    ["Téléphone client", link.customerPhone || "-"],
+    ["FBO", link.customerFboNumber || "-"],
+    ["Source", link.source === "QR_FORM" ? "QR" : "Admin"],
+    ["Provider", details.provider],
+    ["Statut Wave", details.statusLabel],
+    ["Session Wave", details.sessionId],
+    ["Transaction Wave", details.transactionId],
+    ["Numéro payeur Wave", details.payerPhone],
+    ["Date paiement", formatDateTime(details.paidAt)],
+  ];
+
+  popup.document.write(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reçu paiement ${escapeHtml(link.reference || "")}</title>
+    <style>
+      @page { size: 80mm auto; margin: 5mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #111827; font-family: Arial, Helvetica, sans-serif; font-size: 11px; }
+      .receipt { width: 70mm; margin: 0 auto; }
+      .brand { border-bottom: 1px solid #111827; padding-bottom: 8px; text-align: center; }
+      .logo-row { align-items: center; display: flex; gap: 10px; justify-content: center; margin-bottom: 6px; }
+      .forever-text { color: #000; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 700; letter-spacing: .12em; }
+      .wave-logo { max-height: 22px; max-width: 18mm; object-fit: contain; }
+      .divider { background: #d1d5db; display: inline-block; height: 18px; width: 1px; }
+      .brand p { margin: 4px 0 0; color: #4b5563; font-size: 10px; }
+      .title { margin: 10px 0; border: 1px solid #111827; padding: 6px; text-align: center; font-size: 13px; font-weight: 700; }
+      .amount { margin: 10px 0; border: 2px solid #111827; padding: 8px; text-align: center; }
+      .amount .value { display: block; text-align: center; font-size: 18px; font-weight: 700; }
+      .breakdown { margin: 8px 0 10px; border: 1px solid #d1d5db; padding: 6px; }
+      .breakdown-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+      .row { display: grid; grid-template-columns: 28mm 1fr; gap: 4px; border-bottom: 1px dashed #d1d5db; padding: 5px 0; }
+      .label { color: #4b5563; font-weight: 700; }
+      .value { overflow-wrap: anywhere; text-align: right; font-weight: 700; }
+      .footer { margin-top: 12px; color: #4b5563; text-align: center; font-size: 10px; }
+      .no-print { margin-top: 12px; text-align: center; }
+      button { border: 0; background: #059669; color: white; cursor: pointer; font-weight: 700; padding: 8px 12px; }
+      @media print { .no-print { display: none; } }
+    </style>
+  </head>
+  <body>
+    <main class="receipt">
+      <header class="brand">
+        <div class="logo-row">
+          <span class="forever-text">FOREVER</span>
+          <span class="divider"></span>
+          <img class="wave-logo" src="/wave.png" alt="Wave" />
+        </div>
+        <p>Reçu de paiement hors précommande</p>
+      </header>
+      <div class="title">PAIEMENT WAVE CONFIRMÉ</div>
+      <section class="amount">
+        <span class="label">Montant payé</span>
+        <span class="value">${escapeHtml(formatFcfa(link.amountFcfa))}</span>
+      </section>
+      <section class="breakdown">
+        <div class="breakdown-row"><span>Montant initial</span><strong>${escapeHtml(formatFcfa(link.baseAmountFcfa || link.amountFcfa))}</strong></div>
+        <div class="breakdown-row"><span>Frais Wave</span><strong>${escapeHtml(formatFcfa(link.serviceFeeFcfa))}</strong></div>
+      </section>
+      ${rows
+        .map(
+          ([label, value]) => `
+            <div class="row">
+              <div class="label">${escapeHtml(label)}</div>
+              <div class="value">${escapeHtml(value)}</div>
+            </div>
+          `,
+        )
+        .join("")}
+      <p class="footer">Document généré depuis l'espace admin le ${escapeHtml(formatDateTime(new Date()))}.</p>
+      <div class="no-print"><button type="button" onclick="window.print()">Imprimer</button></div>
+    </main>
+    <script>
+      window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 250); });
+    </script>
+  </body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  return true;
 }
 
 function statusClass(status) {
@@ -435,6 +577,12 @@ export default function ExternalPaymentLinksPage() {
                         {link.status === "ACTIVE" ? (
                           <button type="button" onClick={() => cancelLink(link)} disabled={saving} className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50">
                             Annuler
+                          </button>
+                        ) : null}
+                        {link.status === "PAID" ? (
+                          <button type="button" onClick={() => printExternalWaveReceipt(link)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg bg-green-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                            <Printer className="h-3.5 w-3.5" />
+                            Reçu
                           </button>
                         ) : null}
                         {link.status === "PAID" ? (
