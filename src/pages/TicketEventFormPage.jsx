@@ -43,6 +43,7 @@ function emptyEventForm() {
     startsAt: "",
     endsAt: "",
     posterUrl: "",
+    videoUrl: "",
     status: "DRAFT",
     capacity: "",
     salesOpenAt: "",
@@ -62,11 +63,34 @@ function eventToForm(event) {
     startsAt: toDatetimeLocal(event?.startsAt),
     endsAt: toDatetimeLocal(event?.endsAt),
     posterUrl: event?.posterUrl || "",
+    videoUrl: event?.videoUrl || "",
     status: event?.status || "DRAFT",
     capacity: event?.capacity || "",
     salesOpenAt: toDatetimeLocal(event?.salesOpenAt),
     salesCloseAt: toDatetimeLocal(event?.salesCloseAt),
   };
+}
+
+function getYouTubeEmbedUrl(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    let id = "";
+    if (host === "youtu.be") {
+      id = url.pathname.split("/").filter(Boolean)[0] || "";
+    } else if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
+      if (url.pathname.startsWith("/embed/") || url.pathname.startsWith("/shorts/")) {
+        id = url.pathname.split("/").filter(Boolean)[1] || "";
+      } else {
+        id = url.searchParams.get("v") || "";
+      }
+    }
+    return id ? `https://www.youtube.com/embed/${encodeURIComponent(id)}` : "";
+  } catch {
+    return "";
+  }
 }
 
 export default function TicketEventFormPage() {
@@ -85,6 +109,7 @@ export default function TicketEventFormPage() {
     () => (eventForm.slug ? `/events/${eventForm.slug}` : ""),
     [eventForm.slug],
   );
+  const videoEmbedUrl = useMemo(() => getYouTubeEmbedUrl(eventForm.videoUrl), [eventForm.videoUrl]);
 
   useEffect(() => {
     if (isNew) return;
@@ -207,6 +232,22 @@ export default function TicketEventFormPage() {
               </Field>
             </div>
             <div className="md:col-span-2">
+              <Field label="Lien vidéo YouTube">
+                <input
+                  className={inputClass()}
+                  value={eventForm.videoUrl}
+                  onChange={(e) => setEventForm({ ...eventForm, videoUrl: e.target.value })}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              </Field>
+              <p className="mt-1 text-xs text-gray-500">
+                Formats acceptés : youtube.com/watch, youtu.be, youtube.com/embed ou shorts.
+              </p>
+              {eventForm.videoUrl && !videoEmbedUrl ? (
+                <p className="mt-1 text-xs font-semibold text-amber-700">Lien YouTube non reconnu.</p>
+              ) : null}
+            </div>
+            <div className="md:col-span-2">
               <Field label="Adresse">
                 <textarea rows={2} className={inputClass()} value={eventForm.venueAddress} onChange={(e) => setEventForm({ ...eventForm, venueAddress: e.target.value })} />
               </Field>
@@ -246,6 +287,21 @@ export default function TicketEventFormPage() {
               </div>
             ) : null}
           </div>
+
+          {videoEmbedUrl ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <h2 className="text-lg font-bold">Vidéo</h2>
+              <div className="mt-3 aspect-video overflow-hidden rounded-xl border border-gray-200 bg-black">
+                <iframe
+                  src={videoEmbedUrl}
+                  title="Aperçu vidéo événement"
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          ) : null}
 
           {!isNew && event?.id ? (
             <Link
