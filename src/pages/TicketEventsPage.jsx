@@ -451,6 +451,28 @@ export default function TicketEventsPage() {
     }
   }
 
+  async function markCashPaid(order) {
+    if (!window.confirm(`Confirmer l'encaissement espèces de ${formatFcfa(order.totalFcfa)} pour ${order.orderNumber} ?`)) {
+      return;
+    }
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const updated = await ticketEventsService.markOrderPaid(order.id, {
+        paymentMethod: "CASH",
+        paymentReference: `CASH-${order.orderNumber}`,
+        note: "Paiement espèces encaissé sur place.",
+      });
+      setMessage(`Paiement espèces confirmé pour ${updated.orderNumber}. Tickets activés.`);
+      await load({ eventId: selectedEventId });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Confirmation du paiement espèces impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function expireOrders() {
     try {
       setSaving(true);
@@ -788,6 +810,7 @@ export default function TicketEventsPage() {
                     onLoad={(overrides) => load({ eventId: selectedEvent.id, ...overrides })}
                     onExpire={expireOrders}
                     onSyncWave={syncWavePayment}
+                    onMarkCashPaid={markCashPaid}
                     onCancel={cancelOrder}
                     onResendTickets={resendOrderTicketsEmail}
                   />
@@ -965,6 +988,7 @@ function OrdersTab({
   onLoad,
   onExpire,
   onSyncWave,
+  onMarkCashPaid,
   onCancel,
   onResendTickets,
 }) {
@@ -1058,6 +1082,16 @@ function OrdersTab({
                     {isPaid && isWave ? (
                       <button type="button" onClick={() => printTicketWaveReceipt(order)} disabled={saving} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                         Imprimer reçu
+                      </button>
+                    ) : null}
+                    {!isPaid && order.status !== "CANCELLED" && order.status !== "EXPIRED" ? (
+                      <button
+                        type="button"
+                        onClick={() => onMarkCashPaid(order)}
+                        disabled={saving}
+                        className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        Encaisser espèces
                       </button>
                     ) : null}
                     {isPaid ? (
