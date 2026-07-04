@@ -26,6 +26,9 @@ export const ticketEventsService = {
   expireOrders: async (body = {}) =>
     (await api.post("/admin/ticket-events/orders/expire", body)).data,
 
+  createCashOrder: async (body = {}) =>
+    (await api.post("/admin/ticket-events/orders/cash-sale", body)).data,
+
   markOrderPaid: async (orderId, body = {}) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/paid`, body)).data,
 

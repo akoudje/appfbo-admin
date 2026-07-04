@@ -208,6 +208,19 @@ function emptyTicketTypeForm() {
   };
 }
 
+function emptyCashSaleForm() {
+  return {
+    ticketTypeId: "",
+    quantity: 1,
+    buyerFullName: "",
+    buyerPhone: "",
+    buyerEmail: "",
+    buyerFboNumber: "",
+    buyerFboName: "",
+    note: "",
+  };
+}
+
 function ticketTypeToForm(type) {
   return {
     id: type?.id || "",
@@ -239,6 +252,7 @@ export default function TicketEventsPage() {
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
+  const [cashSaleForm, setCashSaleForm] = useState(emptyCashSaleForm);
   const [checkInValue, setCheckInValue] = useState("");
   const [checkInResult, setCheckInResult] = useState(null);
   const [recentCheckIns, setRecentCheckIns] = useState([]);
@@ -451,23 +465,24 @@ export default function TicketEventsPage() {
     }
   }
 
-  async function markCashPaid(order) {
-    if (!window.confirm(`Confirmer l'encaissement espèces de ${formatFcfa(order.totalFcfa)} pour ${order.orderNumber} ?`)) {
-      return;
-    }
+  async function createCashSale(event) {
+    event.preventDefault();
+    if (!selectedEvent?.id) return;
     try {
       setSaving(true);
       setError("");
       setMessage("");
-      const updated = await ticketEventsService.markOrderPaid(order.id, {
-        paymentMethod: "CASH",
-        paymentReference: `CASH-${order.orderNumber}`,
-        note: "Paiement espèces encaissé sur place.",
+      const result = await ticketEventsService.createCashOrder({
+        ...cashSaleForm,
+        eventId: selectedEvent.id,
       });
-      setMessage(`Paiement espèces confirmé pour ${updated.orderNumber}. Tickets activés.`);
-      await load({ eventId: selectedEventId });
+      setCashSaleForm(emptyCashSaleForm());
+      setMessage(
+        `Vente espèces enregistrée pour ${result.buyerFullName}. ${result.tickets?.length || 0} ticket(s) activé(s).`,
+      );
+      await load({ eventId: selectedEvent.id, status: orderStatus });
     } catch (err) {
-      setError(err?.response?.data?.message || "Confirmation du paiement espèces impossible.");
+      setError(err?.response?.data?.message || "Vente espèces impossible.");
     } finally {
       setSaving(false);
     }
@@ -801,7 +816,10 @@ export default function TicketEventsPage() {
                 ) : null}
                 {activeTab === "orders" ? (
                   <OrdersTab
+                    event={selectedEvent}
                     orders={orders}
+                    cashSaleForm={cashSaleForm}
+                    setCashSaleForm={setCashSaleForm}
                     orderQuery={orderQuery}
                     setOrderQuery={setOrderQuery}
                     orderStatus={orderStatus}
@@ -809,8 +827,8 @@ export default function TicketEventsPage() {
                     saving={saving}
                     onLoad={(overrides) => load({ eventId: selectedEvent.id, ...overrides })}
                     onExpire={expireOrders}
+                    onCreateCashSale={createCashSale}
                     onSyncWave={syncWavePayment}
-                    onMarkCashPaid={markCashPaid}
                     onCancel={cancelOrder}
                     onResendTickets={resendOrderTicketsEmail}
                   />
@@ -979,7 +997,10 @@ function TicketsTab({ event, form, setForm, saving, onSubmit, onEdit, onToggle, 
 }
 
 function OrdersTab({
+  event,
   orders,
+  cashSaleForm,
+  setCashSaleForm,
   orderQuery,
   setOrderQuery,
   orderStatus,
@@ -987,13 +1008,116 @@ function OrdersTab({
   saving,
   onLoad,
   onExpire,
+  onCreateCashSale,
   onSyncWave,
-  onMarkCashPaid,
   onCancel,
   onResendTickets,
 }) {
+  const ticketTypes = event?.ticketTypes || [];
+  const selectedType = ticketTypes.find((type) => type.id === cashSaleForm.ticketTypeId) || null;
+  const cashSaleTotal = Number(selectedType?.priceFcfa || 0) * Number(cashSaleForm.quantity || 1);
+
   return (
     <div className="space-y-4">
+      <form onSubmit={onCreateCashSale} className="rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold">Vente espèces au guichet</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Encaissez le client, renseignez ses informations, puis générez son ticket digital.
+            </p>
+          </div>
+          <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
+            {formatFcfa(cashSaleTotal)}
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+          <Field label="Type de ticket">
+            <select
+              className={inputClass()}
+              value={cashSaleForm.ticketTypeId}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, ticketTypeId: event.target.value })}
+              required
+            >
+              <option value="">Choisir</option>
+              {ticketTypes.filter((type) => type.active !== false).map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.label} - {formatFcfa(type.priceFcfa)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Quantité">
+            <input
+              type="number"
+              min="1"
+              max={selectedType?.maxPerOrder || 10}
+              className={inputClass()}
+              value={cashSaleForm.quantity}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, quantity: event.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Nom client">
+            <input
+              className={inputClass()}
+              value={cashSaleForm.buyerFullName}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFullName: event.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Téléphone">
+            <input
+              className={inputClass()}
+              value={cashSaleForm.buyerPhone}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerPhone: event.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Email ticket">
+            <input
+              type="email"
+              className={inputClass()}
+              value={cashSaleForm.buyerEmail}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerEmail: event.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Numéro FBO">
+            <input
+              className={inputClass()}
+              value={cashSaleForm.buyerFboNumber}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboNumber: event.target.value })}
+            />
+          </Field>
+          <Field label="Nom FBO">
+            <input
+              className={inputClass()}
+              value={cashSaleForm.buyerFboName}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboName: event.target.value })}
+            />
+          </Field>
+          <Field label="Note">
+            <input
+              className={inputClass()}
+              value={cashSaleForm.note}
+              onChange={(event) => setCashSaleForm({ ...cashSaleForm, note: event.target.value })}
+            />
+          </Field>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="submit"
+            disabled={saving || !cashSaleForm.ticketTypeId || !cashSaleForm.buyerFullName.trim() || !cashSaleForm.buyerPhone.trim() || !cashSaleForm.buyerEmail.trim()}
+            className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            <Ticket className="h-4 w-4" />
+            Générer ticket espèces
+          </button>
+          <span className="text-xs text-gray-500">Le ticket devient immédiatement actif après validation.</span>
+        </div>
+      </form>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button type="button" onClick={onExpire} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
           Expirer non payés
@@ -1082,16 +1206,6 @@ function OrdersTab({
                     {isPaid && isWave ? (
                       <button type="button" onClick={() => printTicketWaveReceipt(order)} disabled={saving} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                         Imprimer reçu
-                      </button>
-                    ) : null}
-                    {!isPaid && order.status !== "CANCELLED" && order.status !== "EXPIRED" ? (
-                      <button
-                        type="button"
-                        onClick={() => onMarkCashPaid(order)}
-                        disabled={saving}
-                        className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                      >
-                        Encaisser espèces
                       </button>
                     ) : null}
                     {isPaid ? (
