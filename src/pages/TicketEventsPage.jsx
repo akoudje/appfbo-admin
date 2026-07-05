@@ -458,11 +458,20 @@ export default function TicketEventsPage() {
   }
 
   async function resendOrderTicketsEmail(order) {
+    const defaultEmail = order.buyerEmail || order.holderEmail || "";
+    const recipientEmail = window.prompt(
+      "Adresse email de renvoi des tickets",
+      defaultEmail,
+    );
+    if (recipientEmail === null) return;
+
     try {
       setSaving(true);
       setError("");
       setMessage("");
-      const result = await ticketEventsService.resendOrderTicketsEmail(order.id);
+      const result = await ticketEventsService.resendOrderTicketsEmail(order.id, {
+        email: recipientEmail.trim() || undefined,
+      });
       setMessage(`Ticket renvoyé à ${result.sentTo || order.buyerEmail || "l'acheteur"}.`);
     } catch (err) {
       setError(err?.response?.data?.message || "Renvoi du ticket impossible.");

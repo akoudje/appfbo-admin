@@ -38,8 +38,8 @@ export const ticketEventsService = {
   cancelOrder: async (orderId, body = {}) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/cancel`, body)).data,
 
-  resendOrderTicketsEmail: async (orderId) =>
-    (await api.post(`/admin/ticket-events/orders/${orderId}/resend-email`, {})).data,
+  resendOrderTicketsEmail: async (orderId, body = {}) =>
+    (await api.post(`/admin/ticket-events/orders/${orderId}/resend-email`, body)).data,
 
   checkInTicket: async (body = {}) =>
     (await api.post("/admin/ticket-events/check-in", body)).data,
