@@ -1031,6 +1031,14 @@ function OrdersTab({
   const ticketTypes = event?.ticketTypes || [];
   const selectedType = ticketTypes.find((type) => type.id === cashSaleForm.ticketTypeId) || null;
   const cashSaleTotal = Number(selectedType?.priceFcfa || 0) * Number(cashSaleForm.quantity || 1);
+  const loadOrders = (next = {}) =>
+    onLoad({
+      q: Object.prototype.hasOwnProperty.call(next, "q") ? next.q : orderQuery,
+      status: Object.prototype.hasOwnProperty.call(next, "status") ? next.status : orderStatus,
+      paymentMethod: Object.prototype.hasOwnProperty.call(next, "paymentMethod")
+        ? next.paymentMethod
+        : orderPaymentMethod,
+    });
 
   return (
     <div className="space-y-4">
@@ -1055,7 +1063,7 @@ function OrdersTab({
             onChange={(event) => {
               const next = event.target.value;
               setOrderStatus(next);
-              onLoad({ status: next });
+              loadOrders({ status: next });
             }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
           >
@@ -1070,7 +1078,7 @@ function OrdersTab({
             onChange={(event) => {
               const next = event.target.value;
               setOrderPaymentMethod(next);
-              onLoad({ paymentMethod: next });
+              loadOrders({ paymentMethod: next });
             }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
           >
@@ -1088,7 +1096,7 @@ function OrdersTab({
               className="min-w-52 bg-transparent text-sm outline-none"
             />
           </label>
-          <button type="button" onClick={() => onLoad({ q: orderQuery })} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
+          <button type="button" onClick={() => loadOrders({ q: orderQuery })} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
             Rechercher
           </button>
         </div>
