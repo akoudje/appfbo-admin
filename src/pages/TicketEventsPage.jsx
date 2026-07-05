@@ -251,6 +251,7 @@ export default function TicketEventsPage() {
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
+  const [orderPaymentMethod, setOrderPaymentMethod] = useState("");
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
   const [cashSaleForm, setCashSaleForm] = useState(emptyCashSaleForm);
   const [cashSaleModalOpen, setCashSaleModalOpen] = useState(false);
@@ -312,6 +313,9 @@ export default function TicketEventsPage() {
       const status = Object.prototype.hasOwnProperty.call(overrides, "status")
         ? overrides.status
         : orderStatus;
+      const paymentMethod = Object.prototype.hasOwnProperty.call(overrides, "paymentMethod")
+        ? overrides.paymentMethod
+        : orderPaymentMethod;
 
       const [eventsResponse, ordersResponse] = await Promise.all([
         ticketEventsService.listEvents(),
@@ -319,6 +323,7 @@ export default function TicketEventsPage() {
           eventId: eventId || undefined,
           q: q || undefined,
           status: status || undefined,
+          paymentMethod: paymentMethod || undefined,
         }),
       ]);
       const nextEvents = eventsResponse?.data || [];
@@ -482,7 +487,7 @@ export default function TicketEventsPage() {
       setMessage(
         `Vente espèces enregistrée pour ${result.buyerFullName}. ${result.tickets?.length || 0} ticket(s) activé(s).`,
       );
-      await load({ eventId: selectedEvent.id, status: orderStatus });
+      await load({ eventId: selectedEvent.id, status: orderStatus, paymentMethod: orderPaymentMethod });
     } catch (err) {
       setError(err?.response?.data?.message || "Vente espèces impossible.");
     } finally {
@@ -828,6 +833,8 @@ export default function TicketEventsPage() {
                     setOrderQuery={setOrderQuery}
                     orderStatus={orderStatus}
                     setOrderStatus={setOrderStatus}
+                    orderPaymentMethod={orderPaymentMethod}
+                    setOrderPaymentMethod={setOrderPaymentMethod}
                     saving={saving}
                     onLoad={(overrides) => load({ eventId: selectedEvent.id, ...overrides })}
                     onExpire={expireOrders}
@@ -1011,6 +1018,8 @@ function OrdersTab({
   setOrderQuery,
   orderStatus,
   setOrderStatus,
+  orderPaymentMethod,
+  setOrderPaymentMethod,
   saving,
   onLoad,
   onExpire,
@@ -1055,6 +1064,20 @@ function OrdersTab({
             <option value="PAID">Payés</option>
             <option value="EXPIRED">Expirés</option>
             <option value="CANCELLED">Annulés</option>
+          </select>
+          <select
+            value={orderPaymentMethod}
+            onChange={(event) => {
+              const next = event.target.value;
+              setOrderPaymentMethod(next);
+              onLoad({ paymentMethod: next });
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+          >
+            <option value="">Tous les paiements</option>
+            <option value="CASH">Espèces / Cash</option>
+            <option value="WAVE">Wave</option>
+            <option value="OTHER">Autres</option>
           </select>
           <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
             <Search className="h-4 w-4 text-gray-400" />
