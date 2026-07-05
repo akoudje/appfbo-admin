@@ -253,6 +253,7 @@ export default function TicketEventsPage() {
   const [orderStatus, setOrderStatus] = useState("");
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
   const [cashSaleForm, setCashSaleForm] = useState(emptyCashSaleForm);
+  const [cashSaleModalOpen, setCashSaleModalOpen] = useState(false);
   const [checkInValue, setCheckInValue] = useState("");
   const [checkInResult, setCheckInResult] = useState(null);
   const [recentCheckIns, setRecentCheckIns] = useState([]);
@@ -477,6 +478,7 @@ export default function TicketEventsPage() {
         eventId: selectedEvent.id,
       });
       setCashSaleForm(emptyCashSaleForm());
+      setCashSaleModalOpen(false);
       setMessage(
         `Vente espèces enregistrée pour ${result.buyerFullName}. ${result.tickets?.length || 0} ticket(s) activé(s).`,
       );
@@ -820,6 +822,8 @@ export default function TicketEventsPage() {
                     orders={orders}
                     cashSaleForm={cashSaleForm}
                     setCashSaleForm={setCashSaleForm}
+                    cashSaleModalOpen={cashSaleModalOpen}
+                    setCashSaleModalOpen={setCashSaleModalOpen}
                     orderQuery={orderQuery}
                     setOrderQuery={setOrderQuery}
                     orderStatus={orderStatus}
@@ -1001,6 +1005,8 @@ function OrdersTab({
   orders,
   cashSaleForm,
   setCashSaleForm,
+  cashSaleModalOpen,
+  setCashSaleModalOpen,
   orderQuery,
   setOrderQuery,
   orderStatus,
@@ -1019,109 +1025,21 @@ function OrdersTab({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onCreateCashSale} className="rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-bold">Vente espèces au guichet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Encaissez le client, renseignez ses informations, puis générez son ticket digital.
-            </p>
-          </div>
-          <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">
-            {formatFcfa(cashSaleTotal)}
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-4">
-          <Field label="Type de ticket">
-            <select
-              className={inputClass()}
-              value={cashSaleForm.ticketTypeId}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, ticketTypeId: event.target.value })}
-              required
-            >
-              <option value="">Choisir</option>
-              {ticketTypes.filter((type) => type.active !== false).map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.label} - {formatFcfa(type.priceFcfa)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Quantité">
-            <input
-              type="number"
-              min="1"
-              max={selectedType?.maxPerOrder || 10}
-              className={inputClass()}
-              value={cashSaleForm.quantity}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, quantity: event.target.value })}
-              required
-            />
-          </Field>
-          <Field label="Nom client">
-            <input
-              className={inputClass()}
-              value={cashSaleForm.buyerFullName}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFullName: event.target.value })}
-              required
-            />
-          </Field>
-          <Field label="Téléphone">
-            <input
-              className={inputClass()}
-              value={cashSaleForm.buyerPhone}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerPhone: event.target.value })}
-              required
-            />
-          </Field>
-          <Field label="Email ticket">
-            <input
-              type="email"
-              className={inputClass()}
-              value={cashSaleForm.buyerEmail}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerEmail: event.target.value })}
-              required
-            />
-          </Field>
-          <Field label="Numéro FBO">
-            <input
-              className={inputClass()}
-              value={cashSaleForm.buyerFboNumber}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboNumber: event.target.value })}
-            />
-          </Field>
-          <Field label="Nom FBO">
-            <input
-              className={inputClass()}
-              value={cashSaleForm.buyerFboName}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboName: event.target.value })}
-            />
-          </Field>
-          <Field label="Note">
-            <input
-              className={inputClass()}
-              value={cashSaleForm.note}
-              onChange={(event) => setCashSaleForm({ ...cashSaleForm, note: event.target.value })}
-            />
-          </Field>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="submit"
-            disabled={saving || !cashSaleForm.ticketTypeId || !cashSaleForm.buyerFullName.trim() || !cashSaleForm.buyerPhone.trim() || !cashSaleForm.buyerEmail.trim()}
-            className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            <Ticket className="h-4 w-4" />
-            Générer ticket espèces
-          </button>
-          <span className="text-xs text-gray-500">Le ticket devient immédiatement actif après validation.</span>
-        </div>
-      </form>
-
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" onClick={onExpire} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
-          Expirer non payés
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setCashSaleModalOpen(true)}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Espèces au Guichet
+          </button>
+          <button type="button" onClick={onExpire} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
+            Expirer non payés
+          </button>
+        </div>
         <div className="flex flex-wrap gap-2">
           <select
             value={orderStatus}
@@ -1152,6 +1070,128 @@ function OrdersTab({
           </button>
         </div>
       </div>
+      {cashSaleModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Espèces au Guichet</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Encaissez le client, renseignez ses informations, puis générez son ticket digital.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCashSaleModalOpen(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={onCreateCashSale} className="p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3">
+                <span className="text-sm font-semibold text-gray-600">Montant à encaisser</span>
+                <span className="text-lg font-bold text-gray-900">{formatFcfa(cashSaleTotal)}</span>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-4">
+                <Field label="Type de ticket">
+                  <select
+                    className={inputClass()}
+                    value={cashSaleForm.ticketTypeId}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, ticketTypeId: event.target.value })}
+                    required
+                  >
+                    <option value="">Choisir</option>
+                    {ticketTypes.filter((type) => type.active !== false).map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.label} - {formatFcfa(type.priceFcfa)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Quantité">
+                  <input
+                    type="number"
+                    min="1"
+                    max={selectedType?.maxPerOrder || 10}
+                    className={inputClass()}
+                    value={cashSaleForm.quantity}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, quantity: event.target.value })}
+                    required
+                  />
+                </Field>
+                <Field label="Nom client">
+                  <input
+                    className={inputClass()}
+                    value={cashSaleForm.buyerFullName}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFullName: event.target.value })}
+                    required
+                  />
+                </Field>
+                <Field label="Téléphone">
+                  <input
+                    className={inputClass()}
+                    value={cashSaleForm.buyerPhone}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerPhone: event.target.value })}
+                    required
+                  />
+                </Field>
+                <Field label="Email ticket">
+                  <input
+                    type="email"
+                    className={inputClass()}
+                    value={cashSaleForm.buyerEmail}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerEmail: event.target.value })}
+                    required
+                  />
+                </Field>
+                <Field label="Numéro FBO">
+                  <input
+                    className={inputClass()}
+                    value={cashSaleForm.buyerFboNumber}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboNumber: event.target.value })}
+                  />
+                </Field>
+                <Field label="Nom FBO">
+                  <input
+                    className={inputClass()}
+                    value={cashSaleForm.buyerFboName}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboName: event.target.value })}
+                  />
+                </Field>
+                <Field label="Note">
+                  <input
+                    className={inputClass()}
+                    value={cashSaleForm.note}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, note: event.target.value })}
+                  />
+                </Field>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs text-gray-500">Le ticket devient immédiatement actif après validation.</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCashSaleModalOpen(false)}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || !cashSaleForm.ticketTypeId || !cashSaleForm.buyerFullName.trim() || !cashSaleForm.buyerPhone.trim() || !cashSaleForm.buyerEmail.trim()}
+                    className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    <Ticket className="h-4 w-4" />
+                    Générer ticket espèces
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
