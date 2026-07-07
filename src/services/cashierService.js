@@ -6,4 +6,7 @@ export const cashierService = {
 
   prepareForPacking: async (orderId, body = {}) =>
     (await api.post(`/admin/cashier/orders/${orderId}/prepare`, body)).data,
+
+  reportAs400CertificationMissing: async (orderId, body = {}) =>
+    (await api.post(`/admin/cashier/orders/${orderId}/as400-certification/missing`, body)).data,
 };

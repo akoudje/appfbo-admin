@@ -72,7 +72,7 @@ export default function BillingQueuePage() {
   useRealtimeAlerts({
     onEvent: async (event) => {
       const eventKey = String(event?.eventKey || "");
-      if (eventKey === "billing_escalated_new") {
+      if (eventKey === "billing_escalated_new" || eventKey === "as400_certification_dispute_new") {
         const played = await sound.notify("billing_escalated_new", {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
           cooldownMs: 8000,
@@ -86,6 +86,10 @@ export default function BillingQueuePage() {
             played: true,
           }).catch(() => {});
         }
+        loadRef.current?.({ silent: true });
+        return;
+      }
+      if (eventKey === "as400_certification_dispute_resolved") {
         loadRef.current?.({ silent: true });
         return;
       }
@@ -541,6 +545,20 @@ export default function BillingQueuePage() {
     }
   };
 
+  const handleResolveAs400Dispute = async (row) => {
+    try {
+      setError("");
+      setInfo("");
+      await ordersService.resolveAs400CertificationDispute(row.id, {
+        note: "Facture reprise dans AS400 depuis la file de facturation",
+      });
+      setInfo("Contentieux AS400 clôturé. La caisse peut relancer la préparation.");
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de clôturer le contentieux AS400");
+    }
+  };
+
   useEffect(() => {
     const autoClaimRequested =
       String(searchParams.get("autoClaim") || "").trim() === "1";
@@ -752,6 +770,7 @@ export default function BillingQueuePage() {
         onStart={handleStart}
         onRelease={handleRelease}
         onEscalate={handleEscalate}
+        onResolveAs400Dispute={handleResolveAs400Dispute}
       />
     </div>
   );

@@ -243,6 +243,14 @@ export const ordersService = {
       )
     ).data,
 
+  resolveAs400CertificationDispute: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/billing/${normalizeOrderId(id)}/as400-certification/resolve`,
+        body,
+      )
+    ).data,
+
   /* ============================
      Wave payments
   ============================ */

@@ -59,6 +59,7 @@ export default function BillingQueueTable({
   onStart,
   onRelease,
   onEscalate,
+  onResolveAs400Dispute,
 }) {
   if (loading) {
     return (
@@ -104,6 +105,9 @@ export default function BillingQueueTable({
               const canStart = isMine && ["ASSIGNED", "IN_PROGRESS"].includes(row?.billingWorkStatus);
               const canRelease = isMine && isActiveBilling;
               const canEscalate = isActiveBilling && row?.billingWorkStatus !== "ESCALATED";
+              const hasOpenAs400Dispute =
+                row?.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
+                ["OPEN", "REPORTED"].includes(row?.as400CertificationStatus || "");
               const assignedName =
                 row?.assignedInvoicer?.fullName || row?.assignedInvoicer?.email || "—";
 
@@ -122,6 +126,11 @@ export default function BillingQueueTable({
                     <div className="text-xs text-gray-500">
                       {row.factureReference || row.preorderNumber || row.id}
                     </div>
+                    {hasOpenAs400Dispute ? (
+                      <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                        Facture absente certification AS400
+                      </div>
+                    ) : null}
                   </td>
 
                   <td className="px-4 py-3">
@@ -201,6 +210,18 @@ export default function BillingQueueTable({
                             type="button"
                           >
                             Escalader
+                          </button>
+                        </RequirePermission>
+                      ) : null}
+
+                      {hasOpenAs400Dispute ? (
+                        <RequirePermission permission={Permission.INVOICE_CREATE}>
+                          <button
+                            onClick={() => onResolveAs400Dispute?.(row)}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                            type="button"
+                          >
+                            Repris AS400
                           </button>
                         </RequirePermission>
                       ) : null}

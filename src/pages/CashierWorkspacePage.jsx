@@ -451,7 +451,17 @@ function printCashierReceipt(row, admin = {}) {
   return true;
 }
 
-function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncWave, onOpenDetails, onPrintReceipt }) {
+function ProcessingTable({
+  rows,
+  busyId,
+  onCashPay,
+  onVerify,
+  onPrepare,
+  onSyncWave,
+  onOpenDetails,
+  onPrintReceipt,
+  onReportAs400Missing,
+}) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -483,6 +493,9 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                 const canPrepare = row.status === "PAID";
                 const canSyncWave = isWave && row.paymentStatus !== "PAID";
                 const canPrintReceipt = row.paymentStatus === "PAID" || row.status === "PAID";
+                const hasOpenAs400Dispute =
+                  row.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
+                  ["OPEN", "REPORTED"].includes(row.as400CertificationStatus || "");
                 const disabled = busyId === row.id;
 
                 return (
@@ -514,6 +527,11 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(row.paymentStatus || row.status)}`}>
                         {humanizeEnum(row.paymentStatus || row.status)}
                       </span>
+                      {hasOpenAs400Dispute ? (
+                        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                          Contentieux AS400 ouvert
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -528,6 +546,16 @@ function ProcessingTable({ rows, busyId, onCashPay, onVerify, onPrepare, onSyncW
                         ) : null}
                         {canPrepare ? (
                           <button type="button" onClick={() => onPrepare(row)} disabled={disabled} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Lancer prep</button>
+                        ) : null}
+                        {canPrepare && !hasOpenAs400Dispute ? (
+                          <button
+                            type="button"
+                            onClick={() => onReportAs400Missing?.(row)}
+                            disabled={disabled}
+                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"
+                          >
+                            Facture absente AS400
+                          </button>
                         ) : null}
                         {canPrintReceipt ? (
                           <button type="button" onClick={() => onPrintReceipt(row)} disabled={disabled} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Imprimer reçu</button>
@@ -1257,6 +1285,19 @@ export default function CashierWorkspacePage() {
     }
   };
 
+  const handleReportAs400Missing = (row) =>
+    runAction(row.id, async () => {
+      const ok = window.confirm(
+        `Confirmer que la facture AS400 ${row.factureReference || row.preorderNumber || row.id} est absente de l'application de certification ?\n\nLa préparation sera bloquée et le service facturation devra reprendre la facture.`,
+      );
+      if (!ok) return;
+
+      await cashierService.reportAs400CertificationMissing(row.id, {
+        note: "Facture absente dans l'application de certification AS400, signalée depuis l'espace caisse.",
+      });
+      setInfo("Contentieux AS400 ouvert. La commande est retirée de la préparation jusqu'à reprise par la facturation.");
+    });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -1499,6 +1540,7 @@ export default function CashierWorkspacePage() {
                   setInfo("Statut Wave synchronisé.");
                 })
               }
+              onReportAs400Missing={handleReportAs400Missing}
             />
           </section>
 
@@ -1520,6 +1562,7 @@ export default function CashierWorkspacePage() {
                 })
               }
               onSyncWave={() => {}}
+              onReportAs400Missing={handleReportAs400Missing}
             />
           </section>
         </div>
