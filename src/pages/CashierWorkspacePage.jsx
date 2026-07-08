@@ -552,9 +552,9 @@ function ProcessingTable({
                             type="button"
                             onClick={() => onReportAs400Missing?.(row)}
                             disabled={disabled}
-                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"
+                            className="rounded-lg border border-red-300 bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-50"
                           >
-                            Facture absente AS400
+                            Ouvrir contentieux AS400
                           </button>
                         ) : null}
                         {canPrintReceipt ? (
@@ -716,7 +716,7 @@ function CashCollectionDialog({
   );
 }
 
-function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
+function OrderDrawer({ open, loading, order, onClose, onOpenOrder, onReportAs400Missing }) {
   const items = Array.isArray(order?.items) ? order.items : [];
   const attempt = order?.activePayment?.attempts?.[0] || null;
   const cashierTx = order?.cashierTransactions?.[0] || null;
@@ -731,6 +731,14 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
   const proofUrl = proofBlobUrl || legacyProofUrl;
   const proofRef = latestBankProof?.reference || order?.manualPaymentReference || "-";
   const proofNote = latestBankProof?.note || order?.manualPaymentProofNote || "";
+  const hasOpenAs400Dispute =
+    order?.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
+    ["OPEN", "REPORTED"].includes(order?.as400CertificationStatus || "");
+  const canReportAs400Missing =
+    order?.status === "PAID" &&
+    order?.paymentStatus === "PAID" &&
+    !order?.preparationLaunchedAt &&
+    !hasOpenAs400Dispute;
 
   useEffect(() => {
     let objectUrl = "";
@@ -829,6 +837,29 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder }) {
                 <div><strong>Paiement confirmé:</strong> {formatDateTime(order.manualPaymentValidatedAt || order.paidAt)}</div>
               </div>
             </div>
+
+            {hasOpenAs400Dispute ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                <div className="font-semibold">Contentieux AS400 ouvert</div>
+                <div className="mt-1">
+                  La préparation est bloquée jusqu'à reprise de la facture par la facturation.
+                </div>
+              </div>
+            ) : canReportAs400Missing ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm">
+                <div className="font-semibold text-red-900">Facture absente dans la certification ?</div>
+                <div className="mt-1 text-red-800">
+                  Si la Ref AS400 n'est pas trouvée dans l'application de certification, ouvrez un contentieux avant de lancer la préparation.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onReportAs400Missing?.(order)}
+                  className="mt-3 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                >
+                  Ouvrir contentieux AS400
+                </button>
+              </div>
+            ) : null}
 
             <div className="rounded-xl border border-gray-200 p-4 text-sm">
               <div className="mb-2 text-sm font-semibold text-gray-900">Preuve de paiement</div>
@@ -1546,6 +1577,9 @@ export default function CashierWorkspacePage() {
 
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-gray-900">À lancer en préparation</h2>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Après vérification dans l'application de certification : cliquez sur <strong>Lancer prep</strong> si la Ref AS400 existe, ou sur <strong>Ouvrir contentieux AS400</strong> si elle est absente.
+            </div>
             <ProcessingTable
               rows={toLaunchPreparation}
               busyId={busyId}
@@ -1597,6 +1631,7 @@ export default function CashierWorkspacePage() {
           setDrawerOrder(null);
         }}
         onOpenOrder={(id) => navigate(`/orders/${id}?tab=payment`)}
+        onReportAs400Missing={handleReportAs400Missing}
       />
 
       <CashCollectionDialog
