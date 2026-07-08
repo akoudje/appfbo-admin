@@ -50,6 +50,121 @@ function safeWriteStorage(key, value) {
   }
 }
 
+function formatFcfa(value) {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "XOF",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function As400ResolveDialog({
+  open,
+  order,
+  values,
+  saving,
+  onChange,
+  onCancel,
+  onConfirm,
+}) {
+  if (!open || !order) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={saving ? undefined : onCancel} />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-xl rounded-2xl border border-emerald-200 bg-white shadow-2xl">
+          <div className="border-b border-emerald-100 px-5 py-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              Reprise AS400
+            </div>
+            <h3 className="mt-1 text-lg font-semibold text-gray-950">
+              Clôturer le contentieux après correction
+            </h3>
+          </div>
+
+          <div className="space-y-4 px-5 py-4 text-sm text-gray-700">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div className="font-semibold text-gray-900">
+                {order.preorderNumber || order.id}
+              </div>
+              <div>{order.fboNomComplet || "-"} {order.fboNumero ? `(FBO ${order.fboNumero})` : ""}</div>
+              <div className="mt-1 text-xs text-gray-500">
+                Montant commande: {formatFcfa(order.totalFcfa)}
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700">
+                  N° facture AS400 corrigé
+                </span>
+                <input
+                  value={values.as400Reference}
+                  onChange={(e) => onChange("as400Reference", e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+                  placeholder="Ex: 25001234"
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700">
+                  Montant AS400 corrigé
+                </span>
+                <input
+                  value={values.as400AmountFcfa}
+                  onChange={(e) => onChange("as400AmountFcfa", e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+                  inputMode="numeric"
+                  placeholder="Ex: 37744"
+                  disabled={saving}
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">
+                Note de reprise
+              </span>
+              <textarea
+                value={values.note}
+                onChange={(e) => onChange("note", e.target.value)}
+                className="min-h-20 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+                disabled={saving}
+              />
+            </label>
+
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+              Après confirmation, le contentieux sera clôturé et la caisse pourra relancer la préparation.
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={saving}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={saving}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saving ? "Clôture..." : "Confirmer la reprise"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function normalizeBillingTab(value, fallback = "my") {
   const tab = String(value || "")
     .trim()
@@ -134,6 +249,13 @@ export default function BillingQueuePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
+  const [as400ResolveRow, setAs400ResolveRow] = useState(null);
+  const [as400ResolveValues, setAs400ResolveValues] = useState({
+    as400Reference: "",
+    as400AmountFcfa: "",
+    note: "Facture reprise dans AS400 depuis la file de facturation",
+  });
+  const [as400ResolveSaving, setAs400ResolveSaving] = useState(false);
   const attentionTimerRef = useRef(null);
   const autoClaimHandledRef = useRef(false);
 
@@ -551,17 +673,57 @@ export default function BillingQueuePage() {
     }
   };
 
-  const handleResolveAs400Dispute = async (row) => {
+  const handleResolveAs400Dispute = (row) => {
+    setError("");
+    setInfo("");
+    setAs400ResolveRow(row);
+    setAs400ResolveValues({
+      as400Reference: String(row?.factureReference || "").trim(),
+      as400AmountFcfa: String(row?.as400InvoiceTotalFcfa || row?.totalFcfa || "").trim(),
+      note: "Facture reprise dans AS400 depuis la file de facturation",
+    });
+  };
+
+  const closeAs400ResolveDialog = () => {
+    if (as400ResolveSaving) return;
+    setAs400ResolveRow(null);
+  };
+
+  const confirmAs400Resolve = async () => {
+    const row = as400ResolveRow;
+    if (!row?.id) return;
+
+    const as400Reference = String(as400ResolveValues.as400Reference || "").trim();
+    const amountRaw = String(as400ResolveValues.as400AmountFcfa || "").trim();
+    const amount = Number(amountRaw.replace(/[^\d.-]/g, ""));
+
+    if (!as400Reference) {
+      setError("Le numéro de facture AS400 corrigé est obligatoire.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Le montant AS400 corrigé est obligatoire.");
+      return;
+    }
+
     try {
+      setAs400ResolveSaving(true);
       setError("");
       setInfo("");
       await ordersService.resolveAs400CertificationDispute(row.id, {
-        note: "Facture reprise dans AS400 depuis la file de facturation",
+        as400Reference,
+        as400AmountFcfa: Math.round(amount),
+        note:
+          String(as400ResolveValues.note || "").trim() ||
+          "Facture reprise dans AS400 depuis la file de facturation",
       });
+      setAs400ResolveRow(null);
       setInfo("Contentieux AS400 clôturé. La caisse peut relancer la préparation.");
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de clôturer le contentieux AS400");
+    } finally {
+      setAs400ResolveSaving(false);
     }
   };
 
@@ -782,6 +944,21 @@ export default function BillingQueuePage() {
         onRelease={handleRelease}
         onEscalate={handleEscalate}
         onResolveAs400Dispute={handleResolveAs400Dispute}
+      />
+
+      <As400ResolveDialog
+        open={Boolean(as400ResolveRow)}
+        order={as400ResolveRow}
+        values={as400ResolveValues}
+        saving={as400ResolveSaving}
+        onChange={(field, value) =>
+          setAs400ResolveValues((prev) => ({
+            ...prev,
+            [field]: value,
+          }))
+        }
+        onCancel={closeAs400ResolveDialog}
+        onConfirm={confirmAs400Resolve}
       />
     </div>
   );
