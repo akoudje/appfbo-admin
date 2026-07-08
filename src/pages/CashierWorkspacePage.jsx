@@ -200,6 +200,34 @@ function resolveReceiptAmount(row = {}) {
   );
 }
 
+function isSwitchedToCash(row = {}) {
+  const logs = Array.isArray(row.logs) ? row.logs : [];
+  return logs.some((log) => {
+    const meta = log?.meta || {};
+    return (
+      log?.action === "WAIT_CUSTOMER_DATA" &&
+      meta.toPreorderPaymentMode === "ESPECES" &&
+      meta.fromPreorderPaymentMode &&
+      meta.fromPreorderPaymentMode !== "ESPECES"
+    );
+  });
+}
+
+function resolveOriginalPaymentMode(row = {}) {
+  const logs = Array.isArray(row.logs) ? row.logs : [];
+  const switchLog = logs.find((log) => {
+    const meta = log?.meta || {};
+    return (
+      log?.action === "WAIT_CUSTOMER_DATA" &&
+      meta.toPreorderPaymentMode === "ESPECES" &&
+      meta.fromPreorderPaymentMode &&
+      meta.fromPreorderPaymentMode !== "ESPECES"
+    );
+  });
+
+  return switchLog?.meta?.fromPreorderPaymentMode || row.preorderPaymentMode || row.paymentProvider || "";
+}
+
 function printCashierReceipt(row, admin = {}) {
   if (!row?.id || typeof window === "undefined") return false;
 
@@ -213,7 +241,11 @@ function printCashierReceipt(row, admin = {}) {
     row.paymentCollectionCode ||
     row.factureReference ||
     row.id;
-  const paymentMode = humanizeEnum(row.preorderPaymentMode || row.paymentProvider);
+  const switchedToCash = isSwitchedToCash(row);
+  const originalPaymentMode = resolveOriginalPaymentMode(row);
+  const paymentMode = switchedToCash
+    ? `${humanizeEnum(originalPaymentMode)} validé à la caisse`
+    : humanizeEnum(row.preorderPaymentMode || row.paymentProvider);
   const isWave =
     String(row.paymentProvider || "").toUpperCase() === "WAVE" ||
     String(row.preorderPaymentMode || "").toUpperCase() === "WAVE" ||
@@ -252,11 +284,23 @@ function printCashierReceipt(row, admin = {}) {
       admin,
   );
 
+  const receiptTitle = switchedToCash
+    ? "VALIDATION DE PAIEMENT"
+    : isWave
+      ? "REÇU PAIEMENT WAVE"
+      : "REÇU ENCAISSEMENT CAISSE";
+  const receiptSubtitle = switchedToCash
+    ? "Validation caisse d'un paiement déjà effectué"
+    : isWave
+      ? "Paiement électronique confirmé"
+      : "Encaissement au comptoir";
+
   const lines = [
     ["Commande", orderNumber],
     ["Client", row.fboNomComplet || "-"],
     ["FBO", row.fboNumero || "-"],
     ["Mode paiement", paymentMode],
+    ...(switchedToCash ? [["Mode d'origine", humanizeEnum(originalPaymentMode)]] : []),
     ["Montant payé", formatFcfa(resolveReceiptAmount(row))],
     ["Code caisse", row.paymentCollectionCode || "-"],
     ["Facture AS400", row.factureReference || "-"],
@@ -414,9 +458,9 @@ function printCashierReceipt(row, admin = {}) {
           <span class="logo-divider"></span>
           <img class="wave-logo" src="/wave.png" alt="Wave" />
         </div>
-        <p>Reçu de paiement caisse</p>
+        <p>${escapeHtml(receiptSubtitle)}</p>
       </header>
-      <div class="title">PAIEMENT CONFIRMÉ</div>
+      <div class="title">${escapeHtml(receiptTitle)}</div>
       <section class="amount">
         <span class="label">Montant payé</span>
         <span class="value">${escapeHtml(formatFcfa(resolveReceiptAmount(row)))}</span>
@@ -1280,10 +1324,15 @@ export default function CashierWorkspacePage() {
 
   const askCashCollection = (row) =>
     new Promise((resolve) => {
+      const switchedToCash = isSwitchedToCash(row);
+      const originalMode = resolveOriginalPaymentMode(row);
       cashDialogResolverRef.current = resolve;
       setCashDialogValues({
         receiptNumber: String(row?.cashierTransaction?.receiptNumber || row?.paymentCollectionCode || row?.factureReference || "").trim(),
-        cashDeskLabel: String(row?.cashierTransaction?.cashDeskLabel || "Caisse principale").trim(),
+        cashDeskLabel: String(
+          row?.cashierTransaction?.cashDeskLabel ||
+            (switchedToCash ? `Validation ${humanizeEnum(originalMode)}` : "Caisse principale"),
+        ).trim(),
         amountReceivedFcfa: String(row?.amountExpectedFcfa || row?.totalFcfa || "").trim(),
       });
       setCashDialogOpen(true);
@@ -1527,26 +1576,7 @@ export default function CashierWorkspacePage() {
                     note: "Encaissement espèces depuis l'espace caisse",
                     ...payload,
                   });
-                  printCashierReceipt(
-                    {
-                      ...row,
-                      status: "PAID",
-                      paymentStatus: "PAID",
-                      paidAt: new Date().toISOString(),
-                      manualPaymentValidatedAt: new Date().toISOString(),
-                      cashierTransaction: {
-                        ...(row.cashierTransaction || {}),
-                        receiptNumber: payload.receiptNumber,
-                        cashDeskLabel: payload.cashDeskLabel || row.cashierTransaction?.cashDeskLabel,
-                        amountReceivedFcfa: payload.amountReceivedFcfa,
-                        cashier: admin,
-                        createdAt: new Date().toISOString(),
-                      },
-                      validatedBy: admin,
-                    },
-                    admin,
-                  );
-                  setInfo("Paiement espèces enregistré.");
+                  setInfo("Paiement enregistré. Utilisez le bouton « Imprimer reçu » si un justificatif est nécessaire.");
                 })
               }
               onVerify={(row) =>
