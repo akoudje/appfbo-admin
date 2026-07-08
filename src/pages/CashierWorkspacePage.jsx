@@ -121,6 +121,12 @@ function mergeRowsById(groups = []) {
   return Array.from(map.values());
 }
 
+function isCompletedCashierRow(row) {
+  if (!row) return false;
+  if (["READY", "FULFILLED"].includes(row.status)) return true;
+  return row.status === "PAID" && Boolean(row.preparationLaunchedAt);
+}
+
 function SummaryCard({ label, value, hint }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -1132,20 +1138,26 @@ export default function CashierWorkspacePage() {
       const fromValue = overrides.dateFrom ?? dateFrom;
       const toValue = overrides.dateTo ?? dateTo;
 
-      const common = {
+      const workspaceFilters = {
         q: qValue || undefined,
         paymentMode: paymentModeValue || undefined,
         dateFrom: fromValue || undefined,
         dateTo: toValue || undefined,
       };
+      const orderListFilters = {
+        q: qValue || undefined,
+        preorderPaymentMode: paymentModeValue || undefined,
+        dateFrom: fromValue || undefined,
+        dateTo: toValue || undefined,
+      };
 
       const [workspaceRes, paidRes, readyRes, fulfilledRes, searchRes] = await Promise.all([
-        cashierService.getWorkspace(common),
-        ordersService.getAll({ ...common, status: "PAID", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
-        ordersService.getAll({ ...common, status: "READY", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
-        ordersService.getAll({ ...common, status: "FULFILLED", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
+        cashierService.getWorkspace(workspaceFilters),
+        ordersService.getAll({ ...orderListFilters, status: "PAID", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
+        ordersService.getAll({ ...orderListFilters, status: "READY", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
+        ordersService.getAll({ ...orderListFilters, status: "FULFILLED", page: 1, pageSize: 60, sort: "updatedAt", dir: "desc" }),
         qValue?.trim()
-          ? ordersService.getAll({ ...common, page: 1, pageSize: 80, sort: "updatedAt", dir: "desc" })
+          ? ordersService.getAll({ ...orderListFilters, page: 1, pageSize: 80, sort: "updatedAt", dir: "desc" })
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -1188,7 +1200,8 @@ export default function CashierWorkspacePage() {
       setCompletedRows(
         Array.isArray(workspaceRes?.journal) && workspaceRes.journal.length > 0
           ? workspaceRes.journal
-          : mergeRowsById([paidRes?.data || [], readyRes?.data || [], fulfilledRes?.data || []]),
+          : mergeRowsById([paidRes?.data || [], readyRes?.data || [], fulfilledRes?.data || []])
+              .filter(isCompletedCashierRow),
       );
       setSearchRows(Array.isArray(searchRes?.data) ? searchRes.data : []);
     } catch (e) {
