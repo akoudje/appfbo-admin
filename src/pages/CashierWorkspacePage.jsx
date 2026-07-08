@@ -766,6 +766,84 @@ function CashCollectionDialog({
   );
 }
 
+function As400DisputeDialog({ open, order, busy, onCancel, onConfirm }) {
+  if (!open || !order) return null;
+
+  const reference = order.factureReference || order.preorderNumber || order.id;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={busy ? undefined : onCancel} />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-white shadow-2xl">
+          <div className="border-b border-red-100 px-5 py-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-red-700">
+              Contentieux AS400
+            </div>
+            <h3 className="mt-1 text-lg font-semibold text-gray-950">
+              Bloquer le lancement en préparation ?
+            </h3>
+          </div>
+
+          <div className="space-y-4 px-5 py-4 text-sm text-gray-700">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div className="grid gap-2 md:grid-cols-2">
+                <div>
+                  <div className="text-xs font-medium text-gray-500">Commande</div>
+                  <div className="font-semibold text-gray-900">
+                    {order.preorderNumber || order.parcelNumber || order.id}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-medium text-gray-500">Facture AS400</div>
+                  <div className="font-semibold text-gray-900">{reference}</div>
+                </div>
+                <div className="md:col-span-2">
+                  <div className="text-xs font-medium text-gray-500">Client</div>
+                  <div className="font-semibold text-gray-900">
+                    {order.fboNomComplet || "-"} {order.fboNumero ? `(FBO ${order.fboNumero})` : ""}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p>
+              Cette action signale que la facture est absente de l'application de
+              certification AS400. La commande sera retirée de la zone
+              <strong> À lancer en préparation</strong> et envoyée au service facturation
+              pour reprise.
+            </p>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+              Le paiement reste confirmé, mais la préparation reste bloquée tant que le
+              contentieux AS400 n'est pas résolu.
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={busy}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+            >
+              {busy ? "Ouverture..." : "Confirmer le contentieux"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderDrawer({ open, loading, order, onClose, onOpenOrder, onReportAs400Missing }) {
   const items = Array.isArray(order?.items) ? order.items : [];
   const attempt = order?.activePayment?.attempts?.[0] || null;
@@ -1086,6 +1164,7 @@ export default function CashierWorkspacePage() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerOrder, setDrawerOrder] = useState(null);
   const [cashDialogOpen, setCashDialogOpen] = useState(false);
+  const [as400DisputeRow, setAs400DisputeRow] = useState(null);
   const [cashDialogValues, setCashDialogValues] = useState({
     receiptNumber: "",
     cashDeskLabel: "",
@@ -1378,18 +1457,24 @@ export default function CashierWorkspacePage() {
     }
   };
 
-  const handleReportAs400Missing = (row) =>
-    runAction(row.id, async () => {
-      const ok = window.confirm(
-        `Confirmer que la facture AS400 ${row.factureReference || row.preorderNumber || row.id} est absente de l'application de certification ?\n\nLa préparation sera bloquée et le service facturation devra reprendre la facture.`,
-      );
-      if (!ok) return;
+  const handleReportAs400Missing = (row) => {
+    setError("");
+    setInfo("");
+    setAs400DisputeRow(row);
+  };
 
+  const confirmAs400Dispute = () => {
+    const row = as400DisputeRow;
+    if (!row?.id) return;
+
+    runAction(row.id, async () => {
       await cashierService.reportAs400CertificationMissing(row.id, {
         note: "Facture absente dans l'application de certification AS400, signalée depuis l'espace caisse.",
       });
+      setAs400DisputeRow(null);
       setInfo("Contentieux AS400 ouvert. La commande est retirée de la préparation jusqu'à reprise par la facturation.");
     });
+  };
 
   return (
     <div className="space-y-5">
@@ -1700,6 +1785,16 @@ export default function CashierWorkspacePage() {
             amountReceivedFcfa,
           });
         }}
+      />
+
+      <As400DisputeDialog
+        open={Boolean(as400DisputeRow)}
+        order={as400DisputeRow}
+        busy={Boolean(busyId && busyId === as400DisputeRow?.id)}
+        onCancel={() => {
+          if (!busyId) setAs400DisputeRow(null);
+        }}
+        onConfirm={confirmAs400Dispute}
       />
     </div>
   );
