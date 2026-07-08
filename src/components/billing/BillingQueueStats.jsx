@@ -24,7 +24,7 @@ export default function BillingQueueStats({ stats }) {
       <StatCard label="En attente de traitement" value={stats.queue} tone="blue" />
       <StatCard label="Mes dossiers" value={stats.my} tone="gray" />
       <StatCard label="Attente paiement" value={stats.waitingPayment} tone="amber" />
-      <StatCard label="Escaladés" value={stats.escalated} tone="red" />
+      <StatCard label="Urgences / contentieux" value={stats.escalated} tone="red" />
     </div>
   );
 }

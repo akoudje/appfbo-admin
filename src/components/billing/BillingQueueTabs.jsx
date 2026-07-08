@@ -38,7 +38,7 @@ export default function BillingQueueTabs({ tab, setTab, isBillingManager = false
         </TabButton>
 
         <TabButton active={tab === "escalated"} onClick={() => setTab("escalated")}>
-          Escaladés
+          Urgences / contentieux
         </TabButton>
       </div>
     </div>

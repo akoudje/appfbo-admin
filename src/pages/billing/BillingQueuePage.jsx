@@ -29,7 +29,13 @@ const BILLING_ACTIVE_WORK_STATUSES = new Set([
 ]);
 
 function isBillingOrderActive(row) {
-  return BILLING_ORDER_ACTIVE_STATUSES.has(String(row?.status || "").toUpperCase());
+  const status = String(row?.status || "").toUpperCase();
+  const hasOpenAs400Dispute =
+    row?.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
+    ["OPEN", "REPORTED"].includes(row?.as400CertificationStatus || "");
+
+  if (status === "PAID" && hasOpenAs400Dispute) return true;
+  return BILLING_ORDER_ACTIVE_STATUSES.has(status);
 }
 
 function getTodayIsoDate() {
