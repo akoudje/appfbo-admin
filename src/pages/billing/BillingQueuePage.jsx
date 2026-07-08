@@ -766,7 +766,12 @@ export default function BillingQueuePage() {
 
       <BillingQueueStats stats={stats} />
 
-      <BillingQueueTabs tab={tab} setTab={setTab} isBillingManager={isBillingManager} />
+      <BillingQueueTabs
+        tab={tab}
+        setTab={setTab}
+        isBillingManager={isBillingManager}
+        stats={stats}
+      />
 
       <BillingQueueTable
         rows={filteredRows}
