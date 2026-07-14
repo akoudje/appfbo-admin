@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
+import { as400GatewayService } from "../services/as400GatewayService";
 import { list as listProducts } from "../services/productsService";
 import RequirePermission from "../components/auth/RequirePermission";
 import { AdminRole, Permission } from "../auth/permissions";
@@ -190,6 +191,7 @@ export default function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
 
   const [messages, setMessages] = useState([]);
+  const [as400Requests, setAs400Requests] = useState([]);
   const [replacementProducts, setReplacementProducts] = useState([]);
   const [replacementQuery, setReplacementQuery] = useState("");
   const [replacementLoading, setReplacementLoading] = useState(false);
@@ -203,13 +205,17 @@ export default function OrderDetailPage() {
       if (!silent) setLoading(true);
       setError("");
 
-      const [data, messageData] = await Promise.all([
+      const [data, messageData, as400Data] = await Promise.all([
         ordersService.getById(id),
         ordersService.getMessages(id).catch(() => []),
+        as400GatewayService
+          .listRequests({ preorderId: id, take: 10 })
+          .catch(() => ({ items: [] })),
       ]);
 
       setOrder(data);
       setMessages(Array.isArray(messageData) ? messageData : []);
+      setAs400Requests(Array.isArray(as400Data?.items) ? as400Data.items : []);
 
       if (!preserveFormDrafts) {
         setInvoiceRef(data?.factureReference || "");
@@ -1777,7 +1783,13 @@ const doInvoice = async (options = {}) => {
               <AccessDeniedPanel message="Accès refusé à l’historique." />
             }
           >
-            <OrderHistoryTab {...commonTabProps} messages={messages} logs={order?.logs} role={role} />
+            <OrderHistoryTab
+              {...commonTabProps}
+              messages={messages}
+              logs={order?.logs}
+              as400Requests={as400Requests}
+              role={role}
+            />
           </RequirePermission>
         )}
 
