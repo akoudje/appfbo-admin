@@ -466,6 +466,7 @@ function getLatestAttempt(order) {
 
 function BillingActionCard({
   canInvoice,
+  canEnqueueAs400Request = false,
   canCorrectAs400Invoice = false,
   canRelaunchPayment = false,
   saving,
@@ -490,6 +491,7 @@ function BillingActionCard({
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
+  onEnqueueAs400Request = null,
   onCorrectAs400Invoice = null,
   onRelaunchPayment,
   canSwitchToManualPayment = false,
@@ -755,6 +757,29 @@ function BillingActionCard({
             <div className="mt-1 text-xs opacity-80">
               Plateforme : {formatFcfa(platformAmountFcfa)} · AS400 :{" "}
               {formatFcfa(as400AmountFcfa)}
+            </div>
+          </div>
+        ) : null}
+
+        {canEnqueueAs400Request ? (
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-sky-950">
+                  Automatisation AS400
+                </div>
+                <div className="mt-1 text-xs leading-relaxed text-sky-800">
+                  Crée une demande en mode observation. Aucun écran AS400 n'est piloté et la facturation manuelle reste disponible.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onEnqueueAs400Request?.()}
+                disabled={saving || typeof onEnqueueAs400Request !== "function"}
+                className="shrink-0 rounded-lg border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition-colors hover:bg-sky-100 disabled:opacity-50"
+              >
+                Créer demande AS400
+              </button>
             </div>
           </div>
         ) : null}
@@ -1856,6 +1881,7 @@ export default function OrderBillingPaymentTab({
   order,
   saving,
   canInvoice,
+  canEnqueueAs400Request = false,
   canCorrectAs400Invoice = false,
   canRelaunchPayment = false,
   invoiceRef,
@@ -1879,6 +1905,7 @@ export default function OrderBillingPaymentTab({
   invoicePreviewLoading,
   paymentLink,
   onInvoice,
+  onEnqueueAs400Request = null,
   onCorrectAs400Invoice = null,
   onRelaunchPayment,
   isCash,
@@ -2099,6 +2126,7 @@ export default function OrderBillingPaymentTab({
         <div>
           <BillingActionCard
             canInvoice={canInvoice}
+            canEnqueueAs400Request={canEnqueueAs400Request}
             canCorrectAs400Invoice={canCorrectAs400Invoice}
             canRelaunchPayment={canRelaunchPayment}
             saving={saving}
@@ -2123,6 +2151,7 @@ export default function OrderBillingPaymentTab({
             invoicePreview={invoicePreview}
             invoicePreviewLoading={invoicePreviewLoading}
             onInvoice={onInvoice}
+            onEnqueueAs400Request={onEnqueueAs400Request}
             onCorrectAs400Invoice={onCorrectAs400Invoice}
             onRelaunchPayment={onRelaunchPayment}
             canSwitchToManualPayment={canSwitchToManualPayment}

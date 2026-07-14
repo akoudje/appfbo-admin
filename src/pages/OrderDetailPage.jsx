@@ -346,6 +346,7 @@ export default function OrderDetailPage() {
   }, [status, isWave, order?.id]);
 
   const canInvoice = status === "SUBMITTED";
+  const canEnqueueAs400Request = canAccessBilling && status === "SUBMITTED";
   const canCorrectAs400Invoice =
     canAccessBilling &&
     Boolean(order?.factureReference || order?.invoicedAt) &&
@@ -765,6 +766,34 @@ const doInvoice = async (options = {}) => {
     setSaving(false);
   }
 };
+
+  const doEnqueueAs400Request = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.enqueueAs400Request(id, {
+        mode: "OBSERVATION",
+        action: "CREATE_AND_VALIDATE_INVOICE",
+        note: "Demande AS400 créée depuis l'onglet facturation en mode observation.",
+      });
+
+      setInfo(
+        result?.created
+          ? "Demande AS400 créée en mode observation. Aucun automate n'a été exécuté."
+          : "Une demande AS400 active existe déjà pour cette commande.",
+      );
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de créer la demande AS400 en mode observation",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const doCorrectAs400Invoice = async (options = {}) => {
     try {
@@ -1546,6 +1575,7 @@ const doInvoice = async (options = {}) => {
               {...commonTabProps}
               saving={saving || waveLoading}
               canInvoice={canInvoice}
+              canEnqueueAs400Request={canEnqueueAs400Request}
               canCorrectAs400Invoice={canCorrectAs400Invoice}
               canRelaunchPayment={canRelaunchPayment}
               canProof={canProof}
@@ -1591,6 +1621,7 @@ const doInvoice = async (options = {}) => {
               cashAmountReceivedFcfa={cashAmountReceivedFcfa}
               setCashAmountReceivedFcfa={setCashAmountReceivedFcfa}
               onInvoice={doInvoice}
+              onEnqueueAs400Request={doEnqueueAs400Request}
               onCorrectAs400Invoice={doCorrectAs400Invoice}
               onRelaunchPayment={doRelaunchPayment}
               onCopyWhatsApp={copyWhatsApp}

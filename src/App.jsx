@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
+import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import StockWorkspacePage from "./pages/stock/StockWorkspacePage";
 import Products from "./pages/Products";
@@ -168,6 +169,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à la file de facturation." />}
                     >
                       <BillingQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/billing/as400"
+                  element={
+                    <RequirePermission
+                      permission={Permission.INVOICE_CREATE}
+                      fallback={<AccessDenied message="Accès refusé à la supervision AS400." />}
+                    >
+                      <AS400GatewayPage />
                     </RequirePermission>
                   }
                 />

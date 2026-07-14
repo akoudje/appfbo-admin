@@ -64,6 +64,7 @@ function getPageTitle(pathname) {
   if (pathname === "/orders") return "Commandes";
   if (pathname.startsWith("/orders/")) return "Détail commande";
   if (pathname === "/billing") return "Espace Facturation";
+  if (pathname === "/billing/as400") return "Gateway AS400";
   if (pathname === "/cashier") return "Espace Caisse";
   if (pathname === "/preparation") return "Espace Préparation";
   if (pathname === "/stock") return "Espace Stock";
@@ -83,6 +84,9 @@ function getPageSubtitle(pathname, role) {
 
   if (pathname === "/billing") {
     return "Traitez les dossiers du plus ancien au plus récent.";
+  }
+  if (pathname === "/billing/as400") {
+    return "Supervision des demandes AS400 sans automatisation active.";
   }
   if (pathname === "/cashier") {
     return "Encaissement, contrôle des paiements et lancement de la préparation.";

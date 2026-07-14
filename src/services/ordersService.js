@@ -76,6 +76,14 @@ export const ordersService = {
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/invoice`, body))
       .data,
 
+  enqueueAs400Request: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/as400-requests`,
+        body,
+      )
+    ).data,
+
   correctAs400Invoice: async (id, body) =>
     (
       await api.patch(
