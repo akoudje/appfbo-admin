@@ -1,6 +1,12 @@
 import api from "./api";
 
 export const as400GatewayService = {
+  getConfig: async () =>
+    (await api.get("/admin/as400/config")).data,
+
+  updateConfig: async (body = {}) =>
+    (await api.put("/admin/as400/config", body)).data,
+
   listRequests: async (params = {}) =>
     (await api.get("/admin/as400/requests", { params })).data,
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, PauseCircle, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, PauseCircle, RefreshCw, Save, XCircle } from "lucide-react";
 import { as400GatewayService } from "../services/as400GatewayService";
 
 const STATUSES = [
@@ -20,6 +20,23 @@ const STATUS_TONES = {
   COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-800",
   FAILED: "border-red-200 bg-red-50 text-red-800",
   CANCELLED: "border-gray-200 bg-gray-50 text-gray-700",
+};
+
+const DEFAULT_CONFIG = {
+  enabled: false,
+  defaultMode: "OBSERVATION",
+  allowObservation: true,
+  allowAssisted: false,
+  allowAutomatic: false,
+  workerId: "",
+  hllapiProfileName: "",
+  sessionName: "",
+  environmentLabel: "",
+  maxAttempts: 1,
+  lockTimeoutSeconds: 900,
+  pollIntervalSeconds: 30,
+  claimBatchSize: 1,
+  lastHeartbeatAt: null,
 };
 
 function formatDateTime(value) {
@@ -71,6 +88,8 @@ export default function AS400GatewayPage() {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [actionLoading, setActionLoading] = useState("");
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [configSaving, setConfigSaving] = useState(false);
 
   const selected = useMemo(
     () => rows.find((row) => row.id === selectedId) || rows[0] || null,
@@ -107,10 +126,51 @@ export default function AS400GatewayPage() {
     }
   }
 
+  async function loadConfig() {
+    try {
+      const data = await as400GatewayService.getConfig();
+      setConfig({ ...DEFAULT_CONFIG, ...(data || {}) });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Impossible de charger la configuration AS400.");
+    }
+  }
+
   useEffect(() => {
     load();
+    loadConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  function updateConfigField(key, value) {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function saveConfig() {
+    setConfigSaving(true);
+    setError("");
+    try {
+      const saved = await as400GatewayService.updateConfig({
+        enabled: config.enabled,
+        defaultMode: config.defaultMode,
+        allowObservation: config.allowObservation,
+        allowAssisted: config.allowAssisted,
+        allowAutomatic: config.allowAutomatic,
+        workerId: config.workerId,
+        hllapiProfileName: config.hllapiProfileName,
+        sessionName: config.sessionName,
+        environmentLabel: config.environmentLabel,
+        maxAttempts: config.maxAttempts,
+        lockTimeoutSeconds: config.lockTimeoutSeconds,
+        pollIntervalSeconds: config.pollIntervalSeconds,
+        claimBatchSize: config.claimBatchSize,
+      });
+      setConfig({ ...DEFAULT_CONFIG, ...(saved || {}) });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Impossible d'enregistrer la configuration AS400.");
+    } finally {
+      setConfigSaving(false);
+    }
+  }
 
   async function runAction(kind, request) {
     if (!request) return;
@@ -170,6 +230,131 @@ export default function AS400GatewayPage() {
         <StatCard label="Manuel" value={stats.manual} tone="orange" />
         <StatCard label="Terminées" value={stats.completed} tone="emerald" />
         <StatCard label="Erreurs" value={stats.failed} tone="red" />
+      </section>
+
+      <section className="mb-5 border border-gray-200 bg-white p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-950">Configuration gateway</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Paramètres de consommation des demandes par l'automate externe. Les mots de passe et secrets AS400 restent sur le poste automate.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={saveConfig}
+            disabled={configSaving}
+            className="inline-flex items-center justify-center gap-2 border border-gray-900 bg-gray-950 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+          >
+            <Save size={16} />
+            Enregistrer
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+          <label className="flex items-center gap-2 border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">
+            <input
+              type="checkbox"
+              checked={Boolean(config.enabled)}
+              onChange={(event) => updateConfigField("enabled", event.target.checked)}
+            />
+            Gateway activé
+          </label>
+
+          <label className="text-sm font-semibold text-gray-700">
+            Mode par défaut
+            <select
+              value={config.defaultMode}
+              onChange={(event) => updateConfigField("defaultMode", event.target.value)}
+              className="mt-1 w-full border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400"
+            >
+              <option value="OBSERVATION">Observation</option>
+              <option value="ASSISTED">Assisté</option>
+              <option value="AUTOMATIC">Automatique</option>
+            </select>
+          </label>
+
+          <Field
+            label="Worker"
+            value={config.workerId || ""}
+            onChange={(value) => updateConfigField("workerId", value)}
+            placeholder="as400-bot-poste-1"
+          />
+          <Field
+            label="Profil HLLAPI"
+            value={config.hllapiProfileName || ""}
+            onChange={(value) => updateConfigField("hllapiProfileName", value)}
+            placeholder="IBM i Access"
+          />
+          <Field
+            label="Session"
+            value={config.sessionName || ""}
+            onChange={(value) => updateConfigField("sessionName", value)}
+            placeholder="A"
+          />
+          <Field
+            label="Environnement"
+            value={config.environmentLabel || ""}
+            onChange={(value) => updateConfigField("environmentLabel", value)}
+            placeholder="Production AS400 CIV"
+          />
+          <NumberField
+            label="Tentatives"
+            value={config.maxAttempts}
+            onChange={(value) => updateConfigField("maxAttempts", value)}
+            min={1}
+            max={10}
+          />
+          <NumberField
+            label="Timeout verrou sec."
+            value={config.lockTimeoutSeconds}
+            onChange={(value) => updateConfigField("lockTimeoutSeconds", value)}
+            min={60}
+            max={7200}
+          />
+          <NumberField
+            label="Poll sec."
+            value={config.pollIntervalSeconds}
+            onChange={(value) => updateConfigField("pollIntervalSeconds", value)}
+            min={5}
+            max={3600}
+          />
+          <NumberField
+            label="Lot de prise"
+            value={config.claimBatchSize}
+            onChange={(value) => updateConfigField("claimBatchSize", value)}
+            min={1}
+            max={20}
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={Boolean(config.allowObservation)}
+              onChange={(event) => updateConfigField("allowObservation", event.target.checked)}
+            />
+            Observation
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={Boolean(config.allowAssisted)}
+              onChange={(event) => updateConfigField("allowAssisted", event.target.checked)}
+            />
+            Assisté
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={Boolean(config.allowAutomatic)}
+              onChange={(event) => updateConfigField("allowAutomatic", event.target.checked)}
+            />
+            Automatique
+          </label>
+          <span>Dernier heartbeat: {formatDateTime(config.lastHeartbeatAt)}</span>
+        </div>
       </section>
 
       <section className="mb-5 grid gap-3 border border-gray-200 bg-white p-4 md:grid-cols-[180px_1fr_auto]">
@@ -337,5 +522,35 @@ function Row({ label, value }) {
       <dt className="text-gray-500">{label}</dt>
       <dd className="break-words font-medium text-gray-900">{value || "-"}</dd>
     </div>
+  );
+}
+
+function Field({ label, value, onChange, placeholder }) {
+  return (
+    <label className="text-sm font-semibold text-gray-700">
+      {label}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-1 w-full border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400"
+      />
+    </label>
+  );
+}
+
+function NumberField({ label, value, onChange, min, max }) {
+  return (
+    <label className="text-sm font-semibold text-gray-700">
+      {label}
+      <input
+        type="number"
+        value={value ?? ""}
+        min={min}
+        max={max}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-1 w-full border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400"
+      />
+    </label>
   );
 }
