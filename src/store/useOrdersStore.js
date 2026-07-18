@@ -9,6 +9,9 @@ export const useOrdersStore = create((set, get) => ({
   loading: false,
   error: "",
 
+  // guards against out-of-order responses when requests overlap
+  _requestId: 0,
+
   // data
   orders: [],
   page: 1,
@@ -80,7 +83,8 @@ export const useOrdersStore = create((set, get) => ({
       dir,
     } = get();
 
-    set({ loading: true, error: "" });
+    const requestId = get()._requestId + 1;
+    set({ _requestId: requestId, loading: true, error: "" });
 
     try {
       const res = await ordersService.getAll({
@@ -103,6 +107,8 @@ export const useOrdersStore = create((set, get) => ({
         dir: dir || "desc",
       });
 
+      if (get()._requestId !== requestId) return; // stale response, a newer request superseded it
+
       set({
         orders: Array.isArray(res.data) ? res.data : [],
         page: Number(res.page) || 1,
@@ -112,6 +118,7 @@ export const useOrdersStore = create((set, get) => ({
         loading: false,
       });
     } catch (error) {
+      if (get()._requestId !== requestId) return;
       console.error("useOrdersStore.fetchOrders error:", error);
       set({
         loading: false,

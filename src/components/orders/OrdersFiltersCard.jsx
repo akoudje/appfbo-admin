@@ -116,12 +116,14 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
               placeholder="Rechercher par numéro FBO, nom, facture..."
               value={localQ}
               onChange={(e) => setLocalQ(e.target.value)}
+              aria-label="Rechercher par numéro FBO, nom ou facture"
             />
             {localQ && (
               <button
                 onClick={() => setLocalQ("")}
                 className="absolute inset-y-0 right-0 pr-3 text-gray-400 hover:text-gray-600"
                 type="button"
+                aria-label="Effacer la recherche"
               >
                 ✕
               </button>
