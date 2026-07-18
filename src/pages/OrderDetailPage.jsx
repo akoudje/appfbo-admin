@@ -1099,19 +1099,35 @@ const doInvoice = async (options = {}) => {
     }
   };
 
-  const doResendConfirmationSms = async () => {
+  const doResendConfirmationSms = async (channel = "") => {
     try {
       setSaving(true);
       setError("");
       setInfo("");
 
+      const normalizedChannel = String(channel || "").trim().toUpperCase();
       const result = await ordersService.resendConfirmationSms(id, {
+        ...(normalizedChannel ? { channel: normalizedChannel } : {}),
         phone: normalizeStr(invoiceWaTo) || undefined,
         email: normalizeStr(invoiceEmail) || undefined,
       });
       if (result?.sent) {
-        const channel = String(result?.channel || "SMS").toUpperCase();
-        setInfo(`Notification de confirmation renvoyée via ${channel} au ${result?.toPhone || "client"}.`);
+        const channelsSent = (Array.isArray(result?.attempts) ? result.attempts : [])
+          .filter((attempt) => attempt?.sent || attempt?.queued)
+          .map((attempt) => String(attempt.channel || "").toUpperCase())
+          .filter(Boolean);
+        const channelLabel =
+          [...new Set(channelsSent)].join(" + ") ||
+          String(result?.channel || normalizedChannel || "SMS").toUpperCase();
+        const destinations = [
+          result?.toPhone ? `SMS: ${result.toPhone}` : null,
+          result?.toEmail ? `Email: ${result.toEmail}` : null,
+        ].filter(Boolean);
+        setInfo(
+          `Notification de confirmation renvoyée via ${channelLabel}${
+            destinations.length ? ` vers ${destinations.join(" | ")}` : "."
+          }`,
+        );
       } else {
         setInfo(
           result?.errorMessage ||

@@ -661,22 +661,44 @@ export default function OrderFulfillmentTab({
 
               {typeof onResendConfirmationSms === "function" ? (
                 <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={onResendConfirmationSms}
-                    disabled={
+                  {(() => {
+                    const resendDisabled =
                       saving ||
                       (!canResendConfirmationSms &&
                         !["READY", "FULFILLED"].includes(
                           String(status || "").toUpperCase(),
-                        ))
-                    }
-                    className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Renvoyer SMS de confirmation
-                  </button>
+                        ));
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onResendConfirmationSms("SMS")}
+                          disabled={resendDisabled}
+                          className="flex-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Renvoyer par SMS
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onResendConfirmationSms("EMAIL")}
+                          disabled={resendDisabled}
+                          className="flex-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Renvoyer par email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onResendConfirmationSms("")}
+                          disabled={resendDisabled}
+                          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Renvoyer sur tous les canaux
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <div className="text-xs text-gray-500">
-                    Le renvoi utilise le téléphone de notifications saisi à gauche et le conserve sur la commande.
+                    Le renvoi utilise le téléphone/email de notifications saisis à gauche et les conserve sur la commande.
                   </div>
                 </div>
               ) : null}
