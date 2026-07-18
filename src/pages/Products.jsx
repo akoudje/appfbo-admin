@@ -439,6 +439,9 @@ export default function Products() {
   // debounce reference
   const debouncedLoadRef = useRef(null);
 
+  // guards against out-of-order responses when requests overlap
+  const requestIdRef = useRef(0);
+
   const showToast = (msg, type = "success") => {
     setToastType(type);
     setToast(msg);
@@ -460,6 +463,8 @@ export default function Products() {
     const categoryValue = opts.category ?? categoryRef.current;
     const stockValue = opts.stock ?? stockRef.current;
 
+    const requestId = ++requestIdRef.current;
+
     try {
       setLoading(true);
       setError("");
@@ -478,12 +483,14 @@ export default function Products() {
       };
 
       const data = await list(params);
+      if (requestId !== requestIdRef.current) return; // stale response, a newer request superseded it
       setRows(Array.isArray(data) ? data : []);
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       console.error(e);
       setError("Impossible de charger les produits");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
@@ -515,19 +522,19 @@ export default function Products() {
   const onActifChange = (value) => {
     setActifFilter(value);
     actifRef.current = value;
-    debouncedLoadRef.current(qRef.current, actifRef.current, categoryRef.current, stockRef.current);
+    load({ q: qRef.current, actif: value, category: categoryRef.current, stock: stockRef.current });
   };
 
   const onCategoryChange = (value) => {
     setCategoryFilter(value);
     categoryRef.current = value;
-    debouncedLoadRef.current(qRef.current, actifRef.current, categoryRef.current, stockRef.current);
+    load({ q: qRef.current, actif: actifRef.current, category: value, stock: stockRef.current });
   };
 
   const onStockChange = (value) => {
     setStockFilter(value);
     stockRef.current = value;
-    debouncedLoadRef.current(qRef.current, actifRef.current, categoryRef.current, stockRef.current);
+    load({ q: qRef.current, actif: actifRef.current, category: categoryRef.current, stock: value });
   };
 
   const resetAll = () => {
@@ -702,12 +709,13 @@ export default function Products() {
                   placeholder="Rechercher par nom ou SKU..."
                   value={q}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  disabled={loading}
+                  aria-label="Rechercher par nom ou SKU"
                 />
                 {q && (
                   <button
                     onClick={() => onSearchChange("")}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    aria-label="Effacer la recherche"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -720,7 +728,6 @@ export default function Products() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 value={actifFilter}
                 onChange={(e) => onActifChange(e.target.value)}
-                disabled={loading}
               >
                 <option value="">Tous statuts</option>
                 <option value="true">Actifs</option>
@@ -731,7 +738,6 @@ export default function Products() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 value={categoryFilter}
                 onChange={(e) => onCategoryChange(e.target.value)}
-                disabled={loading}
               >
                 {PRODUCT_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -744,7 +750,6 @@ export default function Products() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 value={stockFilter}
                 onChange={(e) => onStockChange(e.target.value)}
-                disabled={loading}
               >
                 <option value="">Tous stocks</option>
                 <option value="in">En stock</option>
