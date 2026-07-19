@@ -346,8 +346,10 @@ export default function FboDocumentsPage() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [city, setCity] = useState("Abidjan");
   const [purpose, setPurpose] = useState("");
-  const [signatoryName, setSignatoryName] = useState(DEFAULT_SIGNATORY.name);
-  const [signatoryTitle, setSignatoryTitle] = useState(DEFAULT_SIGNATORY.title);
+  // Le signataire est imposé côté serveur (liste des personnes habilitées) ;
+  // ces valeurs ne sont donc pas éditables ici.
+  const signatoryName = DEFAULT_SIGNATORY.name;
+  const signatoryTitle = DEFAULT_SIGNATORY.title;
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -523,10 +525,14 @@ export default function FboDocumentsPage() {
                 <textarea className={inputClass()} rows={2} value={purpose} onChange={(event) => setPurpose(event.target.value)} />
               </Field>
               <Field label="Signataire">
-                <input className={inputClass()} value={signatoryName} onChange={(event) => setSignatoryName(event.target.value)} />
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold">
+                  {signatoryName}
+                </div>
               </Field>
               <Field label="Fonction du signataire">
-                <input className={inputClass()} value={signatoryTitle} onChange={(event) => setSignatoryTitle(event.target.value)} />
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold">
+                  {signatoryTitle}
+                </div>
               </Field>
               <button
                 type="button"

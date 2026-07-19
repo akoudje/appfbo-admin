@@ -321,7 +321,7 @@ export default function App() {
                   path="/fbo-documents"
                   element={
                     <RequirePermission
-                      permission={Permission.PREORDER_READ}
+                      permission={Permission.FBO_DOCUMENT_ISSUE}
                       fallback={<AccessDenied message="Accès refusé aux documents FBO." />}
                     >
                       <FboDocumentsPage />

@@ -37,6 +37,7 @@ export const Permission = {
   EXTERNAL_PAYMENT_LINKS_MANAGE: "EXTERNAL_PAYMENT_LINKS_MANAGE",
   PREPARATION_UPDATE: "PREPARATION_UPDATE",
   EXPORT_READ: "EXPORT_READ",
+  FBO_DOCUMENT_ISSUE: "FBO_DOCUMENT_ISSUE",
 };
 
 const allPermissions = Object.freeze(Object.values(Permission));
@@ -58,6 +59,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PAYMENT_VALIDATE,
     Permission.PREPARATION_UPDATE,
     Permission.EXPORT_READ,
+    Permission.FBO_DOCUMENT_ISSUE,
   ],
 
   [AdminRole.SALES_DIRECTOR]: [
