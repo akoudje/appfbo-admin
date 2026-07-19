@@ -6,7 +6,14 @@ import { fboDocumentsService } from "../services/fboDocumentsService";
 const DEFAULT_SIGNATORY = {
   name: "AHOU YAO EPSE KOFFI",
   title: "DIRECTRICE DES OPERATIONS",
+  civility: "MME",
 };
+
+function signatoryPhrase(civility) {
+  return String(civility || "").trim().toUpperCase() === "M"
+    ? { honorific: "Monsieur", participle: "soussigné" }
+    : { honorific: "Madame", participle: "soussignée" };
+}
 
 function formatDate(value) {
   if (!value) return "—";
@@ -198,8 +205,9 @@ async function downloadActivityCertificatePdf(document) {
   ctx.fillText("Monsieur / Madame,", x, y);
   y += 76;
 
+  const { honorific, participle } = signatoryPhrase(document.signatoryCivility);
   const paragraphs = [
-    `Je, soussigné, Madame ${document.signatoryName}, ${String(document.signatoryTitle || "").toLowerCase()} de Forever Living Products Côte d'Ivoire (FLP CI), atteste que Monsieur / Madame ${document.fboFullName} est un Forever Business owner des produits de notre société, enregistrée sous le numéro ${document.fboNumber}.`,
+    `Je, ${participle}, ${honorific} ${document.signatoryName}, ${String(document.signatoryTitle || "").toLowerCase()} de Forever Living Products Côte d'Ivoire (FLP CI), atteste que Monsieur / Madame ${document.fboFullName} est un Forever Business owner des produits de notre société, enregistrée sous le numéro ${document.fboNumber}.`,
     "Créée en 1978, Forever Living Products International (FLPI) est une société internationale présente dans plus de 160 pays et compte plusieurs millions de distributeurs dans le monde.",
     "Premier producteur mondial d'Aloe Vera et de Produits de la Ruche, FLPI commercialise une gamme complète de produits de bien-être et de beauté comprenant des compléments alimentaires, du maquillage et des soins de la peau.",
     `Monsieur / Madame ${document.fboFullName} est autorisé à vendre les produits Forever partout où elle trouvera des acheteurs et clients potentiels et sa rémunération est établie en fonction du flux de son activité et de ses ventes.`,
@@ -272,6 +280,7 @@ function ActivityCertificate({ document }) {
   }, [document]);
 
   if (!document) return null;
+  const { honorific, participle } = signatoryPhrase(document.signatoryCivility);
   return (
     <article className="relative mx-auto min-h-[1050px] max-w-[760px] overflow-hidden bg-white px-16 py-16 text-[18px] leading-7 text-black shadow-sm print:shadow-none">
       <div className="pointer-events-none absolute inset-x-0 top-[430px] text-center text-[92px] font-black tracking-[0.2em] text-gray-100/70">
@@ -294,7 +303,7 @@ function ActivityCertificate({ document }) {
       <p className="mb-7">Monsieur / Madame,</p>
 
       <p className="mb-7 text-justify">
-        Je, soussigné, Madame <strong>{document.signatoryName}</strong>, {document.signatoryTitle.toLowerCase()} de
+        Je, {participle}, {honorific} <strong>{document.signatoryName}</strong>, {document.signatoryTitle.toLowerCase()} de
         Forever Living Products Côte d'Ivoire (FLP CI), atteste que Monsieur / Madame{" "}
         <strong>{document.fboFullName}</strong> est un Forever Business owner des produits de notre société,
         enregistrée sous le numéro <strong>{document.fboNumber}</strong>.
@@ -358,10 +367,13 @@ export default function FboDocumentsPage() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [city, setCity] = useState("Abidjan");
   const [purpose, setPurpose] = useState("");
-  // Le signataire est imposé côté serveur (liste des personnes habilitées) ;
-  // ces valeurs ne sont donc pas éditables ici.
-  const signatoryName = DEFAULT_SIGNATORY.name;
-  const signatoryTitle = DEFAULT_SIGNATORY.title;
+  // La liste des signataires habilités vient du serveur (source de vérité
+  // pour la validation) ; on ne propose ici que ce qu'il autorisera.
+  const [signatories, setSignatories] = useState([DEFAULT_SIGNATORY]);
+  const [signatoryIndex, setSignatoryIndex] = useState(0);
+  const selectedSignatory = signatories[signatoryIndex] || signatories[0] || DEFAULT_SIGNATORY;
+  const signatoryName = selectedSignatory.name;
+  const signatoryTitle = selectedSignatory.title;
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -380,6 +392,13 @@ export default function FboDocumentsPage() {
 
   useEffect(() => {
     loadDocuments().catch(() => {});
+    fboDocumentsService
+      .listSignatories()
+      .then((response) => {
+        const list = response?.data || [];
+        if (list.length) setSignatories(list);
+      })
+      .catch(() => {});
   }, []);
 
   async function searchFbos(event) {
@@ -581,14 +600,17 @@ export default function FboDocumentsPage() {
                 <textarea className={inputClass()} rows={2} value={purpose} onChange={(event) => setPurpose(event.target.value)} />
               </Field>
               <Field label="Signataire">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold">
-                  {signatoryName}
-                </div>
-              </Field>
-              <Field label="Fonction du signataire">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold">
-                  {signatoryTitle}
-                </div>
+                <select
+                  className={inputClass()}
+                  value={signatoryIndex}
+                  onChange={(event) => setSignatoryIndex(Number(event.target.value))}
+                >
+                  {signatories.map((signatory, index) => (
+                    <option key={`${signatory.name}-${signatory.title}`} value={index}>
+                      {signatory.name} — {signatory.title}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <button
                 type="button"

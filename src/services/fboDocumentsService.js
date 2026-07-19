@@ -1,6 +1,9 @@
 import api from "./api";
 
 export const fboDocumentsService = {
+  listSignatories: async () =>
+    (await api.get("/admin/fbo-documents/signatories")).data,
+
   searchFbos: async (q) =>
     (await api.get("/admin/fbo-documents/fbos", { params: { q } })).data,
 
