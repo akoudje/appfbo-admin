@@ -219,7 +219,24 @@ async function downloadActivityCertificatePdf(document) {
 
   ctx.textAlign = "right";
   ctx.fillText(`Fait à ${document.city}, le ${formatDate(document.issuedAt)}`, canvas.width - 150, y + 34);
-  y += 210;
+  // Espace de signature: calculé à partir du contenu réellement écrit
+  // au-dessus (y), pas d'une coordonnée absolue fixe — sinon, un texte
+  // plus long (titre du signataire, nom du FBO...) pousse ce bloc jusqu'à
+  // chevaucher un pied de page à position fixe plus bas sur la page.
+  y += 170;
+
+  // QR code à gauche, pour laisser toute la moitié droite au nom du
+  // signataire et à l'espace de signature/cachet.
+  if (qr) {
+    ctx.drawImage(qr, x, y - 70, 130, 130);
+    ctx.textAlign = "center";
+    ctx.font = "bold 16px Arial, sans-serif";
+    ctx.fillStyle = "#666666";
+    ctx.fillText("Vérifier", x + 65, y + 90);
+    ctx.fillStyle = "#111111";
+  }
+
+  ctx.textAlign = "right";
   ctx.font = "bold 28px Georgia, serif";
   ctx.fillText(String(document.signatoryName || "").toUpperCase(), canvas.width - 160, y);
   ctx.font = "bold 22px Georgia, serif";
@@ -232,23 +249,6 @@ async function downloadActivityCertificatePdf(document) {
   ctx.moveTo(canvas.width - 515, y + 46);
   ctx.lineTo(canvas.width - 160, y + 46);
   ctx.stroke();
-
-  ctx.strokeStyle = "#dddddd";
-  ctx.beginPath();
-  ctx.moveTo(145, 1560);
-  ctx.lineTo(canvas.width - 145, 1560);
-  ctx.stroke();
-  ctx.font = "18px Arial, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#666666";
-  ctx.fillText(`Document : ${document.documentNumber}`, 145, 1610);
-  ctx.fillText(`Vérification : ${documentPublicVerifyUrl(document)}`, 145, 1640);
-  if (qr) {
-    ctx.drawImage(qr, canvas.width - 300, 1580, 130, 130);
-    ctx.textAlign = "center";
-    ctx.font = "bold 16px Arial, sans-serif";
-    ctx.fillText("Verifier", canvas.width - 235, 1725);
-  }
 
   const blob = createPdfBlobFromCanvas(canvas);
   const link = window.document.createElement("a");
@@ -330,30 +330,28 @@ function ActivityCertificate({ document }) {
         En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.
       </p>
 
-      <div className="mb-20 text-right">
+      <div className="mb-10 text-right">
         Fait à {document.city}, le {formatDate(document.issuedAt)}
       </div>
 
-      <div className="text-right">
-        <div className="inline-block min-w-[260px] border-t border-dashed border-gray-300 pt-8 text-center">
-          <div className="font-black uppercase underline">{document.signatoryName}</div>
-          <div className="font-black uppercase underline">{document.signatoryTitle}</div>
-          <div className="mt-4 text-xs font-semibold uppercase text-gray-400">Signature et cachet</div>
-        </div>
-      </div>
-      </div>
-
-      <div className="mt-20 flex items-end justify-between gap-6 border-t border-gray-300 pt-4 text-xs leading-5 text-gray-600">
-        <div>
-          <div>Document : {document.documentNumber}</div>
-          <div>Vérification : {documentPublicVerifyUrl(document)}</div>
-        </div>
+      <div className="flex items-end justify-between gap-6">
         {qrDataUrl ? (
           <div className="text-center">
             <img src={qrDataUrl} alt="QR code de vérification" className="h-[92px] w-[92px]" />
-            <div className="mt-1 font-semibold">Vérifier</div>
+            <div className="mt-1 text-xs font-semibold text-gray-500">Vérifier</div>
           </div>
-        ) : null}
+        ) : (
+          <div />
+        )}
+
+        <div className="text-right">
+          <div className="inline-block min-w-[260px] border-t border-dashed border-gray-300 pt-8 text-center">
+            <div className="font-black uppercase underline">{document.signatoryName}</div>
+            <div className="font-black uppercase underline">{document.signatoryTitle}</div>
+            <div className="mt-4 text-xs font-semibold uppercase text-gray-400">Signature et cachet</div>
+          </div>
+        </div>
+      </div>
       </div>
     </article>
   );
