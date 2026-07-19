@@ -132,34 +132,69 @@ function loadImage(src) {
   });
 }
 
-function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = String(text || "").split(/\s+/).filter(Boolean);
+// Dessine un paragraphe pouvant mélanger texte normal et texte en gras
+// (noms propres, numéro FBO). `segments` est une liste de { text, bold }.
+function drawWrappedRichText(ctx, segments, x, y, maxWidth, lineHeight, baseFont, boldFont) {
+  const words = [];
+  for (const segment of segments) {
+    for (const word of String(segment.text || "").split(/\s+/).filter(Boolean)) {
+      words.push({ text: word, bold: Boolean(segment.bold) });
+    }
+  }
+
+  function measureLine(lineWords) {
+    let width = 0;
+    lineWords.forEach((word, index) => {
+      ctx.font = word.bold ? boldFont : baseFont;
+      width += ctx.measureText(word.text).width;
+      if (index < lineWords.length - 1) {
+        ctx.font = baseFont;
+        width += ctx.measureText(" ").width;
+      }
+    });
+    return width;
+  }
+
+  function drawLine(lineWords, lineY) {
+    let cursorX = x;
+    ctx.textAlign = "left";
+    lineWords.forEach((word, index) => {
+      ctx.font = word.bold ? boldFont : baseFont;
+      ctx.fillText(word.text, cursorX, lineY);
+      cursorX += ctx.measureText(word.text).width;
+      if (index < lineWords.length - 1) {
+        ctx.font = baseFont;
+        cursorX += ctx.measureText(" ").width;
+      }
+    });
+  }
+
   const lines = [];
-  let line = "";
+  let line = [];
   for (const word of words) {
-    const testLine = line ? `${line} ${word}` : word;
-    if (ctx.measureText(testLine).width > maxWidth && line) {
+    const testLine = [...line, word];
+    if (measureLine(testLine) > maxWidth && line.length) {
       lines.push(line);
-      line = word;
+      line = [word];
     } else {
       line = testLine;
     }
   }
-  if (line) lines.push(line);
-  lines.forEach((item, index) => ctx.fillText(item, x, y + index * lineHeight));
+  if (line.length) lines.push(line);
+
+  lines.forEach((lineWords, index) => drawLine(lineWords, y + index * lineHeight));
   return y + lines.length * lineHeight;
 }
 
 async function downloadActivityCertificatePdf(document) {
   if (!document) return;
-  const [logo, qr] = await Promise.all([
-    loadImage("/logo-forever.png"),
-    QRCode.toDataURL(documentPublicVerifyUrl(document), {
-      margin: 1,
-      width: 160,
-      errorCorrectionLevel: "M",
-    }).then(loadImage),
-  ]);
+  // Pas de logo/filet jaune: le document est imprimé sur papier à entête
+  // déjà floqué au nom de Forever.
+  const qr = await QRCode.toDataURL(documentPublicVerifyUrl(document), {
+    margin: 1,
+    width: 160,
+    errorCorrectionLevel: "M",
+  }).then(loadImage);
 
   const canvas = window.document.createElement("canvas");
   canvas.width = 1240;
@@ -167,38 +202,23 @@ async function downloadActivityCertificatePdf(document) {
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
   ctx.fillStyle = "#111111";
-  if (logo) {
-    const logoWidth = 270;
-    const logoHeight = (logo.height / logo.width) * logoWidth;
-    ctx.drawImage(logo, (canvas.width - logoWidth) / 2, 72, logoWidth, logoHeight);
-  } else {
-    ctx.font = "44px Georgia, serif";
-    ctx.textAlign = "center";
-    ctx.fillText("FOREVER", canvas.width / 2, 118);
-  }
-
-  ctx.strokeStyle = "#f4c430";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(170, 170);
-  ctx.lineTo(canvas.width - 170, 170);
-  ctx.stroke();
 
   ctx.textAlign = "center";
   ctx.font = "bold 34px Georgia, serif";
-  ctx.fillText("ATTESTATION D'ACTIVITE", canvas.width / 2, 270);
+  ctx.fillText("ATTESTATION D'ACTIVITE", canvas.width / 2, 180);
   ctx.lineWidth = 2;
   ctx.strokeStyle = "#111111";
   ctx.beginPath();
-  ctx.moveTo(430, 282);
-  ctx.lineTo(810, 282);
+  ctx.moveTo(430, 192);
+  ctx.lineTo(810, 192);
   ctx.stroke();
 
+  const baseFont = "28px Georgia, serif";
+  const boldFont = "bold 28px Georgia, serif";
   ctx.textAlign = "left";
-  ctx.font = "28px Georgia, serif";
-  let y = 430;
+  ctx.font = baseFont;
+  let y = 300;
   const x = 145;
   const maxWidth = 950;
   const lineHeight = 42;
@@ -206,48 +226,57 @@ async function downloadActivityCertificatePdf(document) {
   y += 76;
 
   const { honorific, participle } = signatoryPhrase(document.signatoryCivility);
+  const signatoryTitleLower = String(document.signatoryTitle || "").toLowerCase();
+  // Les noms propres et le numéro FBO ressortent en gras dans le corps du
+  // texte ; le reste du paragraphe est du texte normal.
   const paragraphs = [
-    `Je, ${participle}, ${honorific} ${document.signatoryName}, ${String(document.signatoryTitle || "").toLowerCase()} de Forever Living Products Côte d'Ivoire (FLP CI), atteste que Monsieur / Madame ${document.fboFullName} est un Forever Business owner des produits de notre société, enregistrée sous le numéro ${document.fboNumber}.`,
-    "Créée en 1978, Forever Living Products International (FLPI) est une société internationale présente dans plus de 160 pays et compte plusieurs millions de distributeurs dans le monde.",
-    "Premier producteur mondial d'Aloe Vera et de Produits de la Ruche, FLPI commercialise une gamme complète de produits de bien-être et de beauté comprenant des compléments alimentaires, du maquillage et des soins de la peau.",
-    `Monsieur / Madame ${document.fboFullName} est autorisé à vendre les produits Forever partout où elle trouvera des acheteurs et clients potentiels et sa rémunération est établie en fonction du flux de son activité et de ses ventes.`,
-    "En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.",
+    [
+      { text: `Je, ${participle}, ${honorific} ` },
+      { text: document.signatoryName, bold: true },
+      { text: `, ${signatoryTitleLower} de Forever Living Products Côte d'Ivoire (FLP CI), atteste que Monsieur / Madame ` },
+      { text: document.fboFullName, bold: true },
+      { text: " est un Forever Business owner des produits de notre société, enregistrée sous le numéro " },
+      { text: document.fboNumber, bold: true },
+      { text: "." },
+    ],
+    [{ text: "Créée en 1978, Forever Living Products International (FLPI) est une société internationale présente dans plus de 160 pays et compte plusieurs millions de distributeurs dans le monde." }],
+    [{ text: "Premier producteur mondial d'Aloe Vera et de Produits de la Ruche, FLPI commercialise une gamme complète de produits de bien-être et de beauté comprenant des compléments alimentaires, du maquillage et des soins de la peau." }],
+    [
+      { text: "Monsieur / Madame " },
+      { text: document.fboFullName, bold: true },
+      { text: " est autorisé à vendre les produits Forever partout où elle trouvera des acheteurs et clients potentiels et sa rémunération est établie en fonction du flux de son activité et de ses ventes." },
+    ],
+    [{ text: "En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit." }],
   ];
   for (const paragraph of paragraphs) {
-    y = drawWrappedText(ctx, paragraph, x, y, maxWidth, lineHeight) + 34;
+    y = drawWrappedRichText(ctx, paragraph, x, y, maxWidth, lineHeight, baseFont, boldFont) + 34;
   }
 
-  ctx.textAlign = "right";
-  ctx.fillText(`Fait à ${document.city}, le ${formatDate(document.issuedAt)}`, canvas.width - 150, y + 34);
-  // Espace de signature: calculé à partir du contenu réellement écrit
-  // au-dessus (y), pas d'une coordonnée absolue fixe — sinon, un texte
-  // plus long (titre du signataire, nom du FBO...) pousse ce bloc jusqu'à
-  // chevaucher un pied de page à position fixe plus bas sur la page.
-  y += 170;
+  // "Fait à..." et le QR code à gauche ; le nom/titre du signataire et
+  // l'espace de signature/cachet à droite, sur la même ligne. Tout est
+  // positionné à partir de `y` (fin réelle du texte), jamais à une
+  // coordonnée absolue fixe.
+  ctx.textAlign = "left";
+  ctx.font = baseFont;
+  ctx.fillText(`Fait à ${document.city}, le ${formatDate(document.issuedAt)}`, x, y + 34);
+  y += 70;
 
-  // QR code à gauche, pour laisser toute la moitié droite au nom du
-  // signataire et à l'espace de signature/cachet.
   if (qr) {
-    ctx.drawImage(qr, x, y - 70, 130, 130);
-    ctx.textAlign = "center";
-    ctx.font = "bold 16px Arial, sans-serif";
-    ctx.fillStyle = "#666666";
-    ctx.fillText("Vérifier", x + 65, y + 90);
-    ctx.fillStyle = "#111111";
+    ctx.drawImage(qr, x, y, 130, 130);
   }
 
   ctx.textAlign = "right";
-  ctx.font = "bold 28px Georgia, serif";
-  ctx.fillText(String(document.signatoryName || "").toUpperCase(), canvas.width - 160, y);
+  ctx.font = boldFont;
+  ctx.fillText(String(document.signatoryName || "").toUpperCase(), canvas.width - 160, y + 40);
   ctx.font = "bold 22px Georgia, serif";
-  ctx.fillText(String(document.signatoryTitle || "").toUpperCase(), canvas.width - 160, y + 38);
+  ctx.fillText(String(document.signatoryTitle || "").toUpperCase(), canvas.width - 160, y + 78);
   ctx.strokeStyle = "#111111";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(canvas.width - 515, y + 8);
-  ctx.lineTo(canvas.width - 160, y + 8);
-  ctx.moveTo(canvas.width - 515, y + 46);
-  ctx.lineTo(canvas.width - 160, y + 46);
+  ctx.moveTo(canvas.width - 515, y + 50);
+  ctx.lineTo(canvas.width - 160, y + 50);
+  ctx.moveTo(canvas.width - 515, y + 88);
+  ctx.lineTo(canvas.width - 160, y + 88);
   ctx.stroke();
 
   const blob = createPdfBlobFromCanvas(canvas);
@@ -286,10 +315,8 @@ function ActivityCertificate({ document }) {
       <div className="pointer-events-none absolute inset-x-0 top-[430px] text-center text-[92px] font-black tracking-[0.2em] text-gray-100/70">
         FOREVER
       </div>
-      <header className="relative mb-16 text-center">
-        <img src="/logo-forever.png" alt="Forever" className="mx-auto h-10 w-auto object-contain" />
-        <div className="mx-auto mt-5 h-1 w-56 bg-[#FFC600]" />
-        <div className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
+      <header className="relative mb-10 text-center">
+        <div className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
           Document officiel FBO Service
         </div>
       </header>
@@ -330,19 +357,13 @@ function ActivityCertificate({ document }) {
         En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.
       </p>
 
-      <div className="mb-10 text-right">
-        Fait à {document.city}, le {formatDate(document.issuedAt)}
-      </div>
-
       <div className="flex items-end justify-between gap-6">
-        {qrDataUrl ? (
-          <div className="text-center">
+        <div className="text-left">
+          <div className="mb-3">Fait à {document.city}, le {formatDate(document.issuedAt)}</div>
+          {qrDataUrl ? (
             <img src={qrDataUrl} alt="QR code de vérification" className="h-[92px] w-[92px]" />
-            <div className="mt-1 text-xs font-semibold text-gray-500">Vérifier</div>
-          </div>
-        ) : (
-          <div />
-        )}
+          ) : null}
+        </div>
 
         <div className="text-right">
           <div className="inline-block min-w-[260px] border-t border-dashed border-gray-300 pt-8 text-center">
