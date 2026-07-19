@@ -35,10 +35,22 @@ function Field({ label, children }) {
   );
 }
 
+// La page de vérification publique (/verify/fbo-document/:token) n'existe
+// que dans l'app frontend client, pas dans l'admin. Utiliser
+// window.location.origin ici pointerait vers le domaine admin (qui exige
+// une connexion et n'a pas cette route) : le lien/QR scanné par un tiers
+// externe atterrirait sur l'écran de login admin, donc "on ne voit rien".
+function publicFrontendOrigin() {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  if (origin.includes("517") || origin.includes("localhost")) {
+    return "http://127.0.0.1:5173";
+  }
+  return "https://forevercivstore.com";
+}
+
 function documentPublicVerifyUrl(doc) {
   const path = doc?.verifyUrl || `/verify/fbo-document/${encodeURIComponent(doc?.verificationToken || "")}`;
-  if (typeof window === "undefined") return path;
-  return `${window.location.origin}${path}`;
+  return `${publicFrontendOrigin()}${path}`;
 }
 
 function safeFileName(value) {
