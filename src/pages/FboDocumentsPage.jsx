@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle, Eye, History } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle, Eye, History, Filter } from "lucide-react";
 import QRCode from "qrcode";
 import { fboDocumentsService } from "../services/fboDocumentsService";
 
@@ -24,6 +24,17 @@ function formatDate(value) {
 
 function inputClass() {
   return "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200";
+}
+
+// debounce simple, pour filtrer l'historique local sans action explicite —
+// à la différence de la recherche FBO Service, qui reste une action
+// volontaire (bouton) puisqu'elle interroge un registre externe.
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
 }
 
 function Field({ label, children }) {
@@ -443,6 +454,7 @@ export default function FboDocumentsPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
   const [historyStatus, setHistoryStatus] = useState("");
+  const debouncedHistoryFilterRef = useRef(null);
 
   const canCreate = useMemo(() => selectedFbo && city.trim() && signatoryName.trim() && signatoryTitle.trim(), [
     selectedFbo,
@@ -478,9 +490,20 @@ export default function FboDocumentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function searchHistory(event) {
-    event.preventDefault();
-    loadHistory({ q: historyQuery, status: historyStatus });
+  if (!debouncedHistoryFilterRef.current) {
+    debouncedHistoryFilterRef.current = debounce((nextQuery, nextStatus) => {
+      loadHistory({ q: nextQuery, status: nextStatus });
+    }, 350);
+  }
+
+  function onHistoryQueryChange(value) {
+    setHistoryQuery(value);
+    debouncedHistoryFilterRef.current(value, historyStatus);
+  }
+
+  function onHistoryStatusChange(value) {
+    setHistoryStatus(value);
+    loadHistory({ q: historyQuery, status: value });
   }
 
   function viewDocumentFromHistory(doc) {
@@ -617,7 +640,15 @@ export default function FboDocumentsPage() {
         <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
           <section className="space-y-4 print:hidden">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <form onSubmit={searchFbos} className="space-y-3">
+              <h2 className="flex items-center gap-2 font-black text-gray-950">
+                <Search className="h-4 w-4 text-amber-600" />
+                Rechercher un FBO
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Interroge FBO Service (registre officiel) en direct, par numéro exact — c'est la personne à qui
+                l'attestation sera délivrée.
+              </p>
+              <form onSubmit={searchFbos} className="mt-3 space-y-3">
                 <Field label="Numéro FBO complet">
                   <div className="flex gap-2">
                     <input
@@ -631,9 +662,6 @@ export default function FboDocumentsPage() {
                       <Search className="h-4 w-4" />
                     </button>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    Recherche directement dans FBO Service (registre officiel).
-                  </span>
                 </Field>
               </form>
 
@@ -745,37 +773,37 @@ export default function FboDocumentsPage() {
       ) : (
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-black text-gray-950">Historique des attestations</h2>
+            <div>
+              <h2 className="flex items-center gap-2 font-black text-gray-950">
+                <Filter className="h-4 w-4 text-amber-600" />
+                Historique des attestations
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Filtrez la liste des documents déjà émis — aucun appel à FBO Service ici.
+              </p>
+            </div>
             <span className="text-xs text-gray-400">
-              {documents.length} document{documents.length > 1 ? "s" : ""}
+              {historyLoading ? "Filtrage…" : `${documents.length} document${documents.length > 1 ? "s" : ""}`}
             </span>
           </div>
 
-          <form onSubmit={searchHistory} className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <input
               className={`${inputClass()} sm:max-w-xs`}
               value={historyQuery}
-              onChange={(event) => setHistoryQuery(event.target.value)}
-              placeholder="N° document, nom ou numéro FBO"
+              onChange={(event) => onHistoryQueryChange(event.target.value)}
+              placeholder="Filtrer par n° document, nom ou numéro FBO"
             />
             <select
               className={`${inputClass()} sm:w-48`}
               value={historyStatus}
-              onChange={(event) => setHistoryStatus(event.target.value)}
+              onChange={(event) => onHistoryStatusChange(event.target.value)}
             >
               <option value="">Tous statuts</option>
               <option value="ISSUED">Émises</option>
               <option value="CANCELLED">Annulées</option>
             </select>
-            <button
-              type="submit"
-              disabled={historyLoading}
-              className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-            >
-              <Search className="h-4 w-4" />
-              Rechercher
-            </button>
-          </form>
+          </div>
 
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
