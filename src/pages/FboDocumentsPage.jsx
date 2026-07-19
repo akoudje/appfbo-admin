@@ -68,26 +68,38 @@ function createPdfBlobFromCanvas(canvas) {
     drawY = 0;
   }
 
-  const header = "%PDF-1.4\n";
+  const content = `q\n${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm\n/Im0 Do\nQ\n`;
+
+  // Chaque entrée correspond à EXACTEMENT un objet PDF (1 à 5), avec un seul
+  // offset de xref chacun. L'objet 4 (image) est un tableau [avant, bytes,
+  // après] car il contient le flux binaire JPEG, qu'on ne peut pas
+  // concaténer comme du texte. Avant, le texte de fermeture du flux image
+  // ("endstream\nendobj") était une entrée séparée du tableau, ce qui
+  // ajoutait une fausse entrée dans la table xref, décalait le numéro
+  // d'objet du flux de contenu (5 0 obj) et rendait le PDF illisible (page
+  // blanche) pour la plupart des lecteurs.
   const objects = [
     "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
     "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
     `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`,
-    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`,
-    "\nendstream\nendobj\n",
+    [
+      `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`,
+      jpegBytes,
+      "\nendstream\nendobj\n",
+    ],
+    `5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`,
   ];
-  const content = `q\n${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm\n/Im0 Do\nQ\n`;
-  objects.push(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`);
 
+  const header = "%PDF-1.4\n";
   const parts = [header];
   const offsets = [0];
   let length = header.length;
   for (const object of objects) {
     offsets.push(length);
-    if (object.includes("stream\n") && object.includes("/Im0")) {
-      const [before, after] = object.split("stream\n");
-      parts.push(before, "stream\n", jpegBytes, after);
-      length += before.length + "stream\n".length + jpegBytes.length + after.length;
+    if (Array.isArray(object)) {
+      const [before, bytes, after] = object;
+      parts.push(before, bytes, after);
+      length += before.length + bytes.length + after.length;
     } else {
       parts.push(object);
       length += object.length;
@@ -372,13 +384,26 @@ export default function FboDocumentsPage() {
 
   async function searchFbos(event) {
     event.preventDefault();
-    if (query.trim().length < 2) return;
+    setFbos([]);
+    setSelectedFbo(null);
+    setError("");
+    setMessage("");
+
+    const digits = query.replace(/\D/g, "");
+    if (digits.length !== 12) {
+      setError("Saisissez le numéro FBO complet (12 chiffres).");
+      return;
+    }
+
     try {
       setLoading(true);
-      setError("");
+      // Les informations FBO (nom, grade...) viennent exclusivement de FBO
+      // Service : cette recherche interroge le registre officiel en temps
+      // réel, elle ne fait pas de recherche floue par nom localement.
       const response = await fboDocumentsService.searchFbos(query);
       setFbos(response?.data || []);
     } catch (err) {
+      setFbos([]);
       setError(err?.response?.data?.message || "Recherche FBO impossible.");
     } finally {
       setLoading(false);
@@ -392,7 +417,7 @@ export default function FboDocumentsPage() {
       setError("");
       setMessage("");
       const doc = await fboDocumentsService.createDocument({
-        fboId: selectedFbo.id,
+        numeroFbo: selectedFbo.numeroFbo,
         city,
         purpose,
         signatoryName,
@@ -475,18 +500,22 @@ export default function FboDocumentsPage() {
         <section className="space-y-4 print:hidden">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <form onSubmit={searchFbos} className="space-y-3">
-              <Field label="Rechercher un FBO">
+              <Field label="Numéro FBO complet">
                 <div className="flex gap-2">
                   <input
                     className={inputClass()}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Nom, numéro FBO, email"
+                    placeholder="12 chiffres, avec ou sans tirets"
+                    inputMode="numeric"
                   />
                   <button type="submit" disabled={loading} className="rounded-lg bg-gray-950 px-4 text-white">
                     <Search className="h-4 w-4" />
                   </button>
                 </div>
+                <span className="text-xs text-gray-400">
+                  Recherche directement dans FBO Service (registre officiel).
+                </span>
               </Field>
             </form>
 
@@ -505,10 +534,37 @@ export default function FboDocumentsPage() {
                 >
                   <div className="font-bold text-gray-950">{fbo.nomComplet}</div>
                   <div className="mt-1 text-sm text-gray-500">FBO {fbo.numeroFbo} · {fbo.grade}</div>
+                  {fbo.activeDocument ? (
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                      <FileCheck2 className="h-3.5 w-3.5" />
+                      Attestation déjà émise le {formatDate(fbo.activeDocument.issuedAt)}
+                    </div>
+                  ) : null}
                 </button>
               ))}
             </div>
           </div>
+
+          {selectedFbo?.activeDocument ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+              <div className="flex items-center gap-2 font-black text-emerald-800">
+                <FileCheck2 className="h-4 w-4" />
+                Attestation déjà existante
+              </div>
+              <p className="mt-2 text-sm text-emerald-800">
+                {selectedFbo.nomComplet} a déjà une attestation valide (
+                {selectedFbo.activeDocument.documentNumber}), émise le{" "}
+                {formatDate(selectedFbo.activeDocument.issuedAt)}. Inutile d'en régénérer une, sauf besoin réel.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCurrentDocument(selectedFbo.activeDocument)}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white"
+              >
+                Afficher cette attestation
+              </button>
+            </div>
+          ) : null}
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="font-black text-gray-950">Créer une attestation</h2>
