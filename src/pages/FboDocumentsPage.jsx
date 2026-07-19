@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle } from "lucide-react";
+import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle, Eye, History } from "lucide-react";
 import QRCode from "qrcode";
 import { fboDocumentsService } from "../services/fboDocumentsService";
 
@@ -32,6 +32,35 @@ function Field({ label, children }) {
       <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</span>
       {children}
     </label>
+  );
+}
+
+function TabButton({ active, onClick, icon, children }) {
+  const TabIcon = icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition ${
+        active ? "bg-[#FFC600] text-black" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      }`}
+    >
+      <TabIcon className="h-4 w-4" />
+      {children}
+    </button>
+  );
+}
+
+function DocumentStatusBadge({ status }) {
+  const isIssued = status === "ISSUED";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${
+        isIssued ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
+      }`}
+    >
+      {isIssued ? "Émise" : "Annulée"}
+    </span>
   );
 }
 
@@ -391,10 +420,11 @@ function ActivityCertificate({ document }) {
 }
 
 export default function FboDocumentsPage() {
+  const [activeTab, setActiveTab] = useState("create");
+
   const [query, setQuery] = useState("");
   const [fbos, setFbos] = useState([]);
   const [selectedFbo, setSelectedFbo] = useState(null);
-  const [documents, setDocuments] = useState([]);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [city, setCity] = useState("Abidjan");
   const [purpose, setPurpose] = useState("");
@@ -409,6 +439,11 @@ export default function FboDocumentsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const [documents, setDocuments] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyStatus, setHistoryStatus] = useState("");
+
   const canCreate = useMemo(() => selectedFbo && city.trim() && signatoryName.trim() && signatoryTitle.trim(), [
     selectedFbo,
     city,
@@ -416,13 +451,23 @@ export default function FboDocumentsPage() {
     signatoryTitle,
   ]);
 
-  async function loadDocuments(params = {}) {
-    const response = await fboDocumentsService.listDocuments(params);
-    setDocuments(response?.data || []);
+  async function loadHistory(params = {}) {
+    try {
+      setHistoryLoading(true);
+      const response = await fboDocumentsService.listDocuments({
+        q: params.q ?? historyQuery,
+        status: params.status ?? historyStatus,
+      });
+      setDocuments(response?.data || []);
+    } catch {
+      // L'historique est secondaire : un échec ici ne doit pas bloquer la page.
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   useEffect(() => {
-    loadDocuments().catch(() => {});
+    loadHistory();
     fboDocumentsService
       .listSignatories()
       .then((response) => {
@@ -430,7 +475,18 @@ export default function FboDocumentsPage() {
         if (list.length) setSignatories(list);
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function searchHistory(event) {
+    event.preventDefault();
+    loadHistory({ q: historyQuery, status: historyStatus });
+  }
+
+  function viewDocumentFromHistory(doc) {
+    setCurrentDocument(doc);
+    setActiveTab("create");
+  }
 
   async function searchFbos(event) {
     event.preventDefault();
@@ -475,7 +531,7 @@ export default function FboDocumentsPage() {
       });
       setCurrentDocument(doc);
       setMessage(`Attestation générée : ${doc.documentNumber}`);
-      await loadDocuments({ fboId: selectedFbo.id });
+      await loadHistory();
     } catch (err) {
       setError(err?.response?.data?.message || "Génération impossible.");
     } finally {
@@ -490,7 +546,7 @@ export default function FboDocumentsPage() {
       setLoading(true);
       setError("");
       await fboDocumentsService.cancelDocument(doc.id, { reason });
-      await loadDocuments(selectedFbo?.id ? { fboId: selectedFbo.id } : {});
+      await loadHistory();
       if (currentDocument?.id === doc.id) setCurrentDocument(null);
     } catch (err) {
       setError(err?.response?.data?.message || "Annulation impossible.");
@@ -521,7 +577,7 @@ export default function FboDocumentsPage() {
             Générez, imprimez et tracez les attestations délivrées aux FBO.
           </p>
         </div>
-        {currentDocument ? (
+        {activeTab === "create" && currentDocument ? (
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -543,166 +599,243 @@ export default function FboDocumentsPage() {
         ) : null}
       </div>
 
+      <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm print:hidden">
+        <div className="flex flex-wrap gap-2">
+          <TabButton active={activeTab === "create"} onClick={() => setActiveTab("create")} icon={FileCheck2}>
+            Générer
+          </TabButton>
+          <TabButton active={activeTab === "history"} onClick={() => setActiveTab("history")} icon={History}>
+            Historique{documents.length ? ` (${documents.length})` : ""}
+          </TabButton>
+        </div>
+      </div>
+
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 print:hidden">{error}</div> : null}
       {message ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 print:hidden">{message}</div> : null}
 
-      <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <section className="space-y-4 print:hidden">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <form onSubmit={searchFbos} className="space-y-3">
-              <Field label="Numéro FBO complet">
-                <div className="flex gap-2">
-                  <input
-                    className={inputClass()}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="12 chiffres, avec ou sans tirets"
-                    inputMode="numeric"
-                  />
-                  <button type="submit" disabled={loading} className="rounded-lg bg-gray-950 px-4 text-white">
-                    <Search className="h-4 w-4" />
-                  </button>
-                </div>
-                <span className="text-xs text-gray-400">
-                  Recherche directement dans FBO Service (registre officiel).
-                </span>
-              </Field>
-            </form>
-
-            <div className="mt-4 space-y-2">
-              {fbos.map((fbo) => (
-                <button
-                  key={fbo.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedFbo(fbo);
-                    loadDocuments({ fboId: fbo.id }).catch(() => {});
-                  }}
-                  className={`w-full rounded-xl border p-3 text-left ${
-                    selectedFbo?.id === fbo.id ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className="font-bold text-gray-950">{fbo.nomComplet}</div>
-                  <div className="mt-1 text-sm text-gray-500">FBO {fbo.numeroFbo} · {fbo.grade}</div>
-                  {fbo.activeDocument ? (
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                      <FileCheck2 className="h-3.5 w-3.5" />
-                      Attestation déjà émise le {formatDate(fbo.activeDocument.issuedAt)}
-                    </div>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {selectedFbo?.activeDocument ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-              <div className="flex items-center gap-2 font-black text-emerald-800">
-                <FileCheck2 className="h-4 w-4" />
-                Attestation déjà existante
-              </div>
-              <p className="mt-2 text-sm text-emerald-800">
-                {selectedFbo.nomComplet} a déjà une attestation valide (
-                {selectedFbo.activeDocument.documentNumber}), émise le{" "}
-                {formatDate(selectedFbo.activeDocument.issuedAt)}. Inutile d'en régénérer une, sauf besoin réel.
-              </p>
-              <button
-                type="button"
-                onClick={() => setCurrentDocument(selectedFbo.activeDocument)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white"
-              >
-                Afficher cette attestation
-              </button>
-            </div>
-          ) : null}
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="font-black text-gray-950">Créer une attestation</h2>
-            <div className="mt-4 space-y-3">
-              <Field label="FBO sélectionné">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold">
-                  {selectedFbo ? `${selectedFbo.nomComplet} (${selectedFbo.numeroFbo})` : "Aucun FBO sélectionné"}
-                </div>
-              </Field>
-              <Field label="Ville d'émission">
-                <input className={inputClass()} value={city} onChange={(event) => setCity(event.target.value)} />
-              </Field>
-              <Field label="Motif interne">
-                <textarea className={inputClass()} rows={2} value={purpose} onChange={(event) => setPurpose(event.target.value)} />
-              </Field>
-              <Field label="Signataire">
-                <select
-                  className={inputClass()}
-                  value={signatoryIndex}
-                  onChange={(event) => setSignatoryIndex(Number(event.target.value))}
-                >
-                  {signatories.map((signatory, index) => (
-                    <option key={`${signatory.name}-${signatory.title}`} value={index}>
-                      {signatory.name} — {signatory.title}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <button
-                type="button"
-                onClick={createDocument}
-                disabled={loading || !canCreate}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFC600] px-4 py-3 text-sm font-black text-black disabled:opacity-50"
-              >
-                <FileCheck2 className="h-4 w-4" />
-                Générer l'attestation
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="font-black text-gray-950">Historique</h2>
-            <div className="mt-3 space-y-2">
-              {documents.map((doc) => (
-                <div key={doc.id} className="rounded-xl border border-gray-200 p-3">
-                  <button type="button" onClick={() => setCurrentDocument(doc)} className="block w-full text-left">
-                    <div className="font-mono text-xs font-bold text-gray-500">{doc.documentNumber}</div>
-                    <div className="mt-1 font-bold">{doc.fboFullName}</div>
-                    <div className="text-sm text-gray-500">{formatDate(doc.issuedAt)} · {doc.status}</div>
-                  </button>
-                  {doc.status === "ISSUED" ? (
-                    <button
-                      type="button"
-                      onClick={() => cancelDocument(doc)}
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-red-700"
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                      Annuler
+      {activeTab === "create" ? (
+        <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <section className="space-y-4 print:hidden">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <form onSubmit={searchFbos} className="space-y-3">
+                <Field label="Numéro FBO complet">
+                  <div className="flex gap-2">
+                    <input
+                      className={inputClass()}
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="12 chiffres, avec ou sans tirets"
+                      inputMode="numeric"
+                    />
+                    <button type="submit" disabled={loading} className="rounded-lg bg-gray-950 px-4 text-white">
+                      <Search className="h-4 w-4" />
                     </button>
-                  ) : null}
-                </div>
-              ))}
-              {!documents.length ? <div className="text-sm text-gray-500">Aucun document.</div> : null}
-            </div>
-          </div>
-        </section>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    Recherche directement dans FBO Service (registre officiel).
+                  </span>
+                </Field>
+              </form>
 
-        <section id="fbo-document-print" className="rounded-2xl border border-gray-200 bg-gray-100 p-4 print:border-0 print:bg-white print:p-0">
-          {currentDocument ? (
-            <>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 text-sm print:hidden">
-                <div className="inline-flex items-center gap-2 font-semibold text-emerald-700">
-                  <ShieldCheck className="h-4 w-4" />
-                  Vérifiable par QR/lien public
-                </div>
-                <a href={documentPublicVerifyUrl(currentDocument)} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-500 underline">
-                  {currentDocument.documentNumber}
-                </a>
+              <div className="mt-4 space-y-2">
+                {fbos.map((fbo) => (
+                  <button
+                    key={fbo.id}
+                    type="button"
+                    onClick={() => setSelectedFbo(fbo)}
+                    className={`w-full rounded-xl border p-3 text-left ${
+                      selectedFbo?.id === fbo.id ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <div className="font-bold text-gray-950">{fbo.nomComplet}</div>
+                    <div className="mt-1 text-sm text-gray-500">FBO {fbo.numeroFbo} · {fbo.grade}</div>
+                    {fbo.activeDocument ? (
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        <FileCheck2 className="h-3.5 w-3.5" />
+                        Attestation déjà émise le {formatDate(fbo.activeDocument.issuedAt)}
+                      </div>
+                    ) : null}
+                  </button>
+                ))}
               </div>
-              <ActivityCertificate document={currentDocument} />
-            </>
-          ) : (
-            <div className="flex min-h-[520px] items-center justify-center rounded-xl bg-white text-sm text-gray-500">
-              Sélectionnez ou générez une attestation pour afficher l'aperçu.
             </div>
-          )}
-        </section>
-      </div>
+
+            {selectedFbo?.activeDocument ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+                <div className="flex items-center gap-2 font-black text-emerald-800">
+                  <FileCheck2 className="h-4 w-4" />
+                  Attestation déjà existante
+                </div>
+                <p className="mt-2 text-sm text-emerald-800">
+                  {selectedFbo.nomComplet} a déjà une attestation valide (
+                  {selectedFbo.activeDocument.documentNumber}), émise le{" "}
+                  {formatDate(selectedFbo.activeDocument.issuedAt)}. Inutile d'en régénérer une, sauf besoin réel.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCurrentDocument(selectedFbo.activeDocument)}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white"
+                >
+                  Afficher cette attestation
+                </button>
+              </div>
+            ) : null}
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <h2 className="font-black text-gray-950">Créer une attestation</h2>
+              <div className="mt-4 space-y-3">
+                <Field label="FBO sélectionné">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold">
+                    {selectedFbo ? `${selectedFbo.nomComplet} (${selectedFbo.numeroFbo})` : "Aucun FBO sélectionné"}
+                  </div>
+                </Field>
+                <Field label="Ville d'émission">
+                  <input className={inputClass()} value={city} onChange={(event) => setCity(event.target.value)} />
+                </Field>
+                <Field label="Motif interne">
+                  <textarea className={inputClass()} rows={2} value={purpose} onChange={(event) => setPurpose(event.target.value)} />
+                </Field>
+                <Field label="Signataire">
+                  <select
+                    className={inputClass()}
+                    value={signatoryIndex}
+                    onChange={(event) => setSignatoryIndex(Number(event.target.value))}
+                  >
+                    {signatories.map((signatory, index) => (
+                      <option key={`${signatory.name}-${signatory.title}`} value={index}>
+                        {signatory.name} — {signatory.title}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <button
+                  type="button"
+                  onClick={createDocument}
+                  disabled={loading || !canCreate}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFC600] px-4 py-3 text-sm font-black text-black disabled:opacity-50"
+                >
+                  <FileCheck2 className="h-4 w-4" />
+                  Générer l'attestation
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section id="fbo-document-print" className="rounded-2xl border border-gray-200 bg-gray-100 p-4 print:border-0 print:bg-white print:p-0">
+            {currentDocument ? (
+              <>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 text-sm print:hidden">
+                  <div className="inline-flex items-center gap-2 font-semibold text-emerald-700">
+                    <ShieldCheck className="h-4 w-4" />
+                    Vérifiable par QR/lien public
+                  </div>
+                  <a href={documentPublicVerifyUrl(currentDocument)} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-500 underline">
+                    {currentDocument.documentNumber}
+                  </a>
+                </div>
+                <ActivityCertificate document={currentDocument} />
+              </>
+            ) : (
+              <div className="flex min-h-[520px] items-center justify-center rounded-xl bg-white text-sm text-gray-500">
+                Sélectionnez ou générez une attestation pour afficher l'aperçu.
+              </div>
+            )}
+          </section>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-black text-gray-950">Historique des attestations</h2>
+            <span className="text-xs text-gray-400">
+              {documents.length} document{documents.length > 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <form onSubmit={searchHistory} className="mt-4 flex flex-wrap gap-2">
+            <input
+              className={`${inputClass()} sm:max-w-xs`}
+              value={historyQuery}
+              onChange={(event) => setHistoryQuery(event.target.value)}
+              placeholder="N° document, nom ou numéro FBO"
+            />
+            <select
+              className={`${inputClass()} sm:w-48`}
+              value={historyStatus}
+              onChange={(event) => setHistoryStatus(event.target.value)}
+            >
+              <option value="">Tous statuts</option>
+              <option value="ISSUED">Émises</option>
+              <option value="CANCELLED">Annulées</option>
+            </select>
+            <button
+              type="submit"
+              disabled={historyLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              <Search className="h-4 w-4" />
+              Rechercher
+            </button>
+          </form>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-xs font-bold uppercase tracking-wide text-gray-400">
+                  <th className="py-2 pr-3">Document</th>
+                  <th className="py-2 pr-3">FBO</th>
+                  <th className="py-2 pr-3">Statut</th>
+                  <th className="py-2 pr-3">Émise le</th>
+                  <th className="py-2 pr-3">Émise par</th>
+                  <th className="py-2 pr-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {documents.map((doc) => (
+                  <tr key={doc.id}>
+                    <td className="py-3 pr-3 font-mono text-xs font-bold text-gray-500">{doc.documentNumber}</td>
+                    <td className="py-3 pr-3">
+                      <div className="font-bold text-gray-950">{doc.fboFullName}</div>
+                      <div className="text-xs text-gray-500">{doc.fboNumber}</div>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <DocumentStatusBadge status={doc.status} />
+                    </td>
+                    <td className="py-3 pr-3 text-gray-600">{formatDate(doc.issuedAt)}</td>
+                    <td className="py-3 pr-3 text-gray-600">{doc.issuedBy?.fullName || "—"}</td>
+                    <td className="py-3 pr-3">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => viewDocumentFromHistory(doc)}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-gray-950"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Voir
+                        </button>
+                        {doc.status === "ISSUED" ? (
+                          <button
+                            type="button"
+                            onClick={() => cancelDocument(doc)}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-red-700 hover:text-red-900"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Annuler
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!documents.length ? (
+              <div className="py-8 text-center text-sm text-gray-500">
+                {historyLoading ? "Chargement…" : "Aucun document."}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
