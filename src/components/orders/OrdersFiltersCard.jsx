@@ -69,7 +69,7 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
     filters.dateTo,
     filters.lateWaveReview,
     filters.assignedOnly,
-    filters.hasAssignee,
+    filters.assignedToMe,
     filters.invoicerId,
   ].some(Boolean);
 
@@ -189,11 +189,11 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
-                checked={!!filters.assignedOnly}
+                checked={!!filters.assignedToMe}
                 onChange={(e) =>
                   onFilterChange({
-                    assignedOnly: e.target.checked,
-                    ...(e.target.checked ? { hasAssignee: false, invoicerId: "" } : {}),
+                    assignedToMe: e.target.checked,
+                    ...(e.target.checked ? { assignedOnly: false, invoicerId: "" } : {}),
                   })
                 }
               />
@@ -203,11 +203,11 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
-                checked={!!filters.hasAssignee}
+                checked={!!filters.assignedOnly}
                 onChange={(e) =>
                   onFilterChange({
-                    hasAssignee: e.target.checked,
-                    ...(e.target.checked ? { assignedOnly: false } : {}),
+                    assignedOnly: e.target.checked,
+                    ...(e.target.checked ? { assignedToMe: false } : {}),
                   })
                 }
                 />
@@ -280,14 +280,14 @@ export default function OrdersFiltersCard({ filters, onFilterChange, onClear }) 
                 </FilterChip>
               )}
 
-              {filters.assignedOnly && (
-                <FilterChip onRemove={() => onFilterChange({ assignedOnly: false })}>
+              {filters.assignedToMe && (
+                <FilterChip onRemove={() => onFilterChange({ assignedToMe: false })}>
                   Mes dossiers
                 </FilterChip>
               )}
 
-              {filters.hasAssignee && (
-                <FilterChip onRemove={() => onFilterChange({ hasAssignee: false })}>
+              {filters.assignedOnly && (
+                <FilterChip onRemove={() => onFilterChange({ assignedOnly: false })}>
                   Assignées
                 </FilterChip>
               )}
