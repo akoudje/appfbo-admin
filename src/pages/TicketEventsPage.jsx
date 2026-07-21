@@ -24,9 +24,28 @@ const TABS = [
   { key: "overview", label: "Vue d'ensemble" },
   { key: "tickets", label: "Tickets" },
   { key: "orders", label: "Achats" },
+  { key: "bilan", label: "Bilan" },
   { key: "checkin", label: "Contrôle accès" },
   { key: "settings", label: "Paramètres" },
 ];
+
+function paymentMethodLabel(method) {
+  if (method === "CASH") return "Espèces";
+  if (method === "WAVE") return "Wave";
+  return "Autre";
+}
+
+function downloadBlobResponse(response, fallbackFilename) {
+  const disposition = response.headers?.["content-disposition"] || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] || fallbackFilename;
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -853,6 +872,7 @@ export default function TicketEventsPage() {
                     onResendTickets={resendOrderTicketsEmail}
                   />
                 ) : null}
+                {activeTab === "bilan" ? <BilanTab event={selectedEvent} /> : null}
                 {activeTab === "checkin" ? (
                   <CheckInTab
                     event={selectedEvent}
@@ -1316,6 +1336,206 @@ function OrdersTab({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function BilanTab({ event }) {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [restitutionFile, setRestitutionFile] = useState(null);
+  const [restitutionSubject, setRestitutionSubject] = useState("");
+  const [restitutionMessage, setRestitutionMessage] = useState("");
+  const [sendingRestitution, setSendingRestitution] = useState(false);
+  const [restitutionResult, setRestitutionResult] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadSummary() {
+      if (!event?.id) return;
+      try {
+        setLoading(true);
+        setError("");
+        const data = await ticketEventsService.getEventSummary(event.id);
+        if (mounted) setSummary(data);
+      } catch (e) {
+        if (mounted) setError(e?.response?.data?.message || "Impossible de charger le bilan.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    loadSummary();
+    return () => {
+      mounted = false;
+    };
+  }, [event?.id]);
+
+  async function handleExportOrders() {
+    try {
+      setExporting(true);
+      setError("");
+      const response = await ticketEventsService.downloadEventOrdersCsv(event.id);
+      downloadBlobResponse(response, `acheteurs-${event.slug || event.id}.csv`);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Export impossible.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleExportPaymentReport() {
+    try {
+      setExporting(true);
+      setError("");
+      const response = await ticketEventsService.downloadEventPaymentReportCsv(event.id);
+      downloadBlobResponse(response, `rapport-paiements-${event.slug || event.id}.csv`);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Export impossible.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleSendRestitution(submitEvent) {
+    submitEvent.preventDefault();
+    if (!restitutionFile) return;
+    const confirmed = window.confirm(
+      "Envoyer ce fichier par email à tous les acheteurs ayant payé pour cet événement ?",
+    );
+    if (!confirmed) return;
+    try {
+      setSendingRestitution(true);
+      setError("");
+      setRestitutionResult(null);
+      const result = await ticketEventsService.sendRestitutionEmail(event.id, {
+        file: restitutionFile,
+        subject: restitutionSubject,
+        message: restitutionMessage,
+      });
+      setRestitutionResult(result);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Envoi impossible.");
+    } finally {
+      setSendingRestitution(false);
+    }
+  }
+
+  if (loading && !summary) {
+    return <div className="p-8 text-center text-sm text-gray-500">Chargement du bilan…</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {summary ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Stat label="Billets vendus (payés)" value={summary.totals.ticketsCount} />
+          <Stat label="Commandes payées" value={summary.totals.ordersCount} />
+          <Stat label="Recette totale" value={formatFcfa(summary.totals.totalFcfa)} />
+        </div>
+      ) : null}
+
+      <div className="rounded-xl border border-gray-200">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4">
+          <h3 className="font-bold">Ventes par moyen de paiement</h3>
+          <button
+            type="button"
+            onClick={handleExportPaymentReport}
+            disabled={exporting || !summary?.byPaymentMethod?.length}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Exporter (CSV)
+          </button>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {(summary?.byPaymentMethod || []).map((row) => (
+            <div key={row.paymentMethod} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
+              <span className="font-semibold">{paymentMethodLabel(row.paymentMethod)}</span>
+              <span className="text-gray-500">
+                {row.ordersCount} commande{row.ordersCount > 1 ? "s" : ""} · {row.ticketsCount} billet
+                {row.ticketsCount > 1 ? "s" : ""}
+              </span>
+              <span className="font-semibold">{formatFcfa(row.totalFcfa)}</span>
+            </div>
+          ))}
+          {!summary?.byPaymentMethod?.length ? (
+            <div className="p-8 text-center text-sm text-gray-500">Aucune vente payée pour l'instant.</div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold">Liste des acheteurs</h3>
+          <button
+            type="button"
+            onClick={handleExportOrders}
+            disabled={exporting}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Exporter avec contacts (CSV)
+          </button>
+        </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Export CSV complet (nom, téléphone, email, moyen de paiement, statut) de tous les acheteurs de cet événement.
+        </p>
+      </div>
+
+      <form onSubmit={handleSendRestitution} className="rounded-xl border border-gray-200 p-4">
+        <h3 className="font-bold">Envoyer un fichier de restitution</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Envoie le fichier joint par email à tous les acheteurs ayant payé pour cet événement.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <Field label="Fichier de restitution">
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.zip,.pptx,.docx"
+              onChange={(fileEvent) => setRestitutionFile(fileEvent.target.files?.[0] || null)}
+              className="block w-full text-sm"
+            />
+          </Field>
+          <Field label="Objet (optionnel)">
+            <input
+              className={inputClass()}
+              value={restitutionSubject}
+              onChange={(changeEvent) => setRestitutionSubject(changeEvent.target.value)}
+              placeholder={`FOREVER | Restitution — ${event.title}`}
+            />
+          </Field>
+          <Field label="Message (optionnel)">
+            <textarea
+              rows={3}
+              className={inputClass()}
+              value={restitutionMessage}
+              onChange={(changeEvent) => setRestitutionMessage(changeEvent.target.value)}
+              placeholder="Message par défaut si laissé vide."
+            />
+          </Field>
+        </div>
+        <button
+          type="submit"
+          disabled={sendingRestitution || !restitutionFile}
+          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {sendingRestitution ? "Envoi en cours…" : "Envoyer à tous les acheteurs"}
+        </button>
+
+        {restitutionResult ? (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            {restitutionResult.sentCount} email(s) envoyé(s) sur {restitutionResult.totalPaidOrders} acheteur(s) payé(s).
+            {restitutionResult.skippedNoEmailCount
+              ? ` ${restitutionResult.skippedNoEmailCount} sans email renseigné.`
+              : ""}
+            {restitutionResult.failedCount ? ` ${restitutionResult.failedCount} échec(s) d'envoi.` : ""}
+          </div>
+        ) : null}
+      </form>
     </div>
   );
 }

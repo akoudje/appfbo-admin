@@ -55,4 +55,28 @@ export const ticketEventsService = {
 
   getCheckInSummary: async (params = {}) =>
     (await api.get("/admin/ticket-events/check-in/summary", { params })).data,
+
+  getEventSummary: async (eventId) =>
+    (await api.get(`/admin/ticket-events/${eventId}/summary`)).data,
+
+  downloadEventOrdersCsv: async (eventId, params = {}) =>
+    api.get(`/admin/ticket-events/${eventId}/orders/export`, {
+      params,
+      responseType: "blob",
+    }),
+
+  downloadEventPaymentReportCsv: async (eventId) =>
+    api.get(`/admin/ticket-events/${eventId}/summary/export`, {
+      responseType: "blob",
+    }),
+
+  sendRestitutionEmail: async (eventId, { file, subject, message }) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (subject) formData.append("subject", subject);
+    if (message) formData.append("message", message);
+    return (
+      await api.post(`/admin/ticket-events/${eventId}/orders/bulk-restitution-email`, formData)
+    ).data;
+  },
 };
