@@ -747,7 +747,7 @@ export default function OrderDetailPage() {
     }
   };
 
-const doInvoice = async (options = {}) => {
+const doInvoice = async () => {
   try {
     setSaving(true);
     setError("");
@@ -760,8 +760,6 @@ const doInvoice = async (options = {}) => {
       fboGrade: normalizeStr(invoiceGrade) || undefined,
       invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
       note: normalizeStr(invoiceNote) || undefined,
-      confirmDuplicateAs400Reference:
-        options?.confirmDuplicateAs400Reference === true,
     };
 
     await ordersService.invoice(id, body);
@@ -801,7 +799,7 @@ const doInvoice = async (options = {}) => {
     }
   };
 
-  const doCorrectAs400Invoice = async (options = {}) => {
+  const doCorrectAs400Invoice = async () => {
     try {
       setSaving(true);
       setError("");
@@ -811,8 +809,6 @@ const doInvoice = async (options = {}) => {
         factureReference: normalizeStr(invoiceRef) || undefined,
         invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
         note: normalizeStr(invoiceNote) || undefined,
-        confirmDuplicateAs400Reference:
-          options?.confirmDuplicateAs400Reference === true,
       });
 
       setOrder(result?.order || result);

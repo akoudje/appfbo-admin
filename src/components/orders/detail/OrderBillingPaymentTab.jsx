@@ -524,21 +524,21 @@ function BillingActionCard({
     Number(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0);
   const amountDeltaFcfa = Number(as400AmountFcfa || 0) - platformAmountFcfa;
   const hasAmountDelta = Boolean(invoicePreview) && amountDeltaFcfa !== 0;
-  const canSubmitInvoice = canInvoice && !saving && Boolean(invoiceGrade) && Boolean(invoiceRef);
+  const canSubmitInvoice =
+    canInvoice && !saving && Boolean(invoiceGrade) && Boolean(invoiceRef) && !duplicateReference;
   const canSubmitCorrection =
     canCorrectAs400Invoice &&
     !saving &&
     Boolean(invoiceRef) &&
-    parseFcfaInput(invoiceAmountFcfa) !== null;
+    parseFcfaInput(invoiceAmountFcfa) !== null &&
+    !duplicateReference;
   const closeConfirmation = () => setConfirmationMode(null);
   const confirmAction = () => {
-    const payload = {
-      confirmDuplicateAs400Reference: Boolean(duplicateReference),
-    };
+    if (duplicateReference) return;
     if (confirmationMode === "correct") {
-      onCorrectAs400Invoice?.(payload);
+      onCorrectAs400Invoice?.();
     } else {
-      onInvoice?.(payload);
+      onInvoice?.();
     }
     closeConfirmation();
   };
@@ -728,13 +728,14 @@ function BillingActionCard({
         </div>
 
         {duplicateReference ? (
-          <Alert tone="amber" title="Référence AS400 déjà utilisée">
+          <Alert tone="red" title="Référence AS400 déjà utilisée — facturation bloquée">
             <div className="text-sm">
-              La référence est déjà liée à la commande{" "}
+              Cette référence est déjà liée à la commande{" "}
               <span className="font-semibold">
                 {duplicateReference.preorderNumber || duplicateReference.id}
               </span>
               {" "}({duplicateReference.fboNomComplet || duplicateReference.fboNumero || "client non renseigné"}).
+              Modifiez d'abord la référence de cette commande avant de la réutiliser ici.
             </div>
           </Alert>
         ) : null}
@@ -1091,12 +1092,13 @@ function BillingActionCard({
               </div>
               <div className="space-y-3 px-5 py-4 text-sm">
                 {duplicateReference ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-                    <div className="font-semibold">Attention doublon AS400</div>
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-900">
+                    <div className="font-semibold">Doublon AS400 — action bloquée</div>
                     <div className="mt-1 text-xs">
                       Déjà utilisé sur{" "}
                       {duplicateReference.preorderNumber || duplicateReference.id}
                       {" "}({duplicateReference.fboNomComplet || duplicateReference.fboNumero || "client non renseigné"}).
+                      Modifiez d'abord cette commande avant de réutiliser sa référence ici.
                     </div>
                   </div>
                 ) : null}
@@ -1151,15 +1153,17 @@ function BillingActionCard({
                 >
                   Annuler
                 </button>
-                <button
-                  type="button"
-                  onClick={confirmAction}
-                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
-                >
-                  {confirmationMode === "correct"
-                    ? "Confirmer la correction"
-                    : "Confirmer et facturer"}
-                </button>
+                {!duplicateReference ? (
+                  <button
+                    type="button"
+                    onClick={confirmAction}
+                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+                  >
+                    {confirmationMode === "correct"
+                      ? "Confirmer la correction"
+                      : "Confirmer et facturer"}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

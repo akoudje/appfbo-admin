@@ -1283,7 +1283,7 @@ export default function DailySalesReportPage() {
     };
     
     const lines = [
-      ["Section", "Commande", "FBO", "Numero FBO", "Mode paiement", "Montant", "Acteur", "Date", "Motif"].map(escapeCsv).join(","),
+      ["Section", "Commande", "Ref AS400", "FBO", "Numero FBO", "Mode paiement", "Montant", "Acteur", "Date", "Motif"].map(escapeCsv).join(","),
     ];
 
     if (reportData?.monthly?.rows?.length) {
@@ -1325,6 +1325,7 @@ export default function DailySalesReportPage() {
         lines.push([
           section,
           row.preorderNumber || row.parcelNumber || row.id,
+          row.factureReference || "",
           row.fboNomComplet || "",
           row.fboNumero || "",
           humanize(row.preorderPaymentMode),
