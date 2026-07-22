@@ -729,7 +729,13 @@ const PrintMiniBars = ({ title, rows = [] }) => (
   </div>
 );
 
-const PrintRowsTable = ({ title, rows = [], type }) => {
+function isInvoicedOnReportDate(row, reportDateIso) {
+  if (!row?.invoicedAt || !reportDateIso) return false;
+  const invoicedDateIso = new Date(row.invoicedAt).toISOString().slice(0, 10);
+  return invoicedDateIso === reportDateIso;
+}
+
+const PrintRowsTable = ({ title, rows = [], type, reportDateIso, highlightInvoicedToday = false, noCap = false }) => {
   const dateField = {
     submitted: "submittedAt",
     invoiced: "invoicedAt",
@@ -741,15 +747,23 @@ const PrintRowsTable = ({ title, rows = [], type }) => {
     paid: "cashier",
     cancelled: "cancelledBy",
   }[type];
+  const displayedRows = noCap ? rows : rows.slice(0, 18);
 
   return (
     <section className="mt-4 break-inside-avoid rounded-lg border border-gray-200 p-3">
       <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+      {highlightInvoicedToday ? (
+        <div className="mt-1 flex items-center gap-1.5 text-[10px] text-emerald-700">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-100 border border-emerald-300" />
+          Préfacturée et payée le même jour
+        </div>
+      ) : null}
       {rows.length ? (
         <table className="mt-2 w-full border-collapse text-[10px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
               <th className="px-2 py-1 text-left">Commande</th>
+              <th className="px-2 py-1 text-left">Réf AS400</th>
               <th className="px-2 py-1 text-left">FBO</th>
               <th className="px-2 py-1 text-left">Mode</th>
               <th className="px-2 py-1 text-right">Montant</th>
@@ -758,22 +772,29 @@ const PrintRowsTable = ({ title, rows = [], type }) => {
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, 18).map((row) => (
-              <tr key={`${title}-${row.id}`} className="border-b border-gray-100">
-                <td className="px-2 py-1 font-semibold">{row.preorderNumber || row.parcelNumber || row.id}</td>
-                <td className="px-2 py-1">{row.fboNomComplet || "-"}<br />{row.fboNumero || "-"}</td>
-                <td className="px-2 py-1">{humanize(row.preorderPaymentMode)}</td>
-                <td className="px-2 py-1 text-right">{formatFcfa(row.as400InvoiceTotalFcfa || row.totalFcfa || 0)}</td>
-                <td className="px-2 py-1">{actorField ? row?.[actorField]?.label || "-" : "-"}</td>
-                <td className="px-2 py-1">{formatDateTime(row[dateField])}</td>
-              </tr>
-            ))}
+            {displayedRows.map((row) => {
+              const highlighted = highlightInvoicedToday && isInvoicedOnReportDate(row, reportDateIso);
+              return (
+                <tr
+                  key={`${title}-${row.id}`}
+                  className={`border-b border-gray-100 ${highlighted ? "bg-emerald-50" : ""}`}
+                >
+                  <td className="px-2 py-1 font-semibold">{row.preorderNumber || row.parcelNumber || row.id}</td>
+                  <td className="px-2 py-1">{row.factureReference || "-"}</td>
+                  <td className="px-2 py-1">{row.fboNomComplet || "-"}<br />{row.fboNumero || "-"}</td>
+                  <td className="px-2 py-1">{humanize(row.preorderPaymentMode)}</td>
+                  <td className="px-2 py-1 text-right">{formatFcfa(row.as400InvoiceTotalFcfa || row.totalFcfa || 0)}</td>
+                  <td className="px-2 py-1">{actorField ? row?.[actorField]?.label || "-" : "-"}</td>
+                  <td className="px-2 py-1">{formatDateTime(row[dateField])}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       ) : (
         <div className="mt-2 text-xs text-gray-500">Aucune donnée.</div>
       )}
-      {rows.length > 18 ? (
+      {!noCap && rows.length > 18 ? (
         <div className="mt-2 text-xs text-gray-500">+{rows.length - 18} lignes dans l'export CSV.</div>
       ) : null}
     </section>
@@ -899,8 +920,15 @@ const PrintableDailyReport = ({ report }) => {
         <PrintMiniBars title="Annulations par motif" rows={report.cancelled?.byReason || []} />
       </div>
 
+      <PrintRowsTable
+        title="Réconciliation caisse — Paiements validés sur la période"
+        rows={report.paid?.rows || []}
+        type="paid"
+        reportDateIso={report.date}
+        highlightInvoicedToday
+        noCap
+      />
       <PrintRowsTable title="Préfacturées sur la période" rows={report.invoiced?.rows || []} type="invoiced" />
-      <PrintRowsTable title="Paiements validés sur la période" rows={report.paid?.rows || []} type="paid" />
       <PrintRowsTable title="Annulations sur la période" rows={report.cancelled?.rows || []} type="cancelled" />
     </div>
   );
