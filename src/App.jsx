@@ -24,6 +24,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
 import SubmittedOrdersPrintPage from "./pages/SubmittedOrdersPrintPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
+import CashierReceiptsPrintPage from "./pages/CashierReceiptsPrintPage";
 import CashClosurePage from "./pages/CashClosurePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import MarketingCampaignsPage from "./pages/MarketingCampaignsPage";
@@ -126,6 +127,17 @@ export default function App() {
               fallback={<AccessDenied message="Accès refusé à l’export des commandes." />}
             >
               <SubmittedOrdersPrintPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/cashier/receipts/print"
+          element={
+            <RequirePermission
+              permission={Permission.PAYMENT_VALIDATE}
+              fallback={<AccessDenied message="Accès refusé à l’espace caisse." />}
+            >
+              <CashierReceiptsPrintPage />
             </RequirePermission>
           }
         />

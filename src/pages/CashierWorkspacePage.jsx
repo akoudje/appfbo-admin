@@ -6,6 +6,17 @@ import { ordersService } from "../services/ordersService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../services/realtimeAlertsService";
+import {
+  formatFcfa,
+  formatDateTime,
+  humanizeEnum,
+  displayAdminName,
+  escapeHtml,
+  isSwitchedToCash,
+  resolveOriginalPaymentMode,
+  RECEIPT_STYLE_CSS,
+  buildReceiptBodyHtml,
+} from "../utils/cashierReceipt";
 
 const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v2";
 
@@ -29,29 +40,6 @@ function safeWriteStorage(key, value) {
   }
 }
 
-function formatFcfa(value) {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "XOF",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-}
-
-function formatDateTime(value) {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-}
-
-function humanizeEnum(value) {
-  if (!value) return "-";
-  return String(value)
-    .toLowerCase()
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (m) => m.toUpperCase());
-}
 
 function resolveAssetUrl(value) {
   const raw = String(value || "").trim();
@@ -182,57 +170,6 @@ function statusTone(status) {
   return "bg-gray-100 text-gray-700";
 }
 
-function displayAdminName(value) {
-  return value?.fullName || value?.email || value?.id || "-";
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function resolveReceiptAmount(row = {}) {
-  return (
-    row.cashierTransaction?.amountReceivedFcfa ||
-    row.activePayment?.amountPaidFcfa ||
-    row.activePayment?.amountExpectedFcfa ||
-    row.amountExpectedFcfa ||
-    row.totalFcfa ||
-    0
-  );
-}
-
-function isSwitchedToCash(row = {}) {
-  const logs = Array.isArray(row.logs) ? row.logs : [];
-  return logs.some((log) => {
-    const meta = log?.meta || {};
-    return (
-      log?.action === "WAIT_CUSTOMER_DATA" &&
-      meta.toPreorderPaymentMode === "ESPECES" &&
-      meta.fromPreorderPaymentMode &&
-      meta.fromPreorderPaymentMode !== "ESPECES"
-    );
-  });
-}
-
-function resolveOriginalPaymentMode(row = {}) {
-  const logs = Array.isArray(row.logs) ? row.logs : [];
-  const switchLog = logs.find((log) => {
-    const meta = log?.meta || {};
-    return (
-      log?.action === "WAIT_CUSTOMER_DATA" &&
-      meta.toPreorderPaymentMode === "ESPECES" &&
-      meta.fromPreorderPaymentMode &&
-      meta.fromPreorderPaymentMode !== "ESPECES"
-    );
-  });
-
-  return switchLog?.meta?.fromPreorderPaymentMode || row.preorderPaymentMode || row.paymentProvider || "";
-}
 
 function printCashierReceipt(row, admin = {}) {
   if (!row?.id || typeof window === "undefined") return false;
@@ -240,89 +177,12 @@ function printCashierReceipt(row, admin = {}) {
   const popup = window.open("", "_blank", "width=420,height=720");
   if (!popup) return false;
 
-  const cashierTx = row.cashierTransaction || {};
   const orderNumber =
     row.parcelNumber ||
     row.preorderNumber ||
     row.paymentCollectionCode ||
     row.factureReference ||
     row.id;
-  const switchedToCash = isSwitchedToCash(row);
-  const originalPaymentMode = resolveOriginalPaymentMode(row);
-  const paymentMode = switchedToCash
-    ? `${humanizeEnum(originalPaymentMode)} validé à la caisse`
-    : humanizeEnum(row.preorderPaymentMode || row.paymentProvider);
-  const isWave =
-    String(row.paymentProvider || "").toUpperCase() === "WAVE" ||
-    String(row.preorderPaymentMode || "").toUpperCase() === "WAVE" ||
-    String(row.activePayment?.provider || "").toUpperCase() === "WAVE";
-  const waveDetails = {
-    payerPhone:
-      row.payerPhone ||
-      row.latestAttempt?.providerPayerPhone ||
-      row.activePayment?.providerPayerPhone ||
-      "-",
-    transactionId:
-      row.activePayment?.providerTxnId ||
-      row.latestAttempt?.providerTransactionId ||
-      row.cashierTransaction?.providerReference ||
-      "-",
-    sessionId:
-      row.activePayment?.providerReference ||
-      row.latestAttempt?.providerSessionId ||
-      "-",
-    providerStatus:
-      row.latestAttempt?.providerStatusLabel ||
-      row.activePayment?.status ||
-      row.paymentStatus ||
-      "-",
-  };
-  const paidAt =
-    row.manualPaymentValidatedAt ||
-    row.paidAt ||
-    row.activePayment?.paidAt ||
-    cashierTx.createdAt ||
-    new Date().toISOString();
-  const cashierName = displayAdminName(
-    row.validatedBy ||
-      row.manualPaymentValidatedBy ||
-      cashierTx.cashier ||
-      admin,
-  );
-
-  const receiptTitle = switchedToCash
-    ? "VALIDATION DE PAIEMENT"
-    : isWave
-      ? "REÇU PAIEMENT WAVE"
-      : "REÇU ENCAISSEMENT CAISSE";
-  const receiptSubtitle = switchedToCash
-    ? "Validation caisse d'un paiement déjà effectué"
-    : isWave
-      ? "Paiement électronique confirmé"
-      : "Encaissement au comptoir";
-
-  const lines = [
-    ["Commande", orderNumber],
-    ["Client", row.fboNomComplet || "-"],
-    ["FBO", row.fboNumero || "-"],
-    ["Mode paiement", paymentMode],
-    ...(switchedToCash ? [["Mode d'origine", humanizeEnum(originalPaymentMode)]] : []),
-    ["Montant payé", formatFcfa(resolveReceiptAmount(row))],
-    ["Code caisse", row.paymentCollectionCode || "-"],
-    ["Facture AS400", row.factureReference || "-"],
-    ["N° reçu caisse", cashierTx.receiptNumber || "-"],
-    ["Poste caisse", cashierTx.cashDeskLabel || "-"],
-    ...(isWave
-      ? [
-          ["Transaction Wave", waveDetails.transactionId],
-          ["Session Wave", waveDetails.sessionId],
-          ["Numéro payeur Wave", waveDetails.payerPhone],
-          ["Statut provider", waveDetails.providerStatus],
-        ]
-      : []),
-    ["Validé par", cashierName],
-    ["Date paiement", formatDateTime(paidAt)],
-  ];
 
   popup.document.write(`<!doctype html>
 <html lang="fr">
@@ -331,164 +191,14 @@ function printCashierReceipt(row, admin = {}) {
     <title>Reçu paiement ${escapeHtml(orderNumber)}</title>
     <style>
       @page { size: 80mm auto; margin: 5mm; }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        color: #111827;
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 11px;
-      }
-      .receipt {
-        width: 70mm;
-        margin: 0 auto;
-      }
-      .brand {
-        border-bottom: 1px solid #111827;
-        padding-bottom: 8px;
-        text-align: center;
-      }
-      .logo-row {
-        align-items: center;
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        margin-bottom: 6px;
-      }
-      .forever-brand {
-        align-items: center;
-        color: #000;
-        display: inline-flex;
-        gap: 4px;
-        line-height: 1;
-      }
-      .forever-logo {
-        filter: grayscale(1) contrast(4) brightness(0);
-        max-height: 14px;
-        max-width: 13mm;
-        object-fit: contain;
-        -webkit-filter: grayscale(1) contrast(4) brightness(0);
-      }
-      .forever-text {
-        color: #000;
-        font-family: Georgia, "Times New Roman", serif;
-        font-size: 14px;
-        font-weight: 700;
-        letter-spacing: .12em;
-      }
-      .wave-logo {
-        max-height: 22px;
-        max-width: 18mm;
-        object-fit: contain;
-      }
-      .logo-divider {
-        background: #d1d5db;
-        display: inline-block;
-        height: 18px;
-        width: 1px;
-      }
-      .brand p {
-        margin: 4px 0 0;
-        color: #4b5563;
-        font-size: 10px;
-      }
-      .title {
-        margin: 10px 0;
-        border: 1px solid #111827;
-        padding: 6px;
-        text-align: center;
-        font-size: 13px;
-        font-weight: 700;
-      }
-      .row {
-        display: grid;
-        grid-template-columns: 28mm 1fr;
-        gap: 4px;
-        border-bottom: 1px dashed #d1d5db;
-        padding: 5px 0;
-      }
-      .label {
-        color: #4b5563;
-        font-weight: 700;
-      }
-      .value {
-        overflow-wrap: anywhere;
-        text-align: right;
-        font-weight: 700;
-      }
-      .amount {
-        margin: 10px 0;
-        border: 2px solid #111827;
-        padding: 8px;
-        text-align: center;
-      }
-      .amount .value {
-        display: block;
-        text-align: center;
-        font-size: 18px;
-      }
-      .footer {
-        margin-top: 12px;
-        color: #4b5563;
-        text-align: center;
-        font-size: 10px;
-      }
-      .no-print {
-        margin-top: 12px;
-        text-align: center;
-      }
-      button {
-        border: 0;
-        background: #059669;
-        color: white;
-        cursor: pointer;
-        font-weight: 700;
-        padding: 8px 12px;
-      }
-      @media print {
-        .no-print { display: none; }
-        .forever-logo {
-          filter: grayscale(1) contrast(4) brightness(0);
-          -webkit-filter: grayscale(1) contrast(4) brightness(0);
-        }
-      }
+      ${RECEIPT_STYLE_CSS}
     </style>
   </head>
   <body>
-    <main class="receipt">
-      <header class="brand">
-        <div class="logo-row">
-          <span class="forever-brand" aria-label="Forever">
-            <img class="forever-logo" src="/logo-forever.png" alt="" />
-            <span class="forever-text">FOREVER</span>
-          </span>
-          <span class="logo-divider"></span>
-          <img class="wave-logo" src="/wave.png" alt="Wave" />
-        </div>
-        <p>${escapeHtml(receiptSubtitle)}</p>
-      </header>
-      <div class="title">${escapeHtml(receiptTitle)}</div>
-      <section class="amount">
-        <span class="label">Montant payé</span>
-        <span class="value">${escapeHtml(formatFcfa(resolveReceiptAmount(row)))}</span>
-      </section>
-      ${lines
-        .filter(([label]) => label !== "Montant payé")
-        .map(
-          ([label, value]) => `
-            <div class="row">
-              <div class="label">${escapeHtml(label)}</div>
-              <div class="value">${escapeHtml(value)}</div>
-            </div>
-          `,
-        )
-        .join("")}
-      <p class="footer">
-        Document généré depuis l'espace caisse le ${escapeHtml(formatDateTime(new Date()))}.
-      </p>
-      <div class="no-print">
-        <button type="button" onclick="window.print()">Imprimer</button>
-      </div>
-    </main>
+    ${buildReceiptBodyHtml(row, admin)}
+    <div class="no-print" style="text-align:center;margin-top:12px;">
+      <button type="button" onclick="window.print()">Imprimer</button>
+    </div>
     <script>
       window.addEventListener("load", function () {
         setTimeout(function () { window.print(); }, 250);
@@ -519,6 +229,7 @@ function ProcessingTable({
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Commande</th>
+              <th className="px-4 py-3">Réf AS400</th>
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Montant</th>
@@ -529,7 +240,7 @@ function ProcessingTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   Aucune commande.
                 </td>
               </tr>
@@ -553,9 +264,10 @@ function ProcessingTable({
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
                       <div className="text-xs text-gray-500">
-                        Code caisse: {row.paymentCollectionCode || "-"} • AS400: {row.factureReference || "-"}
+                        Code caisse: {row.paymentCollectionCode || "-"}
                       </div>
                     </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-700">{row.factureReference || "-"}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
                       <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
@@ -1091,6 +803,95 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder, onReportAs400
   );
 }
 
+function PaidTodayModal({ open, onClose }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const result = await cashierService.getPaidToday();
+        if (!cancelled) setData(result);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.response?.data?.message || "Impossible de charger la liste.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  const rows = data?.rows || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Références AS400 payées du jour</h2>
+            <p className="text-xs text-gray-500">
+              {data ? `${data.total} commande${data.total > 1 ? "s" : ""} payée${data.total > 1 ? "s" : ""} • ${formatFcfa(data.totalAmountFcfa || 0)}` : "Chargement..."}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-5 py-4">
+          {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+          {loading ? (
+            <div className="py-10 text-center text-sm text-gray-500">Chargement...</div>
+          ) : rows.length === 0 ? (
+            <div className="py-10 text-center text-sm text-gray-500">Aucune commande payée aujourd'hui.</div>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-3 py-2">Réf AS400</th>
+                  <th className="px-3 py-2">Commande</th>
+                  <th className="px-3 py-2">FBO</th>
+                  <th className="px-3 py-2">Mode</th>
+                  <th className="px-3 py-2 text-right">Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2 font-mono text-xs text-gray-800">{row.factureReference || "-"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{row.preorderNumber || row.parcelNumber || row.id}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
+                      <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{humanizeEnum(row.preorderPaymentMode)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                      {formatFcfa(row.cashierTransaction?.amountReceivedFcfa || row.totalFcfa)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CashierWorkspacePage() {
   const navigate = useNavigate();
   const { admin, role } = useAdminAuth();
@@ -1150,6 +951,7 @@ export default function CashierWorkspacePage() {
 
   const [activeTab, setActiveTab] = useState("processing");
   const [quickPreset, setQuickPreset] = useState("ALL");
+  const [as400ListOpen, setAs400ListOpen] = useState(false);
 
   const [query, setQuery] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
@@ -1483,11 +1285,29 @@ export default function CashierWorkspacePage() {
           <h1 className="text-3xl font-bold text-gray-900">Espace Caisse</h1>
           <p className="mt-1 text-sm text-gray-500">Interface simplifiée: traiter, consulter les terminées, rechercher toute commande.</p>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
-          <div className="font-semibold text-gray-900">{admin?.fullName || "Caissière"}</div>
-          <div className="text-gray-500">{humanizeEnum(role)}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAs400ListOpen(true)}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            Réf. AS400 payées du jour
+          </button>
+          <button
+            type="button"
+            onClick={() => window.open("/cashier/receipts/print", "_blank")}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            Imprimer tous les reçus du jour
+          </button>
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
+            <div className="font-semibold text-gray-900">{admin?.fullName || "Caissière"}</div>
+            <div className="text-gray-500">{humanizeEnum(role)}</div>
+          </div>
         </div>
       </div>
+
+      <PaidTodayModal open={as400ListOpen} onClose={() => setAs400ListOpen(false)} />
 
       <div className={canViewConsolidated ? "grid gap-4 md:grid-cols-4" : "grid gap-4 md:grid-cols-3"}>
         <SummaryCard label="À encaisser" value={workspace?.collectionSummary?.total || 0} hint="Paiements à traiter" />
