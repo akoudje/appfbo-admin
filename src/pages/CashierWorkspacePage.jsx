@@ -267,7 +267,7 @@ function ProcessingTable({
                         Code caisse: {row.paymentCollectionCode || "-"}
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-700">{row.factureReference || "-"}</td>
+                    <td className="px-4 py-3 font-mono text-base font-extrabold text-indigo-700">{row.factureReference || "-"}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
                       <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
@@ -344,6 +344,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Commande</th>
+              <th className="px-4 py-3">Réf AS400</th>
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Caissière</th>
@@ -355,7 +356,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">{emptyLabel}</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">{emptyLabel}</td>
               </tr>
             ) : (
               rows.map((row) => (
@@ -364,6 +365,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
                     <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
                     <div className="text-xs text-gray-500">{humanizeEnum(row.status)}</div>
                   </td>
+                  <td className="px-4 py-3 font-mono text-base font-extrabold text-indigo-700">{row.factureReference || "-"}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
                     <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
@@ -673,7 +675,7 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder, onReportAs400
                 <div><strong>Poste caisse:</strong> {cashierTx?.cashDeskLabel || "-"}</div>
                 <div><strong>Validé par:</strong> {displayAdminName(validatedBy)}</div>
                 <div><strong>Code caisse:</strong> {order.paymentCollectionCode || "-"}</div>
-                <div><strong>Facture AS400:</strong> {order.factureReference || "-"}</div>
+                <div><strong>Facture AS400:</strong> <span className="font-mono text-base font-extrabold text-indigo-700">{order.factureReference || "-"}</span></div>
                 <div><strong>Paiement confirmé:</strong> {formatDateTime(order.manualPaymentValidatedAt || order.paidAt)}</div>
               </div>
             </div>
@@ -871,7 +873,7 @@ function PaidTodayModal({ open, onClose }) {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className="border-t border-gray-100">
-                    <td className="px-3 py-2 font-mono text-xs text-gray-800">{row.factureReference || "-"}</td>
+                    <td className="px-3 py-2 font-mono text-base font-extrabold text-indigo-700">{row.factureReference || "-"}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{row.preorderNumber || row.parcelNumber || row.id}</td>
                     <td className="px-3 py-2">
                       <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
