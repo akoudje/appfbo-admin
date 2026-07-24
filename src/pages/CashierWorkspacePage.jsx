@@ -918,7 +918,7 @@ function PaidTodayModal({ open, onClose }) {
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-600">{humanizeEnum(row.preorderPaymentMode)}</td>
                     <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                      {formatFcfa(row.cashierTransaction?.amountReceivedFcfa || row.totalFcfa)}
+                      {formatFcfa(row.as400InvoiceTotalFcfa || row.totalFcfa)}
                     </td>
                   </tr>
                 ))}
