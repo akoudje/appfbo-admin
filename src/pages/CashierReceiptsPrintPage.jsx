@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { cashierService } from "../services/cashierService";
 import { RECEIPT_STYLE_CSS, buildReceiptBodyHtml } from "../utils/cashierReceipt";
 
 export default function CashierReceiptsPrintPage() {
+  const [searchParams] = useSearchParams();
+  const idsParam = searchParams.get("ids") || "";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([]);
@@ -14,7 +17,7 @@ export default function CashierReceiptsPrintPage() {
       setLoading(true);
       setError("");
       try {
-        const result = await cashierService.getPaidToday();
+        const result = await cashierService.getPaidToday(idsParam ? { ids: idsParam } : {});
         if (!active) return;
         setRows(Array.isArray(result?.rows) ? result.rows : []);
       } catch (fetchError) {
@@ -31,7 +34,7 @@ export default function CashierReceiptsPrintPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [idsParam]);
 
   useEffect(() => {
     if (loading || error || hasPrintedRef.current || rows.length === 0) return;
@@ -54,7 +57,8 @@ export default function CashierReceiptsPrintPage() {
 
       <div className="print-toolbar sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
         <div className="text-sm text-gray-600">
-          Impression groupée des reçus payés du jour {rows.length ? `(${rows.length})` : ""}
+          {idsParam ? "Impression de la sélection" : "Impression groupée des reçus payés du jour"}{" "}
+          {rows.length ? `(${rows.length})` : ""}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -81,7 +85,7 @@ export default function CashierReceiptsPrintPage() {
           <div className="py-12 text-center text-red-600">{error}</div>
         ) : rows.length === 0 ? (
           <div className="py-12 text-center text-gray-500">
-            Aucune commande payée aujourd'hui.
+            {idsParam ? "Aucune commande sélectionnée introuvable." : "Aucune commande payée aujourd'hui."}
           </div>
         ) : (
           rows.map((row) => (

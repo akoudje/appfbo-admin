@@ -90,10 +90,13 @@ export const RECEIPT_STYLE_CSS = `
   .receipt {
     width: 70mm;
     margin: 0 auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .receipt + .receipt {
     margin-top: 8mm;
     page-break-before: always;
+    break-before: page;
   }
   .brand {
     border-bottom: 1px solid #111827;

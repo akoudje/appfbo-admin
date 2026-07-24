@@ -809,10 +809,12 @@ function PaidTodayModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setSelectedIds(new Set());
 
     (async () => {
       setLoading(true);
@@ -837,6 +839,25 @@ function PaidTodayModal({ open, onClose }) {
   if (!open) return null;
 
   const rows = data?.rows || [];
+  const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+
+  function toggleRow(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(rows.map((row) => row.id)));
+  }
+
+  function printSelection() {
+    const ids = Array.from(selectedIds).join(",");
+    window.open(`/cashier/receipts/print?ids=${encodeURIComponent(ids)}`, "_blank");
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -863,6 +884,14 @@ function PaidTodayModal({ open, onClose }) {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                 <tr>
+                  <th className="w-8 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="Tout sélectionner"
+                    />
+                  </th>
                   <th className="px-3 py-2">Réf AS400</th>
                   <th className="px-3 py-2">Commande</th>
                   <th className="px-3 py-2">FBO</th>
@@ -873,6 +902,14 @@ function PaidTodayModal({ open, onClose }) {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(row.id)}
+                        onChange={() => toggleRow(row.id)}
+                        aria-label={`Sélectionner ${row.factureReference || row.preorderNumber || row.id}`}
+                      />
+                    </td>
                     <td className="px-3 py-2 font-mono text-base font-extrabold text-indigo-700">{row.factureReference || "-"}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{row.preorderNumber || row.parcelNumber || row.id}</td>
                     <td className="px-3 py-2">
@@ -889,6 +926,31 @@ function PaidTodayModal({ open, onClose }) {
             </table>
           )}
         </div>
+
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3">
+            <span className="text-xs text-gray-500">
+              {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => window.open("/cashier/receipts/print", "_blank")}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Imprimer tous les reçus du jour
+              </button>
+              <button
+                type="button"
+                onClick={printSelection}
+                disabled={selectedIds.size === 0}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Imprimer la sélection ({selectedIds.size})
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
