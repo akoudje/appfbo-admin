@@ -37,6 +37,25 @@ function safeWriteStorage(key, value) {
   }
 }
 
+const MAX_QUEUE_PAGES = 20; // Garde-fou : jusqu'à 2000 commandes par statut, au-delà on tronque plutôt que de bloquer la page.
+
+async function fetchAllOrderPages(baseParams) {
+  const first = await ordersService.getAll({ ...baseParams, page: 1, pageSize: 100 });
+  const totalPages = Math.min(first?.totalPages || 1, MAX_QUEUE_PAGES);
+  const data = [...(first?.data || [])];
+
+  if (totalPages > 1) {
+    const restPages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, i) =>
+        ordersService.getAll({ ...baseParams, page: i + 2, pageSize: 100 }),
+      ),
+    );
+    restPages.forEach((page) => data.push(...(page?.data || [])));
+  }
+
+  return data;
+}
+
 export default function PreparationQueuePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -118,29 +137,27 @@ export default function PreparationQueuePage() {
       const dateFromValue = overrides.dateFrom ?? dateFrom;
       const dateToValue = overrides.dateTo ?? dateTo;
       const commonFilters = {
-        page: 1,
-        pageSize: 100,
         q: qValue || undefined,
         preorderPaymentMode: paymentModeValue || undefined,
         dateFrom: dateFromValue || undefined,
         dateTo: dateToValue || undefined,
       };
 
-      const [paidData, readyData, fulfilledData] = await Promise.all([
-        ordersService.getAll({
+      const [paidRows, readyRows, fulfilledRows] = await Promise.all([
+        fetchAllOrderPages({
           ...commonFilters,
           status: "PAID",
           paymentStatus: "PAID",
           sort: "preparationLaunchedAt",
           dir: "asc",
         }),
-        ordersService.getAll({
+        fetchAllOrderPages({
           ...commonFilters,
           status: "READY",
           sort: "preparedAt",
           dir: "asc",
         }),
-        ordersService.getAll({
+        fetchAllOrderPages({
           ...commonFilters,
           status: "FULFILLED",
           sort: "fulfilledAt",
@@ -148,11 +165,7 @@ export default function PreparationQueuePage() {
         }),
       ]);
 
-      const merged = [
-        ...(paidData?.data || []),
-        ...(readyData?.data || []),
-        ...(fulfilledData?.data || []),
-      ];
+      const merged = [...paidRows, ...readyRows, ...fulfilledRows];
 
       const uniqueMap = new Map();
       merged.forEach((row) => {
@@ -443,6 +456,13 @@ export default function PreparationQueuePage() {
     });
   };
 
+  const handleInvertSelection = () => {
+    const selectableIds = filteredRows
+      .filter((row) => row.status === "READY")
+      .map((row) => row.id);
+    setSelectedIds((prev) => new Set(selectableIds.filter((id) => !prev.has(id))));
+  };
+
   const handleBulkFulfillNoNotification = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -647,6 +667,15 @@ export default function PreparationQueuePage() {
               disabled={!!actionLoadingId}
             >
               Désélectionner tout
+            </button>
+            <button
+              type="button"
+              onClick={handleInvertSelection}
+              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+              disabled={!!actionLoadingId}
+              title="Sélectionne les commandes prêtes non cochées et décoche celles qui l'étaient"
+            >
+              Inverser la sélection
             </button>
             <button
               type="button"
