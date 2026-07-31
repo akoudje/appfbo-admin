@@ -84,6 +84,7 @@ export default function PreparationQueuePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const attentionTimerRef = useRef(null);
 
   const raiseAttentionAlert = (count = 1, source = "poll") => {
@@ -361,6 +362,7 @@ export default function PreparationQueuePage() {
   ].includes(role);
 
   const setTab = (nextTab) => {
+    setSelectedIds(new Set());
     setTabState(nextTab);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -416,6 +418,73 @@ export default function PreparationQueuePage() {
     } finally {
       setActionLoadingId("");
     }
+  };
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = (ids, checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => {
+        if (checked) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  };
+
+  const handleBulkFulfillNoNotification = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Clôturer ${ids.length} commande${ids.length > 1 ? "s" : ""} sans envoyer de SMS ni email ? Cette action sera tracée dans l'historique.`,
+    );
+    if (!confirmed) return;
+
+    setActionLoadingId("bulk");
+    setError("");
+    setInfo("");
+
+    let successCount = 0;
+    const failures = [];
+
+    for (const id of ids) {
+      const row = rows.find((r) => r.id === id);
+      const label = row?.parcelNumber || row?.preorderNumber || id;
+      try {
+        await ordersService.fulfillNoNotification(id, {
+          note:
+            "Commande déjà livrée physiquement. Clôture admin groupée depuis la file de préparation, sans notification.",
+        });
+        successCount += 1;
+      } catch (e) {
+        failures.push(`${label}: ${e?.response?.data?.message || "erreur"}`);
+      }
+    }
+
+    setActionLoadingId("");
+    setSelectedIds(new Set());
+
+    if (failures.length > 0) {
+      setError(
+        `${successCount} commande(s) clôturée(s), ${failures.length} échec(s) — ${failures.join(" | ")}`,
+      );
+    } else {
+      setInfo(`${successCount} commande(s) clôturée(s) sans notification.`);
+    }
+
+    await load();
   };
 
   return (
@@ -565,6 +634,32 @@ export default function PreparationQueuePage() {
 
       <PreparationQueueTabs tab={tab} setTab={setTab} stats={stats} />
 
+      {canFulfillNoNotification && tab === "ready" && selectedIds.size > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="font-medium">
+            {selectedIds.size} commande{selectedIds.size > 1 ? "s" : ""} sélectionnée{selectedIds.size > 1 ? "s" : ""}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+              disabled={!!actionLoadingId}
+            >
+              Désélectionner tout
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkFulfillNoNotification}
+              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+              disabled={!!actionLoadingId}
+            >
+              {actionLoadingId === "bulk" ? "Clôture en cours..." : "Clôturer sans notif. (sélection)"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <PreparationQueueTable
         rows={filteredRows}
         loading={loading || !!actionLoadingId}
@@ -573,6 +668,9 @@ export default function PreparationQueuePage() {
         getOrderHref={buildOrderUrl}
         onFulfillNoNotification={handleFulfillNoNotification}
         canFulfillNoNotification={canFulfillNoNotification}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectAll={handleToggleSelectAll}
       />
     </div>
   );

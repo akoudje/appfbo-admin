@@ -53,7 +53,15 @@ export default function PreparationQueueTable({
   getOrderHref,
   onFulfillNoNotification,
   canFulfillNoNotification = false,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }) {
+  const selectionEnabled = canFulfillNoNotification && Boolean(selectedIds) && Boolean(onToggleSelect);
+  const selectableRows = selectionEnabled ? rows.filter((row) => row.status === "READY") : [];
+  const allSelectableSelected =
+    selectableRows.length > 0 && selectableRows.every((row) => selectedIds.has(row.id));
+
   if (loading) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-sm">
@@ -76,6 +84,22 @@ export default function PreparationQueueTable({
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
+              {selectionEnabled ? (
+                <th className="px-4 py-3 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={allSelectableSelected}
+                    disabled={selectableRows.length === 0}
+                    onChange={(e) =>
+                      onToggleSelectAll?.(
+                        selectableRows.map((row) => row.id),
+                        e.target.checked,
+                      )
+                    }
+                    aria-label="Sélectionner toutes les commandes prêtes visibles"
+                  />
+                </th>
+              ) : null}
               <th className="px-4 py-3 font-medium">Colis / commande</th>
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium">Repères</th>
@@ -87,6 +111,18 @@ export default function PreparationQueueTable({
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="border-t border-gray-100 text-gray-800 align-top">
+                {selectionEnabled ? (
+                  <td className="px-4 py-3">
+                    {row.status === "READY" ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(row.id)}
+                        onChange={() => onToggleSelect?.(row.id)}
+                        aria-label={`Sélectionner la commande ${row.parcelNumber || row.preorderNumber || row.id}`}
+                      />
+                    ) : null}
+                  </td>
+                ) : null}
                 <td className="px-4 py-3">
                   <div className="font-medium">
                     {row.parcelNumber || row.preorderNumber || row.factureReference || row.id}

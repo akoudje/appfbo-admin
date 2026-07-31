@@ -135,7 +135,12 @@ export default function OrderPreparationTab({
   const status = order?.status;
   const stockDebited = Boolean(order?.stockDeductedAt);
   const preparationLaunchedAt = order?.preparationLaunchedAt || null;
-  const canBePrepared = status === "PAID" && Boolean(preparationLaunchedAt) && !stockDebited;
+  // Le stock est désormais débité dès le lancement de la préparation (voir
+  // cashier.controller.js launchPreparation), donc stockDebited est vrai en
+  // permanence pendant la préparation : ce n'est plus un signal de fin de
+  // checklist. Seul le statut de la commande indique que la préparation est
+  // encore modifiable.
+  const canBePrepared = status === "PAID" && Boolean(preparationLaunchedAt);
 
   const preparationItems = Array.isArray(order?.preparationItems) ? order.preparationItems : [];
   const unresolvedAnomalies = (Array.isArray(order?.preparationAnomalies) ? order.preparationAnomalies : []).filter(
