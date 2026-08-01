@@ -3,6 +3,7 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ProductForm from "../components/ProductForm";
+import ProductPackagingsManager from "../components/ProductPackagingsManager";
 import { getById, update, uploadImage } from "../services/productsService";
 import { InfoDialog } from "../components/ui/Dialogs";
 
@@ -90,6 +91,10 @@ export default function ProductEdit() {
           onUploadImage={onUpload}
           loading={saving}
         />
+
+        <div className="mt-6">
+          <ProductPackagingsManager productId={id} productSku={initialValues.sku} />
+        </div>
       </div>
 
       <InfoDialog
