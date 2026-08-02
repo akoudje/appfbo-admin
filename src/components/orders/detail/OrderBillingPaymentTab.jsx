@@ -673,7 +673,10 @@ function BillingActionCard({
             </div>
           </Field>
           
-          <Field label="Montant AS400 (FCFA)">
+          <Field
+            label="Montant AS400 (FCFA)"
+            hint="Produits + timbre uniquement — livraison et emballage sont ajoutés automatiquement"
+          >
             <div className="relative">
               <input
                 className="w-full pl-3 pr-12 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
