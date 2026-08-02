@@ -37,6 +37,7 @@ export default function OrderSummaryCards({ order }) {
         <Row label="Indicatif" value={formatFcfa(order?.indicativeTotalFcfa || order?.totalFcfa || 0)} />
         <Row label="AS400" value={formatFcfa(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0)} />
         <Row label="Frais livraison" value={formatFcfa(order?.fraisLivraisonFcfa || 0)} />
+        <Row label="Emballage" value={formatFcfa(order?.emballageFcfa || 0)} />
         <Row label="Final" value={formatFcfa(order?.activePayment?.amountExpectedFcfa || order?.totalFcfa || 0)} />
       </div>
     </div>

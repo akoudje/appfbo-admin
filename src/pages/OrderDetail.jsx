@@ -927,6 +927,7 @@ export default function OrderDetail() {
 
           <Row label="Produits" value={formatFcfa(order.totalProduitsFcfa)} />
           <Row label="Livraison" value={formatFcfa(order.fraisLivraisonFcfa)} />
+          <Row label="Emballage" value={formatFcfa(order.emballageFcfa)} />
           <Row
             label={<span className="font-semibold">Total</span>}
             value={<span className="text-lg font-semibold">{formatFcfa(order.totalFcfa)}</span>}

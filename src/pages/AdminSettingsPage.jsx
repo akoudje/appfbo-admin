@@ -84,6 +84,7 @@ const DEFAULT_SETTINGS = {
   commercial: {
     minCartTotalFcfa: 100,
     maxQtyPerProduct: 10,
+    packagingFeeFcfa: 100,
     preinvoicedAutoCancelAfterHours: 2,
     preinvoicedAutoReminderAfterHours: 1,
     preinvoicedAutoCancelAfterMinutes: 120,
@@ -647,6 +648,8 @@ export default function AdminSettingsPage() {
             minCartTotalFcfa: data.minCartFcfa ?? prev.commercial.minCartTotalFcfa,
             maxQtyPerProduct:
               data.maxQtyPerProduct ?? prev.commercial.maxQtyPerProduct,
+            packagingFeeFcfa:
+              data.packagingFeeFcfa ?? prev.commercial.packagingFeeFcfa,
             preinvoicedAutoCancelAfterHours:
               data.preinvoicedAutoCancelAfterHours ??
               prev.commercial.preinvoicedAutoCancelAfterHours,
@@ -724,6 +727,7 @@ export default function AdminSettingsPage() {
       await settingsService.updateCountrySettings({
         minCartFcfa: settings.commercial.minCartTotalFcfa,
         maxQtyPerProduct: settings.commercial.maxQtyPerProduct,
+        packagingFeeFcfa: settings.commercial.packagingFeeFcfa,
         preinvoicedAutoCancelAfterHours:
           settings.commercial.preinvoicedAutoCancelAfterHours,
         preinvoicedAutoReminderAfterHours:
@@ -1608,6 +1612,23 @@ export default function AdminSettingsPage() {
                           commercial: {
                             ...prev.commercial,
                             maxQtyPerProduct: Number(e.target.value || 1),
+                          },
+                        }))
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Frais d'emballage (FCFA)" hint="Forfait fixe ajouté à chaque précommande soumise">
+                    <TextInput
+                      type="number"
+                      min="0"
+                      value={settings.commercial.packagingFeeFcfa}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          commercial: {
+                            ...prev.commercial,
+                            packagingFeeFcfa: Number(e.target.value || 0),
                           },
                         }))
                       }
