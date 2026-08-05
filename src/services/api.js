@@ -45,7 +45,10 @@ const DEFAULT_API =
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || DEFAULT_API,
-  timeout: 30000,
+  // 45s : les écrans facturier/caisse tirent plusieurs requêtes lourdes en
+  // parallèle (jusqu'à 5-8) ; 30s coupait parfois avant que le backend ait
+  // fini de répondre, affichant "Erreur serveur" à tort.
+  timeout: 45000,
 });
 
 function redirectToLogin() {

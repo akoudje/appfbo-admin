@@ -1165,9 +1165,18 @@ export default function CashierWorkspacePage() {
     loadRef.current = load;
   });
 
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      // Une recherche active est déjà rejouée par son propre debounce (voir
+      // plus bas) : pas la peine de relancer aussi en tâche de fond toutes
+      // les 30s les 5-6 requêtes de l'espace caisse avec le filtre `q`.
+      if (queryRef.current) return;
       loadRef.current?.({ silent: true });
     }, 30000);
     return () => clearInterval(timer);

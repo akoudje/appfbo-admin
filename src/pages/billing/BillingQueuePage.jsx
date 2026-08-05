@@ -454,9 +454,18 @@ export default function BillingQueuePage() {
     loadRef.current = load;
   });
 
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      // Une recherche active est déjà rejouée par son propre debounce (voir
+      // plus bas) : pas la peine de la relancer aussi en tâche de fond
+      // toutes les 30s, ça double la charge sur une requête déjà coûteuse.
+      if (queryRef.current) return;
       loadRef.current?.({ silent: true });
     }, 30000);
     return () => clearInterval(timer);
