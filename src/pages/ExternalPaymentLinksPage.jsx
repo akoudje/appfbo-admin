@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
-import { Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
+
+const PAGE_SIZE = 50;
+const POLL_INTERVAL_MS = 15000;
+const FILTER_DEBOUNCE_MS = 400;
+
+const EXPIRY_OPTIONS = [
+  { value: "", label: "Sans expiration" },
+  { value: "1", label: "1 heure" },
+  { value: "4", label: "4 heures" },
+  { value: "24", label: "24 heures" },
+  { value: "72", label: "3 jours" },
+];
 
 function emptyForm() {
   return {
@@ -11,6 +23,7 @@ function emptyForm() {
     invoiceReference: "",
     title: "Paiement commande Forever",
     instructions: "",
+    expiresInHours: "24",
   };
 }
 
@@ -177,6 +190,21 @@ function printExternalWaveReceipt(link = {}) {
   return true;
 }
 
+function expiryInfo(link) {
+  if (!link.expiresAt) return { label: "Sans expiration", className: "text-gray-400" };
+  const date = new Date(link.expiresAt);
+  if (Number.isNaN(date.getTime())) return { label: "—", className: "text-gray-400" };
+  const isPast = date.getTime() < Date.now();
+  if (isPast && link.status === "ACTIVE") {
+    return { label: `Expiré le ${formatDateTime(date)}`, className: "font-semibold text-red-600" };
+  }
+  return { label: formatDateTime(date), className: isPast ? "text-gray-400" : "text-gray-600" };
+}
+
+function creatorLabel(link) {
+  return link.createdBy?.fullName || link.createdBy?.email || (link.source === "QR_FORM" ? "Kiosque QR" : "—");
+}
+
 function statusClass(status) {
   const map = {
     ACTIVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -210,7 +238,11 @@ export default function ExternalPaymentLinksPage() {
   const [links, setLinks] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({ activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -223,37 +255,65 @@ export default function ExternalPaymentLinksPage() {
   const feePreview = computeWaveFee(form.baseAmountFcfa);
   const totalPreview = (Number.parseInt(form.baseAmountFcfa, 10) || 0) + feePreview;
 
-  const totals = useMemo(() => {
-    const active = links.filter((link) => link.status === "ACTIVE");
-    const paid = links.filter((link) => link.status === "PAID");
-    return {
-      count: links.length,
-      active: active.length,
-      paid: paid.length,
-      paidAmount: paid.reduce((sum, link) => sum + Number(link.amountFcfa || 0), 0),
-    };
-  }, [links]);
+  const totals = useMemo(
+    () => ({
+      count: total,
+      active: stats.activeCount,
+      paid: stats.paidCount,
+      paidAmount: stats.paidAmountFcfa,
+    }),
+    [total, stats],
+  );
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  async function load() {
+  async function load({ silent = false } = {}) {
     try {
-      setLoading(true);
-      setError("");
+      if (!silent) setLoading(true);
+      if (!silent) setError("");
       const response = await externalPaymentLinksService.list({
-        q: query || undefined,
+        q: debouncedQuery || undefined,
         status: status || undefined,
+        page,
+        pageSize: PAGE_SIZE,
       });
       setLinks(response?.data || []);
+      setTotal(response?.total || 0);
+      setStats(response?.stats || { activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
     } catch (err) {
-      setError(err?.response?.data?.message || "Chargement impossible.");
+      if (!silent) setError(err?.response?.data?.message || "Chargement impossible.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
+
+  // Recherche texte : on laisse l'utilisateur taper librement et on ne
+  // déclenche la requête qu'une fois la saisie stabilisée.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Tout changement de filtre repart de la première page.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, status]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [debouncedQuery, status, page]);
+
+  // Rafraîchissement silencieux tant qu'il reste des liens actifs en attente
+  // de paiement — évite d'avoir à recharger la page manuellement pour voir
+  // un paiement Wave se confirmer.
+  useEffect(() => {
+    if (!totals.active) return undefined;
+    const interval = setInterval(() => {
+      load({ silent: true });
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totals.active, debouncedQuery, status, page]);
 
   useEffect(() => {
     let mounted = true;
@@ -286,6 +346,7 @@ export default function ExternalPaymentLinksPage() {
         invoiceReference: form.invoiceReference,
         baseAmountFcfa: form.baseAmountFcfa,
         customerPhone: form.customerPhone,
+        expiresInHours: form.expiresInHours || undefined,
       });
       setForm(emptyForm());
       const smsMessage = created.smsResult?.accepted
@@ -293,7 +354,11 @@ export default function ExternalPaymentLinksPage() {
         : ` SMS non envoyé : ${created.smsResult?.errorMessage || created.smsLastError || "erreur inconnue"}.`;
       setMessage(`Lien généré : ${created.publicUrl}.${smsMessage}`);
       setShowCreateModal(false);
-      await load();
+      if (page !== 1) {
+        setPage(1);
+      } else {
+        await load();
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Création du lien impossible.");
     } finally {
@@ -481,11 +546,23 @@ export default function ExternalPaymentLinksPage() {
                 <option value="CANCELLED">Annulés</option>
                 <option value="EXPIRED">Expirés</option>
               </select>
-              <button type="button" onClick={load} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
-                Filtrer
+              <button
+                type="button"
+                onClick={() => load()}
+                disabled={loading}
+                title="Actualiser maintenant"
+                className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Actualiser
               </button>
             </div>
           </div>
+          {totals.active ? (
+            <p className="mt-2 text-xs text-gray-400">
+              Actualisation automatique toutes les {Math.round(POLL_INTERVAL_MS / 1000)} s tant que des liens sont actifs.
+            </p>
+          ) : null}
 
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -496,9 +573,11 @@ export default function ExternalPaymentLinksPage() {
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Montant</th>
                   <th className="px-3 py-2">Statut</th>
+                  <th className="px-3 py-2">Validité</th>
                   <th className="px-3 py-2">Confirmation</th>
                   <th className="px-3 py-2">SMS</th>
                   <th className="px-3 py-2">Créé le</th>
+                  <th className="px-3 py-2">Créé par</th>
                   <th className="px-3 py-2">Action</th>
                 </tr>
               </thead>
@@ -528,6 +607,9 @@ export default function ExternalPaymentLinksPage() {
                       <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusClass(link.status)}`}>{link.status}</span>
                     </td>
                     <td className="px-3 py-2">
+                      <div className={`text-xs ${expiryInfo(link).className}`}>{expiryInfo(link).label}</div>
+                    </td>
+                    <td className="px-3 py-2">
                       <div className="space-y-1">
                         <div className={link.status === "PAID" ? "font-semibold text-emerald-700" : "font-semibold text-gray-500"}>
                           {link.status === "PAID" ? "Paiement confirmé" : "Non confirmé"}
@@ -550,6 +632,7 @@ export default function ExternalPaymentLinksPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2">{formatDateTime(link.createdAt)}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{creatorLabel(link)}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => copyLink(link)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700">
@@ -628,16 +711,47 @@ export default function ExternalPaymentLinksPage() {
                 ))}
                 {!links.length && !loading ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-gray-500">Aucun lien externe.</td>
+                    <td colSpan={11} className="px-3 py-8 text-center text-gray-500">Aucun lien externe.</td>
                   </tr>
                 ) : null}
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-gray-500">Chargement...</td>
+                    <td colSpan={11} className="px-3 py-8 text-center text-gray-500">Chargement...</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+            <span>
+              {total > 0
+                ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} sur ${total}`
+                : "Aucun résultat"}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || loading}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Précédent
+              </button>
+              <span className="text-xs font-semibold text-gray-600">
+                Page {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || loading}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Suivant
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </section>
 
@@ -662,6 +776,13 @@ export default function ExternalPaymentLinksPage() {
               </Field>
               <Field label="Téléphone FBO">
                 <input className={inputClass()} value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
+              </Field>
+              <Field label="Validité du lien">
+                <select className={inputClass()} value={form.expiresInHours} onChange={(e) => setForm({ ...form, expiresInHours: e.target.value })}>
+                  {EXPIRY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </Field>
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
                 <div className="flex justify-between gap-3">
