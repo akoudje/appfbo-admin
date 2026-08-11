@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
-import { ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
 
 const PAGE_SIZE = 50;
@@ -240,6 +240,12 @@ export default function ExternalPaymentLinksPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [source, setSource] = useState("");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
+  const [creatorId, setCreatorId] = useState("");
+  const [watchOnly, setWatchOnly] = useState(false);
+  const [creators, setCreators] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({ activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
@@ -272,7 +278,12 @@ export default function ExternalPaymentLinksPage() {
       if (!silent) setError("");
       const response = await externalPaymentLinksService.list({
         q: debouncedQuery || undefined,
-        status: status || undefined,
+        status: watchOnly ? undefined : status || undefined,
+        source: source || undefined,
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
+        createdBy: creatorId || undefined,
+        watch: watchOnly ? 1 : undefined,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -296,12 +307,12 @@ export default function ExternalPaymentLinksPage() {
   // Tout changement de filtre repart de la première page.
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, status]);
+  }, [debouncedQuery, status, source, createdFrom, createdTo, creatorId, watchOnly]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, status, page]);
+  }, [debouncedQuery, status, source, createdFrom, createdTo, creatorId, watchOnly, page]);
 
   // Rafraîchissement silencieux tant qu'il reste des liens actifs en attente
   // de paiement — évite d'avoir à recharger la page manuellement pour voir
@@ -313,7 +324,42 @@ export default function ExternalPaymentLinksPage() {
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totals.active, debouncedQuery, status, page]);
+  }, [totals.active, debouncedQuery, status, source, createdFrom, createdTo, creatorId, watchOnly, page]);
+
+  useEffect(() => {
+    let mounted = true;
+    externalPaymentLinksService.listCreators()
+      .then((response) => {
+        if (mounted) setCreators(response?.data || []);
+      })
+      .catch(() => {
+        if (mounted) setCreators([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Le bascule "À surveiller" prend le pas sur le sélecteur de statut côté
+  // backend ; on le réinitialise ici pour éviter une combinaison trompeuse
+  // à l'écran (ex. "Payés" affiché alors que seuls les actifs comptent).
+  function toggleWatchOnly() {
+    setWatchOnly((prev) => {
+      const next = !prev;
+      if (next) setStatus("");
+      return next;
+    });
+  }
+
+  function resetFilters() {
+    setQuery("");
+    setStatus("");
+    setSource("");
+    setCreatedFrom("");
+    setCreatedTo("");
+    setCreatorId("");
+    setWatchOnly(false);
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -535,17 +581,6 @@ export default function ExternalPaymentLinksPage() {
                 <Plus className="h-4 w-4" />
                 Nouveau lien
               </button>
-              <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
-                <Search className="h-4 w-4 text-gray-400" />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Recherche..." className="bg-transparent text-sm outline-none" />
-              </label>
-              <select className={inputClass()} value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">Tous</option>
-                <option value="ACTIVE">Actifs</option>
-                <option value="PAID">Payés</option>
-                <option value="CANCELLED">Annulés</option>
-                <option value="EXPIRED">Expirés</option>
-              </select>
               <button
                 type="button"
                 onClick={() => load()}
@@ -557,6 +592,60 @@ export default function ExternalPaymentLinksPage() {
                 Actualiser
               </button>
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+            <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+              <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Recherche..." className="w-full bg-transparent text-sm outline-none" />
+            </label>
+            <select
+              className={inputClass()}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              disabled={watchOnly}
+              title={watchOnly ? "Désactivé pendant le filtre « À surveiller »" : undefined}
+            >
+              <option value="">Tous statuts</option>
+              <option value="ACTIVE">Actifs</option>
+              <option value="PAID">Payés</option>
+              <option value="CANCELLED">Annulés</option>
+              <option value="EXPIRED">Expirés</option>
+            </select>
+            <select className={inputClass()} value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="">Toutes sources</option>
+              <option value="ADMIN">Admin</option>
+              <option value="QR_FORM">Kiosque QR</option>
+            </select>
+            <select className={inputClass()} value={creatorId} onChange={(e) => setCreatorId(e.target.value)}>
+              <option value="">Tous créateurs</option>
+              {creators.map((creator) => (
+                <option key={creator.id} value={creator.id}>{creator.fullName || creator.email}</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5">
+              <input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} className="bg-transparent text-sm outline-none" title="Créé à partir du" />
+              <span className="text-xs text-gray-400">→</span>
+              <input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} className="bg-transparent text-sm outline-none" title="Créé jusqu'au" />
+            </div>
+            <button
+              type="button"
+              onClick={toggleWatchOnly}
+              title="Liens actifs déjà expirés ou expirant sous 2h"
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${
+                watchOnly
+                  ? "border-amber-300 bg-amber-100 text-amber-800"
+                  : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              À surveiller
+            </button>
+            {(query || status || source || createdFrom || createdTo || creatorId || watchOnly) ? (
+              <button type="button" onClick={resetFilters} className="text-xs font-semibold text-gray-500 underline hover:text-gray-700">
+                Réinitialiser les filtres
+              </button>
+            ) : null}
           </div>
           {totals.active ? (
             <p className="mt-2 text-xs text-gray-400">
