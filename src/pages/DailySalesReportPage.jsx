@@ -978,6 +978,7 @@ export default function DailySalesReportPage() {
   const refreshInterval = useRef(null);
   const initialLoadRef = useRef(false);
   const pendingPrintRef = useRef(false);
+  const requestSeqRef = useRef(0);
 
   const saveFilters = useCallback((filters) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
@@ -1000,6 +1001,15 @@ export default function DailySalesReportPage() {
       return null;
     }
 
+    // Jeton de course : si une requête plus récente démarre avant que
+    // celle-ci ne se termine (ex. la requête "aujourd'hui" du chargement
+    // initial qui traîne sur Render pendant qu'on applique déjà "mois"),
+    // sa réponse arrivera en retard et ne doit surtout pas écraser un état
+    // plus à jour — sans ce garde-fou, la réponse la plus LENTE gagnait
+    // toujours, quel que soit l'ordre des clics.
+    const requestId = ++requestSeqRef.current;
+    const isStale = () => requestId !== requestSeqRef.current;
+
     try {
       setLoading(true);
       setError("");
@@ -1012,6 +1022,7 @@ export default function DailySalesReportPage() {
         invoicerId: nextInvoicerId || undefined,
         cashierId: nextCashierId || undefined,
       });
+      if (isStale()) return data;
       setReport(data);
       setKnownInvoicers(prev => {
         const map = new Map(prev.map(a => [a.id, a]));
@@ -1040,11 +1051,12 @@ export default function DailySalesReportPage() {
       });
       return data;
     } catch (e) {
+      if (isStale()) return null;
       setError(e?.response?.data?.message || "Impossible de charger le rapport.");
       console.error("Load error:", e);
       return null;
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [period, date, dateFrom, dateTo, paymentMode, invoicerId, cashierId, saveFilters]);
 
