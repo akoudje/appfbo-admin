@@ -991,12 +991,20 @@ export default function DailySalesReportPage() {
     const nextInvoicerId = overrides.invoicerId ?? invoicerId;
     const nextCashierId = overrides.cashierId ?? cashierId;
 
+    // Une plage personnalisée incomplète ne doit jamais partir en silence
+    // vers l'API (qui basculerait sinon sur "aujourd'hui" côté écran ET
+    // export, sans que ce soit visible) : on bloque ici, tout de suite.
+    if (nextPeriod === "custom" && (!nextDateFrom || !nextDateTo)) {
+      setError("Période personnalisée : choisissez une date de début et une date de fin avant d'appliquer.");
+      return null;
+    }
+
     try {
       setLoading(true);
       setError("");
       const data = await reportsService.getDailySales({
         period: nextPeriod,
-        date: nextDate,
+        date: nextPeriod === "custom" ? undefined : nextDate,
         dateFrom: nextPeriod === "custom" ? nextDateFrom : undefined,
         dateTo: nextPeriod === "custom" ? nextDateTo : undefined,
         paymentMode: nextPaymentMode || undefined,
@@ -1495,9 +1503,9 @@ export default function DailySalesReportPage() {
               {autoRefresh ? "Auto (30s)" : "Auto"}
             </button>
             
-            <button 
-              type="button" 
-              onClick={load} 
+            <button
+              type="button"
+              onClick={() => load()}
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
             >
@@ -1584,8 +1592,8 @@ export default function DailySalesReportPage() {
               </div>
               <p className="mt-1">
                 Les totaux et montants affichés restent exacts, mais le détail par commande (tableaux, export,
-                répartitions) est limité aux 2000 premières lignes pour : {truncatedSections.join(", ")}. Réduisez la
-                période pour voir le détail complet.
+                répartitions) est limité aux {formatCount(report.detailRowsLimit || 10000)} premières lignes pour :{" "}
+                {truncatedSections.join(", ")}. Réduisez la période pour voir le détail complet.
               </p>
             </div>
           )}
