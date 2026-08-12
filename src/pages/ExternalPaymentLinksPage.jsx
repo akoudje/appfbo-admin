@@ -568,12 +568,12 @@ export default function ExternalPaymentLinksPage() {
               onClick={() => load()}
               disabled={loading}
               title="Actualiser maintenant"
-              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Actualiser
             </button>
-            <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+            <label className="flex w-full items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 sm:w-56">
               <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Recherche..." className="w-full bg-transparent text-sm outline-none" />
             </label>
