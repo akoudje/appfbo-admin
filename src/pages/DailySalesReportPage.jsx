@@ -1091,6 +1091,33 @@ export default function DailySalesReportPage() {
       realizedNetAmount: paidAmount - cancelledAmount,
     };
   }, [report]);
+
+  // Les totaux (compteurs/montants) restent exacts quel que soit le volume,
+  // mais le détail par commande (tableaux, export, répartitions) est
+  // plafonné à 2000 lignes par section côté backend. On avertit quand une
+  // section dépasse ce plafond sur la période sélectionnée.
+  const truncatedSections = useMemo(() => {
+    if (!report) return [];
+    const candidates = [
+      ["submitted", "Commandes soumises"],
+      ["invoiced", "Préfacturations"],
+      ["paid", "Paiements"],
+      ["cancelled", "Annulations"],
+      ["preparation.launched", "Préparations lancées"],
+      ["preparation.prepared", "Commandes préparées"],
+      ["preparation.fulfilled", "Commandes livrées"],
+      ["pending.submittedNotInvoiced", "Soumises non préfacturées"],
+      ["pending.invoicedNotPaid", "Préfacturées non payées"],
+      ["pending.paidNotLaunched", "Payées non lancées"],
+    ];
+    return candidates
+      .filter(([path]) => {
+        const section = path.split(".").reduce((acc, key) => acc?.[key], report);
+        return Boolean(section?.rowsTruncated);
+      })
+      .map(([, label]) => label);
+  }, [report]);
+
   const reportPeriodLabel = report?.period?.label || date;
   const periodOptionLabel =
     PERIOD_OPTIONS.find((option) => option.value === (report?.period?.type || period))?.label ||
@@ -1549,6 +1576,19 @@ export default function DailySalesReportPage() {
       {/* Main Content */}
       {report && (
         <div className="animate-fade-in space-y-6">
+          {truncatedSections.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="flex items-center gap-2 font-semibold">
+                <AlertTriangle className="h-4 w-4" />
+                Détail incomplet sur cette période
+              </div>
+              <p className="mt-1">
+                Les totaux et montants affichés restent exacts, mais le détail par commande (tableaux, export,
+                répartitions) est limité aux 2000 premières lignes pour : {truncatedSections.join(", ")}. Réduisez la
+                période pour voir le détail complet.
+              </p>
+            </div>
+          )}
           {/* Key Metrics */}
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <ExecutiveMetric
