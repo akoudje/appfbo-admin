@@ -977,6 +977,7 @@ export default function DailySalesReportPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const refreshInterval = useRef(null);
   const initialLoadRef = useRef(false);
+  const pendingPrintRef = useRef(false);
 
   const saveFilters = useCallback((filters) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
@@ -1181,9 +1182,23 @@ export default function DailySalesReportPage() {
   const printReport = async () => {
     const reportData = await load(currentFilterPayload());
     if (!reportData) return;
+    pendingPrintRef.current = true;
     setPrintReportData(reportData);
-    window.setTimeout(() => window.print(), 250);
   };
+
+  // Déclenche l'impression seulement une fois que printReportData a bien
+  // été commité ET peint par React — un délai fixe (setTimeout) pouvait
+  // imprimer avant que le nouveau contenu (ex. période "mois") ne soit
+  // réellement affiché, faisant apparaître l'ancien rapport à l'export.
+  useEffect(() => {
+    if (!pendingPrintRef.current || !printReportData) return;
+    pendingPrintRef.current = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+      });
+    });
+  }, [printReportData]);
 
   const handleViewOrder = (orderId) => {
     if (!orderId) return;
