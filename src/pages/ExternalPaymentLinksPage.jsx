@@ -243,9 +243,7 @@ export default function ExternalPaymentLinksPage() {
   const [source, setSource] = useState("");
   const [createdFrom, setCreatedFrom] = useState("");
   const [createdTo, setCreatedTo] = useState("");
-  const [creatorId, setCreatorId] = useState("");
   const [watchOnly, setWatchOnly] = useState(false);
-  const [creators, setCreators] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({ activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
@@ -282,7 +280,6 @@ export default function ExternalPaymentLinksPage() {
         source: source || undefined,
         createdFrom: createdFrom || undefined,
         createdTo: createdTo || undefined,
-        createdBy: creatorId || undefined,
         watch: watchOnly ? 1 : undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -307,12 +304,12 @@ export default function ExternalPaymentLinksPage() {
   // Tout changement de filtre repart de la première page.
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, status, source, createdFrom, createdTo, creatorId, watchOnly]);
+  }, [debouncedQuery, status, source, createdFrom, createdTo, watchOnly]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, status, source, createdFrom, createdTo, creatorId, watchOnly, page]);
+  }, [debouncedQuery, status, source, createdFrom, createdTo, watchOnly, page]);
 
   // Rafraîchissement silencieux tant qu'il reste des liens actifs en attente
   // de paiement — évite d'avoir à recharger la page manuellement pour voir
@@ -324,21 +321,7 @@ export default function ExternalPaymentLinksPage() {
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totals.active, debouncedQuery, status, source, createdFrom, createdTo, creatorId, watchOnly, page]);
-
-  useEffect(() => {
-    let mounted = true;
-    externalPaymentLinksService.listCreators()
-      .then((response) => {
-        if (mounted) setCreators(response?.data || []);
-      })
-      .catch(() => {
-        if (mounted) setCreators([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [totals.active, debouncedQuery, status, source, createdFrom, createdTo, watchOnly, page]);
 
   // Le bascule "À surveiller" prend le pas sur le sélecteur de statut côté
   // backend ; on le réinitialise ici pour éviter une combinaison trompeuse
@@ -357,7 +340,6 @@ export default function ExternalPaymentLinksPage() {
     setSource("");
     setCreatedFrom("");
     setCreatedTo("");
-    setCreatorId("");
     setWatchOnly(false);
   }
 
@@ -571,30 +553,26 @@ export default function ExternalPaymentLinksPage() {
       </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold">Liens générés</h2>
-              <p className="text-sm text-gray-500">Suivi des paiements Wave hors précommande.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
-                <Plus className="h-4 w-4" />
-                Nouveau lien
-              </button>
-              <button
-                type="button"
-                onClick={() => load()}
-                disabled={loading}
-                title="Actualiser maintenant"
-                className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                Actualiser
-              </button>
-            </div>
+          <div>
+            <h2 className="text-lg font-bold">Liens générés</h2>
+            <p className="text-sm text-gray-500">Suivi des paiements Wave hors précommande.</p>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
+              <Plus className="h-4 w-4" />
+              Nouveau lien
+            </button>
+            <button
+              type="button"
+              onClick={() => load()}
+              disabled={loading}
+              title="Actualiser maintenant"
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Actualiser
+            </button>
             <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
               <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Recherche..." className="w-full bg-transparent text-sm outline-none" />
@@ -617,12 +595,6 @@ export default function ExternalPaymentLinksPage() {
               <option value="ADMIN">Admin</option>
               <option value="QR_FORM">Kiosque QR</option>
             </select>
-            <select className={inputClass()} value={creatorId} onChange={(e) => setCreatorId(e.target.value)}>
-              <option value="">Tous créateurs</option>
-              {creators.map((creator) => (
-                <option key={creator.id} value={creator.id}>{creator.fullName || creator.email}</option>
-              ))}
-            </select>
             <div className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5">
               <input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} className="bg-transparent text-sm outline-none" title="Créé à partir du" />
               <span className="text-xs text-gray-400">→</span>
@@ -641,7 +613,7 @@ export default function ExternalPaymentLinksPage() {
               <AlertTriangle className="h-3.5 w-3.5" />
               À surveiller
             </button>
-            {(query || status || source || createdFrom || createdTo || creatorId || watchOnly) ? (
+            {(query || status || source || createdFrom || createdTo || watchOnly) ? (
               <button type="button" onClick={resetFilters} className="text-xs font-semibold text-gray-500 underline hover:text-gray-700">
                 Réinitialiser les filtres
               </button>
