@@ -682,6 +682,20 @@ export default function BillingQueuePage() {
     }
   };
 
+  const handleResolveEscalation = async (row) => {
+    try {
+      setError("");
+      setInfo("");
+      await ordersService.resolveBillingEscalation(row.id, {
+        note: "Contentieux clôturé depuis la file de facturation",
+      });
+      setInfo("Contentieux clôturé. Le dossier est de nouveau en circuit.");
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de clôturer le contentieux");
+    }
+  };
+
   const handleResolveAs400Dispute = (row) => {
     setError("");
     setInfo("");
@@ -953,6 +967,7 @@ export default function BillingQueuePage() {
         onRelease={handleRelease}
         onEscalate={handleEscalate}
         onResolveAs400Dispute={handleResolveAs400Dispute}
+        onResolveEscalation={handleResolveEscalation}
       />
 
       <As400ResolveDialog

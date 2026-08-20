@@ -60,6 +60,7 @@ export default function BillingQueueTable({
   onRelease,
   onEscalate,
   onResolveAs400Dispute,
+  onResolveEscalation,
 }) {
   if (loading) {
     return (
@@ -108,6 +109,8 @@ export default function BillingQueueTable({
               const hasOpenAs400Dispute =
                 row?.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
                 ["OPEN", "REPORTED"].includes(row?.as400CertificationStatus || "");
+              const canResolveEscalation =
+                row?.billingWorkStatus === "ESCALATED" && !hasOpenAs400Dispute;
               const assignedName =
                 row?.assignedInvoicer?.fullName || row?.assignedInvoicer?.email || "—";
 
@@ -222,6 +225,18 @@ export default function BillingQueueTable({
                             type="button"
                           >
                             Repris AS400
+                          </button>
+                        </RequirePermission>
+                      ) : null}
+
+                      {canResolveEscalation ? (
+                        <RequirePermission permission={Permission.INVOICE_CREATE}>
+                          <button
+                            onClick={() => onResolveEscalation?.(row)}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                            type="button"
+                          >
+                            Clôturer contentieux
                           </button>
                         </RequirePermission>
                       ) : null}

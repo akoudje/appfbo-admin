@@ -259,6 +259,14 @@ export const ordersService = {
       )
     ).data,
 
+  resolveBillingEscalation: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/billing/${normalizeOrderId(id)}/escalate/resolve`,
+        body,
+      )
+    ).data,
+
   /* ============================
      Wave payments
   ============================ */
