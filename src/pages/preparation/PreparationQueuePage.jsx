@@ -9,6 +9,7 @@ import PreparationQueueAlerts from "../../components/preparation/PreparationQueu
 import PreparationQueueStats from "../../components/preparation/PreparationQueueStats";
 import PreparationQueueTabs from "../../components/preparation/PreparationQueueTabs";
 import PreparationQueueTable from "../../components/preparation/PreparationQueueTable";
+import FulfillNoNotificationDialog from "../../components/preparation/FulfillNoNotificationDialog";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
@@ -39,6 +40,14 @@ function safeWriteStorage(key, value) {
 
 const MAX_QUEUE_PAGES = 20; // Garde-fou : jusqu'à 2000 commandes par statut, au-delà on tronque plutôt que de bloquer la page.
 
+// Filtres serveur par onglet. "to-prepare" reste toujours chargé intégralement (voir `load()`)
+// car c'est la file surveillée par les alertes sonores/temps réel, quel que soit l'onglet affiché.
+const TAB_QUERY_PARAMS = {
+  "to-prepare": { status: "PAID", paymentStatus: "PAID", sort: "preparationLaunchedAt", dir: "asc" },
+  ready: { status: "READY", sort: "preparedAt", dir: "asc" },
+  fulfilled: { status: "FULFILLED", sort: "fulfilledAt", dir: "asc" },
+};
+
 async function fetchAllOrderPages(baseParams) {
   const first = await ordersService.getAll({ ...baseParams, page: 1, pageSize: 100 });
   const totalPages = Math.min(first?.totalPages || 1, MAX_QUEUE_PAGES);
@@ -54,6 +63,19 @@ async function fetchAllOrderPages(baseParams) {
   }
 
   return data;
+}
+
+// Ne récupère que le total d'un onglet (pour son badge de compteur), sans en télécharger les lignes.
+// pageSize est plafonné à 10 côté API : c'est le minimum, largement suffisant puisqu'on n'utilise
+// que `totalCount` de la réponse.
+async function fetchTabCount(baseParams, tabKey) {
+  const res = await ordersService.getAll({
+    ...baseParams,
+    ...TAB_QUERY_PARAMS[tabKey],
+    page: 1,
+    pageSize: 10,
+  });
+  return Number(res?.totalCount || 0);
 }
 
 export default function PreparationQueuePage() {
@@ -98,12 +120,15 @@ export default function PreparationQueuePage() {
   const [, setAttentionAlert] = useState(null);
   const [tab, setTabState] = useState(searchParams.get("tab") || "to-prepare");
   const [rows, setRows] = useState([]);
+  const [stats, setStats] = useState({ toPrepare: 0, ready: 0, fulfilled: 0, total: 0 });
   const [query, setQuery] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [quickPreset, setQuickPreset] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [fulfillDialog, setFulfillDialog] = useState(null); // { mode: "single" | "bulk", order?, orders? }
+  const [fulfillDialogError, setFulfillDialogError] = useState("");
   const attentionTimerRef = useRef(null);
 
   const raiseAttentionAlert = (count = 1, source = "poll") => {
@@ -129,6 +154,7 @@ export default function PreparationQueuePage() {
 
   const load = async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
+    const targetTab = overrides.tab ?? tab;
     try {
       if (!silent) setLoading(true);
       setError("");
@@ -143,45 +169,55 @@ export default function PreparationQueuePage() {
         dateTo: dateToValue || undefined,
       };
 
-      const [paidRows, readyRows, fulfilledRows] = await Promise.all([
-        fetchAllOrderPages({
-          ...commonFilters,
-          status: "PAID",
-          paymentStatus: "PAID",
-          sort: "preparationLaunchedAt",
-          dir: "asc",
-        }),
-        fetchAllOrderPages({
-          ...commonFilters,
-          status: "READY",
-          sort: "preparedAt",
-          dir: "asc",
-        }),
-        fetchAllOrderPages({
-          ...commonFilters,
-          status: "FULFILLED",
-          sort: "fulfilledAt",
-          dir: "asc",
-        }),
+      // On ne télécharge intégralement que "à préparer" (toujours, pour les alertes) et l'onglet
+      // actif (pour l'affichage). Les autres onglets n'ont besoin que de leur total pour le badge.
+      const fullTabKeys = Array.from(new Set(["to-prepare", targetTab]));
+      const lightTabKeys = Object.keys(TAB_QUERY_PARAMS).filter(
+        (key) => !fullTabKeys.includes(key),
+      );
+
+      const [fullEntries, lightEntries] = await Promise.all([
+        Promise.all(
+          fullTabKeys.map((key) =>
+            fetchAllOrderPages({ ...commonFilters, ...TAB_QUERY_PARAMS[key] }).then((data) => [
+              key,
+              data,
+            ]),
+          ),
+        ),
+        Promise.all(
+          lightTabKeys.map((key) =>
+            fetchTabCount(commonFilters, key).then((total) => [key, total]),
+          ),
+        ),
       ]);
 
-      const merged = [...paidRows, ...readyRows, ...fulfilledRows];
+      const fullByTab = Object.fromEntries(fullEntries);
+      const countByTab = Object.fromEntries(lightEntries);
 
       const uniqueMap = new Map();
-      merged.forEach((row) => {
-        uniqueMap.set(row.id, row);
+      Object.values(fullByTab).forEach((tabRows) => {
+        tabRows.forEach((row) => uniqueMap.set(row.id, row));
       });
-
       const nextRows = Array.from(uniqueMap.values());
+
+      const nextStats = {
+        toPrepare: fullByTab["to-prepare"]?.length ?? countByTab["to-prepare"] ?? 0,
+        ready: fullByTab.ready?.length ?? countByTab.ready ?? 0,
+        fulfilled: fullByTab.fulfilled?.length ?? countByTab.fulfilled ?? 0,
+      };
+      nextStats.total = nextStats.toPrepare + nextStats.ready + nextStats.fulfilled;
+
       const defaultScope = !qValue && !paymentModeValue && !dateFromValue && !dateToValue;
 
       if (!defaultScope) {
         firstAlertLoadRef.current = true;
         previousAlertSnapshotRef.current = null;
       } else {
+        const toPrepareRows = fullByTab["to-prepare"] || [];
         const snapshot = {
           toPrepare: new Set(
-            nextRows
+            toPrepareRows
               .filter((r) => r.status === "PAID" && r.preparationLaunchedAt)
               .map((r) => r.id),
           ),
@@ -207,6 +243,7 @@ export default function PreparationQueuePage() {
       }
 
       setRows(nextRows);
+      setStats(nextStats);
     } catch (e) {
       setError(
         e?.response?.data?.message || "Impossible de charger la file de préparation",
@@ -214,6 +251,23 @@ export default function PreparationQueuePage() {
     } finally {
       if (!silent) setLoading(false);
     }
+  };
+
+  // Ajuste `rows`/`stats` immédiatement après une clôture, sans attendre un rechargement réseau.
+  // `load({ silent: true })` est ensuite appelé en tâche de fond pour recaler l'état exact.
+  const applyOptimisticFulfill = (closedRows) => {
+    if (!closedRows.length) return;
+    const closedIds = new Set(closedRows.map((r) => r.id));
+    setRows((prev) => prev.filter((r) => !closedIds.has(r.id)));
+    setStats((prev) => {
+      const next = { ...prev };
+      closedRows.forEach((r) => {
+        const bucket = r.status === "READY" ? "ready" : "toPrepare";
+        next[bucket] = Math.max(0, (next[bucket] || 0) - 1);
+      });
+      next.fulfilled = (next.fulfilled || 0) + closedRows.length;
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -356,18 +410,6 @@ export default function PreparationQueuePage() {
 
   const activeFilterCount = [query, paymentMode, dateFrom, dateTo].filter(Boolean).length;
 
-  const stats = useMemo(() => {
-    const all = Array.isArray(rows) ? rows : [];
-
-    return {
-      toPrepare: all.filter((r) => r.status === "PAID" && r.preparationLaunchedAt)
-        .length,
-      ready: all.filter((r) => r.status === "READY").length,
-      fulfilled: all.filter((r) => r.status === "FULFILLED").length,
-      total: all.length,
-    };
-  }, [rows]);
-
   const canFulfillNoNotification = [
     AdminRole.SUPER_ADMIN,
     AdminRole.TECH_ADMIN,
@@ -375,6 +417,7 @@ export default function PreparationQueuePage() {
   ].includes(role);
 
   const setTab = (nextTab) => {
+    if (nextTab === tab) return;
     setSelectedIds(new Set());
     setTabState(nextTab);
     setSearchParams((prev) => {
@@ -386,6 +429,9 @@ export default function PreparationQueuePage() {
       }
       return next;
     });
+    // "rows" ne contient que "à préparer" + l'onglet jusqu'ici actif : il faut recharger
+    // pour obtenir les lignes complètes du nouvel onglet (son total était déjà connu via `stats`).
+    load({ tab: nextTab });
   };
 
   const buildOrderUrl = (row) => {
@@ -406,25 +452,32 @@ export default function PreparationQueuePage() {
     navigate(buildOrderUrl(row));
   };
 
-  const handleFulfillNoNotification = async (row) => {
+  const handleFulfillNoNotification = (row) => {
+    setFulfillDialogError("");
+    setFulfillDialog({ mode: "single", order: row });
+  };
+
+  const confirmFulfillNoNotification = async (note) => {
+    const row = fulfillDialog?.order;
+    if (!row) return;
     const label = row.parcelNumber || row.preorderNumber || row.id;
-    const confirmed = window.confirm(
-      `Clôturer la commande ${label} sans envoyer de SMS ni email ? Cette action sera tracée dans l'historique.`,
-    );
-    if (!confirmed) return;
 
     try {
       setActionLoadingId(row.id);
+      setFulfillDialogError("");
       setError("");
       setInfo("");
       await ordersService.fulfillNoNotification(row.id, {
         note:
+          note?.trim() ||
           "Commande déjà livrée physiquement. Clôture admin depuis la file de préparation, sans notification.",
       });
+      setFulfillDialog(null);
       setInfo(`Commande ${label} clôturée sans notification.`);
-      await load();
+      applyOptimisticFulfill([row]);
+      load({ silent: true });
     } catch (e) {
-      setError(
+      setFulfillDialogError(
         e?.response?.data?.message ||
           "Impossible de clôturer la commande sans notification.",
       );
@@ -463,31 +516,37 @@ export default function PreparationQueuePage() {
     setSelectedIds((prev) => new Set(selectableIds.filter((id) => !prev.has(id))));
   };
 
-  const handleBulkFulfillNoNotification = async () => {
+  const handleBulkFulfillNoNotification = () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
+    const selectedOrders = ids
+      .map((id) => rows.find((r) => r.id === id))
+      .filter(Boolean);
+    setFulfillDialogError("");
+    setFulfillDialog({ mode: "bulk", orders: selectedOrders });
+  };
 
-    const confirmed = window.confirm(
-      `Clôturer ${ids.length} commande${ids.length > 1 ? "s" : ""} sans envoyer de SMS ni email ? Cette action sera tracée dans l'historique.`,
-    );
-    if (!confirmed) return;
+  const confirmBulkFulfillNoNotification = async (note) => {
+    const orders = fulfillDialog?.orders || [];
+    if (orders.length === 0) return;
 
     setActionLoadingId("bulk");
+    setFulfillDialogError("");
     setError("");
     setInfo("");
 
-    let successCount = 0;
+    const closedRows = [];
     const failures = [];
 
-    for (const id of ids) {
-      const row = rows.find((r) => r.id === id);
-      const label = row?.parcelNumber || row?.preorderNumber || id;
+    for (const row of orders) {
+      const label = row?.parcelNumber || row?.preorderNumber || row?.id;
       try {
-        await ordersService.fulfillNoNotification(id, {
+        await ordersService.fulfillNoNotification(row.id, {
           note:
+            note?.trim() ||
             "Commande déjà livrée physiquement. Clôture admin groupée depuis la file de préparation, sans notification.",
         });
-        successCount += 1;
+        closedRows.push(row);
       } catch (e) {
         failures.push(`${label}: ${e?.response?.data?.message || "erreur"}`);
       }
@@ -495,16 +554,18 @@ export default function PreparationQueuePage() {
 
     setActionLoadingId("");
     setSelectedIds(new Set());
+    setFulfillDialog(null);
+    applyOptimisticFulfill(closedRows);
 
     if (failures.length > 0) {
       setError(
-        `${successCount} commande(s) clôturée(s), ${failures.length} échec(s) — ${failures.join(" | ")}`,
+        `${closedRows.length} commande(s) clôturée(s), ${failures.length} échec(s) — ${failures.join(" | ")}`,
       );
     } else {
-      setInfo(`${successCount} commande(s) clôturée(s) sans notification.`);
+      setInfo(`${closedRows.length} commande(s) clôturée(s) sans notification.`);
     }
 
-    await load();
+    load({ silent: true });
   };
 
   return (
@@ -700,6 +761,35 @@ export default function PreparationQueuePage() {
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
         onToggleSelectAll={handleToggleSelectAll}
+      />
+
+      <FulfillNoNotificationDialog
+        key={fulfillDialog ? `${fulfillDialog.mode}:${fulfillDialog.order?.id || fulfillDialog.orders?.map((o) => o.id).join(",")}` : "closed"}
+        open={Boolean(fulfillDialog)}
+        mode={fulfillDialog?.mode || "single"}
+        order={fulfillDialog?.order || null}
+        orders={fulfillDialog?.orders || []}
+        busy={
+          fulfillDialog?.mode === "bulk"
+            ? actionLoadingId === "bulk"
+            : Boolean(actionLoadingId) && actionLoadingId === fulfillDialog?.order?.id
+        }
+        error={fulfillDialogError}
+        defaultNote={
+          fulfillDialog?.mode === "bulk"
+            ? "Commande déjà livrée physiquement. Clôture admin groupée depuis la file de préparation, sans notification."
+            : "Commande déjà livrée physiquement. Clôture admin depuis la file de préparation, sans notification."
+        }
+        onCancel={() => {
+          if (actionLoadingId) return;
+          setFulfillDialog(null);
+          setFulfillDialogError("");
+        }}
+        onConfirm={
+          fulfillDialog?.mode === "bulk"
+            ? confirmBulkFulfillNoNotification
+            : confirmFulfillNoNotification
+        }
       />
     </div>
   );
