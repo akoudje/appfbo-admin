@@ -19,8 +19,7 @@ import {
   Store,
   FileBarChart,
   FileCheck2,
-  BookHeart,
-  
+
   // Administration - Icônes distinctes pour éviter la confusion
   SlidersHorizontal,
   Image,
@@ -296,24 +295,6 @@ const SETTINGS_ITEMS = [
     ],
     color: "from-amber-500 to-yellow-500",
     shortcut: "E",
-  },
-  {
-    key: "memorials",
-    to: "/marketing/memorials",
-    label: "Livre d'hommage",
-    permission: Permission.MARKETING_WRITE,
-    icon: BookHeart,
-    description: "Validation des hommages",
-    allowedRoles: [
-      AdminRole.SUPER_ADMIN,
-      AdminRole.TECH_ADMIN,
-      AdminRole.OPERATIONS_DIRECTOR,
-      AdminRole.SALES_DIRECTOR,
-      AdminRole.MARKETING_MANAGER,
-      AdminRole.MARKETING_ASSISTANT,
-    ],
-    color: "from-rose-500 to-amber-500",
-    shortcut: "H",
   },
 ];
 

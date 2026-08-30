@@ -32,7 +32,6 @@ import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import TicketEventsPage from "./pages/TicketEventsPage";
 import TicketEventFormPage from "./pages/TicketEventFormPage";
 import FboDocumentsPage from "./pages/FboDocumentsPage";
-import MemorialsPage from "./pages/MemorialsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
@@ -419,18 +418,6 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux événements." />}
                     >
                       <TicketEventFormPage />
-                    </RequirePermission>
-                  }
-                />
-
-                <Route
-                  path="/marketing/memorials"
-                  element={
-                    <RequirePermission
-                      permission={Permission.MARKETING_WRITE}
-                      fallback={<AccessDenied message="Accès refusé au livre d'hommage." />}
-                    >
-                      <MemorialsPage />
                     </RequirePermission>
                   }
                 />
