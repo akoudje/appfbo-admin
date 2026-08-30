@@ -25,6 +25,7 @@ export const Permission = {
   COUNTRY_READ: "COUNTRY_READ",
   COUNTRY_WRITE: "COUNTRY_WRITE",
   MARKETING_WRITE: "MARKETING_WRITE",
+  TICKET_CHECKIN: "TICKET_CHECKIN",
   USER_ADMIN: "USER_ADMIN",
   PRODUCT_READ: "PRODUCT_READ",
   PRODUCT_WRITE: "PRODUCT_WRITE",
@@ -49,6 +50,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
   [AdminRole.OPERATIONS_DIRECTOR]: [
     Permission.COUNTRY_READ,
     Permission.MARKETING_WRITE,
+    Permission.TICKET_CHECKIN,
     Permission.USER_ADMIN,
     Permission.PRODUCT_READ,
     Permission.PRODUCT_WRITE,
@@ -65,6 +67,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
   [AdminRole.SALES_DIRECTOR]: [
     Permission.COUNTRY_READ,
     Permission.MARKETING_WRITE,
+    Permission.TICKET_CHECKIN,
     Permission.PRODUCT_READ,
     Permission.DISCOUNT_READ,
     Permission.DISCOUNT_WRITE,
@@ -95,6 +98,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
   [AdminRole.MARKETING_MANAGER]: [
     Permission.COUNTRY_READ,
     Permission.MARKETING_WRITE,
+    Permission.TICKET_CHECKIN,
     Permission.PRODUCT_READ,
     Permission.DISCOUNT_READ,
     Permission.EXPORT_READ,
@@ -103,6 +107,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
   [AdminRole.MARKETING_ASSISTANT]: [
     Permission.COUNTRY_READ,
     Permission.MARKETING_WRITE,
+    Permission.TICKET_CHECKIN,
     Permission.PRODUCT_READ,
     Permission.DISCOUNT_READ,
     Permission.EXPORT_READ,
