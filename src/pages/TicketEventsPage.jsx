@@ -215,6 +215,13 @@ function statusBadge(status) {
   return classes[status] || "bg-gray-50 text-gray-700 border-gray-200";
 }
 
+// Un achat CANCELLED ou EXPIRED est dans un état terminal : plus aucune
+// action (annuler, resynchroniser Wave...) n'a de sens dessus, ses éventuels
+// tickets RESERVED ont déjà été libérés en base.
+function isDeadOrderStatus(status) {
+  return status === "CANCELLED" || status === "EXPIRED";
+}
+
 function emptyTicketTypeForm() {
   return {
     id: "",
@@ -1314,7 +1321,7 @@ function OrdersTab({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-2">
-                    {isWave ? (
+                    {isWave && !isDeadOrderStatus(order.status) ? (
                       <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
                         <RefreshCw className="h-3.5 w-3.5" />
                         Sync Wave
@@ -1335,7 +1342,7 @@ function OrdersTab({
                         Renvoyer email
                       </button>
                     ) : null}
-                    {!isPaid && order.status !== "CANCELLED" ? (
+                    {!isPaid && !isDeadOrderStatus(order.status) ? (
                       <button type="button" onClick={() => onCancel(order)} disabled={saving} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
                         Annuler
                       </button>
