@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { copyFromCountry, list, remove } from "../services/productsService";
+import { useConfirm } from "../hooks/useDialogs";
 
 import { formatFcfa } from "../lib/format";
 
@@ -403,6 +404,7 @@ function ProductStats({ total, actifs, inactifs, rupture }) {
 export default function Products() {
   const navigate = useNavigate();
   const location = useLocation();
+  const confirm = useConfirm();
 
   // filters
   const [q, setQ] = useState("");
@@ -606,9 +608,13 @@ export default function Products() {
   };
 
   const handleCopyCatalogFromCiv = async () => {
-    const confirmed = window.confirm(
-      "Copier la disponibilité du catalogue CIV vers tous les autres pays actifs ? Les stocks des nouveaux pays seront initialisés à 0.",
-    );
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Copier le catalogue CIV",
+      message:
+        "Copier la disponibilité du catalogue CIV vers tous les autres pays actifs ? Les stocks des nouveaux pays seront initialisés à 0.",
+      confirmLabel: "Copier",
+    });
     if (!confirmed) return;
 
     try {

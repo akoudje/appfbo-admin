@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle, Eye, History, Filter } from "lucide-react";
 import QRCode from "qrcode";
 import { fboDocumentsService } from "../services/fboDocumentsService";
+import { usePrompt } from "../hooks/useDialogs";
 
 const DEFAULT_SIGNATORY = {
   name: "AHOU YAO EPSE KOFFI",
@@ -431,6 +432,7 @@ function ActivityCertificate({ document }) {
 }
 
 export default function FboDocumentsPage() {
+  const promptText = usePrompt();
   const [activeTab, setActiveTab] = useState("create");
 
   const [query, setQuery] = useState("");
@@ -563,7 +565,11 @@ export default function FboDocumentsPage() {
   }
 
   async function cancelDocument(doc) {
-    const reason = window.prompt(`Motif d'annulation du document ${doc.documentNumber} ?`);
+    const reason = await promptText({
+      title: "Annuler le document",
+      label: `Motif d'annulation du document ${doc.documentNumber}`,
+      confirmLabel: "Annuler le document",
+    });
     if (reason === null) return;
     try {
       setLoading(true);

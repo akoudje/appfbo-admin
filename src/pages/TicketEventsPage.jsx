@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { ticketEventsService } from "../services/ticketEventsService";
+import { useConfirm, usePrompt } from "../hooks/useDialogs";
 
 const TABS = [
   { key: "overview", label: "Vue d'ensemble" },
@@ -263,6 +264,8 @@ function Field({ label, children }) {
 }
 
 export default function TicketEventsPage() {
+  const confirm = useConfirm();
+  const promptText = usePrompt();
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -408,7 +411,13 @@ export default function TicketEventsPage() {
 
   async function deleteTicketType(type) {
     if (!selectedEvent?.id) return;
-    if (!window.confirm(`Supprimer le type de ticket "${type.label}" ?`)) return;
+    const ok = await confirm({
+      tone: "danger",
+      title: "Supprimer le type de ticket",
+      message: `Supprimer le type de ticket "${type.label}" ?`,
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     try {
       setSaving(true);
       setError("");
@@ -459,7 +468,13 @@ export default function TicketEventsPage() {
   }
 
   async function cancelOrder(order) {
-    if (!window.confirm(`Annuler l'achat ${order.orderNumber} ?`)) return;
+    const ok = await confirm({
+      tone: "danger",
+      title: "Annuler l'achat",
+      message: `Annuler l'achat ${order.orderNumber} ?`,
+      confirmLabel: "Annuler l'achat",
+    });
+    if (!ok) return;
     try {
       setSaving(true);
       setError("");
@@ -478,10 +493,12 @@ export default function TicketEventsPage() {
 
   async function resendOrderTicketsEmail(order) {
     const defaultEmail = order.buyerEmail || order.holderEmail || "";
-    const recipientEmail = window.prompt(
-      "Adresse email de renvoi des tickets",
-      defaultEmail,
-    );
+    const recipientEmail = await promptText({
+      title: "Renvoyer les tickets",
+      label: "Adresse email de renvoi des tickets",
+      initialValue: defaultEmail,
+      confirmLabel: "Renvoyer",
+    });
     if (recipientEmail === null) return;
 
     try {
@@ -1341,6 +1358,7 @@ function OrdersTab({
 }
 
 function BilanTab({ event }) {
+  const confirm = useConfirm();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -1401,9 +1419,12 @@ function BilanTab({ event }) {
   async function handleSendRestitution(submitEvent) {
     submitEvent.preventDefault();
     if (!restitutionFile) return;
-    const confirmed = window.confirm(
-      "Envoyer ce fichier par email à tous les acheteurs ayant payé pour cet événement ?",
-    );
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Envoyer la restitution",
+      message: "Envoyer ce fichier par email à tous les acheteurs ayant payé pour cet événement ?",
+      confirmLabel: "Envoyer",
+    });
     if (!confirmed) return;
     try {
       setSendingRestitution(true);

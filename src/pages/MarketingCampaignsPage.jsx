@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { marketingCampaignsService } from "../services/marketingCampaignsService";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
+import { useConfirm } from "../hooks/useDialogs";
 
 export const DEFAULT_SETTINGS = {
   slides: [
@@ -1417,6 +1418,7 @@ export function SmsCampaignWorkspace({
 }
 
 export default function MarketingCampaignsPage() {
+  const confirm = useConfirm();
   const canWrite = usePermission(Permission.MARKETING_WRITE);
   const [activeTab, setActiveTab] = useState("visuals");
   const [previewDevice, setPreviewDevice] = useState("desktop");
@@ -1600,10 +1602,13 @@ export default function MarketingCampaignsPage() {
     }));
   }
 
-  function handleDeleteSmsCampaign(campaign) {
-    const confirmed =
-      typeof window === "undefined" ||
-      window.confirm(`Supprimer la campagne "${campaign.name}" ?`);
+  async function handleDeleteSmsCampaign(campaign) {
+    const confirmed = await confirm({
+      tone: "danger",
+      title: "Supprimer la campagne",
+      message: `Supprimer la campagne "${campaign.name}" ?`,
+      confirmLabel: "Supprimer",
+    });
     if (!confirmed) return;
 
     const nextCampaigns = (settings.smsCampaigns || []).filter((item) => item.id !== campaign.id);
@@ -1634,11 +1639,12 @@ export default function MarketingCampaignsPage() {
   }
 
   async function handleSendSmsCampaign(campaign) {
-    const confirmed =
-      typeof window === "undefined" ||
-      window.confirm(
-        `Envoyer cette campagne SMS a ${getSmsStats(campaign).valid} destinataires valides ?`,
-      );
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Envoyer la campagne SMS",
+      message: `Envoyer cette campagne SMS à ${getSmsStats(campaign).valid} destinataires valides ?`,
+      confirmLabel: "Envoyer",
+    });
     if (!confirmed) return;
 
     setSendingSms(true);
@@ -1665,9 +1671,12 @@ export default function MarketingCampaignsPage() {
   }
 
   async function handleResendFailedSms(campaign) {
-    const confirmed =
-      typeof window === "undefined" ||
-      window.confirm(`Renvoyer uniquement aux ${getSmsStats(campaign).failed} destinataires en echec ?`);
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Renvoyer les SMS en échec",
+      message: `Renvoyer uniquement aux ${getSmsStats(campaign).failed} destinataires en échec ?`,
+      confirmLabel: "Renvoyer",
+    });
     if (!confirmed) return;
 
     setSendingSms(true);

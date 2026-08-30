@@ -5,6 +5,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RequirePermission from "./components/auth/RequirePermission";
+import { DialogProvider } from "./components/ui/DialogProvider";
 import { AdminRole, Permission } from "./auth/permissions";
 import useAdminAuth from "./hooks/useAdminAuth";
 import { getDefaultWorkspaceRoute, shouldShowDashboard } from "./auth/workspaces";
@@ -113,9 +114,10 @@ function SmsCampaignsRoute() {
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public */}
-      <Route path="/login" element={<Login />} />
+    <DialogProvider>
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
 
       {/* Protected */}
       <Route element={<ProtectedRoute />}>
@@ -441,6 +443,7 @@ export default function App() {
           }
         />
       </Route>
-    </Routes>
+      </Routes>
+    </DialogProvider>
   );
 }

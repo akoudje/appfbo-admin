@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Loader2, RefreshCw, Send, XCircle } from "lucide-react";
 import { pickupCodeRequestsService } from "../services/pickupCodeRequestsService";
+import { useConfirm } from "../hooks/useDialogs";
 
 const STATUS_OPTIONS = [
   { value: "PENDING", label: "En attente" },
@@ -20,6 +21,7 @@ function formatDate(value) {
 }
 
 export default function PickupCodeRequestsPage() {
+  const confirm = useConfirm();
   const [status, setStatus] = useState("PENDING");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,12 @@ export default function PickupCodeRequestsPage() {
       return;
     }
 
-    const confirmed = window.confirm(`Renvoyer le code de retrait par SMS/email au ${destination} ?`);
+    const confirmed = await confirm({
+      tone: "question",
+      title: "Renvoyer le code de retrait",
+      message: `Renvoyer le code de retrait par SMS/email au ${destination} ?`,
+      confirmLabel: "Renvoyer",
+    });
     if (!confirmed) return;
 
     try {
