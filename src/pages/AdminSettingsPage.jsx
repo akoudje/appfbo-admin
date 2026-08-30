@@ -7,6 +7,7 @@ import AdminGradeDiscountsPage from "./AdminGradeDiscountsPage";
 import { settingsService } from "../services/settingsService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useAdminAuth from "../hooks/useAdminAuth";
+import { useConfirm } from "../hooks/useDialogs";
 import { AdminRole } from "../auth/permissions";
 import { foreverLogoUrl } from "../lib/assetUrls";
 import { getCountryCode } from "../services/api";
@@ -579,6 +580,7 @@ function Toast({ message, type, onClose }) {
 
 // --- Composant Principal ---
 export default function AdminSettingsPage() {
+  const confirm = useConfirm();
   const sound = useSoundAlerts("settings");
   const { role } = useAdminAuth();
   const isSuperAdmin = role === AdminRole.SUPER_ADMIN;
@@ -895,12 +897,18 @@ export default function AdminSettingsPage() {
     }
   }, [isSuperAdmin]);
 
-  const resetToDefault = useCallback(() => {
-    if (window.confirm("Réinitialiser tous les paramètres aux valeurs par défaut ?")) {
+  const resetToDefault = useCallback(async () => {
+    const ok = await confirm({
+      tone: "warning",
+      title: "Réinitialiser les paramètres",
+      message: "Réinitialiser tous les paramètres aux valeurs par défaut ?",
+      confirmLabel: "Réinitialiser",
+    });
+    if (ok) {
       setSettings(DEFAULT_SETTINGS);
       setToast({ message: "Paramètres réinitialisés", type: "success" });
     }
-  }, []);
+  }, [confirm]);
 
   if (loading) {
     return (
@@ -2062,10 +2070,14 @@ export default function AdminSettingsPage() {
                           {topic.type === "custom" ? (
                             <button
                               type="button"
-                              onClick={() => {
-                                if (window.confirm("Supprimer cette rubrique personnalisée ?")) {
-                                  removeFboHelpTopic(topic.id);
-                                }
+                              onClick={async () => {
+                                const ok = await confirm({
+                                  tone: "danger",
+                                  title: "Supprimer la rubrique",
+                                  message: "Supprimer cette rubrique personnalisée ?",
+                                  confirmLabel: "Supprimer",
+                                });
+                                if (ok) removeFboHelpTopic(topic.id);
                               }}
                               className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
                             >
