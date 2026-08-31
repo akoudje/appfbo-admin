@@ -39,6 +39,9 @@ export const ordersService = {
   getSubmittedExport: async (params = {}) =>
     (await api.get("/admin/orders/submitted-export", { params })).data,
 
+  getOverduePickups: async () =>
+    (await api.get("/admin/orders/pickup-overdue")).data,
+
   getById: async (id) =>
     (await api.get(`/admin/orders/${normalizeOrderId(id)}`)).data,
 
@@ -224,6 +227,14 @@ export const ordersService = {
   cancel: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/cancel`, body))
       .data,
+
+  applyPickupPenalty: async (id, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/pickup-penalty`,
+        body,
+      )
+    ).data,
 
   /* ============================
      Billing queue

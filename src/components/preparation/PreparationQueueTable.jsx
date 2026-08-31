@@ -45,6 +45,41 @@ function OrderStatusBadge({ status }) {
   );
 }
 
+const NOTIFICATION_STATUS_LABELS = {
+  DELIVERED: "Livré",
+  READ: "Lu",
+  SENT: "Envoyé",
+  QUEUED: "En file",
+  FAILED: "Échec",
+  CANCELLED: "Annulé",
+  DRAFT: "Brouillon",
+};
+
+function notificationStatusTone(status) {
+  const key = String(status || "").toUpperCase();
+  if (["DELIVERED", "READ"].includes(key)) return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (["SENT", "QUEUED", "DRAFT"].includes(key)) return "bg-blue-50 text-blue-700 border-blue-200";
+  if (["FAILED", "CANCELLED"].includes(key)) return "bg-red-50 text-red-700 border-red-200";
+  return "bg-gray-50 text-gray-500 border-gray-200";
+}
+
+// Statut de livraison du SMS/email "colis prêt" (code de retrait) — même
+// principe que le badge de statut des liens de paiement, pour repérer d'un
+// coup d'œil les notifications qui n'ont pas abouti.
+function PickupNotificationBadge({ message }) {
+  if (!message) return null;
+  const status = String(message.status || "").toUpperCase();
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${notificationStatusTone(status)}`}
+      title={message.errorMessage || undefined}
+    >
+      Code retrait ({message.channel === "EMAIL" ? "email" : message.channel === "SMS" ? "SMS" : "WhatsApp"}) :{" "}
+      {NOTIFICATION_STATUS_LABELS[status] || status || "—"}
+    </span>
+  );
+}
+
 export default function PreparationQueueTable({
   rows,
   loading,
@@ -166,6 +201,11 @@ export default function PreparationQueueTable({
 
                 <td className="px-4 py-3">
                   <OrderStatusBadge status={row.status} />
+                  {["READY", "FULFILLED"].includes(row.status) ? (
+                    <div className="mt-1.5">
+                      <PickupNotificationBadge message={row.messages?.[0]} />
+                    </div>
+                  ) : null}
                 </td>
 
                 <td className="px-4 py-3">
