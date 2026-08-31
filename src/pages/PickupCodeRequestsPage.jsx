@@ -20,6 +20,42 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+const NOTIFICATION_STATUS_LABELS = {
+  DELIVERED: "Livré",
+  READ: "Lu",
+  SENT: "Envoyé",
+  QUEUED: "En file",
+  FAILED: "Échec",
+  CANCELLED: "Annulé",
+  DRAFT: "Brouillon",
+};
+
+function notificationStatusTone(status) {
+  const key = String(status || "").toUpperCase();
+  if (["DELIVERED", "READ"].includes(key)) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (["SENT", "QUEUED", "DRAFT"].includes(key)) return "border-blue-200 bg-blue-50 text-blue-700";
+  if (["FAILED", "CANCELLED"].includes(key)) return "border-red-200 bg-red-50 text-red-700";
+  return "border-gray-200 bg-gray-50 text-gray-500";
+}
+
+// Statut de livraison du SMS/email "colis prêt" envoyé au client à la mise
+// à disposition — avant même la demande de renvoi en cours de traitement.
+function InitialNotificationBadge({ message }) {
+  if (!message) {
+    return <span className="text-xs text-gray-400">Aucune notification trouvée</span>;
+  }
+  const status = String(message.status || "").toUpperCase();
+  const channel = message.channel === "EMAIL" ? "Email" : message.channel === "SMS" ? "SMS" : "WhatsApp";
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${notificationStatusTone(status)}`}
+      title={message.errorMessage || undefined}
+    >
+      {channel} : {NOTIFICATION_STATUS_LABELS[status] || status || "—"}
+    </span>
+  );
+}
+
 export default function PickupCodeRequestsPage() {
   const confirm = useConfirm();
   const [status, setStatus] = useState("PENDING");
@@ -191,6 +227,7 @@ export default function PickupCodeRequestsPage() {
                   <th className="px-4 py-3">Commande</th>
                   <th className="px-4 py-3">FBO</th>
                   <th className="px-4 py-3">Téléphones</th>
+                  <th className="px-4 py-3">Notification initiale</th>
                   <th className="px-4 py-3">Statut</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3 text-right">Actions</th>
@@ -224,6 +261,9 @@ export default function PickupCodeRequestsPage() {
                       {item.note ? (
                         <div className="mt-1 max-w-xs text-xs text-gray-500">{item.note}</div>
                       ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <InitialNotificationBadge message={item.preorder?.messages?.[0]} />
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold">

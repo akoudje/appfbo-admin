@@ -185,6 +185,17 @@ const NAV_ITEMS = [
     shortcut: "R",
   },
   {
+    key: "preparation",
+    to: "/preparation/pickup-overdue",
+    label: "Retraits en retard",
+    permission: Permission.PREPARATION_UPDATE,
+    icon: AlertTriangleIcon,
+    badge: null,
+    description: "Colis prêts non retirés",
+    color: "from-red-500 to-orange-600",
+    shortcut: "O",
+  },
+  {
     key: "stock",
     to: "/stock",
     label: "Stock",

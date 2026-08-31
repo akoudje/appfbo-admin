@@ -37,6 +37,7 @@ import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
+import PickupOverduePage from "./pages/PickupOverduePage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -278,6 +279,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux demandes de code de retrait." />}
                     >
                       <PickupCodeRequestsPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/preparation/pickup-overdue"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREPARATION_UPDATE}
+                      fallback={<AccessDenied message="Accès refusé aux colis en retard de retrait." />}
+                    >
+                      <PickupOverduePage />
                     </RequirePermission>
                   }
                 />
