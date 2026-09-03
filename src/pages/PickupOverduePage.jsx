@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Loader2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Bell, Loader2, RefreshCw, X } from "lucide-react";
 import { ordersService } from "../services/ordersService";
 
 function formatFcfa(value) {
@@ -115,13 +115,19 @@ export default function PickupOverduePage() {
   const [penaltyTarget, setPenaltyTarget] = useState(null);
   const [penaltySaving, setPenaltySaving] = useState(false);
   const [penaltyError, setPenaltyError] = useState("");
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [relaunchingId, setRelaunchingId] = useState("");
+  const [bulkRelaunching, setBulkRelaunching] = useState(false);
 
   async function load() {
     try {
       setLoading(true);
       setError("");
       const data = await ordersService.getOverduePickups();
-      setRows(Array.isArray(data?.data) ? data.data : []);
+      const nextRows = Array.isArray(data?.data) ? data.data : [];
+      setRows(nextRows);
+      const nextIds = new Set(nextRows.map((row) => row.id));
+      setSelectedIds((prev) => new Set([...prev].filter((id) => nextIds.has(id))));
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de charger les colis en retard.");
     } finally {
@@ -132,6 +138,19 @@ export default function PickupOverduePage() {
   useEffect(() => {
     load();
   }, []);
+
+  function toggleSelect(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(checked) {
+    setSelectedIds(checked ? new Set(rows.map((row) => row.id)) : new Set());
+  }
 
   async function submitPenalty({ amountFcfa, note }) {
     if (!penaltyTarget) return;
@@ -147,6 +166,60 @@ export default function PickupOverduePage() {
     } finally {
       setPenaltySaving(false);
     }
+  }
+
+  async function relaunchOne(row) {
+    try {
+      setRelaunchingId(row.id);
+      setError("");
+      const result = await ordersService.relaunchPickup(row.id);
+      setInfo(
+        result?.relaunched
+          ? `Client relancé pour ${row.parcelNumber || row.preorderNumber}.`
+          : `${row.parcelNumber || row.preorderNumber} déjà relancé aujourd'hui — ignoré.`,
+      );
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de relancer ce client.");
+    } finally {
+      setRelaunchingId("");
+    }
+  }
+
+  async function relaunchSelection() {
+    const targets = rows.filter((row) => selectedIds.has(row.id));
+    if (!targets.length) return;
+    const confirmed = window.confirm(
+      `Relancer ${targets.length} client${targets.length > 1 ? "s" : ""} par SMS/email pour venir récupérer leur colis ?`,
+    );
+    if (!confirmed) return;
+
+    setBulkRelaunching(true);
+    setError("");
+    setInfo("");
+    let relaunched = 0;
+    let skipped = 0;
+    const failures = [];
+
+    for (const row of targets) {
+      try {
+        const result = await ordersService.relaunchPickup(row.id);
+        if (result?.relaunched) relaunched += 1;
+        else skipped += 1;
+      } catch (e) {
+        failures.push(`${row.parcelNumber || row.preorderNumber}: ${e?.response?.data?.message || "erreur"}`);
+      }
+    }
+
+    setBulkRelaunching(false);
+    setSelectedIds(new Set());
+    setInfo(
+      `${relaunched} client${relaunched > 1 ? "s" : ""} relancé${relaunched > 1 ? "s" : ""}` +
+        (skipped ? `, ${skipped} déjà relancé(s) aujourd'hui` : "") +
+        (failures.length ? `, ${failures.length} échec(s)` : "") +
+        ".",
+    );
+    if (failures.length) setError(failures.join(" • "));
+    await load();
   }
 
   return (
@@ -183,6 +256,23 @@ export default function PickupOverduePage() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{info}</div>
       ) : null}
 
+      {selectedIds.size > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <span className="text-sm font-semibold text-blue-800">
+            {selectedIds.size} colis sélectionné{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          <button
+            type="button"
+            onClick={relaunchSelection}
+            disabled={bulkRelaunching}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkRelaunching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+            Relancer la sélection
+          </button>
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="flex h-48 items-center justify-center text-gray-500">
@@ -198,6 +288,14 @@ export default function PickupOverduePage() {
             <table className="min-w-full divide-y divide-gray-100 text-sm">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <tr>
+                  <th className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={rows.length > 0 && selectedIds.size === rows.length}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                      aria-label="Sélectionner tous les colis en retard"
+                    />
+                  </th>
                   <th className="px-4 py-3">Colis / commande</th>
                   <th className="px-4 py-3">Client</th>
                   <th className="px-4 py-3">Prêt depuis</th>
@@ -209,6 +307,14 @@ export default function PickupOverduePage() {
               <tbody className="divide-y divide-gray-100">
                 {rows.map((row) => (
                   <tr key={row.id} className="align-top">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(row.id)}
+                        onChange={() => toggleSelect(row.id)}
+                        aria-label={`Sélectionner ${row.parcelNumber || row.preorderNumber}`}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <Link
                         to={`/orders/${row.id}?tab=fulfillment`}
@@ -248,7 +354,20 @@ export default function PickupOverduePage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => relaunchOne(row)}
+                          disabled={relaunchingId === row.id || bulkRelaunching}
+                          className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {relaunchingId === row.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Bell className="h-3.5 w-3.5" />
+                          )}
+                          Relancer
+                        </button>
                         <button
                           type="button"
                           onClick={() => setPenaltyTarget(row)}

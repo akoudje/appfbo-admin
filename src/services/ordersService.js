@@ -236,6 +236,11 @@ export const ordersService = {
       )
     ).data,
 
+  relaunchPickup: async (id) =>
+    (
+      await api.post(`/admin/orders/${normalizeOrderId(id)}/pickup-relaunch`)
+    ).data,
+
   /* ============================
      Billing queue
   ============================ */

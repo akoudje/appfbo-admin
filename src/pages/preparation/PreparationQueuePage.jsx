@@ -568,6 +568,46 @@ export default function PreparationQueuePage() {
     load({ silent: true });
   };
 
+  const handleBulkRelaunch = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const targets = ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean);
+    if (targets.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Relancer ${targets.length} client${targets.length > 1 ? "s" : ""} par SMS/email pour venir récupérer leur colis ?`,
+    );
+    if (!confirmed) return;
+
+    setActionLoadingId("bulk-relaunch");
+    setError("");
+    setInfo("");
+
+    let relaunched = 0;
+    let skipped = 0;
+    const failures = [];
+
+    for (const row of targets) {
+      const label = row?.parcelNumber || row?.preorderNumber || row?.id;
+      try {
+        const result = await ordersService.relaunchPickup(row.id);
+        if (result?.relaunched) relaunched += 1;
+        else skipped += 1;
+      } catch (e) {
+        failures.push(`${label}: ${e?.response?.data?.message || "erreur"}`);
+      }
+    }
+
+    setActionLoadingId("");
+    setSelectedIds(new Set());
+    setInfo(
+      `${relaunched} client${relaunched > 1 ? "s" : ""} relancé${relaunched > 1 ? "s" : ""}` +
+        (skipped ? `, ${skipped} déjà relancé(s) aujourd'hui` : "") +
+        (failures.length ? `, ${failures.length} échec(s) — ${failures.join(" | ")}` : "") +
+        ".",
+    );
+  };
+
   return (
     <div className="space-y-4">
       <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
@@ -737,6 +777,14 @@ export default function PreparationQueuePage() {
               title="Sélectionne les commandes prêtes non cochées et décoche celles qui l'étaient"
             >
               Inverser la sélection
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkRelaunch}
+              className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-50"
+              disabled={!!actionLoadingId}
+            >
+              {actionLoadingId === "bulk-relaunch" ? "Relance en cours..." : "Relancer (sélection)"}
             </button>
             <button
               type="button"
