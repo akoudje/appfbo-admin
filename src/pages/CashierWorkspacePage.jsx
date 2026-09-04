@@ -115,6 +115,50 @@ function isCompletedCashierRow(row) {
   return row.status === "PAID" && Boolean(row.preparationLaunchedAt);
 }
 
+// Tri de la colonne Réf AS400, réutilisé par les 3 tableaux de l'espace
+// caisse (ProcessingTable, ArchiveTable, PaidTodayModal). Comparaison
+// "numeric" pour trier les références numériques dans l'ordre naturel
+// (2 avant 10) plutôt que lexicographique (10 avant 2). Les commandes sans
+// réf (pas encore facturées) se regroupent naturellement en début de tri.
+function sortRowsByAs400Ref(rows, direction) {
+  if (!direction) return rows;
+  const sorted = [...rows].sort((a, b) =>
+    String(a?.factureReference || "").localeCompare(String(b?.factureReference || ""), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+  return direction === "desc" ? sorted.reverse() : sorted;
+}
+
+function useAs400RefSort(rows) {
+  const [direction, setDirection] = useState(null); // null (non trié) -> "asc" -> "desc" -> null
+  const sortedRows = useMemo(() => sortRowsByAs400Ref(rows, direction), [rows, direction]);
+  function toggleDirection() {
+    setDirection((prev) => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
+  }
+  return [sortedRows, direction, toggleDirection];
+}
+
+function As400RefHeader({ direction, onToggle, thClassName = "px-4 py-3" }) {
+  return (
+    <th className={thClassName}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="inline-flex items-center gap-1 hover:text-gray-700"
+        title="Trier par Réf AS400"
+      >
+        Réf AS400
+        <span className="flex flex-col leading-[6px] text-[8px]">
+          <span className={direction === "asc" ? "text-gray-900" : "text-gray-300"}>▲</span>
+          <span className={direction === "desc" ? "text-gray-900" : "text-gray-300"}>▼</span>
+        </span>
+      </button>
+    </th>
+  );
+}
+
 function SummaryCard({ label, value, hint }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -222,6 +266,7 @@ function ProcessingTable({
   onPrintReceipt,
   onReportAs400Missing,
 }) {
+  const [sortedRows, as400SortDirection, toggleAs400Sort] = useAs400RefSort(rows);
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -229,7 +274,7 @@ function ProcessingTable({
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Commande</th>
-              <th className="px-4 py-3">Réf AS400</th>
+              <As400RefHeader direction={as400SortDirection} onToggle={toggleAs400Sort} />
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Montant</th>
@@ -238,14 +283,14 @@ function ProcessingTable({
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   Aucune commande.
                 </td>
               </tr>
             ) : (
-              rows.map((row) => {
+              sortedRows.map((row) => {
                 const paymentMode = String(row.preorderPaymentMode || "").toUpperCase();
                 const isCash = paymentMode.includes("ESPE") || paymentMode.includes("CASH");
                 const isWave = String(row.paymentProvider || "").toUpperCase() === "WAVE";
@@ -337,6 +382,7 @@ function ProcessingTable({
 }
 
 function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintReceipt }) {
+  const [sortedRows, as400SortDirection, toggleAs400Sort] = useAs400RefSort(rows);
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -344,7 +390,7 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Commande</th>
-              <th className="px-4 py-3">Réf AS400</th>
+              <As400RefHeader direction={as400SortDirection} onToggle={toggleAs400Sort} />
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Caissière</th>
@@ -354,12 +400,12 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-500">{emptyLabel}</td>
               </tr>
             ) : (
-              rows.map((row) => (
+              sortedRows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100 align-top">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
@@ -836,9 +882,14 @@ function PaidTodayModal({ open, onClose }) {
     };
   }, [open]);
 
+  // rows + le hook de tri restent avant le "if (!open) return null" pour ne
+  // pas violer les rules of hooks (useAs400RefSort appelle useState/useMemo,
+  // qui doivent être appelés au même nombre à chaque rendu).
+  const rows = data?.rows || [];
+  const [sortedRows, as400SortDirection, toggleAs400Sort] = useAs400RefSort(rows);
+
   if (!open) return null;
 
-  const rows = data?.rows || [];
   const allSelected = rows.length > 0 && selectedIds.size === rows.length;
 
   function toggleRow(id) {
@@ -892,7 +943,7 @@ function PaidTodayModal({ open, onClose }) {
                       aria-label="Tout sélectionner"
                     />
                   </th>
-                  <th className="px-3 py-2">Réf AS400</th>
+                  <As400RefHeader direction={as400SortDirection} onToggle={toggleAs400Sort} thClassName="px-3 py-2" />
                   <th className="px-3 py-2">Commande</th>
                   <th className="px-3 py-2">FBO</th>
                   <th className="px-3 py-2">Mode</th>
@@ -900,7 +951,7 @@ function PaidTodayModal({ open, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {sortedRows.map((row) => (
                   <tr key={row.id} className="border-t border-gray-100">
                     <td className="px-3 py-2">
                       <input
