@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { AlertTriangle, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
+import CashRegisterStatusPanel from "../components/cashier/CashRegisterStatusPanel";
 
 const PAGE_SIZE = 50;
 const POLL_INTERVAL_MS = 15000;
@@ -497,6 +498,8 @@ export default function ExternalPaymentLinksPage() {
           Générez un lien Wave avec majoration automatique de 1% de frais.
         </p>
       </div>
+
+      <CashRegisterStatusPanel />
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>

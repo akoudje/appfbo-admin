@@ -4,6 +4,7 @@ import useAdminAuth from "../hooks/useAdminAuth";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
+import CashRegisterStatusPanel from "../components/cashier/CashRegisterStatusPanel";
 import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../services/realtimeAlertsService";
 import {
@@ -1430,6 +1431,8 @@ export default function CashierWorkspacePage() {
           </div>
         </div>
       </div>
+
+      <CashRegisterStatusPanel />
 
       <PaidTodayModal open={as400ListOpen} onClose={() => setAs400ListOpen(false)} />
 
