@@ -1,9 +1,13 @@
 // admin-app/src/components/cashier/CashRegisterStatusPanel.jsx
-// Interrupteur temporaire "paiements en ligne ouverts / fermés" pour la caisse
-// physique. Fermer annule les liens de paiement hors précommande encore
-// actifs et bloque la génération de nouveaux liens via le kiosque QR, pour
-// éviter qu'un client paie alors que le comptoir est fermé. À retirer une
-// fois l'automatisation réelle des horaires de caisse en place.
+// Interrupteur temporaire "caisse ouverte / fermée" par pays. Fermer :
+//  - annule les liens de paiement hors précommande (QR) encore actifs et
+//    bloque le kiosque QR ;
+//  - ANNULE (statut CANCELLED) les précommandes préfacturées encore en
+//    attente de paiement, et bloque toute nouvelle initiation de paiement
+//    Wave publique pour ce pays ;
+// pour éviter qu'un client paie alors que le comptoir est fermé et que
+// personne ne peut le servir. À retirer une fois l'automatisation réelle
+// des horaires de caisse en place.
 
 import { useEffect, useState } from "react";
 import { Lock, Unlock } from "lucide-react";
@@ -25,6 +29,7 @@ export default function CashRegisterStatusPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   async function load() {
     try {
@@ -45,15 +50,24 @@ export default function CashRegisterStatusPanel() {
 
   async function handleClose() {
     const confirmed = window.confirm(
-      "Fermer les paiements en ligne ? Tous les liens de paiement hors précommande encore actifs seront annulés, et le kiosque QR n'en génèrera plus jusqu'à réouverture.",
+      "Fermer la caisse ?\n\n" +
+        "- Tous les liens de paiement hors précommande encore actifs seront annulés (kiosque QR bloqué).\n" +
+        "- Toutes les précommandes préfacturées encore en attente de paiement seront ANNULÉES (statut Annulé) — les clients concernés devront resoumettre leur précommande.\n\n" +
+        "Cette action est immédiate et ne peut pas être annulée automatiquement.",
     );
     if (!confirmed) return;
 
     try {
       setBusy(true);
       setError("");
+      setMessage("");
       const response = await cashRegisterStatusService.close();
       setStatus(response?.status || null);
+      setMessage(
+        `Caisse fermée : ${response?.cancelledLinksCount || 0} lien(s) annulé(s), ${
+          response?.cancelledPreordersCount || 0
+        } précommande(s) préfacturée(s) annulée(s).`,
+      );
     } catch (err) {
       setError(err?.response?.data?.message || "Fermeture impossible.");
     } finally {
@@ -65,6 +79,7 @@ export default function CashRegisterStatusPanel() {
     try {
       setBusy(true);
       setError("");
+      setMessage("");
       const response = await cashRegisterStatusService.open();
       setStatus(response?.status || null);
     } catch (err) {
@@ -90,19 +105,20 @@ export default function CashRegisterStatusPanel() {
         </div>
         <div>
           <div className={`text-sm font-bold ${isOpen ? "text-emerald-900" : "text-red-900"}`}>
-            Paiements en ligne (liens hors app) : {isOpen ? "Ouverts" : "Fermés"}
+            Caisse : {isOpen ? "Ouverte" : "Fermée"}
           </div>
           {isOpen ? (
             <p className="mt-0.5 text-xs text-emerald-800">
-              Le kiosque QR peut générer des liens Wave normalement.
+              Liens hors app et paiement des précommandes préfacturées disponibles normalement.
             </p>
           ) : (
             <p className="mt-0.5 text-xs text-red-800">
-              Fermé{status?.closedAt ? ` le ${formatDateTime(status.closedAt)}` : ""}
-              {actorLabel(status?.closedBy) ? ` par ${actorLabel(status.closedBy)}` : ""}. Liens en attente
-              annulés, kiosque QR bloqué.
+              Fermée{status?.closedAt ? ` le ${formatDateTime(status.closedAt)}` : ""}
+              {actorLabel(status?.closedBy) ? ` par ${actorLabel(status.closedBy)}` : ""}. Liens hors app et
+              précommandes préfacturées en attente annulés, nouveaux paiements bloqués.
             </p>
           )}
+          {message ? <p className="mt-1 text-xs font-semibold text-emerald-700">{message}</p> : null}
           {error ? <p className="mt-1 text-xs font-semibold text-red-700">{error}</p> : null}
         </div>
       </div>
@@ -115,7 +131,7 @@ export default function CashRegisterStatusPanel() {
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
         >
           <Lock className="h-4 w-4" />
-          Fermer les paiements en ligne
+          Fermer la caisse
         </button>
       ) : (
         <button
@@ -125,7 +141,7 @@ export default function CashRegisterStatusPanel() {
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           <Unlock className="h-4 w-4" />
-          Rouvrir les paiements en ligne
+          Rouvrir la caisse
         </button>
       )}
     </div>
