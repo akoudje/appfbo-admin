@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { Lock, Unlock } from "lucide-react";
 import { cashRegisterStatusService } from "../../services/cashRegisterStatusService";
+import { useConfirm } from "../../hooks/useDialogs";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -25,6 +26,7 @@ function actorLabel(actor) {
 }
 
 export default function CashRegisterStatusPanel() {
+  const confirm = useConfirm();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -49,12 +51,24 @@ export default function CashRegisterStatusPanel() {
   }, []);
 
   async function handleClose() {
-    const confirmed = window.confirm(
-      "Fermer la caisse ?\n\n" +
-        "- Tous les liens de paiement hors précommande encore actifs seront annulés (kiosque QR bloqué).\n" +
-        "- Toutes les précommandes préfacturées encore en attente de paiement seront ANNULÉES (statut Annulé) — les clients concernés devront resoumettre leur précommande.\n\n" +
+    const confirmed = await confirm({
+      tone: "danger",
+      title: "Fermer la caisse ?",
+      message:
         "Cette action est immédiate et ne peut pas être annulée automatiquement.",
-    );
+      detail: (
+        <ul className="list-disc space-y-1.5 pl-4 text-left text-sm text-gray-700">
+          <li>Tous les liens de paiement hors précommande encore actifs seront annulés (kiosque QR bloqué).</li>
+          <li>
+            Toutes les précommandes préfacturées encore en attente de paiement seront{" "}
+            <strong>ANNULÉES</strong> (statut Annulé) — les clients concernés devront resoumettre leur
+            précommande.
+          </li>
+        </ul>
+      ),
+      confirmLabel: "Fermer la caisse",
+      cancelLabel: "Annuler",
+    });
     if (!confirmed) return;
 
     try {
