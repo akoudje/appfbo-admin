@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import * as packagingsService from "../services/productPackagingsService";
+import { useConfirm } from "../hooks/useDialogs";
 
 const EMPTY_FORM = { label: "", unitsPerPackage: "", barcode: "", prixFcfa: "", actif: true };
 
@@ -18,6 +19,7 @@ function extractApiErrorMessage(e) {
 }
 
 export default function ProductPackagingsManager({ productId, productSku }) {
+  const confirm = useConfirm();
   const [packagings, setPackagings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,7 +101,13 @@ export default function ProductPackagingsManager({ productId, productSku }) {
   }
 
   async function onDelete(p) {
-    if (!window.confirm(`Supprimer le conditionnement "${p.label}" ?`)) return;
+    const ok = await confirm({
+      tone: "danger",
+      title: "Supprimer le conditionnement",
+      message: `Supprimer le conditionnement "${p.label}" ?`,
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     try {
       await packagingsService.remove(productId, p.id);
       setPackagings((prev) => prev.filter((x) => x.id !== p.id));

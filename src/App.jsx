@@ -5,6 +5,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RequirePermission from "./components/auth/RequirePermission";
+import { DialogProvider } from "./components/ui/DialogProvider";
 import { AdminRole, Permission } from "./auth/permissions";
 import useAdminAuth from "./hooks/useAdminAuth";
 import { getDefaultWorkspaceRoute, shouldShowDashboard } from "./auth/workspaces";
@@ -32,11 +33,11 @@ import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import TicketEventsPage from "./pages/TicketEventsPage";
 import TicketEventFormPage from "./pages/TicketEventFormPage";
 import FboDocumentsPage from "./pages/FboDocumentsPage";
-import MemorialsPage from "./pages/MemorialsPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
+import PickupOverduePage from "./pages/PickupOverduePage";
 
 function AccessDenied({ message = "Accès refusé." }) {
   return (
@@ -113,9 +114,10 @@ function SmsCampaignsRoute() {
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public */}
-      <Route path="/login" element={<Login />} />
+    <DialogProvider>
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
 
       {/* Protected */}
       <Route element={<ProtectedRoute />}>
@@ -282,6 +284,18 @@ export default function App() {
                 />
 
                 <Route
+                  path="/preparation/pickup-overdue"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREPARATION_UPDATE}
+                      fallback={<AccessDenied message="Accès refusé aux colis en retard de retrait." />}
+                    >
+                      <PickupOverduePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
                   path="/stock"
                   element={
                     <RequirePermission
@@ -423,24 +437,13 @@ export default function App() {
                   }
                 />
 
-                <Route
-                  path="/marketing/memorials"
-                  element={
-                    <RequirePermission
-                      permission={Permission.MARKETING_WRITE}
-                      fallback={<AccessDenied message="Accès refusé au livre d'hommage." />}
-                    >
-                      <MemorialsPage />
-                    </RequirePermission>
-                  }
-                />
-
                 <Route path="*" element={<div className="p-6">Not found</div>} />
               </Routes>
             </AdminLayout>
           }
         />
       </Route>
-    </Routes>
+      </Routes>
+    </DialogProvider>
   );
 }

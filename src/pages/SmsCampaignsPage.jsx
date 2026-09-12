@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { marketingCampaignsService } from "../services/marketingCampaignsService";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
+import { useConfirm } from "../hooks/useDialogs";
 import {
   DEFAULT_SETTINGS,
   SmsCampaignWorkspace,
@@ -224,6 +225,7 @@ function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, confir
 
 // Composant principal
 export default function SmsCampaignsPage() {
+  const confirm = useConfirm();
   const canWrite = usePermission(Permission.MARKETING_WRITE);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [selectedSmsCampaignId, setSelectedSmsCampaignId] = useState("");
@@ -409,9 +411,12 @@ export default function SmsCampaignsPage() {
 
   const handleSendSmsCampaign = useCallback(async (campaign) => {
     const stats = getCampaignStats(campaign);
-    const confirmed =
-      typeof window === "undefined" ||
-      window.confirm(`Envoyer cette campagne SMS a ${stats.valid} destinataires valides ?`);
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Envoyer la campagne SMS",
+      message: `Envoyer cette campagne SMS à ${stats.valid} destinataires valides ?`,
+      confirmLabel: "Envoyer",
+    });
     if (!confirmed) return;
 
     try {
@@ -434,13 +439,16 @@ export default function SmsCampaignsPage() {
     } finally {
       setSendingSms(false);
     }
-  }, [settings, handleUpdateSmsCampaign]);
+  }, [settings, handleUpdateSmsCampaign, confirm]);
 
   const handleResendFailedSms = useCallback(async (campaign) => {
     const stats = getCampaignStats(campaign);
-    const confirmed =
-      typeof window === "undefined" ||
-      window.confirm(`Renvoyer uniquement aux ${stats.failed} destinataires en échec ?`);
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Renvoyer les SMS en échec",
+      message: `Renvoyer uniquement aux ${stats.failed} destinataires en échec ?`,
+      confirmLabel: "Renvoyer",
+    });
     if (!confirmed) return;
 
     try {
@@ -465,7 +473,7 @@ export default function SmsCampaignsPage() {
     } finally {
       setSendingSms(false);
     }
-  }, [settings, handleUpdateSmsCampaign]);
+  }, [settings, handleUpdateSmsCampaign, confirm]);
 
   useEffect(() => {
     async function load() {

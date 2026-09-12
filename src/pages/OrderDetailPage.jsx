@@ -12,6 +12,7 @@ import RequirePermission from "../components/auth/RequirePermission";
 import { AdminRole, Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
 import useAdminAuth from "../hooks/useAdminAuth";
+import { useConfirm } from "../hooks/useDialogs";
 import { getDefaultOrderTabForRole, getOrderTabsForRole } from "../auth/workspaces";
 
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
@@ -141,6 +142,7 @@ export default function OrderDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAdminAuth();
+  const confirm = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1214,9 +1216,13 @@ const doInvoice = async () => {
   };
 
   const doFulfillNoNotification = async () => {
-    const confirmed = window.confirm(
-      "Cette action va clôturer la commande sans envoyer de SMS ni email au client. Elle débitera le stock si nécessaire et sera tracée dans l'historique. Continuer ?",
-    );
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Clôturer sans notification",
+      message:
+        "Cette action va clôturer la commande sans envoyer de SMS ni email au client. Elle débitera le stock si nécessaire et sera tracée dans l'historique. Continuer ?",
+      confirmLabel: "Clôturer",
+    });
     if (!confirmed) return;
 
     try {

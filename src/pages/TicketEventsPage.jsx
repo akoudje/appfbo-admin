@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { ticketEventsService } from "../services/ticketEventsService";
+import { useConfirm, usePrompt } from "../hooks/useDialogs";
 
 const TABS = [
   { key: "overview", label: "Vue d'ensemble" },
@@ -214,6 +215,13 @@ function statusBadge(status) {
   return classes[status] || "bg-gray-50 text-gray-700 border-gray-200";
 }
 
+// Un achat CANCELLED ou EXPIRED est dans un état terminal : plus aucune
+// action (annuler, resynchroniser Wave...) n'a de sens dessus, ses éventuels
+// tickets RESERVED ont déjà été libérés en base.
+function isDeadOrderStatus(status) {
+  return status === "CANCELLED" || status === "EXPIRED";
+}
+
 function emptyTicketTypeForm() {
   return {
     id: "",
@@ -263,6 +271,8 @@ function Field({ label, children }) {
 }
 
 export default function TicketEventsPage() {
+  const confirm = useConfirm();
+  const promptText = usePrompt();
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -408,7 +418,13 @@ export default function TicketEventsPage() {
 
   async function deleteTicketType(type) {
     if (!selectedEvent?.id) return;
-    if (!window.confirm(`Supprimer le type de ticket "${type.label}" ?`)) return;
+    const ok = await confirm({
+      tone: "danger",
+      title: "Supprimer le type de ticket",
+      message: `Supprimer le type de ticket "${type.label}" ?`,
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     try {
       setSaving(true);
       setError("");
@@ -459,7 +475,13 @@ export default function TicketEventsPage() {
   }
 
   async function cancelOrder(order) {
-    if (!window.confirm(`Annuler l'achat ${order.orderNumber} ?`)) return;
+    const ok = await confirm({
+      tone: "danger",
+      title: "Annuler l'achat",
+      message: `Annuler l'achat ${order.orderNumber} ?`,
+      confirmLabel: "Annuler l'achat",
+    });
+    if (!ok) return;
     try {
       setSaving(true);
       setError("");
@@ -478,10 +500,12 @@ export default function TicketEventsPage() {
 
   async function resendOrderTicketsEmail(order) {
     const defaultEmail = order.buyerEmail || order.holderEmail || "";
-    const recipientEmail = window.prompt(
-      "Adresse email de renvoi des tickets",
-      defaultEmail,
-    );
+    const recipientEmail = await promptText({
+      title: "Renvoyer les tickets",
+      label: "Adresse email de renvoi des tickets",
+      initialValue: defaultEmail,
+      confirmLabel: "Renvoyer",
+    });
     if (recipientEmail === null) return;
 
     try {
@@ -1297,7 +1321,7 @@ function OrdersTab({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-2">
-                    {isWave ? (
+                    {isWave && !isDeadOrderStatus(order.status) ? (
                       <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
                         <RefreshCw className="h-3.5 w-3.5" />
                         Sync Wave
@@ -1318,7 +1342,7 @@ function OrdersTab({
                         Renvoyer email
                       </button>
                     ) : null}
-                    {!isPaid && order.status !== "CANCELLED" ? (
+                    {!isPaid && !isDeadOrderStatus(order.status) ? (
                       <button type="button" onClick={() => onCancel(order)} disabled={saving} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
                         Annuler
                       </button>
@@ -1341,6 +1365,7 @@ function OrdersTab({
 }
 
 function BilanTab({ event }) {
+  const confirm = useConfirm();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -1401,9 +1426,12 @@ function BilanTab({ event }) {
   async function handleSendRestitution(submitEvent) {
     submitEvent.preventDefault();
     if (!restitutionFile) return;
-    const confirmed = window.confirm(
-      "Envoyer ce fichier par email à tous les acheteurs ayant payé pour cet événement ?",
-    );
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Envoyer la restitution",
+      message: "Envoyer ce fichier par email à tous les acheteurs ayant payé pour cet événement ?",
+      confirmLabel: "Envoyer",
+    });
     if (!confirmed) return;
     try {
       setSendingRestitution(true);

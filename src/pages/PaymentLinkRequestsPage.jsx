@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Loader2, RefreshCw, Send, XCircle } from "lucide-react";
 import { paymentLinkRequestsService } from "../services/paymentLinkRequestsService";
+import { useConfirm } from "../hooks/useDialogs";
 
 const STATUS_OPTIONS = [
   { value: "PENDING", label: "En attente" },
@@ -25,6 +26,7 @@ function formatFcfa(value) {
 }
 
 export default function PaymentLinkRequestsPage() {
+  const confirm = useConfirm();
   const [status, setStatus] = useState("PENDING");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +76,12 @@ export default function PaymentLinkRequestsPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Renvoyer le lien de paiement par SMS/email au ${destination} ?`,
-    );
+    const confirmed = await confirm({
+      tone: "question",
+      title: "Renvoyer le lien de paiement",
+      message: `Renvoyer le lien de paiement par SMS/email au ${destination} ?`,
+      confirmLabel: "Renvoyer",
+    });
     if (!confirmed) return;
 
     try {
