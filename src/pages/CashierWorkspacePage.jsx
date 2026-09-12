@@ -19,23 +19,48 @@ import {
   buildReceiptBodyHtml,
 } from "../utils/cashierReceipt";
 
-const CASHIER_PRESET_STORAGE_PREFIX = "cashier_workspace_preset_v2";
+const CASHIER_FILTER_STORAGE_PREFIX = "cashier_workspace_filters_v3";
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function safeReadStorage(key, fallback = "ALL") {
+function getYesterdayIsoDate() {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+// Le preset de date est mémorisé par "nature" (aujourd'hui / hier / aucun)
+// plutôt que par dates littérales : au prochain chargement on recalcule les
+// bonnes dates du jour au lieu de rejouer une date figée au moment de
+// l'enregistrement. Une plage personnalisée (sélecteurs de dates manuels)
+// n'est pas restaurable à l'identique et retombe donc sur "NONE".
+function resolveDatePresetKind(dateFrom, dateTo) {
+  if (!dateFrom && !dateTo) return "NONE";
+  if (dateFrom === getTodayIsoDate() && dateTo === getTodayIsoDate()) return "TODAY";
+  if (dateFrom === getYesterdayIsoDate() && dateTo === getYesterdayIsoDate()) return "YESTERDAY";
+  return "CUSTOM";
+}
+
+function safeReadFilterPreset(key) {
+  const fallback = { paymentMode: "", datePreset: "NONE" };
   try {
-    return window.localStorage.getItem(key) || fallback;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return {
+      paymentMode: typeof parsed?.paymentMode === "string" ? parsed.paymentMode : "",
+      datePreset: typeof parsed?.datePreset === "string" ? parsed.datePreset : "NONE",
+    };
   } catch {
     return fallback;
   }
 }
 
-function safeWriteStorage(key, value) {
+function safeWriteFilterPreset(key, value) {
   try {
-    window.localStorage.setItem(key, value);
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // Ignore storage failures.
   }
@@ -1011,7 +1036,7 @@ function PaidTodayModal({ open, onClose }) {
 export default function CashierWorkspacePage() {
   const navigate = useNavigate();
   const { admin, role } = useAdminAuth();
-  const presetStorageKey = useMemo(() => `${CASHIER_PRESET_STORAGE_PREFIX}:${role || "UNKNOWN"}`, [role]);
+  const presetStorageKey = useMemo(() => `${CASHIER_FILTER_STORAGE_PREFIX}:${role || "UNKNOWN"}`, [role]);
   const searchDebounceInitializedRef = useRef(false);
   const cashDialogResolverRef = useRef(null);
   const loadRef = useRef(null);
@@ -1066,7 +1091,6 @@ export default function CashierWorkspacePage() {
   const [, setAttentionAlert] = useState(null);
 
   const [activeTab, setActiveTab] = useState("processing");
-  const [quickPreset, setQuickPreset] = useState("ALL");
   const [as400ListOpen, setAs400ListOpen] = useState(false);
 
   const [query, setQuery] = useState("");
@@ -1098,6 +1122,15 @@ export default function CashierWorkspacePage() {
   const displayedValidationSummary = canViewConsolidated ? generalValidationSummary : personalValidationSummary;
   const validationPeriodLabel = dateFrom || dateTo ? "sur période" : "aujourd'hui";
   const activeFilterCount = [query, paymentMode, dateFrom, dateTo].filter(Boolean).length;
+
+  // Presets rapides dérivés directement des filtres actifs (plutôt que d'un
+  // état séparé) : dates et mode de paiement se combinent librement, par
+  // exemple "Aujourd'hui" + "Espèces" peuvent être actifs en même temps.
+  const isTodayPresetActive = dateFrom === getTodayIsoDate() && dateTo === getTodayIsoDate();
+  const isYesterdayPresetActive = dateFrom === getYesterdayIsoDate() && dateTo === getYesterdayIsoDate();
+  const isCashPresetActive = paymentMode === "ESPECES";
+  const isWavePresetActive = paymentMode === "WAVE";
+  const isAllPresetActive = !paymentMode && !dateFrom && !dateTo;
 
   const raiseAttentionAlert = (kind = "collect", count = 1, source = "poll") => {
     if (attentionTimerRef.current) {
@@ -1255,72 +1288,71 @@ export default function CashierWorkspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
+  // Dès qu'une recherche est saisie, on bascule automatiquement sur l'onglet
+  // "Recherche" pour éviter que l'utilisateur tape dans le vide sur l'onglet
+  // "À traiter" ou "Terminées". À l'inverse, vider la recherche ramène sur
+  // l'onglet "À traiter" si on était sur "Recherche".
   useEffect(() => {
-    const savedPreset = safeReadStorage(presetStorageKey, "ALL");
-    const today = getTodayIsoDate();
-    if (savedPreset === "TODAY") {
-      setQuickPreset("TODAY");
-      setPaymentMode("");
-      setDateFrom(today);
-      setDateTo(today);
-      load({ paymentMode: "", dateFrom: today, dateTo: today });
-      return;
+    setActiveTab((prev) => {
+      if (query.trim()) return "search";
+      return prev === "search" ? "processing" : prev;
+    });
+  }, [query]);
+
+  useEffect(() => {
+    const saved = safeReadFilterPreset(presetStorageKey);
+    const nextPaymentMode = saved.paymentMode || "";
+    let nextDateFrom = "";
+    let nextDateTo = "";
+    if (saved.datePreset === "TODAY") {
+      nextDateFrom = getTodayIsoDate();
+      nextDateTo = getTodayIsoDate();
+    } else if (saved.datePreset === "YESTERDAY") {
+      nextDateFrom = getYesterdayIsoDate();
+      nextDateTo = getYesterdayIsoDate();
     }
-    if (savedPreset === "CASH") {
-      setQuickPreset("CASH");
-      setPaymentMode("ESPECES");
-      setDateFrom("");
-      setDateTo("");
-      load({ paymentMode: "ESPECES", dateFrom: "", dateTo: "" });
-      return;
-    }
-    if (savedPreset === "WAVE") {
-      setQuickPreset("WAVE");
-      setPaymentMode("WAVE");
-      setDateFrom("");
-      setDateTo("");
-      load({ paymentMode: "WAVE", dateFrom: "", dateTo: "" });
-      return;
-    }
-    setQuickPreset("ALL");
-    setPaymentMode("");
-    setDateFrom("");
-    setDateTo("");
-    load({ paymentMode: "", dateFrom: "", dateTo: "" });
+    setPaymentMode(nextPaymentMode);
+    setDateFrom(nextDateFrom);
+    setDateTo(nextDateTo);
+    load({ paymentMode: nextPaymentMode, dateFrom: nextDateFrom, dateTo: nextDateTo });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetStorageKey]);
 
   useEffect(() => {
-    safeWriteStorage(presetStorageKey, quickPreset);
-  }, [presetStorageKey, quickPreset]);
+    safeWriteFilterPreset(presetStorageKey, {
+      paymentMode,
+      datePreset: resolveDatePresetKind(dateFrom, dateTo),
+    });
+  }, [presetStorageKey, paymentMode, dateFrom, dateTo]);
 
+  // Les presets rapides se combinent avec les filtres déjà actifs (sauf
+  // "Tous", qui réinitialise tout) : par exemple cliquer sur "Espèces" après
+  // "Aujourd'hui" garde la période et ajoute le mode de paiement.
   const applyPreset = (preset) => {
-    const today = getTodayIsoDate();
     if (preset === "TODAY") {
-      setQuickPreset("TODAY");
-      setPaymentMode("");
+      const today = getTodayIsoDate();
       setDateFrom(today);
       setDateTo(today);
-      load({ paymentMode: "", dateFrom: today, dateTo: today });
+      load({ dateFrom: today, dateTo: today });
+      return;
+    }
+    if (preset === "YESTERDAY") {
+      const yesterday = getYesterdayIsoDate();
+      setDateFrom(yesterday);
+      setDateTo(yesterday);
+      load({ dateFrom: yesterday, dateTo: yesterday });
       return;
     }
     if (preset === "CASH") {
-      setQuickPreset("CASH");
       setPaymentMode("ESPECES");
-      setDateFrom("");
-      setDateTo("");
-      load({ paymentMode: "ESPECES", dateFrom: "", dateTo: "" });
+      load({ paymentMode: "ESPECES" });
       return;
     }
     if (preset === "WAVE") {
-      setQuickPreset("WAVE");
       setPaymentMode("WAVE");
-      setDateFrom("");
-      setDateTo("");
-      load({ paymentMode: "WAVE", dateFrom: "", dateTo: "" });
+      load({ paymentMode: "WAVE" });
       return;
     }
-    setQuickPreset("ALL");
     setPaymentMode("");
     setDateFrom("");
     setDateTo("");
@@ -1520,7 +1552,6 @@ export default function CashierWorkspacePage() {
             onChange={(e) => {
               const next = e.target.value;
               setPaymentMode(next);
-              setQuickPreset("CUSTOM");
               load({ paymentMode: next });
             }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
@@ -1539,7 +1570,6 @@ export default function CashierWorkspacePage() {
             onChange={(e) => {
               const next = e.target.value;
               setDateFrom(next);
-              setQuickPreset("CUSTOM");
               load({ dateFrom: next });
             }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
@@ -1551,7 +1581,6 @@ export default function CashierWorkspacePage() {
             onChange={(e) => {
               const next = e.target.value;
               setDateTo(next);
-              setQuickPreset("CUSTOM");
               load({ dateTo: next });
             }}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
@@ -1560,10 +1589,11 @@ export default function CashierWorkspacePage() {
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
-            <QuickButton active={quickPreset === "ALL"} onClick={() => applyPreset("ALL")}>Tous</QuickButton>
-            <QuickButton active={quickPreset === "TODAY"} onClick={() => applyPreset("TODAY")}>Aujourd'hui</QuickButton>
-            <QuickButton active={quickPreset === "CASH"} onClick={() => applyPreset("CASH")}>Espèces</QuickButton>
-            <QuickButton active={quickPreset === "WAVE"} onClick={() => applyPreset("WAVE")}>Wave</QuickButton>
+            <QuickButton active={isAllPresetActive} onClick={() => applyPreset("ALL")}>Tous</QuickButton>
+            <QuickButton active={isTodayPresetActive} onClick={() => applyPreset("TODAY")}>Aujourd'hui</QuickButton>
+            <QuickButton active={isYesterdayPresetActive} onClick={() => applyPreset("YESTERDAY")}>Hier</QuickButton>
+            <QuickButton active={isCashPresetActive} onClick={() => applyPreset("CASH")}>Espèces</QuickButton>
+            <QuickButton active={isWavePresetActive} onClick={() => applyPreset("WAVE")}>Wave</QuickButton>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={load} disabled={loading} className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{loading ? "Chargement..." : "Appliquer"}</button>
@@ -1574,7 +1604,6 @@ export default function CashierWorkspacePage() {
                 setPaymentMode("");
                 setDateFrom("");
                 setDateTo("");
-                setQuickPreset("ALL");
                 load({ query: "", paymentMode: "", dateFrom: "", dateTo: "" });
               }}
               disabled={loading}
