@@ -990,7 +990,6 @@ export default function DailySalesReportPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const refreshInterval = useRef(null);
   const initialLoadRef = useRef(false);
-  const pendingPrintRef = useRef(false);
   const requestSeqRef = useRef(0);
 
   const saveFilters = useCallback((filters) => {
@@ -1214,33 +1213,27 @@ export default function DailySalesReportPage() {
     URL.revokeObjectURL(url);
   };
 
+  // load() a déjà appelé setReport(reportData) : pas besoin d'un état
+  // séparé (printReportData) pour la version imprimée, qui restait figé sur
+  // une ancienne période si l'impression passait ensuite par un autre
+  // chemin (Ctrl+P, menu du navigateur) sans recliquer sur "PDF".
+  //
+  // Tout le flux (recharger -> attendre le paint -> imprimer) reste dans
+  // cette même fonction plutôt que de déléguer la dernière étape à un
+  // effet générique déclenché par tout changement de `report` : un tel
+  // effet se redéclencherait pour n'importe quelle mise à jour de `report`
+  // (auto-refresh, un autre clic pendant l'attente...), pas seulement
+  // celle demandée ici. `requestAnimationFrame` (x2) garantit que React a
+  // bien peint les nouvelles données avant `window.print()`, sans délai
+  // fixe.
   const printReport = async () => {
     const reportData = await load(currentFilterPayload());
     if (!reportData) return;
-    pendingPrintRef.current = true;
-    // load() a déjà appelé setReport(reportData) ci-dessus : pas besoin
-    // d'un état séparé (printReportData) pour la version imprimée. Un
-    // cache séparé restait figé sur la dernière période imprimée via ce
-    // bouton si l'utilisateur imprimait ensuite via un autre chemin
-    // (Ctrl+P, menu du navigateur) après avoir changé de période sans
-    // recliquer sur "PDF" — l'export montrait alors l'ancienne période
-    // ("aujourd'hui") alors que l'écran affichait déjà la bonne.
-  };
-
-  // Déclenche l'impression seulement une fois que `report` a bien été
-  // commité ET peint par React avec les nouvelles données — un délai fixe
-  // (setTimeout) pouvait imprimer avant que le nouveau contenu (ex.
-  // période "mois") ne soit réellement affiché, faisant apparaître
-  // l'ancien rapport à l'export.
-  useEffect(() => {
-    if (!pendingPrintRef.current || !report) return;
-    pendingPrintRef.current = false;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.print();
-      });
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
     });
-  }, [report]);
+    window.print();
+  };
 
   const handleViewOrder = (orderId) => {
     if (!orderId) return;
@@ -1570,23 +1563,23 @@ export default function DailySalesReportPage() {
               Actualiser
             </button>
             
-            <button 
-              type="button" 
-              onClick={downloadCsv} 
-              disabled={!report}
+            <button
+              type="button"
+              onClick={downloadCsv}
+              disabled={!report || loading}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               CSV
             </button>
-            
-            <button 
-              type="button" 
+
+            <button
+              type="button"
               onClick={printReport}
-              disabled={!report}
+              disabled={!report || loading}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              <Printer className="h-4 w-4" />
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
               PDF
             </button>
           </div>
