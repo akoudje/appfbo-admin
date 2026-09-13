@@ -58,10 +58,24 @@ const DETAIL_TABS = [
 
 const STORAGE_KEY = "sales_report_filters";
 
+// Doit rester synchronisé avec MAX_CUSTOM_RANGE_DAYS côté backend
+// (reports.controller.js) : le rapport recalcule le détail complet et
+// l'évolution mensuelle pour toute la plage, sans pagination, et une plage
+// trop large fait timeout le serveur (502) au lieu de répondre. Vérifié ici
+// en plus du backend pour un retour immédiat, sans aller-retour réseau.
+const MAX_CUSTOM_RANGE_DAYS = 92;
+
 // ==================== UTILS ====================
 const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const inclusiveDayCount = (fromIso, toIso) => {
+  const from = new Date(`${fromIso}T00:00:00Z`).getTime();
+  const to = new Date(`${toIso}T00:00:00Z`).getTime();
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  return Math.max(1, Math.round(Math.abs(to - from) / 86400000) + 1);
 };
 
 const formatCount = (value) => new Intl.NumberFormat("fr-FR").format(Number(value || 0));
@@ -967,7 +981,6 @@ export default function DailySalesReportPage() {
   const [invoicerId, setInvoicerId] = useState("");
   const [cashierId, setCashierId] = useState("");
   const [report, setReport] = useState(null);
-  const [printReportData, setPrintReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [knownInvoicers, setKnownInvoicers] = useState([]);
@@ -999,6 +1012,16 @@ export default function DailySalesReportPage() {
     if (nextPeriod === "custom" && (!nextDateFrom || !nextDateTo)) {
       setError("Période personnalisée : choisissez une date de début et une date de fin avant d'appliquer.");
       return null;
+    }
+
+    if (nextPeriod === "custom") {
+      const days = inclusiveDayCount(nextDateFrom, nextDateTo);
+      if (days > MAX_CUSTOM_RANGE_DAYS) {
+        setError(
+          `Période personnalisée trop large (${days} jours) : ${MAX_CUSTOM_RANGE_DAYS} jours maximum (~1 trimestre). Réduisez la plage ou faites plusieurs exports.`,
+        );
+        return null;
+      }
     }
 
     // Jeton de course : si une requête plus récente démarre avant que
@@ -1195,22 +1218,29 @@ export default function DailySalesReportPage() {
     const reportData = await load(currentFilterPayload());
     if (!reportData) return;
     pendingPrintRef.current = true;
-    setPrintReportData(reportData);
+    // load() a déjà appelé setReport(reportData) ci-dessus : pas besoin
+    // d'un état séparé (printReportData) pour la version imprimée. Un
+    // cache séparé restait figé sur la dernière période imprimée via ce
+    // bouton si l'utilisateur imprimait ensuite via un autre chemin
+    // (Ctrl+P, menu du navigateur) après avoir changé de période sans
+    // recliquer sur "PDF" — l'export montrait alors l'ancienne période
+    // ("aujourd'hui") alors que l'écran affichait déjà la bonne.
   };
 
-  // Déclenche l'impression seulement une fois que printReportData a bien
-  // été commité ET peint par React — un délai fixe (setTimeout) pouvait
-  // imprimer avant que le nouveau contenu (ex. période "mois") ne soit
-  // réellement affiché, faisant apparaître l'ancien rapport à l'export.
+  // Déclenche l'impression seulement une fois que `report` a bien été
+  // commité ET peint par React avec les nouvelles données — un délai fixe
+  // (setTimeout) pouvait imprimer avant que le nouveau contenu (ex.
+  // période "mois") ne soit réellement affiché, faisant apparaître
+  // l'ancien rapport à l'export.
   useEffect(() => {
-    if (!pendingPrintRef.current || !printReportData) return;
+    if (!pendingPrintRef.current || !report) return;
     pendingPrintRef.current = false;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         window.print();
       });
     });
-  }, [printReportData]);
+  }, [report]);
 
   const handleViewOrder = (orderId) => {
     if (!orderId) return;
@@ -1479,7 +1509,7 @@ export default function DailySalesReportPage() {
           animation: fadeIn 0.3s ease-out;
         }
       `}</style>
-      <PrintableDailyReport report={printReportData || report} />
+      <PrintableDailyReport report={report} />
 
       <div className="screen-report space-y-6">
       {/* Header */}
