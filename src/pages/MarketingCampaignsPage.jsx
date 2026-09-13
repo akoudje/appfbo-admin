@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS = {
     {
       id: "slide-1",
       title: "Slide 1",
-      image: "/Slide1.png",
+      image: "/Slide1.webp",
       link: "",
       active: true,
       note: "Slide principal du catalogue FBO.",
@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS = {
     {
       id: "slide-2",
       title: "Slide 2",
-      image: "/Slide2.png",
+      image: "/Slide2.webp",
       link: "",
       active: true,
       note: "Slide secondaire du catalogue FBO.",
@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS = {
     {
       id: "slide-3",
       title: "Slide 3",
-      image: "/Slide3.png",
+      image: "/Slide3.webp",
       link: "",
       active: true,
       note: "Slide tertiaire du catalogue FBO.",
@@ -594,7 +594,7 @@ function SlideEditor({ slide, onChange, disabled = false, onUploadError }) {
             />
           </Field>
 
-          <Field label="Image" hint="Ex: /Slide1.png">
+          <Field label="Image" hint="Ex: /Slide1.webp">
             <div className="space-y-2">
               <TextInput
                 value={slide.image}
