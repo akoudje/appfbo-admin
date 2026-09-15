@@ -9,12 +9,14 @@ function buildQueryParams(searchParams) {
   const dateTo = searchParams.get("dateTo");
   const sort = searchParams.get("sort");
   const dir = searchParams.get("dir");
+  const preorderNumbers = searchParams.get("preorderNumbers");
 
   if (q) params.q = q;
   if (dateFrom) params.dateFrom = dateFrom;
   if (dateTo) params.dateTo = dateTo;
   if (sort) params.sort = sort;
   if (dir) params.dir = dir;
+  if (preorderNumbers) params.preorderNumbers = preorderNumbers;
 
   return params;
 }
@@ -69,6 +71,7 @@ export default function SubmittedOrdersPrintPage() {
     () => buildQueryParams(searchParams),
     [searchParams],
   );
+  const isCustomSelection = Boolean(requestParams.preorderNumbers);
 
   useEffect(() => {
     let active = true;
@@ -118,7 +121,9 @@ export default function SubmittedOrdersPrintPage() {
 
       <div className="print-toolbar sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
         <div className="text-sm text-gray-600">
-          Export des commandes soumises
+          {isCustomSelection
+            ? "Export d'une sélection de commandes"
+            : "Export des commandes soumises"}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -145,7 +150,9 @@ export default function SubmittedOrdersPrintPage() {
           <div className="py-12 text-center text-red-600">{error}</div>
         ) : orders.length === 0 ? (
           <div className="py-12 text-center text-gray-500">
-            Aucune commande soumise à exporter.
+            {isCustomSelection
+              ? "Aucune commande trouvée pour les numéros saisis."
+              : "Aucune commande soumise à exporter."}
           </div>
         ) : (
           <section
