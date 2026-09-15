@@ -1,11 +1,12 @@
 // admin-app/src/pages/orders/OrdersListPage.jsx
 // Page d'affichage de la liste des commandes, avec les filtres, les stats et le tableau.
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOrdersStore } from "../store/useOrdersStore";
 import OrdersFiltersCard from "../components/orders/OrdersFiltersCard";
 import OrdersStatsBar from "../components/orders/OrdersStatsBar";
 import OrdersTable from "../components/orders/OrdersTable";
+import ExportOrdersByNumberModal from "../components/orders/ExportOrdersByNumberModal";
 import RequirePermission from "../components/auth/RequirePermission";
 import { Permission } from "../auth/permissions";
 
@@ -41,6 +42,8 @@ export default function OrdersListPage() {
     resetFilters,
     clearError,
   } = useOrdersStore();
+
+  const [exportByNumberOpen, setExportByNumberOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -122,6 +125,26 @@ export default function OrdersListPage() {
                   </svg>
                   Exporter les soumises
                 </a>
+                <button
+                  onClick={() => setExportByNumberOpen(true)}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  type="button"
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 16V4m0 12 4-4m-4 4-4-4M4 20h16"
+                    />
+                  </svg>
+                  Exporter par numéro
+                </button>
               </RequirePermission>
 
               <button
@@ -218,6 +241,11 @@ export default function OrdersListPage() {
           onResetFilters={resetFilters}
         />
       </div>
+
+      <ExportOrdersByNumberModal
+        open={exportByNumberOpen}
+        onClose={() => setExportByNumberOpen(false)}
+      />
     </div>
   );
 }
