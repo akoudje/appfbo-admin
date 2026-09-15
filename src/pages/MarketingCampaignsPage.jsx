@@ -613,6 +613,11 @@ function SlideEditor({ slide, onChange, disabled = false, onUploadError }) {
                   disabled={uploading || disabled}
                 />
               </label>
+              <p className="text-xs text-[#8d7a5c]">
+                Format bandeau recommandé : ~1248×357 (ratio ~3,5:1). Une autre taille est
+                automatiquement recadrée à ce ratio à l'affichage — pas besoin de recadrer
+                vous-même avant d'uploader.
+              </p>
             </div>
           </Field>
 
