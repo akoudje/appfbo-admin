@@ -375,6 +375,20 @@ export default function OrderDetailPage() {
       (reason.includes("automatique") && reason.includes("sans paiement"))
     );
   }, [order?.cancelReason, order?.logs, paymentStatus, status]);
+  // Virement bancaire / Ecobank Pay / PI SPI ont besoin d'un délai bien plus
+  // long qu'une relance mobile money classique (le client doit d'abord faire
+  // l'opération auprès de sa banque) : le widget de relance bascule alors en
+  // heures au lieu de minutes.
+  const isBankStyleRelaunch = useMemo(() => {
+    if (relaunchPaymentAsCash) return false;
+    const mode = String(order?.preorderPaymentMode || "").toUpperCase();
+    return ["BANK_TRANSFER", "ECOBANK_PAY", "PI_SPI"].includes(mode);
+  }, [order?.preorderPaymentMode, relaunchPaymentAsCash]);
+
+  useEffect(() => {
+    if (!canRelaunchPayment) return;
+    setRelaunchPaymentMinutes(isBankStyleRelaunch ? "72" : "10");
+  }, [canRelaunchPayment, isBankStyleRelaunch]);
   const canReplaceBillingItems =
     canAccessBilling &&
     ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
@@ -832,9 +846,12 @@ const doInvoice = async () => {
       setError("");
       setInfo("");
 
-      const minutes = Number.parseInt(String(relaunchPaymentMinutes || ""), 10);
+      const value = Number.parseInt(String(relaunchPaymentMinutes || ""), 10);
+      const durationPayload = isBankStyleRelaunch
+        ? { durationHours: Number.isFinite(value) ? value : 72 }
+        : { durationMinutes: Number.isFinite(value) ? value : 10 };
       const result = await ordersService.relaunchPayment(id, {
-        durationMinutes: Number.isFinite(minutes) ? minutes : 10,
+        ...durationPayload,
         note: normalizeStr(relaunchPaymentNote) || undefined,
         switchToCash: Boolean(relaunchPaymentAsCash),
       });
@@ -1628,6 +1645,7 @@ const doInvoice = async () => {
               relaunchPaymentAsCash={relaunchPaymentAsCash}
               setRelaunchPaymentAsCash={setRelaunchPaymentAsCash}
               canRelaunchPaymentAsCash={isGlobalAdmin}
+              isBankStyleRelaunch={isBankStyleRelaunch}
               proofUrl={proofUrl}
               setProofUrl={setProofUrl}
               proofRef={proofRef}
