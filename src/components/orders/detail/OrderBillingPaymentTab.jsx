@@ -488,6 +488,7 @@ function BillingActionCard({
   relaunchPaymentAsCash = false,
   setRelaunchPaymentAsCash,
   canRelaunchPaymentAsCash = false,
+  isBankStyleRelaunch = false,
   invoicePreview,
   invoicePreviewLoading,
   onInvoice,
@@ -592,7 +593,9 @@ function BillingActionCard({
                 Relancer le paiement
               </div>
               <div className="text-xs text-amber-800">
-                La commande annulée automatiquement sera réactivée sans ressaisie, avec un nouveau délai de paiement.
+                {isBankStyleRelaunch
+                  ? "La commande annulée automatiquement sera réactivée sans ressaisie, avec un nouveau délai de paiement — en heures, le temps que le client fasse son virement et dépose sa preuve."
+                  : "La commande annulée automatiquement sera réactivée sans ressaisie, avec un nouveau délai de paiement."}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
@@ -604,13 +607,13 @@ function BillingActionCard({
                     onChange={(e) => setRelaunchPaymentMinutes?.(e.target.value)}
                     inputMode="numeric"
                     type="number"
-                    min="10"
-                    max="30"
+                    min={isBankStyleRelaunch ? "1" : "10"}
+                    max={isBankStyleRelaunch ? "720" : "30"}
                     step="1"
                     disabled={saving}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-700">
-                    min
+                    {isBankStyleRelaunch ? "heures" : "min"}
                   </span>
                 </div>
               </Field>
@@ -1908,6 +1911,7 @@ export default function OrderBillingPaymentTab({
   relaunchPaymentAsCash = false,
   setRelaunchPaymentAsCash,
   canRelaunchPaymentAsCash = false,
+  isBankStyleRelaunch = false,
   invoicePreview,
   invoicePreviewLoading,
   paymentLink,
@@ -2155,6 +2159,7 @@ export default function OrderBillingPaymentTab({
             relaunchPaymentAsCash={relaunchPaymentAsCash}
             setRelaunchPaymentAsCash={setRelaunchPaymentAsCash}
             canRelaunchPaymentAsCash={canRelaunchPaymentAsCash}
+            isBankStyleRelaunch={isBankStyleRelaunch}
             invoicePreview={invoicePreview}
             invoicePreviewLoading={invoicePreviewLoading}
             onInvoice={onInvoice}
