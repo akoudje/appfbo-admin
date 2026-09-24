@@ -1,8 +1,17 @@
 import api from "./api";
 
 export const fboDocumentsService = {
-  listSignatories: async () =>
-    (await api.get("/admin/fbo-documents/signatories")).data,
+  listSignatories: async (all = false) =>
+    (await api.get("/admin/fbo-documents/signatories", { params: all ? { all: 1 } : undefined })).data,
+
+  createSignatory: async (body = {}) =>
+    (await api.post("/admin/fbo-documents/signatories", body)).data,
+
+  updateSignatory: async (id, body = {}) =>
+    (await api.patch(`/admin/fbo-documents/signatories/${id}`, body)).data,
+
+  deleteSignatory: async (id) =>
+    (await api.delete(`/admin/fbo-documents/signatories/${id}`)).data,
 
   searchFbos: async (q) =>
     (await api.get("/admin/fbo-documents/fbos", { params: { q } })).data,

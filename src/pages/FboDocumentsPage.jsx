@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle, Eye, History, Filter } from "lucide-react";
+import { Download, FileCheck2, Printer, Search, ShieldCheck, XCircle, Eye, History, Filter, Users, Plus, Trash2, X, Check } from "lucide-react";
 import QRCode from "qrcode";
 import { fboDocumentsService } from "../services/fboDocumentsService";
 import { usePrompt } from "../hooks/useDialogs";
@@ -44,6 +44,192 @@ function Field({ label, children }) {
       <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</span>
       {children}
     </label>
+  );
+}
+
+function SignatoryRow({ signatory, onSave, onDelete, saving }) {
+  const [draft, setDraft] = useState({
+    name: signatory.name,
+    title: signatory.title,
+    civility: signatory.civility,
+    active: signatory.active,
+  });
+
+  const dirty =
+    draft.name !== signatory.name ||
+    draft.title !== signatory.title ||
+    draft.civility !== signatory.civility ||
+    draft.active !== signatory.active;
+
+  return (
+    <div className={`grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_90px_auto_auto] sm:items-center ${signatory.active ? "border-gray-200" : "border-gray-200 bg-gray-50 opacity-70"}`}>
+      <input
+        className={inputClass()}
+        value={draft.name}
+        onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value.toUpperCase() }))}
+        placeholder="Nom complet"
+      />
+      <input
+        className={inputClass()}
+        value={draft.title}
+        onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value.toUpperCase() }))}
+        placeholder="Fonction"
+      />
+      <select
+        className={inputClass()}
+        value={draft.civility}
+        onChange={(event) => setDraft((prev) => ({ ...prev, civility: event.target.value }))}
+      >
+        <option value="MME">MME</option>
+        <option value="M">M</option>
+      </select>
+      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+        <input
+          type="checkbox"
+          checked={draft.active}
+          onChange={(event) => setDraft((prev) => ({ ...prev, active: event.target.checked }))}
+        />
+        Actif
+      </label>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={!dirty || saving}
+          onClick={() => onSave(signatory.id, draft)}
+          className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+          title="Enregistrer"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onDelete(signatory)}
+          className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-40"
+          title="Retirer"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SignatoryManagerModal({ open, onClose, signatories, onCreate, onUpdate, onDelete, error }) {
+  const [saving, setSaving] = useState(false);
+  const [newSignatory, setNewSignatory] = useState({ name: "", title: "", civility: "MME" });
+
+  if (!open) return null;
+
+  async function handleCreate() {
+    if (!newSignatory.name.trim() || !newSignatory.title.trim()) return;
+    setSaving(true);
+    try {
+      await onCreate({
+        name: newSignatory.name.trim().toUpperCase(),
+        title: newSignatory.title.trim().toUpperCase(),
+        civility: newSignatory.civility,
+      });
+      setNewSignatory({ name: "", title: "", civility: "MME" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSave(id, patch) {
+    setSaving(true);
+    try {
+      await onUpdate(id, patch);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(signatory) {
+    if (!window.confirm(`Retirer ${signatory.name} (${signatory.title}) de la liste des signataires ?`)) return;
+    setSaving(true);
+    try {
+      await onDelete(signatory.id);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-amber-600" />
+            <h2 className="text-base font-black text-gray-900">Gérer les signataires</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            {error}
+          </div>
+        )}
+
+        <p className="mb-3 text-xs text-gray-500">
+          Un signataire désactivé ou retiré ici n'apparaît plus dans la liste de choix, mais n'altère aucune attestation déjà émise.
+        </p>
+
+        <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
+          {signatories.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-400">Aucun signataire configuré.</p>
+          ) : (
+            signatories.map((signatory) => (
+              <SignatoryRow
+                key={signatory.id}
+                signatory={signatory}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                saving={saving}
+              />
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Ajouter un signataire</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_90px_auto]">
+            <input
+              className={inputClass()}
+              value={newSignatory.name}
+              onChange={(event) => setNewSignatory((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Nom complet"
+            />
+            <input
+              className={inputClass()}
+              value={newSignatory.title}
+              onChange={(event) => setNewSignatory((prev) => ({ ...prev, title: event.target.value }))}
+              placeholder="Fonction"
+            />
+            <select
+              className={inputClass()}
+              value={newSignatory.civility}
+              onChange={(event) => setNewSignatory((prev) => ({ ...prev, civility: event.target.value }))}
+            >
+              <option value="MME">MME</option>
+              <option value="M">M</option>
+            </select>
+            <button
+              type="button"
+              disabled={saving || !newSignatory.name.trim() || !newSignatory.title.trim()}
+              onClick={handleCreate}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#FFC600] px-3 py-2 text-xs font-black text-black disabled:opacity-40"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Ajouter
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -448,6 +634,9 @@ export default function FboDocumentsPage() {
   const selectedSignatory = signatories[signatoryIndex] || signatories[0] || DEFAULT_SIGNATORY;
   const signatoryName = selectedSignatory.name;
   const signatoryTitle = selectedSignatory.title;
+  const [signatoryManagerOpen, setSignatoryManagerOpen] = useState(false);
+  const [allSignatories, setAllSignatories] = useState([]);
+  const [signatoryManagerError, setSignatoryManagerError] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -480,15 +669,49 @@ export default function FboDocumentsPage() {
     }
   }
 
+  async function refreshSignatories() {
+    const [activeRes, allRes] = await Promise.all([
+      fboDocumentsService.listSignatories(),
+      fboDocumentsService.listSignatories(true),
+    ]);
+    const activeList = activeRes?.data || [];
+    if (activeList.length) setSignatories(activeList);
+    setAllSignatories(allRes?.data || []);
+  }
+
+  async function handleCreateSignatory(payload) {
+    setSignatoryManagerError("");
+    try {
+      await fboDocumentsService.createSignatory(payload);
+      await refreshSignatories();
+    } catch (err) {
+      setSignatoryManagerError(err?.response?.data?.message || "Impossible d'ajouter ce signataire.");
+    }
+  }
+
+  async function handleUpdateSignatory(id, patch) {
+    setSignatoryManagerError("");
+    try {
+      await fboDocumentsService.updateSignatory(id, patch);
+      await refreshSignatories();
+    } catch (err) {
+      setSignatoryManagerError(err?.response?.data?.message || "Impossible de modifier ce signataire.");
+    }
+  }
+
+  async function handleDeleteSignatory(id) {
+    setSignatoryManagerError("");
+    try {
+      await fboDocumentsService.deleteSignatory(id);
+      await refreshSignatories();
+    } catch (err) {
+      setSignatoryManagerError(err?.response?.data?.message || "Impossible de retirer ce signataire.");
+    }
+  }
+
   useEffect(() => {
     loadHistory();
-    fboDocumentsService
-      .listSignatories()
-      .then((response) => {
-        const list = response?.data || [];
-        if (list.length) setSignatories(list);
-      })
-      .catch(() => {});
+    refreshSignatories().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -730,17 +953,28 @@ export default function FboDocumentsPage() {
                   <textarea className={inputClass()} rows={2} value={purpose} onChange={(event) => setPurpose(event.target.value)} />
                 </Field>
                 <Field label="Signataire">
-                  <select
-                    className={inputClass()}
-                    value={signatoryIndex}
-                    onChange={(event) => setSignatoryIndex(Number(event.target.value))}
-                  >
-                    {signatories.map((signatory, index) => (
-                      <option key={`${signatory.name}-${signatory.title}`} value={index}>
-                        {signatory.name} — {signatory.title}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className={inputClass()}
+                      value={signatoryIndex}
+                      onChange={(event) => setSignatoryIndex(Number(event.target.value))}
+                    >
+                      {signatories.map((signatory, index) => (
+                        <option key={`${signatory.name}-${signatory.title}`} value={index}>
+                          {signatory.name} — {signatory.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setSignatoryManagerOpen(true)}
+                      className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                      title="Gérer les signataires"
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      Gérer
+                    </button>
+                  </div>
                 </Field>
                 <button
                   type="button"
@@ -870,6 +1104,16 @@ export default function FboDocumentsPage() {
           </div>
         </div>
       )}
+
+      <SignatoryManagerModal
+        open={signatoryManagerOpen}
+        onClose={() => setSignatoryManagerOpen(false)}
+        signatories={allSignatories}
+        onCreate={handleCreateSignatory}
+        onUpdate={handleUpdateSignatory}
+        onDelete={handleDeleteSignatory}
+        error={signatoryManagerError}
+      />
     </div>
   );
 }
