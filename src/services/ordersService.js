@@ -138,6 +138,13 @@ export const ordersService = {
       )
     ).data,
 
+  switchPaymentToBankTransfer: async (id) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/switch-payment-to-bank-transfer`,
+      )
+    ).data,
+
   resendConfirmationSms: async (id, body = {}) =>
     (
       await api.post(

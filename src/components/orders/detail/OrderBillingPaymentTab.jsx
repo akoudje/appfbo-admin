@@ -499,6 +499,8 @@ function BillingActionCard({
   onSwitchToManualPayment = null,
   canSwitchToWavePayment = false,
   onSwitchToWavePayment = null,
+  canSwitchToBankTransferPayment = false,
+  onSwitchToBankTransferPayment = null,
   onSaveNotificationContacts = null,
   onResendInvoiceNotification = null,
   billingNotificationState = null,
@@ -953,6 +955,18 @@ function BillingActionCard({
               title="Basculer ce règlement caisse vers un lien de paiement Wave suivi par la commande"
             >
               Basculer en Wave
+            </button>
+          )}
+
+          {canSwitchToBankTransferPayment && (
+            <button
+              type="button"
+              onClick={onSwitchToBankTransferPayment}
+              disabled={saving}
+              className="px-4 py-2.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 disabled:opacity-50 whitespace-nowrap transition-colors"
+              title="Basculer ce règlement vers le virement bancaire : nouveau délai dédié, instructions renvoyées au client"
+            >
+              Basculer en virement
             </button>
           )}
         </div>
@@ -1956,6 +1970,8 @@ export default function OrderBillingPaymentTab({
   onSwitchToManualPayment = null,
   canSwitchToWavePayment = false,
   onSwitchToWavePayment = null,
+  canSwitchToBankTransferPayment = false,
+  onSwitchToBankTransferPayment = null,
   onSaveNotificationContacts = null,
   onResendInvoiceNotification = null,
   billingNotificationState = null,
@@ -2170,6 +2186,8 @@ export default function OrderBillingPaymentTab({
             onSwitchToManualPayment={onSwitchToManualPayment}
             canSwitchToWavePayment={canSwitchToWavePayment}
             onSwitchToWavePayment={onSwitchToWavePayment}
+            canSwitchToBankTransferPayment={canSwitchToBankTransferPayment}
+            onSwitchToBankTransferPayment={onSwitchToBankTransferPayment}
             onSaveNotificationContacts={onSaveNotificationContacts}
             onResendInvoiceNotification={onResendInvoiceNotification}
             billingNotificationState={billingNotificationState}

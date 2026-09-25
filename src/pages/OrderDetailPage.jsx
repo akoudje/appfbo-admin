@@ -335,6 +335,11 @@ export default function OrderDetailPage() {
     isCash &&
     paymentStatus !== "PAID" &&
     ["INVOICED", "PAYMENT_PENDING"].includes(status);
+  const canSwitchPaymentToBankTransfer =
+    isGlobalAdmin &&
+    paymentModeRaw !== "BANK_TRANSFER" &&
+    paymentStatus !== "PAID" &&
+    ["INVOICED", "PAYMENT_PENDING"].includes(status);
   const canFulfillNoNotification =
     [AdminRole.SUPER_ADMIN, AdminRole.TECH_ADMIN, AdminRole.OPERATIONS_DIRECTOR].includes(
       role,
@@ -1093,6 +1098,25 @@ const doInvoice = async () => {
     }
   };
 
+  const doSwitchPaymentToBankTransfer = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      await ordersService.switchPaymentToBankTransfer(id);
+      setInfo("Mode de paiement basculé vers virement bancaire. Instructions renvoyées au client.");
+      await load();
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de basculer le mode de paiement vers le virement bancaire",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const doPrepare = async () => {
     try {
       setSaving(true);
@@ -1693,6 +1717,8 @@ const doInvoice = async () => {
               onSwitchToManualPayment={doSwitchPaymentToManual}
               canSwitchToWavePayment={canSwitchPaymentToWave}
               onSwitchToWavePayment={doSwitchPaymentToWave}
+              canSwitchToBankTransferPayment={canSwitchPaymentToBankTransfer}
+              onSwitchToBankTransferPayment={doSwitchPaymentToBankTransfer}
               canReplaceBillingItems={canReplaceBillingItems}
               replacementProducts={replacementProducts}
               replacementQuery={replacementQuery}
