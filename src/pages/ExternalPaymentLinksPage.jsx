@@ -314,6 +314,7 @@ export default function ExternalPaymentLinksPage() {
   const [attachDraft, setAttachDraft] = useState({ id: "", preorderNumber: "" });
   const [qrConfig, setQrConfig] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [posterQrDataUrl, setPosterQrDataUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const feePreview = computeWaveFee(form.baseAmountFcfa);
@@ -407,14 +408,24 @@ export default function ExternalPaymentLinksPage() {
     let mounted = true;
     externalPaymentLinksService.getQrConfig()
       .then(async (config) => {
-        const dataUrl = await QRCode.toDataURL(config.url, {
-          width: 320,
-          margin: 2,
-          color: { dark: "#000000", light: "#FFFFFF" },
-        });
+        const [dataUrl, posterDataUrl] = await Promise.all([
+          QRCode.toDataURL(config.url, {
+            width: 320,
+            margin: 2,
+            color: { dark: "#000000", light: "#FFFFFF" },
+          }),
+          config.directUrl
+            ? QRCode.toDataURL(config.directUrl, {
+                width: 480,
+                margin: 2,
+                color: { dark: "#000000", light: "#FFFFFF" },
+              })
+            : Promise.resolve(""),
+        ]);
         if (!mounted) return;
         setQrConfig(config);
         setQrDataUrl(dataUrl);
+        setPosterQrDataUrl(posterDataUrl);
       })
       .catch(() => {
         if (mounted) setQrConfig(null);
@@ -583,7 +594,7 @@ export default function ExternalPaymentLinksPage() {
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-950">QR de génération Wave</h2>
               <p className="mt-1 text-sm text-gray-600">
-                À imprimer ou afficher en caisse pour générer rapidement un lien depuis un téléphone — le vôtre ou celui du client, qui voit alors les frais Wave (1%) avant de payer.
+                À scanner depuis votre téléphone pour générer rapidement un lien, à partager ensuite au client (SMS, WhatsApp...). Pour une affiche en libre-service où le client scanne, saisit sa facture et paie directement en un clic, utilisez « Imprimer l'affiche ».
               </p>
               {qrConfig?.url ? (
                 <div className="mt-2 truncate rounded-lg bg-white px-3 py-2 font-mono text-xs text-gray-600">
@@ -608,7 +619,7 @@ export default function ExternalPaymentLinksPage() {
                   <Download className="h-4 w-4" />
                   Télécharger QR
                 </a>
-                <button type="button" onClick={() => printQrPoster(qrDataUrl)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+                <button type="button" onClick={() => printQrPoster(posterQrDataUrl || qrDataUrl)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
                   <Printer className="h-4 w-4" />
                   Imprimer l'affiche
                 </button>
