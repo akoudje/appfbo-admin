@@ -191,6 +191,65 @@ function printExternalWaveReceipt(link = {}) {
   return true;
 }
 
+function printQrPoster(qrDataUrl) {
+  if (!qrDataUrl || typeof window === "undefined") return false;
+  const popup = window.open("", "_blank", "width=480,height=720");
+  if (!popup) return false;
+
+  popup.document.write(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Affiche paiement Wave</title>
+    <style>
+      @page { size: A5; margin: 8mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #111827; font-family: Arial, Helvetica, sans-serif; }
+      .poster { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 10px; text-align: center; }
+      .logo-row { align-items: center; display: flex; gap: 12px; justify-content: center; }
+      .forever-text { color: #000; font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 700; letter-spacing: .12em; }
+      .wave-logo { max-height: 30px; max-width: 26mm; object-fit: contain; }
+      .divider { background: #d1d5db; display: inline-block; height: 26px; width: 1px; }
+      h1 { margin: 4px 0 0; font-size: 28px; font-weight: 800; }
+      .subtitle { margin: 0; font-size: 15px; color: #4b5563; font-weight: 600; }
+      .qr { border: 3px solid #111827; border-radius: 16px; padding: 12px; margin: 10px 0; }
+      .qr img { display: block; width: 62mm; height: 62mm; }
+      .steps { width: 100%; max-width: 88mm; margin: 0 auto; text-align: left; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px 16px; }
+      .steps li { margin: 6px 0; font-size: 13px; line-height: 1.4; }
+      .fee-note { margin-top: 6px; border: 1px solid #10b981; background: #ecfdf5; color: #047857; border-radius: 10px; padding: 8px 12px; font-size: 12px; font-weight: 700; max-width: 88mm; }
+      .no-print { margin-top: 14px; }
+      button { border: 0; background: #059669; color: white; cursor: pointer; font-weight: 700; padding: 10px 16px; border-radius: 8px; }
+      @media print { .no-print { display: none; } }
+    </style>
+  </head>
+  <body>
+    <main class="poster">
+      <div class="logo-row">
+        <span class="forever-text">FOREVER</span>
+        <span class="divider"></span>
+        <img class="wave-logo" src="/wave.png" alt="Wave" />
+      </div>
+      <h1>Payez par Wave</h1>
+      <p class="subtitle">Scannez ce code avec votre téléphone</p>
+      <div class="qr"><img src="${qrDataUrl}" alt="QR paiement Wave" /></div>
+      <ol class="steps">
+        <li>Scannez le QR code ci-dessus avec l'appareil photo de votre téléphone.</li>
+        <li>Renseignez la référence et le montant indiqués sur votre facture.</li>
+        <li>Appuyez sur « Payer maintenant » pour valider avec Wave.</li>
+      </ol>
+      <p class="fee-note">Les frais Wave (1%) sont calculés et affichés avant votre paiement.</p>
+      <div class="no-print"><button type="button" onclick="window.print()">Imprimer</button></div>
+    </main>
+    <script>
+      window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 250); });
+    </script>
+  </body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  return true;
+}
+
 function expiryInfo(link) {
   if (!link.expiresAt) return { label: "Sans expiration", className: "text-gray-400" };
   const date = new Date(link.expiresAt);
@@ -524,7 +583,7 @@ export default function ExternalPaymentLinksPage() {
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-950">QR de génération Wave</h2>
               <p className="mt-1 text-sm text-gray-600">
-                À imprimer ou afficher en caisse pour générer rapidement un lien depuis un téléphone.
+                À imprimer ou afficher en caisse pour générer rapidement un lien depuis un téléphone — le vôtre ou celui du client, qui voit alors les frais Wave (1%) avant de payer.
               </p>
               {qrConfig?.url ? (
                 <div className="mt-2 truncate rounded-lg bg-white px-3 py-2 font-mono text-xs text-gray-600">
@@ -549,6 +608,10 @@ export default function ExternalPaymentLinksPage() {
                   <Download className="h-4 w-4" />
                   Télécharger QR
                 </a>
+                <button type="button" onClick={() => printQrPoster(qrDataUrl)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+                  <Printer className="h-4 w-4" />
+                  Imprimer l'affiche
+                </button>
               </div>
             </div>
           ) : null}
