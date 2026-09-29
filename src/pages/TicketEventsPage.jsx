@@ -23,12 +23,47 @@ import { useConfirm, usePrompt } from "../hooks/useDialogs";
 
 const TABS = [
   { key: "overview", label: "Vue d'ensemble" },
-  { key: "tickets", label: "Tickets" },
-  { key: "orders", label: "Achats" },
-  { key: "bilan", label: "Bilan" },
-  { key: "checkin", label: "Contrôle accès" },
-  { key: "settings", label: "Paramètres" },
+  { key: "tickets", label: "Billets et tarifs" },
+  { key: "orders", label: "Commandes" },
+  { key: "bilan", label: "Rapports" },
+  { key: "checkin", label: "Contrôle d’accès" },
 ];
+
+function statusLabel(status) {
+  return ({ PUBLISHED: "Publié", DRAFT: "Brouillon", CLOSED: "Clôturé", CANCELLED: "Annulé",
+    PAID: "Payé", PENDING_PAYMENT: "En attente de paiement", EXPIRED: "Expiré",
+    SUCCEEDED: "Confirmé", PENDING: "En attente", FAILED: "Échoué", ACTIVE: "Actif",
+    USED: "Utilisé", RESERVED: "Réservé" })[status] || status || "—";
+}
+
+function AccessibleDialog({ title, onClose, children }) {
+  const root = useRef(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    const previous = document.activeElement;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const dialog = root.current;
+    const focusable = () => [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]')];
+    (focusable()[0] || dialog).focus();
+    function onKey(event) {
+      if (event.key === "Escape") { event.preventDefault(); closeRef.current(); }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0]; const last = items[items.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    dialog.addEventListener("keydown", onKey);
+    return () => { dialog.removeEventListener("keydown", onKey); document.body.style.overflow = oldOverflow; previous?.focus(); };
+  }, []);
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4">
+    <div ref={root} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
+      className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-xl">{children}</div>
+  </div>;
+}
 
 function paymentMethodLabel(method) {
   if (method === "CASH") return "Espèces";
@@ -276,8 +311,15 @@ export default function TicketEventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [eventSummary, setEventSummary] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 25, total: 0, pageCount: 1 });
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [eventQuery, setEventQuery] = useState("");
+  const [eventFilter, setEventFilter] = useState("");
+  const loadSequence = useRef(0);
+  const auditSequence = useRef(0);
   const [selectedEventId, setSelectedEventId] = useState(searchParams.get("eventId") || "");
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
+  const [activeTab, setActiveTab] = useState(TABS.some((tab) => tab.key === searchParams.get("tab")) ? searchParams.get("tab") : "overview");
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
   const [orderPaymentMethod, setOrderPaymentMethod] = useState("");
@@ -307,18 +349,18 @@ export default function TicketEventsPage() {
     [events, selectedEventId],
   );
 
-  const stats = useMemo(() => {
-    const paidOrders = orders.filter((order) => order.status === "PAID");
-    const tickets = orders.flatMap((order) => order.tickets || []);
-    return {
-      events: events.length,
-      orders: orders.length,
-      paidOrders: paidOrders.length,
-      activeTickets: tickets.filter((ticket) => ticket.status === "ACTIVE").length,
-      usedTickets: tickets.filter((ticket) => ticket.status === "USED").length,
-      revenue: paidOrders.reduce((sum, order) => sum + Number(order.totalFcfa || 0), 0),
-    };
-  }, [events, orders]);
+  const stats = eventSummary?.totals;
+  const visibleEvents = events.filter((event) => {
+    const now = Date.now();
+    const start = new Date(event.startsAt).getTime();
+    const end = event.endsAt ? new Date(event.endsAt).getTime() : null;
+    const matchesStatus = !eventFilter ||
+      (eventFilter === "DRAFT" && event.status === "DRAFT") ||
+      (eventFilter === "UPCOMING" && event.status === "PUBLISHED" && start > now) ||
+      (eventFilter === "ONGOING" && event.status === "PUBLISHED" && start <= now && (end === null || end >= now)) ||
+      (eventFilter === "FINISHED" && (event.status === "CLOSED" || (end !== null && end < now)));
+    return matchesStatus && event.title.toLocaleLowerCase("fr").includes(eventQuery.toLocaleLowerCase("fr"));
+  });
 
   function updateUrl(next = {}) {
     const params = new URLSearchParams(searchParams);
@@ -332,45 +374,49 @@ export default function TicketEventsPage() {
   }
 
   async function load(overrides = {}) {
+    const sequence = ++loadSequence.current;
+    stopScanner();
     try {
       setLoading(true);
       setError("");
-      const eventId = Object.prototype.hasOwnProperty.call(overrides, "eventId")
-        ? overrides.eventId
-        : selectedEventId;
-      const q = Object.prototype.hasOwnProperty.call(overrides, "q") ? overrides.q : orderQuery;
-      const status = Object.prototype.hasOwnProperty.call(overrides, "status")
-        ? overrides.status
-        : orderStatus;
-      const paymentMethod = Object.prototype.hasOwnProperty.call(overrides, "paymentMethod")
-        ? overrides.paymentMethod
-        : orderPaymentMethod;
-
-      const [eventsResponse, ordersResponse] = await Promise.all([
-        ticketEventsService.listEvents(),
-        ticketEventsService.listOrders({
-          eventId: eventId || undefined,
-          q: q || undefined,
-          status: status || undefined,
-          paymentMethod: paymentMethod || undefined,
-        }),
-      ]);
+      const eventId = Object.prototype.hasOwnProperty.call(overrides, "eventId") ? overrides.eventId : selectedEventId;
+      const q = overrides.q ?? orderQuery;
+      const status = overrides.status ?? orderStatus;
+      const paymentMethod = overrides.paymentMethod ?? orderPaymentMethod;
+      const eventsResponse = await ticketEventsService.listEvents();
+      if (sequence !== loadSequence.current) return;
       const nextEvents = eventsResponse?.data || [];
-      const nextSelectedId = eventId || nextEvents[0]?.id || "";
+      const nextSelectedId = nextEvents.some((item) => item.id === eventId) ? eventId : nextEvents[0]?.id || "";
       setEvents(nextEvents);
-      setOrders(ordersResponse?.data || []);
       setSelectedEventId(nextSelectedId);
-      if (!eventId && nextSelectedId) updateUrl({ eventId: nextSelectedId });
+      if (nextSelectedId !== eventId) updateUrl({ eventId: nextSelectedId });
+      if (!nextSelectedId) { setOrders([]); setEventSummary(null); return; }
+      const [ordersResponse, summary] = await Promise.all([
+        ticketEventsService.listOrders({ eventId: nextSelectedId, q: q || undefined,
+          status: status || undefined, paymentMethod: paymentMethod || undefined,
+          page: overrides.page ?? 1, pageSize: 25 }),
+        ticketEventsService.getEventSummary(nextSelectedId),
+      ]);
+      if (sequence !== loadSequence.current) return;
+      setOrders(ordersResponse?.data || []);
+      setPagination(ordersResponse.pagination || { page: 1, pageSize: 25, total: ordersResponse?.data?.length || 0, pageCount: 1 });
+      setEventSummary(summary);
+      setUpdatedAt(new Date());
     } catch (err) {
-      setError(err?.response?.data?.message || "Chargement impossible.");
+      if (sequence !== loadSequence.current) return;
+      setOrders([]); setEventSummary(null); setUpdatedAt(null);
+      setPagination({ page: 1, pageSize: 25, total: 0, pageCount: 1 });
+      setError(err?.response?.data?.message || "Chargement impossible. Réessayez.");
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }
 
   useEffect(() => {
+    const pendingLoads = loadSequence;
+    const pendingAudits = auditSequence;
     load();
-    return () => stopScanner();
+    return () => { pendingLoads.current++; pendingAudits.current++; stopScanner(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -382,6 +428,10 @@ export default function TicketEventsPage() {
   }, [activeTab, selectedEventId, checkInSession?.id]);
 
   function selectEvent(eventId) {
+    auditSequence.current++;
+    stopScanner();
+    setMessage("");
+    setOrderQuery(""); setOrderStatus(""); setOrderPaymentMethod("");
     setSelectedEventId(eventId);
     setTicketTypeForm(emptyTicketTypeForm());
     setCheckInResult(null);
@@ -390,10 +440,12 @@ export default function TicketEventsPage() {
     setCheckInLogs([]);
     setCheckInSummary(null);
     updateUrl({ eventId });
-    load({ eventId });
+    load({ eventId, q: "", status: "", paymentMethod: "" });
   }
 
   function selectTab(tab) {
+    stopScanner();
+    setMessage("");
     setActiveTab(tab);
     updateUrl({ tab });
   }
@@ -548,6 +600,13 @@ export default function TicketEventsPage() {
   }
 
   async function expireOrders() {
+    if (!selectedEvent?.id) return;
+    const approved = await confirm({
+      tone: "danger", title: "Expirer les réservations échues",
+      message: `Les réservations non payées dont le délai est dépassé pour « ${selectedEvent.title} » seront expirées et leurs billets libérés. Cette action porte sur tout l’événement, indépendamment des filtres du tableau.`,
+      confirmLabel: "Expirer les réservations",
+    });
+    if (!approved) return;
     try {
       setSaving(true);
       setError("");
@@ -565,6 +624,7 @@ export default function TicketEventsPage() {
   }
 
   async function loadCheckInAudit(overrides = {}) {
+    const sequence = ++auditSequence.current;
     const eventId = Object.prototype.hasOwnProperty.call(overrides, "eventId")
       ? overrides.eventId
       : selectedEventId;
@@ -573,10 +633,13 @@ export default function TicketEventsPage() {
       ? overrides.sessionId
       : checkInSession?.id;
     try {
-      const [summary, logs] = await Promise.all([
+      const [summary, logs, eventData] = await Promise.all([
         ticketEventsService.getCheckInSummary({ eventId, sessionId: sessionId || undefined }),
         ticketEventsService.listCheckInLogs({ eventId, sessionId: sessionId || undefined }),
+        ticketEventsService.getEventSummary(eventId),
       ]);
+      if (sequence !== auditSequence.current) return;
+      setEventSummary(eventData); setUpdatedAt(new Date());
       setCheckInSummary(summary);
       setCheckInLogs(logs?.data || []);
     } catch (err) {
@@ -607,6 +670,7 @@ export default function TicketEventsPage() {
 
   async function closeCheckInSession() {
     if (!checkInSession?.id) return;
+    stopScanner();
     try {
       setSaving(true);
       setError("");
@@ -738,117 +802,82 @@ export default function TicketEventsPage() {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
       {message ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+        <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
           {message}
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <Stat label="Événements" value={stats.events} />
-        <Stat label="Achats" value={stats.orders} />
-        <Stat label="Payés" value={stats.paidOrders} />
-        <Stat label="Tickets actifs" value={stats.activeTickets} />
-        <Stat label="Entrées" value={stats.usedTickets} />
-        <Stat label="Recette" value={formatFcfa(stats.revenue)} />
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="grid gap-3 md:grid-cols-[1fr_180px_2fr]">
+          <Field label="Rechercher un événement"><input className={inputClass()} value={eventQuery} onChange={(e) => setEventQuery(e.target.value)} placeholder="Nom de l’événement" /></Field>
+          <Field label="Période"><select className={inputClass()} value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
+            <option value="">Tous</option><option value="UPCOMING">À venir</option><option value="ONGOING">En cours</option><option value="FINISHED">Terminés</option><option value="DRAFT">Brouillons</option>
+          </select></Field>
+          <Field label="Événement sélectionné"><select className={inputClass()} value={selectedEventId} disabled={loading || saving || Boolean(checkInSession && !checkInSession.closedAt)} onChange={(e) => selectEvent(e.target.value)}>
+            {!visibleEvents.some((event) => event.id === selectedEventId) && selectedEvent ? <option value={selectedEvent.id}>{selectedEvent.title} (hors filtre)</option> : null}
+            {!selectedEvent ? <option value="">Choisir un événement</option> : null}
+            {visibleEvents.map((event) => <option key={event.id} value={event.id}>{event.title} · {formatDateTime(event.startsAt)} · {statusLabel(event.status)}</option>)}
+          </select></Field>
+        </div>
+        {!visibleEvents.length && !loading ? <p className="mt-3 text-sm text-gray-500">Aucun événement ne correspond à ces filtres.</p> : null}
+        {checkInSession && !checkInSession.closedAt ? <p className="mt-3 text-sm text-amber-700">Fermez la session de contrôle avant de changer d’événement.</p> : null}
       </div>
-
-      <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
-        <aside className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold">Événements</h2>
-            {loading ? <span className="text-xs text-gray-500">Chargement...</span> : null}
-          </div>
-          <div className="mt-4 space-y-2">
-            {events.map((event) => (
-              <button
-                key={event.id}
-                type="button"
-                onClick={() => selectEvent(event.id)}
-                className={`w-full rounded-xl border p-3 text-left transition ${
-                  selectedEvent?.id === event.id
-                    ? "border-amber-300 bg-amber-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <div className="flex gap-3">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                    {event.posterUrl ? (
-                      <img src={event.posterUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-amber-600">
-                        <CalendarDays className="h-5 w-5" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold text-gray-950">{event.title}</div>
-                    <div className="mt-1 text-xs text-gray-500">{formatDateTime(event.startsAt)}</div>
-                    <span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusBadge(event.status)}`}>
-                      {event.status}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
-            {!events.length && !loading ? (
-              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-                Aucun événement créé.
-              </div>
-            ) : null}
-          </div>
-        </aside>
-
+      <div className="space-y-4">
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
           {selectedEvent ? (
             <>
               <div className="border-b border-gray-200 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-4">
+                    {selectedEvent.posterUrl ? <img src={selectedEvent.posterUrl} alt="" className="h-16 w-16 rounded-xl object-cover" /> : null}
+                    <div><div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-xl font-bold text-gray-950">{selectedEvent.title}</h2>
                       <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(selectedEvent.status)}`}>
-                        {selectedEvent.status}
+                        {statusLabel(selectedEvent.status)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-gray-500">
                       {formatDateTime(selectedEvent.startsAt)} · {selectedEvent.venueName || "Lieu à renseigner"}
-                    </p>
+                    </p></div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <a
-                      href={`/events/${selectedEvent.slug}`}
+                      href={eventSummary?.publicUrl || undefined}
+                      aria-disabled={!eventSummary?.publicUrl || loading}
+                      onClick={(e) => { if (!eventSummary?.publicUrl || loading) e.preventDefault(); }}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                     >
                       <Eye className="h-4 w-4" />
-                      Public
+                      Voir la page publique
                     </a>
                     <Link
                       to={`/marketing/ticket-events/${selectedEvent.id}/edit`}
                       className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white"
                     >
                       <Edit className="h-4 w-4" />
-                      Modifier
+                      Modifier l’événement
                     </Link>
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-5 flex gap-1 overflow-x-auto border-b border-gray-100" aria-label="Sections de l’événement">
                   {TABS.map((tab) => (
                     <button
                       key={tab.key}
                       type="button"
+                      aria-current={activeTab === tab.key ? "page" : undefined}
                       onClick={() => selectTab(tab.key)}
-                      className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                      className={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${
                         activeTab === tab.key
-                          ? "bg-gray-900 text-white"
-                          : "border border-gray-200 text-gray-700 hover:bg-gray-50"
+                          ? "border-amber-500 text-gray-950 bg-amber-50"
+                          : "border-transparent text-gray-500 hover:bg-gray-50"
                       }`}
                     >
                       {tab.label}
@@ -857,12 +886,25 @@ export default function TicketEventsPage() {
                 </div>
               </div>
 
-              <div className="p-4">
+              <div className="p-4 sm:p-6" aria-busy={loading}>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                  <span>Résultats de cet événement · indépendants des filtres de commandes</span>
+                  <button type="button" disabled={loading || saving} onClick={() => load({ page: pagination.page })} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 disabled:opacity-50"><RefreshCw className="h-3 w-3" />{loading ? "Actualisation…" : updatedAt ? `Actualisé le ${formatDateTime(updatedAt)}` : "Réessayer"}</button>
+                </div>
+                <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <Stat label="Billets vendus" value={loading ? "…" : stats?.ticketsCount ?? "—"} />
+                  <Stat label="Recettes encaissées" value={loading ? "…" : stats ? formatFcfa(stats.totalFcfa) : "—"} />
+                  <Stat label="Participants entrés" value={loading ? "…" : stats?.usedTickets ?? "—"} />
+                  <Stat label="Places disponibles · capacité globale" value={loading ? "…" : stats ? stats.remainingCapacity ?? "Non définie" : "—"} />
+                </div>
+                {loading ? <div role="status" className="animate-pulse space-y-3 py-8"><div className="h-6 w-1/3 rounded bg-gray-100" /><div className="h-36 rounded-xl bg-gray-100" /><p className="text-sm text-gray-500">Chargement des données de l’événement…</p></div> : <>
+
                 {activeTab === "overview" ? (
-                  <OverviewTab event={selectedEvent} orders={orders} />
+                  <OverviewTab event={selectedEvent} />
                 ) : null}
                 {activeTab === "tickets" ? (
                   <TicketsTab
+                    error={error}
                     event={selectedEvent}
                     form={ticketTypeForm}
                     setForm={setTicketTypeForm}
@@ -875,8 +917,10 @@ export default function TicketEventsPage() {
                 ) : null}
                 {activeTab === "orders" ? (
                   <OrdersTab
+                    error={error}
                     event={selectedEvent}
                     orders={orders}
+                    pagination={pagination}
                     cashSaleForm={cashSaleForm}
                     setCashSaleForm={setCashSaleForm}
                     cashSaleModalOpen={cashSaleModalOpen}
@@ -896,7 +940,7 @@ export default function TicketEventsPage() {
                     onResendTickets={resendOrderTicketsEmail}
                   />
                 ) : null}
-                {activeTab === "bilan" ? <BilanTab event={selectedEvent} /> : null}
+                {activeTab === "bilan" ? <BilanTab key={selectedEvent.id} event={selectedEvent} /> : null}
                 {activeTab === "checkin" ? (
                   <CheckInTab
                     event={selectedEvent}
@@ -923,7 +967,7 @@ export default function TicketEventsPage() {
                     onStopScanner={stopScanner}
                   />
                 ) : null}
-                {activeTab === "settings" ? <SettingsTab event={selectedEvent} /> : null}
+                </>}
               </div>
             </>
           ) : (
@@ -937,26 +981,10 @@ export default function TicketEventsPage() {
   );
 }
 
-function OverviewTab({ event, orders }) {
-  const paidOrders = orders.filter((order) => order.status === "PAID");
-  const tickets = orders.flatMap((order) => order.tickets || []);
+function OverviewTab({ event }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-        {event.posterUrl ? (
-          <img src={event.posterUrl} alt="" className="h-72 w-full object-cover" />
-        ) : (
-          <div className="flex h-72 items-center justify-center text-gray-400">
-            <CalendarDays className="h-10 w-10" />
-          </div>
-        )}
-      </div>
+    <div>
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat label="Recette" value={formatFcfa(paidOrders.reduce((sum, order) => sum + Number(order.totalFcfa || 0), 0))} />
-          <Stat label="Tickets" value={tickets.length} />
-          <Stat label="Entrées" value={tickets.filter((ticket) => ticket.status === "USED").length} />
-        </div>
         <div className="rounded-xl border border-gray-200 p-4">
           <h3 className="font-bold">Résumé</h3>
           <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">
@@ -966,7 +994,9 @@ function OverviewTab({ event, orders }) {
             <Info label="Date" value={formatDateTime(event.startsAt)} />
             <Info label="Lieu" value={event.venueName || "—"} />
             <Info label="Adresse" value={event.venueAddress || "—"} />
-            <Info label="Lien public" value={`/events/${event.slug}`} />
+            <Info label="Fin de l’événement" value={formatDateTime(event.endsAt)} />
+            <Info label="Ouverture des ventes" value={formatDateTime(event.salesOpenAt)} />
+            <Info label="Fermeture des ventes" value={formatDateTime(event.salesCloseAt)} />
           </div>
         </div>
       </div>
@@ -974,11 +1004,16 @@ function OverviewTab({ event, orders }) {
   );
 }
 
-function TicketsTab({ event, form, setForm, saving, onSubmit, onEdit, onToggle, onDelete }) {
+function TicketsTab({ error, event, form, setForm, saving, onSubmit, onEdit, onToggle, onDelete }) {
+  const [adding, setAdding] = useState(false);
   return (
-    <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">Billets et tarifs</h3><p className="text-sm text-gray-500">Gérez les catégories, prix et capacités de vente.</p></div><button type="button" disabled={saving} onClick={() => { setForm(emptyTicketTypeForm()); setAdding(true); }} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">Ajouter un tarif</button></div>
+      {adding || form.id ? <AccessibleDialog title={form.id ? "Modifier le tarif" : "Ajouter un tarif"} onClose={() => { if (!saving) { setAdding(false); setForm(emptyTicketTypeForm()); } }}>
+      <div className="flex justify-end p-3"><button type="button" disabled={saving} onClick={() => { setAdding(false); setForm(emptyTicketTypeForm()); }} className="rounded-lg border p-2" aria-label="Fermer le tarif"><X className="h-4 w-4" /></button></div>
       <form onSubmit={onSubmit} className="rounded-xl border border-gray-200 p-4">
-        <h3 className="font-bold">{form.id ? "Modifier le type de ticket" : "Ajouter un type de ticket"}</h3>
+        <h3 className="font-bold">{form.id ? "Modifier le tarif" : "Ajouter un tarif"}</h3>
+        {error ? <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         <div className="mt-4 grid gap-3">
           <Field label="Libellé">
             <input className={inputClass()} value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} />
@@ -1006,12 +1041,13 @@ function TicketsTab({ event, form, setForm, saving, onSubmit, onEdit, onToggle, 
             {form.id ? "Enregistrer" : "Ajouter"}
           </button>
           {form.id ? (
-            <button type="button" onClick={() => setForm(emptyTicketTypeForm())} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">
+            <button type="button" onClick={() => { setForm(emptyTicketTypeForm()); setAdding(false); }} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">
               Annuler
             </button>
           ) : null}
         </div>
       </form>
+      </AccessibleDialog> : null}
 
       <div className="rounded-xl border border-gray-200">
         <div className="border-b border-gray-200 p-4">
@@ -1061,8 +1097,10 @@ function TicketsTab({ event, form, setForm, saving, onSubmit, onEdit, onToggle, 
 }
 
 function OrdersTab({
+  error,
   event,
   orders,
+  pagination,
   cashSaleForm,
   setCashSaleForm,
   cashSaleModalOpen,
@@ -1081,11 +1119,13 @@ function OrdersTab({
   onCancel,
   onResendTickets,
 }) {
+  const [detailOrder, setDetailOrder] = useState(null);
   const ticketTypes = event?.ticketTypes || [];
   const selectedType = ticketTypes.find((type) => type.id === cashSaleForm.ticketTypeId) || null;
   const cashSaleTotal = Number(selectedType?.priceFcfa || 0) * Number(cashSaleForm.quantity || 1);
   const loadOrders = (next = {}) =>
     onLoad({
+      page: next.page ?? 1,
       q: Object.prototype.hasOwnProperty.call(next, "q") ? next.q : orderQuery,
       status: Object.prototype.hasOwnProperty.call(next, "status") ? next.status : orderStatus,
       paymentMethod: Object.prototype.hasOwnProperty.call(next, "paymentMethod")
@@ -1104,7 +1144,7 @@ function OrdersTab({
             className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
-            Espèces au Guichet
+            Nouvelle vente au guichet
           </button>
           <button type="button" onClick={onExpire} disabled={saving} className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50">
             Expirer non payés
@@ -1112,6 +1152,7 @@ function OrdersTab({
         </div>
         <div className="flex flex-wrap gap-2">
           <select
+            aria-label="Statut des commandes"
             value={orderStatus}
             onChange={(event) => {
               const next = event.target.value;
@@ -1127,6 +1168,7 @@ function OrdersTab({
             <option value="CANCELLED">Annulés</option>
           </select>
           <select
+            aria-label="Moyen de paiement"
             value={orderPaymentMethod}
             onChange={(event) => {
               const next = event.target.value;
@@ -1145,7 +1187,9 @@ function OrdersTab({
             <input
               value={orderQuery}
               onChange={(event) => setOrderQuery(event.target.value)}
-              placeholder="Nom, téléphone, FBO..."
+              aria-label="Rechercher une commande"
+              onKeyDown={(e) => { if (e.key === "Enter") loadOrders({ q: orderQuery }); }}
+              placeholder="Commande, nom, téléphone, FBO…"
               className="min-w-52 bg-transparent text-sm outline-none"
             />
           </label>
@@ -1155,18 +1199,18 @@ function OrdersTab({
         </div>
       </div>
       {cashSaleModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-xl">
+        <AccessibleDialog title="Nouvelle vente au guichet" onClose={() => { if (!saving) setCashSaleModalOpen(false); }}>
             <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Espèces au Guichet</h3>
+                <h3 className="text-lg font-bold text-gray-900">Nouvelle vente au guichet</h3>
                 <p className="mt-1 text-sm text-gray-500">
                   Encaissez le client, renseignez ses informations, puis générez son ticket digital.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setCashSaleModalOpen(false)}
+                disabled={saving}
+                    onClick={() => setCashSaleModalOpen(false)}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                 aria-label="Fermer"
               >
@@ -1174,6 +1218,7 @@ function OrdersTab({
               </button>
             </div>
             <form onSubmit={onCreateCashSale} className="p-5">
+              {error ? <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3">
                 <span className="text-sm font-semibold text-gray-600">Montant à encaisser</span>
                 <span className="text-lg font-bold text-gray-900">{formatFcfa(cashSaleTotal)}</span>
@@ -1257,6 +1302,7 @@ function OrdersTab({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
+                    disabled={saving}
                     onClick={() => setCashSaleModalOpen(false)}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                   >
@@ -1273,8 +1319,7 @@ function OrdersTab({
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+        </AccessibleDialog>
       ) : null}
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="min-w-full text-sm">
@@ -1283,7 +1328,7 @@ function OrdersTab({
               <th className="px-3 py-2">Achat</th>
               <th className="px-3 py-2">Acheteur</th>
               <th className="px-3 py-2">Tickets</th>
-              <th className="px-3 py-2">Montant</th>
+              <th className="px-3 py-2 text-right">Montant</th>
               <th className="px-3 py-2">Paiement</th>
               <th className="px-3 py-2">Statut</th>
               <th className="px-3 py-2">Action</th>
@@ -1295,7 +1340,7 @@ function OrdersTab({
               const isPaid = order.status === "PAID" || order.paymentStatus === "SUCCEEDED";
               return (
               <tr key={order.id} className="border-t border-gray-100 align-top">
-                <td className="px-3 py-2 font-mono text-xs">{order.orderNumber}</td>
+                <td className="px-3 py-3"><div className="font-mono text-xs">{order.orderNumber}</div><div className="mt-1 text-xs text-gray-500">{formatDateTime(order.createdAt)}</div></td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.buyerFullName}</div>
                   <div className="text-xs text-gray-500">{order.buyerPhone}</div>
@@ -1306,25 +1351,27 @@ function OrdersTab({
                     <div className="text-xs text-gray-500">{order.ticketType.label}</div>
                   ) : null}
                 </td>
-                <td className="px-3 py-2">{formatFcfa(order.totalFcfa)}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{formatFcfa(order.totalFcfa)}</td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.paymentProvider || order.paymentMethod || "—"}</div>
-                  <div className="text-xs text-gray-500">{order.paymentStatus || "—"}</div>
+                  <div className="text-xs text-gray-500">{statusLabel(order.paymentStatus)}</div>
                   {!isWave && order.paymentReference ? (
                     <div className="font-mono text-[11px] text-gray-400">{order.paymentReference}</div>
                   ) : null}
                 </td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(order.status)}`}>
-                    {order.status}
+                    {statusLabel(order.status)}
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <button type="button" onClick={() => setDetailOrder(order)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold">Voir le détail</button>
+                    <details className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs"><summary className="cursor-pointer font-semibold" aria-label={`Actions pour ${order.orderNumber}`}>⋯ Actions</summary><div className="mt-3 flex flex-col gap-2">
                     {isWave && !isDeadOrderStatus(order.status) ? (
                       <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Sync Wave
+                        Vérifier le paiement
                       </button>
                     ) : null}
                     {isPaid && isWave ? (
@@ -1339,7 +1386,7 @@ function OrdersTab({
                         disabled={saving}
                         className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
                       >
-                        Renvoyer email
+                        Renvoyer les billets
                       </button>
                     ) : null}
                     {!isPaid && !isDeadOrderStatus(order.status) ? (
@@ -1347,6 +1394,7 @@ function OrdersTab({
                         Annuler
                       </button>
                     ) : null}
+</div></details>
                   </div>
                 </td>
               </tr>
@@ -1354,12 +1402,35 @@ function OrdersTab({
             })}
             {!orders.length ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">Aucun achat de ticket.</td>
+                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">{orderQuery || orderStatus || orderPaymentMethod ? "Aucune commande ne correspond à ces filtres." : "Aucune commande pour cet événement."}</td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600">
+        <span>{pagination.total} commande(s) · Page {pagination.page} sur {pagination.pageCount}</span>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="rounded-lg border px-3 py-2" onClick={() => { setOrderQuery(""); setOrderStatus(""); setOrderPaymentMethod(""); loadOrders({ q: "", status: "", paymentMethod: "" }); }}>Réinitialiser les filtres</button>
+          <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={pagination.page <= 1} onClick={() => loadOrders({ page: pagination.page - 1 })}>Précédent</button>
+          <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={pagination.page >= pagination.pageCount} onClick={() => loadOrders({ page: pagination.page + 1 })}>Suivant</button>
+        </div>
+      </div>
+      {detailOrder ? <AccessibleDialog title={`Commande ${detailOrder.orderNumber}`} onClose={() => setDetailOrder(null)}>
+        <div className="p-6">
+          <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-bold">Commande {detailOrder.orderNumber}</h3><button type="button" onClick={() => setDetailOrder(null)} aria-label="Fermer le détail" className="rounded-lg border p-2"><X className="h-5 w-5" /></button></div>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <Info label="Acheteur" value={detailOrder.buyerFullName} /><Info label="Téléphone" value={detailOrder.buyerPhone} />
+            <Info label="Email" value={detailOrder.buyerEmail || "Non renseigné"} /><Info label="Date de commande" value={formatDateTime(detailOrder.createdAt)} />
+            <Info label="Montant" value={formatFcfa(detailOrder.totalFcfa)} /><Info label="Statut" value={statusLabel(detailOrder.status)} />
+            <Info label="Paiement" value={paymentMethodLabel(detailOrder.paymentProvider || detailOrder.paymentMethod)} /><Info label="Référence du paiement" value={detailOrder.paymentReference || detailOrder.providerTransactionId || "—"} />
+          </div>
+          <h4 className="mb-3 mt-6 font-semibold">Billets associés</h4>
+          {(detailOrder.tickets || []).map((ticket) => <div key={ticket.id} className="flex flex-wrap justify-between gap-2 border-t py-3 text-sm"><span>{ticket.holderFullName || detailOrder.buyerFullName} · {ticket.ticketCode}</span><span>{statusLabel(ticket.status)}</span></div>)}
+          {!detailOrder.tickets?.length ? <p className="text-sm text-gray-500">Aucun billet émis.</p> : null}
+        </div>
+      </AccessibleDialog> : null}
+
     </div>
   );
 }
@@ -1918,27 +1989,6 @@ function RecentCheckIns({ items }) {
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-function SettingsTab({ event }) {
-  return (
-    <div className="rounded-xl border border-gray-200 p-4">
-      <h3 className="font-bold">Paramètres avancés</h3>
-      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <Info label="Fin" value={formatDateTime(event.endsAt)} />
-        <Info label="Capacité globale" value={event.capacity || "—"} />
-        <Info label="Ouverture ventes" value={formatDateTime(event.salesOpenAt)} />
-        <Info label="Fermeture ventes" value={formatDateTime(event.salesCloseAt)} />
-      </div>
-      <Link
-        to={`/marketing/ticket-events/${event.id}/edit`}
-        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-      >
-        <Edit className="h-4 w-4" />
-        Modifier les informations
-      </Link>
     </div>
   );
 }
