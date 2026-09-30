@@ -141,7 +141,7 @@ const DEFAULT_SETTINGS = {
         },
         INVOICE_BANK_TRANSFER: {
           subject: "FOREVER | Dépôt de preuve bancaire {{preorderNumber}}",
-          body: "Bonjour {{customerName}},\n\nVotre facture est disponible pour paiement par virement bancaire.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant à payer: {{totalFcfaLabel}}\nLien sécurisé de dépôt de preuve: {{bankProofUploadLink}}\n\nPour toute assistance, contactez-nous au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
+          body: "Bonjour {{customerName}},\n\nVotre facture est disponible pour paiement par virement bancaire.\n\nRéférence facture: {{invoiceRef}}\nNuméro de commande: {{preorderNumber}}\nMontant à payer: {{totalFcfaLabel}}\n{{bankAccountLine}}\nLien sécurisé de dépôt de preuve: {{bankProofUploadLink}}\n\nPour toute assistance, contactez-nous au {{supportPhone}}.\n\nCordialement,\nService Client FOREVER",
         },
         ORDER_READY: {
           subject: "FOREVER | Colis prêt - Commande {{preorderNumber}}",
@@ -248,6 +248,9 @@ const NOTIFICATION_VARIABLES = [
   "{{pickupCode}}",
   "{{supportPhone}}",
   "{{pickupAddress}}",
+  "{{bankAccountLine}}",
+  "{{bankAccountHolder}}",
+  "{{bankAccountNumber}}",
 ];
 
 function formatDurationFromMinutes(value) {
