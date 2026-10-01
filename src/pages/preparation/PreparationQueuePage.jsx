@@ -6,7 +6,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ordersService } from "../../services/ordersService";
 import PreparationQueueHeader from "../../components/preparation/PreparationQueueHeader";
 import PreparationQueueAlerts from "../../components/preparation/PreparationQueueAlerts";
-import PreparationQueueStats from "../../components/preparation/PreparationQueueStats";
 import PreparationQueueTabs from "../../components/preparation/PreparationQueueTabs";
 import PreparationQueueTable from "../../components/preparation/PreparationQueueTable";
 import FulfillNoNotificationDialog from "../../components/preparation/FulfillNoNotificationDialog";
@@ -38,35 +37,15 @@ function safeWriteStorage(key, value) {
   }
 }
 
-const MAX_QUEUE_PAGES = 20; // Garde-fou : jusqu'à 2000 commandes par statut, au-delà on tronque plutôt que de bloquer la page.
-
-// Filtres serveur par onglet. "to-prepare" reste toujours chargé intégralement (voir `load()`)
-// car c'est la file surveillée par les alertes sonores/temps réel, quel que soit l'onglet affiché.
 const TAB_QUERY_PARAMS = {
-  "to-prepare": { status: "PAID", paymentStatus: "PAID", sort: "preparationLaunchedAt", dir: "asc" },
-  ready: { status: "READY", sort: "preparedAt", dir: "asc" },
-  fulfilled: { status: "FULFILLED", sort: "fulfilledAt", dir: "asc" },
+  "to-prepare": { status: "PAID", paymentStatus: "PAID", sort: "preparationLaunchedAt", dir: "asc", preparationQueue: true },
+  ready: { status: "READY", sort: "preparedAt", dir: "asc", preparationQueue: true },
+  fulfilled: { status: "FULFILLED", sort: "fulfilledAt", dir: "desc", preparationQueue: true },
 };
-
-async function fetchAllOrderPages(baseParams) {
-  const first = await ordersService.getAll({ ...baseParams, page: 1, pageSize: 100 });
-  const totalPages = Math.min(first?.totalPages || 1, MAX_QUEUE_PAGES);
-  const data = [...(first?.data || [])];
-
-  if (totalPages > 1) {
-    const restPages = await Promise.all(
-      Array.from({ length: totalPages - 1 }, (_, i) =>
-        ordersService.getAll({ ...baseParams, page: i + 2, pageSize: 100 }),
-      ),
-    );
-    restPages.forEach((page) => data.push(...(page?.data || [])));
-  }
-
-  return data;
-}
+const PAGE_SIZE = 25;
 
 // Ne récupère que le total d'un onglet (pour son badge de compteur), sans en télécharger les lignes.
-// pageSize est plafonné à 10 côté API : c'est le minimum, largement suffisant puisqu'on n'utilise
+// pageSize vaut 10, le minimum côté API, puisqu'on n'utilise
 // que `totalCount` de la réponse.
 async function fetchTabCount(baseParams, tabKey) {
   const res = await ordersService.getAll({
@@ -84,6 +63,11 @@ export default function PreparationQueuePage() {
   const { role } = useAdminAuth();
   const searchDebounceInitializedRef = useRef(false);
   const loadRef = useRef(null);
+  const requestIdRef = useRef(0);
+  const pageRef = useRef(1);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const firstAlertLoadRef = useRef(true);
   const previousAlertSnapshotRef = useRef(null);
   const presetStorageKey = useMemo(
@@ -118,7 +102,7 @@ export default function PreparationQueuePage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [, setAttentionAlert] = useState(null);
-  const [tab, setTabState] = useState(searchParams.get("tab") || "to-prepare");
+  const [tab, setTabState] = useState(Object.hasOwn(TAB_QUERY_PARAMS, searchParams.get("tab")) ? searchParams.get("tab") : "to-prepare");
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState({ toPrepare: 0, ready: 0, fulfilled: 0, total: 0 });
   const [query, setQuery] = useState("");
@@ -155,6 +139,8 @@ export default function PreparationQueuePage() {
   const load = async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
     const targetTab = overrides.tab ?? tab;
+    const targetPage = overrides.page ?? (silent ? pageRef.current : 1);
+    const requestId = ++requestIdRef.current;
     try {
       if (!silent) setLoading(true);
       setError("");
@@ -169,44 +155,32 @@ export default function PreparationQueuePage() {
         dateTo: dateToValue || undefined,
       };
 
-      // On ne télécharge intégralement que "à préparer" (toujours, pour les alertes) et l'onglet
-      // actif (pour l'affichage). Les autres onglets n'ont besoin que de leur total pour le badge.
-      const fullTabKeys = Array.from(new Set(["to-prepare", targetTab]));
-      const lightTabKeys = Object.keys(TAB_QUERY_PARAMS).filter(
-        (key) => !fullTabKeys.includes(key),
-      );
-
-      const [fullEntries, lightEntries] = await Promise.all([
-        Promise.all(
-          fullTabKeys.map((key) =>
-            fetchAllOrderPages({ ...commonFilters, ...TAB_QUERY_PARAMS[key] }).then((data) => [
-              key,
-              data,
-            ]),
-          ),
-        ),
-        Promise.all(
-          lightTabKeys.map((key) =>
-            fetchTabCount(commonFilters, key).then((total) => [key, total]),
-          ),
-        ),
+      const otherTabs = Object.keys(TAB_QUERY_PARAMS).filter((key) => key !== targetTab);
+      const [initialPage, lightEntries, newest] = await Promise.all([
+        ordersService.getAll({ ...commonFilters, ...TAB_QUERY_PARAMS[targetTab], page: targetPage, pageSize: PAGE_SIZE }),
+        Promise.all(otherTabs.map(async (key) => [key, await fetchTabCount(commonFilters, key)])),
+        ordersService.getAll({ ...TAB_QUERY_PARAMS["to-prepare"], dir: "desc", page: 1, pageSize: 10 }),
       ]);
-
-      const fullByTab = Object.fromEntries(fullEntries);
-      const countByTab = Object.fromEntries(lightEntries);
-
-      const uniqueMap = new Map();
-      Object.values(fullByTab).forEach((tabRows) => {
-        tabRows.forEach((row) => uniqueMap.set(row.id, row));
+      if (requestId !== requestIdRef.current) return;
+      const pageCount = Math.max(1, Number(initialPage.totalPages) || 1);
+      const effectivePage = Math.min(targetPage, pageCount);
+      const activePage = effectivePage === targetPage ? initialPage : await ordersService.getAll({
+        ...commonFilters, ...TAB_QUERY_PARAMS[targetTab], page: effectivePage, pageSize: PAGE_SIZE,
       });
-      const nextRows = Array.from(uniqueMap.values());
-
+      if (requestId !== requestIdRef.current) return;
+      const countByTab = { ...Object.fromEntries(lightEntries), [targetTab]: Number(activePage.totalCount || 0) };
+      const nextRows = activePage.data || [];
       const nextStats = {
-        toPrepare: fullByTab["to-prepare"]?.length ?? countByTab["to-prepare"] ?? 0,
-        ready: fullByTab.ready?.length ?? countByTab.ready ?? 0,
-        fulfilled: fullByTab.fulfilled?.length ?? countByTab.fulfilled ?? 0,
+        toPrepare: countByTab["to-prepare"] || 0,
+        ready: countByTab.ready || 0,
+        fulfilled: countByTab.fulfilled || 0,
       };
       nextStats.total = nextStats.toPrepare + nextStats.ready + nextStats.fulfilled;
+      pageRef.current = effectivePage;
+      setPage(effectivePage);
+      setTotalPages(Math.max(1, Number(activePage.totalPages) || 1));
+      setLastUpdatedAt(new Date().toISOString());
+      setSelectedIds((previous) => new Set([...previous].filter((id) => nextRows.some((row) => row.id === id))));
 
       const defaultScope = !qValue && !paymentModeValue && !dateFromValue && !dateToValue;
 
@@ -214,8 +188,9 @@ export default function PreparationQueuePage() {
         firstAlertLoadRef.current = true;
         previousAlertSnapshotRef.current = null;
       } else {
-        const toPrepareRows = fullByTab["to-prepare"] || [];
+        const toPrepareRows = newest.data || [];
         const snapshot = {
+          latestAt: Math.max(0, ...toPrepareRows.map((r) => new Date(r.preparationLaunchedAt).getTime() || 0)),
           toPrepare: new Set(
             toPrepareRows
               .filter((r) => r.status === "PAID" && r.preparationLaunchedAt)
@@ -226,7 +201,7 @@ export default function PreparationQueuePage() {
         if (!firstAlertLoadRef.current && previousAlertSnapshotRef.current) {
           const prev = previousAlertSnapshotRef.current;
           const newToPrepareCount = [...snapshot.toPrepare].filter(
-            (id) => !prev.toPrepare.has(id),
+            (id) => !prev.toPrepare.has(id) && new Date(toPrepareRows.find((r) => r.id === id)?.preparationLaunchedAt).getTime() >= prev.latestAt,
           ).length;
 
           if (newToPrepareCount > 0) {
@@ -245,11 +220,12 @@ export default function PreparationQueuePage() {
       setRows(nextRows);
       setStats(nextStats);
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setError(
         e?.response?.data?.message || "Impossible de charger la file de préparation",
       );
     } finally {
-      if (!silent) setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
@@ -270,9 +246,6 @@ export default function PreparationQueuePage() {
     });
   };
 
-  useEffect(() => {
-    load();
-  }, []);
 
   useEffect(() => {
     loadRef.current = load;
@@ -301,7 +274,7 @@ export default function PreparationQueuePage() {
         searchDebounceInitializedRef.current = true;
         return;
       }
-      load({ query });
+      loadRef.current?.({ query });
     }, 350);
 
     return () => clearTimeout(timer);
@@ -316,7 +289,7 @@ export default function PreparationQueuePage() {
       setPaymentMode("ESPECES");
       setDateFrom("");
       setDateTo("");
-      load({ paymentMode: "ESPECES", dateFrom: "", dateTo: "" });
+      loadRef.current?.({ paymentMode: "ESPECES", dateFrom: "", dateTo: "" });
       return;
     }
     if (savedPreset === "WAVE") {
@@ -324,7 +297,7 @@ export default function PreparationQueuePage() {
       setPaymentMode("WAVE");
       setDateFrom("");
       setDateTo("");
-      load({ paymentMode: "WAVE", dateFrom: "", dateTo: "" });
+      loadRef.current?.({ paymentMode: "WAVE", dateFrom: "", dateTo: "" });
       return;
     }
     if (savedPreset === "TODAY") {
@@ -332,14 +305,14 @@ export default function PreparationQueuePage() {
       setPaymentMode("");
       setDateFrom(today);
       setDateTo(today);
-      load({ paymentMode: "", dateFrom: today, dateTo: today });
+      loadRef.current?.({ paymentMode: "", dateFrom: today, dateTo: today });
       return;
     }
     setQuickPreset("ALL");
     setPaymentMode("");
     setDateFrom("");
     setDateTo("");
-    load({ paymentMode: "", dateFrom: "", dateTo: "" });
+    loadRef.current?.({ paymentMode: "", dateFrom: "", dateTo: "" });
   }, [presetStorageKey]);
 
   useEffect(() => {
@@ -429,13 +402,12 @@ export default function PreparationQueuePage() {
       }
       return next;
     });
-    // "rows" ne contient que "à préparer" + l'onglet jusqu'ici actif : il faut recharger
-    // pour obtenir les lignes complètes du nouvel onglet (son total était déjà connu via `stats`).
+    // Chaque onglet charge sa propre page, avec des compteurs indépendants.
     load({ tab: nextTab });
   };
 
   const buildOrderUrl = (row) => {
-    const targetTab = row.status === "READY" ? "fulfillment" : "preparation";
+    const targetTab = ["READY", "FULFILLED"].includes(row.status) ? "fulfillment" : "preparation";
     const params = new URLSearchParams();
     params.set("tab", targetTab);
     params.set("prepQueue", "1");
@@ -570,7 +542,7 @@ export default function PreparationQueuePage() {
 
   return (
     <div className="space-y-4">
-      <PreparationQueueHeader loading={loading} onRefresh={load} stats={stats} />
+      <PreparationQueueHeader loading={loading} onRefresh={() => load({ page })} lastUpdatedAt={lastUpdatedAt} />
 
       <PreparationQueueAlerts error={error} info={info} />
 
@@ -592,12 +564,14 @@ export default function PreparationQueuePage() {
             </svg>
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Rechercher une commande"
+              onChange={(e) => { requestIdRef.current += 1; setQuery(e.target.value); }}
               placeholder="N° colis, précommande, FBO ou facture"
               className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm"
             />
           </div>
           <select
+            aria-label="Mode de paiement"
             value={paymentMode}
             onChange={(e) => {
               const next = e.target.value;
@@ -617,6 +591,8 @@ export default function PreparationQueuePage() {
           </select>
           <input
             type="date"
+            aria-label="Commandes créées à partir du"
+            title="Date de création : à partir du"
             value={dateFrom}
             onChange={(e) => {
               const next = e.target.value;
@@ -629,6 +605,8 @@ export default function PreparationQueuePage() {
           <input
             type="date"
             min={dateFrom || undefined}
+            aria-label="Commandes créées jusqu’au"
+            title="Date de création : jusqu’au"
             value={dateTo}
             onChange={(e) => {
               const next = e.target.value;
@@ -688,14 +666,6 @@ export default function PreparationQueuePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={load}
-              disabled={loading}
-              className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              type="button"
-            >
-              {loading ? "Chargement..." : "Appliquer"}
-            </button>
-            <button
               onClick={handleClearFilters}
               disabled={loading}
               className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
@@ -706,7 +676,7 @@ export default function PreparationQueuePage() {
           </div>
         </div>
         <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
-          {filteredRows.length} commande{filteredRows.length > 1 ? "s" : ""} affichée{filteredRows.length > 1 ? "s" : ""} dans l'onglet courant sur {rows.length} commande{rows.length > 1 ? "s" : ""} chargée{rows.length > 1 ? "s" : ""}
+          {filteredRows.length} commande{filteredRows.length > 1 ? "s" : ""} affichée{filteredRows.length > 1 ? "s" : ""} sur {tab === "to-prepare" ? stats.toPrepare : tab === "ready" ? stats.ready : stats.fulfilled} au total
           {activeFilterCount > 0
             ? ` avec ${activeFilterCount} filtre${activeFilterCount > 1 ? "s" : ""} actif${activeFilterCount > 1 ? "s" : ""}.`
             : " sans filtre actif."}
@@ -744,7 +714,7 @@ export default function PreparationQueuePage() {
               className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
               disabled={!!actionLoadingId}
             >
-              {actionLoadingId === "bulk" ? "Clôture en cours..." : "Clôturer sans notif. (sélection)"}
+              {actionLoadingId === "bulk" ? "Clôture en cours..." : "Régulariser les remises sélectionnées"}
             </button>
           </div>
         </div>
@@ -755,13 +725,18 @@ export default function PreparationQueuePage() {
         loading={loading || !!actionLoadingId}
         onOpen={handleOpen}
         onPrepare={handlePrepare}
-        getOrderHref={buildOrderUrl}
         onFulfillNoNotification={handleFulfillNoNotification}
         canFulfillNoNotification={canFulfillNoNotification}
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
         onToggleSelectAll={handleToggleSelectAll}
       />
+
+      <nav aria-label="Pages de commandes" className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3">
+        <button type="button" disabled={loading || page <= 1} onClick={() => load({ page: page - 1 })} className="min-h-11 rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Précédent</button>
+        <span className="text-sm text-gray-600">Page {page} sur {totalPages}</span>
+        <button type="button" disabled={loading || page >= totalPages} onClick={() => load({ page: page + 1 })} className="min-h-11 rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Suivant</button>
+      </nav>
 
       <FulfillNoNotificationDialog
         key={fulfillDialog ? `${fulfillDialog.mode}:${fulfillDialog.order?.id || fulfillDialog.orders?.map((o) => o.id).join(",")}` : "closed"}

@@ -7,7 +7,7 @@ function TabButton({ active, children, onClick, count }) {
       onClick={onClick}
       className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
         active
-          ? "bg-blue-600 text-white"
+          ? "bg-gray-900 text-white"
           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
       }`}
       type="button"
@@ -35,7 +35,7 @@ export default function PreparationQueueTabs({ tab, setTab, stats }) {
         </TabButton>
 
         <TabButton active={tab === "ready"} onClick={() => setTab("ready")} count={stats?.ready || 0}>
-          À clôturer
+          Prêtes à remettre
         </TabButton>
 
         <TabButton
@@ -43,7 +43,7 @@ export default function PreparationQueueTabs({ tab, setTab, stats }) {
           onClick={() => setTab("fulfilled")}
           count={stats?.fulfilled || 0}
         >
-          Clôturées
+          Historique
         </TabButton>
       </div>
     </div>

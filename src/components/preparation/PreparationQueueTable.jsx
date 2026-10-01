@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { usePermission } from "../../hooks/usePermission";
 import OrderPaymentBadge from "../orders/OrderPaymentBadge";
 import RequirePermission from "../auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
@@ -32,7 +32,7 @@ function formatAge(value) {
 
 function OrderStatusBadge({ status }) {
   const tones = {
-    PAID: "bg-green-50 text-green-700 border-green-200",
+    PAID: "bg-amber-50 text-amber-700 border-amber-200",
     READY: "bg-indigo-50 text-indigo-700 border-indigo-200",
     FULFILLED: "bg-emerald-50 text-emerald-700 border-emerald-200",
     CANCELLED: "bg-red-50 text-red-700 border-red-200",
@@ -40,7 +40,7 @@ function OrderStatusBadge({ status }) {
 
   return (
     <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${tones[status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-      {status || "—"}
+      {{ PAID: "À préparer", READY: "Prête à remettre", FULFILLED: "Remise effectuée", CANCELLED: "Annulée" }[status] || "—"}
     </span>
   );
 }
@@ -85,13 +85,13 @@ export default function PreparationQueueTable({
   loading,
   onOpen,
   onPrepare,
-  getOrderHref,
   onFulfillNoNotification,
   canFulfillNoNotification = false,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
 }) {
+  const canPrepare = usePermission(Permission.PREPARATION_UPDATE);
   const selectionEnabled = canFulfillNoNotification && Boolean(selectedIds) && Boolean(onToggleSelect);
   const selectableRows = selectionEnabled ? rows.filter((row) => row.status === "READY") : [];
   const allSelectableSelected =
@@ -137,7 +137,7 @@ export default function PreparationQueueTable({
               ) : null}
               <th className="px-4 py-3 font-medium">Colis / commande</th>
               <th className="px-4 py-3 font-medium">Client</th>
-              <th className="px-4 py-3 font-medium">Repères</th>
+              <th className="px-4 py-3 font-medium">Préparation / délai</th>
               <th className="px-4 py-3 font-medium">État</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
@@ -173,7 +173,8 @@ export default function PreparationQueueTable({
                 </td>
 
                 <td className="px-4 py-3">
-                  <div className="font-medium">{formatFcfa(row.totalFcfa)}</div>
+                  <div className="font-medium">{row._count?.items ?? "—"} référence(s) · {row.deliveryMode === "RETRAIT_SITE_FLP" ? "Retrait sur site" : "Livraison"}</div>
+                  <div className="text-xs text-gray-500">{formatFcfa(row.totalFcfa)}</div>
                   <div className="mt-1">
                     <OrderPaymentBadge status={row.paymentStatus} />
                   </div>
@@ -185,7 +186,7 @@ export default function PreparationQueueTable({
                         : `À préparer depuis ${formatAge(row.preparationLaunchedAt || row.paidAt)}`}
                   </div>
                   <div className="text-xs text-gray-500">
-                    Paiée le {formatDateTime(row.paidAt)}
+                    Payée le {formatDateTime(row.paidAt)}
                   </div>
                   {row.preparationLaunchedAt ? (
                     <div className="text-xs text-gray-500">
@@ -214,10 +215,10 @@ export default function PreparationQueueTable({
                       <RequirePermission permission={Permission.PREPARATION_UPDATE}>
                         <button
                           onClick={() => onPrepare(row)}
-                          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                          className="rounded-lg bg-gray-900 min-h-11 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
                           type="button"
                         >
-                          Ouvrir checklist
+                          Préparer
                         </button>
                       </RequirePermission>
                     ) : null}
@@ -226,44 +227,34 @@ export default function PreparationQueueTable({
                       <RequirePermission permission={Permission.PREPARATION_UPDATE}>
                         <button
                           onClick={() => onOpen(row)}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          className="rounded-lg bg-gray-900 min-h-11 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
                           type="button"
                         >
-                          Clôturer
+                          Remettre le colis
                         </button>
                       </RequirePermission>
                     ) : null}
 
                     {canFulfillNoNotification && ["PAID", "READY"].includes(row.status) ? (
                       <RequirePermission permission={Permission.PREPARATION_UPDATE}>
+                        <details className="text-left">
+                          <summary className="cursor-pointer px-3 py-2 text-sm text-gray-600">Autres actions</summary>
                         <button
                           onClick={() => onFulfillNoNotification?.(row)}
                           className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
                           type="button"
                         >
-                          Clôturer sans notif.
+                          Régulariser une remise déjà effectuée
                         </button>
+                        </details>
                       </RequirePermission>
                     ) : null}
 
-                    <RequirePermission permission={Permission.PREORDER_READ}>
-                      <Link
-                        to={getOrderHref?.(row) || `/orders/${row.id}?tab=${row.status === "READY" ? "fulfillment" : "preparation"}`}
-                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        Détail
-                      </Link>
-                    </RequirePermission>
-
-                    <RequirePermission permission={Permission.PREORDER_READ}>
-                      <button
-                        onClick={() => onOpen(row)}
-                        className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                        type="button"
-                      >
-                        Ouvrir
-                      </button>
-                    </RequirePermission>
+                    {(!canPrepare || !["PAID", "READY"].includes(row.status)) ? (
+                      <RequirePermission permission={Permission.PREORDER_READ}>
+                        <button type="button" onClick={() => onOpen(row)} className="min-h-11 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700">Consulter</button>
+                      </RequirePermission>
+                    ) : null}
                   </div>
                 </td>
               </tr>

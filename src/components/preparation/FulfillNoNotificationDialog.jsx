@@ -91,7 +91,7 @@ export default function FulfillNoNotificationDialog({
           </div>
 
           <h2 id="fulfill-no-notif-title" className="text-center text-lg font-semibold text-gray-900">
-            Clôturer {isBulk ? `${count} commande${count > 1 ? "s" : ""}` : "sans notification"}
+            Régulariser {isBulk ? `${count} remises` : "une remise déjà effectuée"}
           </h2>
           <p id="fulfill-no-notif-description" className="mt-2 text-center text-sm text-gray-500">
             Aucun SMS ni email ne sera envoyé au FBO. À réserver aux colis déjà remis en main propre.
@@ -141,7 +141,7 @@ export default function FulfillNoNotificationDialog({
 
           <div className="mt-4">
             <label htmlFor="fulfill-no-notif-note" className="mb-1 block text-xs font-medium text-gray-700">
-              Note de clôture (visible dans l'historique)
+              Motif de régularisation (visible dans l'historique)
             </label>
             <textarea
               id="fulfill-no-notif-note"
@@ -184,7 +184,7 @@ export default function FulfillNoNotificationDialog({
                   <span>Clôture...</span>
                 </>
               ) : (
-                <span>Clôturer {isBulk ? `(${count})` : ""}</span>
+                <span>Régulariser {isBulk ? `(${count})` : ""}</span>
               )}
             </button>
           </div>

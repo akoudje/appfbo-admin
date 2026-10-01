@@ -229,7 +229,6 @@ export default function OrderFulfillmentTab({
   const status = order?.status;
   const isReady = status === "READY";
   const isFulfilled = status === "FULFILLED";
-  const canBeFulfilled = isReady && !isFulfilled;
   const isPickupOrder = order?.deliveryMode === "RETRAIT_SITE_FLP";
   const missingPickupCode = isPickupOrder && !String(pickupCode || "").trim();
   const missingPickupRecipient =
@@ -339,14 +338,14 @@ export default function OrderFulfillmentTab({
             <li>Le <strong>retrait</strong> par le client</li>
             <li>Ou la <strong>livraison</strong> effective</li>
           </ul>
-          <p className="mt-2">La commande passera en statut <strong>FULFILLED</strong>.</p>
+          <p className="mt-2">La commande passera en statut <strong>Remise effectuée</strong>.</p>
         </Alert>
       );
     }
 
     return (
       <Alert tone="gray" title="⏸️ Clôture non disponible">
-        <p>La clôture n'est possible que lorsque la commande est en statut <strong>READY</strong>.</p>
+        <p>La clôture n'est possible que lorsque la commande est en statut <strong>Prête à remettre</strong>.</p>
         <p className="mt-1">Statut actuel : <StatusBadge status={status} /></p>
       </Alert>
     );
@@ -354,7 +353,7 @@ export default function OrderFulfillmentTab({
 
   return (
     <div className="space-y-4">
-      <InfoSection title="Clôture">
+      <InfoSection title="Remise du colis">
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatCard
             label="Statut"
@@ -369,12 +368,7 @@ export default function OrderFulfillmentTab({
             tone="blue"
             icon="📦"
           />
-          <StatCard
-            label="Code retrait"
-            value={isPickupOrder ? (order?.pickupSecretCode || "—") : "—"}
-            tone="amber"
-            icon="🔐"
-          />
+
           <StatCard
             label="Prête le"
             value={formatDateTime(order?.preparedAt)}
@@ -621,7 +615,7 @@ export default function OrderFulfillmentTab({
                 onClick={onFulfill}
                 disabled={!canFulfill || saving || missingPickupCode || missingPickupRecipient}
               >
-                {saving ? "Clôture en cours..." : "Confirmer la clôture"}
+                {saving ? "Clôture en cours..." : (isPickupOrder ? "Confirmer la remise" : "Confirmer la livraison")}
               </button>
 
               <div className="text-xs text-gray-500">
@@ -631,7 +625,7 @@ export default function OrderFulfillmentTab({
                     : missingPickupRecipient
                       ? "Nom du récupérant requis avant validation."
                     : "La clôture enverra automatiquement un SMS de confirmation au client."
-                  : "Statut READY requis pour clôturer."}
+                  : "Le colis doit être prêt avant sa remise."}
               </div>
 
               {typeof onFulfillNoNotification === "function" ? (
@@ -649,7 +643,7 @@ export default function OrderFulfillmentTab({
                     disabled={!canFulfillNoNotification || saving}
                     className="mt-3 w-full rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Clôturer sans notification
+                    Régulariser une remise déjà effectuée
                   </button>
                   {!canFulfillNoNotification ? (
                     <div className="mt-2 text-xs text-amber-700">

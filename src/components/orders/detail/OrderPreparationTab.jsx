@@ -46,13 +46,6 @@ function formatDate(value) {
   return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
-function formatFcfa(value) {
-  const n = Number(value || 0);
-  const safe = Number.isFinite(n) ? n : 0;
-  const display = safe > 0 && safe % 1 !== 0 ? Math.ceil(safe) : Math.round(safe);
-  return `${new Intl.NumberFormat("fr-FR").format(display)} FCFA`;
-}
-
 const ANOMALY_OPTIONS = [
   { value: "MISSING_ITEM", label: "Article manquant" },
   { value: "PARTIAL_QTY", label: "Quantité partielle" },
@@ -60,12 +53,14 @@ const ANOMALY_OPTIONS = [
   { value: "BLOCKED_PARCEL", label: "Colis bloqué" },
 ];
 
-function ChecklistRow({ item, disabled, onToggle }) {
+function ChecklistRow({ item, disabled, onToggle, onReport }) {
   const checked = Boolean(item?.checked);
   const line = item?.preorderItem || {};
   return (
+    <div className="space-y-1">
     <button
       type="button"
+      aria-pressed={checked}
       onClick={() => onToggle(item)}
       disabled={disabled}
       className={`w-full rounded-xl border px-3 py-2 text-left transition ${
@@ -86,15 +81,16 @@ function ChecklistRow({ item, disabled, onToggle }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="truncate font-semibold text-gray-900">
-              {line?.qty || 0} × {line?.productNameSnapshot || line?.product?.nom || "Produit"}
+            <span className="break-words font-semibold text-gray-900">
+              {line?.productNameSnapshot || line?.product?.nom || "Produit"}
             </span>
             <span className="text-xs text-gray-600">
-              SKU: <span className="font-medium">{line?.productSkuSnapshot || line?.product?.sku || "—"}</span>
+              Référence : <span className="font-medium">{line?.productSkuSnapshot || line?.product?.sku || "—"}</span>
             </span>
             <span className="text-xs text-gray-600">
-              Total: <span className="font-medium">{formatFcfa(line?.lineTotalFcfa || 0)}</span>
+              Quantité : <span className="text-xl font-bold text-gray-900">{line?.qty || 0} unité(s)</span>
             </span>
+            {line?.packagingLabelSnapshot ? <span className="text-sm text-gray-600">Conditionnement : {line.packagingLabelSnapshot} · {line.packagingUnitsPerPackage || 1} unité(s) par conditionnement</span> : null}
             {item?.checkedAt ? (
               <span className="text-xs text-gray-600">
                 Cochée: <span className="font-medium">{formatDate(item?.checkedAt)}</span>
@@ -105,6 +101,8 @@ function ChecklistRow({ item, disabled, onToggle }) {
         </div>
       </div>
     </button>
+    {!disabled ? <button type="button" onClick={() => onReport(item)} className="min-h-10 px-3 text-sm font-medium text-gray-600 underline">Signaler un problème sur cet article</button> : null}
+    </div>
   );
 }
 
@@ -120,8 +118,8 @@ export default function OrderPreparationTab({
   onCreateAnomaly,
   onResolveAnomaly,
   onGoToFulfillment,
-  stockSummary,
 }) {
+  const [showAnomalyForm, setShowAnomalyForm] = useState(false);
   const [anomalyKind, setAnomalyKind] = useState("MISSING_ITEM");
   const [anomalyItemId, setAnomalyItemId] = useState("");
   const [anomalyNote, setAnomalyNote] = useState("");
@@ -142,7 +140,7 @@ export default function OrderPreparationTab({
   // encore modifiable.
   const canBePrepared = status === "PAID" && Boolean(preparationLaunchedAt);
 
-  const preparationItems = Array.isArray(order?.preparationItems) ? order.preparationItems : [];
+  const preparationItems = useMemo(() => Array.isArray(order?.preparationItems) ? order.preparationItems : [], [order]);
   const unresolvedAnomalies = (Array.isArray(order?.preparationAnomalies) ? order.preparationAnomalies : []).filter(
     (item) => !item.resolvedAt,
   );
@@ -195,10 +193,10 @@ export default function OrderPreparationTab({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Préparation</h3>
-            <p className="mt-1 text-xs text-gray-600">Checklist, anomalies, validation.</p>
+            <p className="mt-1 text-xs text-gray-600">Vérifiez les références et les quantités avant de fermer le colis.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="blue">{status || "—"}</Badge>
+            <Badge tone="blue">{{ PAID: "À préparer", READY: "Prête à remettre", FULFILLED: "Remise effectuée" }[status] || "En attente"}</Badge>
             <Badge tone={stockDebited ? "emerald" : "gray"}>
               {stockDebited ? "Stock sorti" : "Stock en attente"}
             </Badge>
@@ -208,7 +206,7 @@ export default function OrderPreparationTab({
 
         <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-5">
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
-            <div className="text-xs uppercase tracking-wide text-indigo-700">Checklist</div>
+            <div className="text-xs uppercase tracking-wide text-indigo-700">Articles vérifiés</div>
             <div className="mt-1 text-lg font-semibold text-indigo-900">{checkedCount}/{totalItems}</div>
           </div>
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
@@ -230,7 +228,7 @@ export default function OrderPreparationTab({
         </div>
 
         <div className="mt-3 h-2 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
-          <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progressPercent}%` }} />
+          <div className="h-full bg-gray-900 transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
 
@@ -251,7 +249,7 @@ export default function OrderPreparationTab({
               onClick={() => onGoToFulfillment?.()}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
             >
-              Aller à la clôture
+              Remettre le colis
             </button>
           </div>
         </Alert>
@@ -260,25 +258,17 @@ export default function OrderPreparationTab({
       <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h4 className="font-semibold text-gray-900">Checklist persistée</h4>
-            <p className="mt-1 text-xs text-gray-600">Une ligne par article. Coche tout avant validation.</p>
+            <h4 className="font-semibold text-gray-900">Articles à vérifier</h4>
+            <p className="mt-1 text-xs text-gray-600">Validez chaque ligne après avoir contrôlé sa référence et sa quantité.</p>
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
-              onClick={() => onBulkChecklist?.(true)}
+              onClick={() => { if (window.confirm("Recommencer le contrôle de tous les articles ?")) onBulkChecklist?.(false); }}
               disabled={!canBePrepared || saving || totalItems === 0}
             >
-              Tout cocher
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
-              onClick={() => onBulkChecklist?.(false)}
-              disabled={!canBePrepared || saving || totalItems === 0}
-            >
-              Tout décocher
+              Recommencer le contrôle
             </button>
           </div>
         </div>
@@ -292,6 +282,11 @@ export default function OrderPreparationTab({
                 key={item.id}
                 item={item}
                 disabled={!canBePrepared || saving}
+                onReport={(row) => {
+                  setAnomalyItemId(row.preorderItemId);
+                  setShowAnomalyForm(true);
+                  requestAnimationFrame(() => document.getElementById("preparation-anomaly-form")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+                }}
                 onToggle={(row) => onToggleChecklistItem?.(row.preorderItemId, !row.checked)}
               />
             ))
@@ -303,9 +298,13 @@ export default function OrderPreparationTab({
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
           <div>
             <h4 className="font-semibold text-gray-900">Anomalies de préparation</h4>
-            <p className="mt-1 text-sm text-gray-600">Déclare ici un blocage ou un écart.</p>
+            <p className="mt-1 text-sm text-gray-600">Signalez un article manquant, une quantité incorrecte ou un colis bloqué.</p>
           </div>
 
+          <button type="button" onClick={() => setShowAnomalyForm((value) => !value)} aria-expanded={showAnomalyForm} className="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium">
+            {showAnomalyForm ? "Fermer le formulaire" : "Signaler un problème"}
+          </button>
+          {showAnomalyForm ? <div id="preparation-anomaly-form" className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Type d'anomalie">
               <select
@@ -367,6 +366,8 @@ export default function OrderPreparationTab({
             Enregistrer l'anomalie
           </button>
 
+          </div> : null}
+
           <div className="space-y-3">
             {unresolvedAnomalies.length === 0 ? (
               <Alert tone="emerald">Aucune anomalie ouverte.</Alert>
@@ -377,7 +378,7 @@ export default function OrderPreparationTab({
                     <Badge tone={anomaly.blocking ? "red" : "amber"}>
                       {anomaly.blocking ? "Bloquante" : "Non bloquante"}
                     </Badge>
-                    <Badge tone="gray">{anomaly.kind}</Badge>
+                    <Badge tone="gray">{ANOMALY_OPTIONS.find((option) => option.value === anomaly.kind)?.label || "Anomalie"}</Badge>
                     {anomaly.preorderItem ? (
                       <span className="text-sm font-medium text-gray-800">
                         {anomaly.preorderItem.productNameSnapshot || anomaly.preorderItem.product?.nom || "Produit"}
@@ -410,9 +411,9 @@ export default function OrderPreparationTab({
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4 xl:sticky xl:bottom-4 xl:self-end">
           <div>
-            <h4 className="font-semibold text-gray-900">Action finale</h4>
+            <h4 className="font-semibold text-gray-900">Validation du colis</h4>
             <p className="mt-1 text-sm text-gray-600">
               Le colis ne peut être marqué prêt que si toutes les lignes sont cochées et qu'aucune anomalie bloquante n'est ouverte.
             </p>
@@ -429,7 +430,7 @@ export default function OrderPreparationTab({
           </Field>
 
           {!allChecked && canBePrepared ? (
-            <Alert tone="amber">Toutes les lignes doivent être cochées avant validation.</Alert>
+            <Alert tone="amber">{totalItems - checkedCount} article(s) restent à vérifier avant validation.</Alert>
           ) : null}
           {hasBlockingAnomaly ? (
             <Alert tone="red">Une ou plusieurs anomalies bloquantes doivent être résolues avant validation.</Alert>
@@ -439,7 +440,7 @@ export default function OrderPreparationTab({
             type="button"
             onClick={onPrepare}
             disabled={!canPrepare || saving || !allChecked || hasBlockingAnomaly}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {saving ? "Préparation en cours..." : "Marquer colis prêt"}
           </button>
