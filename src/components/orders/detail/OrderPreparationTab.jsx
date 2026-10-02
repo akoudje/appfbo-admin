@@ -53,7 +53,7 @@ const ANOMALY_OPTIONS = [
   { value: "BLOCKED_PARCEL", label: "Colis bloqué" },
 ];
 
-function ChecklistRow({ item, disabled, onToggle, onReport }) {
+function ChecklistRow({ item, disabled, onToggle }) {
   const checked = Boolean(item?.checked);
   const line = item?.preorderItem || {};
   return (
@@ -101,7 +101,6 @@ function ChecklistRow({ item, disabled, onToggle, onReport }) {
         </div>
       </div>
     </button>
-    {!disabled ? <button type="button" onClick={() => onReport(item)} className="min-h-10 px-3 text-sm font-medium text-gray-600 underline">Signaler un problème sur cet article</button> : null}
     </div>
   );
 }
@@ -265,10 +264,18 @@ export default function OrderPreparationTab({
             <button
               type="button"
               className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
-              onClick={() => { if (window.confirm("Recommencer le contrôle de tous les articles ?")) onBulkChecklist?.(false); }}
-              disabled={!canBePrepared || saving || totalItems === 0}
+              onClick={() => onBulkChecklist?.(true)}
+              disabled={!canBePrepared || saving || totalItems === 0 || allChecked}
             >
-              Recommencer le contrôle
+              Tout cocher
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
+              onClick={() => onBulkChecklist?.(false)}
+              disabled={!canBePrepared || saving || checkedCount === 0}
+            >
+              Tout décocher
             </button>
           </div>
         </div>
@@ -282,11 +289,6 @@ export default function OrderPreparationTab({
                 key={item.id}
                 item={item}
                 disabled={!canBePrepared || saving}
-                onReport={(row) => {
-                  setAnomalyItemId(row.preorderItemId);
-                  setShowAnomalyForm(true);
-                  requestAnimationFrame(() => document.getElementById("preparation-anomaly-form")?.scrollIntoView({ behavior: "smooth", block: "center" }));
-                }}
                 onToggle={(row) => onToggleChecklistItem?.(row.preorderItemId, !row.checked)}
               />
             ))
