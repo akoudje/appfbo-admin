@@ -252,6 +252,16 @@ export function buildReceiptBodyHtml(row, admin = {}) {
       row.paymentStatus ||
       "-",
   };
+  // isWave ne reflète que le mode de paiement ACTUEL de la commande : si un
+  // paiement Wave a été basculé en espèces au comptoir, isWave devient faux
+  // alors que waveDetails contient toujours la transaction Wave d'origine.
+  // On affiche le bloc Wave dès qu'une vraie donnée existe, pas seulement
+  // quand le mode courant est Wave — sinon on masque la preuve de la
+  // transaction d'origine précisément dans le cas où elle est la plus utile.
+  const hasWaveData =
+    waveDetails.transactionId !== "-" ||
+    waveDetails.payerPhone !== "-" ||
+    waveDetails.sessionId !== "-";
   const paidAt =
     row.manualPaymentValidatedAt ||
     row.paidAt ||
@@ -287,7 +297,7 @@ export function buildReceiptBodyHtml(row, admin = {}) {
     ["Facture AS400", row.factureReference || "-"],
     ["N° reçu caisse", cashierTx.receiptNumber || "-"],
     ["Poste caisse", cashierTx.cashDeskLabel || "-"],
-    ...(isWave
+    ...(hasWaveData
       ? [
           ["Transaction Wave", waveDetails.transactionId],
           ["Session Wave", waveDetails.sessionId],
@@ -307,7 +317,7 @@ export function buildReceiptBodyHtml(row, admin = {}) {
             <img class="forever-logo" src="/logo-forever.png" alt="" />
             <span class="forever-text">FOREVER</span>
           </span>
-          ${isWave ? '<span class="logo-divider"></span><img class="wave-logo" src="/wave.png" alt="Wave" />' : ""}
+          ${isWave || hasWaveData ? '<span class="logo-divider"></span><img class="wave-logo" src="/wave.png" alt="Wave" />' : ""}
         </div>
         <p>${escapeHtml(receiptSubtitle)}</p>
       </header>
