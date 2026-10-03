@@ -237,16 +237,13 @@ export default function PreparationQueueTable({
 
                     {canFulfillNoNotification && ["PAID", "READY"].includes(row.status) ? (
                       <RequirePermission permission={Permission.PREPARATION_UPDATE}>
-                        <details className="text-left">
-                          <summary className="cursor-pointer px-3 py-2 text-sm text-gray-600">Autres actions</summary>
                         <button
                           onClick={() => onFulfillNoNotification?.(row)}
-                          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                          className="min-h-11 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
                           type="button"
                         >
                           Régulariser une remise déjà effectuée
                         </button>
-                        </details>
                       </RequirePermission>
                     ) : null}
 
