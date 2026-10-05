@@ -1,6 +1,8 @@
 import api from "./api";
 
 export const externalPaymentLinksService = {
+  findAttachOrders: async (q) =>
+    (await api.get("/admin/external-payment-links/attach-orders", { params: { q } })).data,
   list: async (params = {}) =>
     (await api.get("/admin/external-payment-links", { params })).data,
 

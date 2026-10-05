@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { AlertTriangle, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
@@ -37,7 +37,7 @@ function formatFcfa(value) {
 }
 
 function computeWaveFee(value) {
-  const base = Number.parseInt(value, 10);
+  const base = Number(value);
   if (!Number.isFinite(base) || base <= 0) return 0;
   return Math.ceil(base * 0.01);
 }
@@ -285,678 +285,216 @@ function smsStatusClass(status) {
   return map[status] || "border-gray-200 bg-gray-50 text-gray-500";
 }
 
+
+const STATUS_LABELS = { ACTIVE: "En attente", PAID: "Payé", EXPIRED: "Expiré", CANCELLED: "Annulé", DRAFT: "Brouillon" };
+const SMS_LABELS = { SENT: "Envoyé", DELIVERED: "Livré", FAILED: "Échec", PENDING: "En attente" };
+const actionClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50";
+
 function Field({ label, children }) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+  return <label className="block space-y-1"><span className="text-sm font-medium text-gray-700">{label}</span>{children}</label>;
+}
+
+function Modal({ title, children, onClose, busy = false }) {
+  const titleId = useId();
+  const panel = useRef(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const first = panel.current?.querySelector("input:not([readonly]), select") || panel.current?.querySelector("button, a[href]");
+    first?.focus();
+    return () => { document.body.style.overflow = oldOverflow; previous?.focus(); };
+  }, []);
+  function handleKey(event) {
+    if (event.key === "Escape" && !busy) onClose();
+    if (event.key !== "Tab") return;
+    const elements = [...panel.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]')];
+    const first = elements[0], last = elements.at(-1);
+    if (!elements.length) { event.preventDefault(); panel.current.focus(); }
+    else if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+    <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={handleKey} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+      <div className="mb-4 flex items-center justify-between gap-3"><h2 id={titleId} className="text-lg font-bold">{title}</h2><button type="button" aria-label="Fermer la fenêtre" disabled={busy} onClick={onClose} className={actionClass}><X className="h-4 w-4" /></button></div>
       {children}
-    </label>
-  );
+    </div>
+  </div>;
+}
+
+function Stat({ label, value }) {
+  return <div className="rounded-xl border border-gray-200 bg-white p-4"><div className="text-sm text-gray-500">{label}</div><div className="mt-1 text-2xl font-bold">{value}</div></div>;
 }
 
 export default function ExternalPaymentLinksPage() {
   const [links, setLinks] = useState([]);
-  const [form, setForm] = useState(emptyForm);
+  const [stats, setStats] = useState({ activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [source, setSource] = useState("");
-  const [createdFrom, setCreatedFrom] = useState("");
-  const [createdTo, setCreatedTo] = useState("");
-  const [watchOnly, setWatchOnly] = useState(false);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState({ activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
+  const [filters, setFilters] = useState({ status: "", source: "", createdFrom: "", createdTo: "", watch: false });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [resendDraft, setResendDraft] = useState({ id: "", phone: "" });
-  const [attachDraft, setAttachDraft] = useState({ id: "", preorderNumber: "" });
-  const [qrConfig, setQrConfig] = useState(null);
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  const [posterQrDataUrl, setPosterQrDataUrl] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const feePreview = computeWaveFee(form.baseAmountFcfa);
-  const totalPreview = (Number.parseInt(form.baseAmountFcfa, 10) || 0) + feePreview;
-
-  const totals = useMemo(
-    () => ({
-      count: total,
-      active: stats.activeCount,
-      paid: stats.paidCount,
-      paidAmount: stats.paidAmountFcfa,
-    }),
-    [total, stats],
-  );
+  const [refreshError, setRefreshError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [modalError, setModalError] = useState("");
+  const [form, setForm] = useState(emptyForm);
+  const [createdLink, setCreatedLink] = useState(null);
+  const [phone, setPhone] = useState("");
+  const [orderQuery, setOrderQuery] = useState("");
+  const [orders, setOrders] = useState([]);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [pending, setPending] = useState(new Set());
+  const locks = useRef(new Set());
+  const request = useRef(0);
+  const reading = useRef(0);
+  const [qrConfig, setQrConfig] = useState(null);
+  const [qrImages, setQrImages] = useState(null);
+  const [qrError, setQrError] = useState("");
+  const [qrLoading, setQrLoading] = useState(false);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const busy = modal && (pending.has(modal.link?.id || "create") || (createdLink && pending.has(createdLink.id)));
+  const latestLoad = useRef(null);
 
-  async function load({ silent = false } = {}) {
-    try {
-      if (!silent) setLoading(true);
-      if (!silent) setError("");
-      const response = await externalPaymentLinksService.list({
-        q: debouncedQuery || undefined,
-        status: watchOnly ? undefined : status || undefined,
-        source: source || undefined,
-        createdFrom: createdFrom || undefined,
-        createdTo: createdTo || undefined,
-        watch: watchOnly ? 1 : undefined,
-        page,
-        pageSize: PAGE_SIZE,
-      });
-      setLinks(response?.data || []);
-      setTotal(response?.total || 0);
-      setStats(response?.stats || { activeCount: 0, paidCount: 0, paidAmountFcfa: 0 });
-    } catch (err) {
-      if (!silent) setError(err?.response?.data?.message || "Chargement impossible.");
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }
-
-  // Recherche texte : on laisse l'utilisateur taper librement et on ne
-  // déclenche la requête qu'une fois la saisie stabilisée.
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query.trim()), FILTER_DEBOUNCE_MS);
+    const timer = setTimeout(() => { setDebouncedQuery(query.trim()); setPage(1); }, FILTER_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query]);
-
-  // Tout changement de filtre repart de la première page.
+  function updateFilter(name, value) { setFilters((prev) => ({ ...prev, [name]: value, ...(name === "watch" && value ? { status: "" } : {}) })); setPage(1); }
+  const load = useCallback(async ({ silent = false } = {}) => {
+    const version = ++request.current;
+    reading.current += 1;
+    if (!silent) { setLoading(true); setError(""); }
+    try {
+      const result = await externalPaymentLinksService.list({ q: debouncedQuery || undefined, ...filters, status: filters.watch ? undefined : filters.status || undefined, watch: filters.watch ? 1 : undefined, page, pageSize: PAGE_SIZE });
+      if (version !== request.current) return;
+      const pages = Math.max(1, Math.ceil((result.total || 0) / PAGE_SIZE));
+      if (page > pages) { setPage(pages); return; }
+      setLinks(result.data || []); setTotal(result.total || 0); setStats(result.stats || {});
+      setLastUpdated(new Date()); setRefreshError("");
+    } catch (err) {
+      if (version !== request.current) return;
+      const message = err?.response?.data?.message || "Chargement impossible. Réessayez.";
+      if (silent) setRefreshError("Actualisation interrompue. Les données affichées peuvent être anciennes."); else setError(message);
+    } finally { reading.current -= 1; if (version === request.current) setLoading(false); }
+  }, [debouncedQuery, filters, page]);
+  useEffect(() => { latestLoad.current = load; load(); return () => { request.current += 1; }; }, [load]);
   useEffect(() => {
-    setPage(1);
-  }, [debouncedQuery, status, source, createdFrom, createdTo, watchOnly]);
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, status, source, createdFrom, createdTo, watchOnly, page]);
-
-  // Rafraîchissement silencieux tant qu'il reste des liens actifs en attente
-  // de paiement — évite d'avoir à recharger la page manuellement pour voir
-  // un paiement Wave se confirmer.
-  useEffect(() => {
-    if (!totals.active) return undefined;
-    const interval = setInterval(() => {
-      load({ silent: true });
-    }, POLL_INTERVAL_MS);
+    const interval = setInterval(() => { if (!document.hidden && locks.current.size === 0 && reading.current === 0) load({ silent: true }); }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totals.active, debouncedQuery, status, source, createdFrom, createdTo, watchOnly, page]);
+  }, [load, stats.activeCount]);
 
-  // Le bascule "À surveiller" prend le pas sur le sélecteur de statut côté
-  // backend ; on le réinitialise ici pour éviter une combinaison trompeuse
-  // à l'écran (ex. "Payés" affiché alors que seuls les actifs comptent).
-  function toggleWatchOnly() {
-    setWatchOnly((prev) => {
-      const next = !prev;
-      if (next) setStatus("");
-      return next;
-    });
-  }
-
-  function resetFilters() {
-    setQuery("");
-    setStatus("");
-    setSource("");
-    setCreatedFrom("");
-    setCreatedTo("");
-    setWatchOnly(false);
-  }
-
-  useEffect(() => {
-    let mounted = true;
-    externalPaymentLinksService.getQrConfig()
-      .then(async (config) => {
-        const [dataUrl, posterDataUrl] = await Promise.all([
-          QRCode.toDataURL(config.url, {
-            width: 320,
-            margin: 2,
-            color: { dark: "#000000", light: "#FFFFFF" },
-          }),
-          config.directUrl
-            ? QRCode.toDataURL(config.directUrl, {
-                width: 480,
-                margin: 2,
-                color: { dark: "#000000", light: "#FFFFFF" },
-              })
-            : Promise.resolve(""),
-        ]);
-        if (!mounted) return;
-        setQrConfig(config);
-        setQrDataUrl(dataUrl);
-        setPosterQrDataUrl(posterDataUrl);
-      })
-      .catch(() => {
-        if (mounted) setQrConfig(null);
-      });
-    return () => {
-      mounted = false;
-    };
+  const loadQr = useCallback(async () => {
+    setQrLoading(true); setQrError("");
+    try {
+      const config = await externalPaymentLinksService.getQrConfig();
+      const options = { width: 480, margin: 2 };
+      const [agent, customer] = await Promise.all([QRCode.toDataURL(config.url, options), config.directUrl ? QRCode.toDataURL(config.directUrl, options) : null]);
+      setQrConfig(config); setQrImages({ agent, customer });
+    } catch { setQrError("Les outils QR sont indisponibles. Réessayez ou contactez un administrateur."); }
+    finally { setQrLoading(false); }
   }, []);
 
-  async function createLink(event) {
+  useEffect(() => {
+    if (modal?.kind !== "attach") return undefined;
+    let active = true;
+    setOrders([]); setOrderLoading(orderQuery.trim().length >= 2);
+    const timer = setTimeout(async () => {
+      if (orderQuery.trim().length < 2) return;
+      try { const result = await externalPaymentLinksService.findAttachOrders(orderQuery.trim()); if (active) setOrders(result.data || []); }
+      catch (err) { if (active) setModalError(err?.response?.data?.message || "Recherche impossible."); }
+      finally { if (active) setOrderLoading(false); }
+    }, FILTER_DEBOUNCE_MS);
+    return () => { active = false; clearTimeout(timer); };
+  }, [modal?.kind, orderQuery]);
+
+  function openModal(kind, link = null) {
+    setModalError(""); setModal({ kind, link }); setCreatedLink(null); setSelectedOrder(null); setOrderQuery("");
+    if (kind === "create") setForm(emptyForm());
+    if (kind === "resend") setPhone(link.smsTo || link.customerPhone || "");
+    if (kind === "qr" && !qrImages) loadQr();
+  }
+  function closeModal() { if (!busy) { setModal(null); setModalError(""); } }
+  async function runAction(key, action) {
+    if (locks.current.has(key)) return;
+    locks.current.add(key); setPending(new Set(locks.current)); setModalError(""); setError("");
+    try { await action(); }
+    catch (err) { const message = err?.response?.data?.message || err.message || "Opération impossible."; if (modal) setModalError(message); else setError(message); }
+    finally { locks.current.delete(key); setPending(new Set(locks.current)); }
+  }
+  async function copy(value) {
+    try { await navigator.clipboard.writeText(value); setNotice({ text: "Lien copié.", tone: "success" }); }
+    catch { setNotice({ text: `Copie automatique indisponible. Sélectionnez ce lien : ${value}`, tone: "warning" }); }
+  }
+  function smsNotice(link) {
+    return link.smsResult?.accepted ? { text: `SMS envoyé au ${link.smsTo || link.customerPhone}.`, tone: "success" } : { text: `Lien disponible, mais SMS non envoyé : ${link.smsResult?.errorMessage || link.smsLastError || "erreur d’envoi"}. Vous pouvez réessayer.`, tone: "warning" };
+  }
+  function createLink(event) {
     event.preventDefault();
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      const created = await externalPaymentLinksService.create({
-        invoiceReference: form.invoiceReference,
-        baseAmountFcfa: form.baseAmountFcfa,
-        customerPhone: form.customerPhone,
-        expiresInHours: form.expiresInHours || undefined,
-      });
-      setForm(emptyForm());
-      const smsMessage = created.smsResult?.accepted
-        ? ` SMS envoyé au ${created.smsTo || form.customerPhone}.`
-        : ` SMS non envoyé : ${created.smsResult?.errorMessage || created.smsLastError || "erreur inconnue"}.`;
-      setMessage(`Lien généré : ${created.publicUrl}.${smsMessage}`);
-      setShowCreateModal(false);
-      if (page !== 1) {
-        setPage(1);
-      } else {
-        await load();
-      }
-    } catch (err) {
-      setError(err?.response?.data?.message || "Création du lien impossible.");
-    } finally {
-      setSaving(false);
-    }
+    if (!form.invoiceReference.trim()) { setModalError("La référence de facture est obligatoire."); return; }
+    if (!Number.isSafeInteger(Number(form.baseAmountFcfa)) || Number(form.baseAmountFcfa) <= 0) { setModalError("Saisissez un montant entier positif en FCFA."); return; }
+    if (!/^\+?\d{8,15}$/.test(form.customerPhone.replace(/[\s().-]/g, ""))) { setModalError("Saisissez un téléphone valide de 8 à 15 chiffres."); return; }
+    runAction("create", async () => {
+      const link = await externalPaymentLinksService.create({ invoiceReference: form.invoiceReference.trim(), baseAmountFcfa: Number(form.baseAmountFcfa), customerPhone: form.customerPhone.trim(), expiresInHours: form.expiresInHours || undefined });
+      setCreatedLink(link); setNotice(smsNotice(link)); setPage(1); await latestLoad.current({ silent: true });
+    });
   }
+  function resend(link, recipient) { return runAction(link.id, async () => { const result = await externalPaymentLinksService.resendSms(link.id, { phone: recipient || undefined }); setNotice(smsNotice(result)); if (modal?.kind === "create") setCreatedLink(result); else setModal(null); await latestLoad.current({ silent: true }); }); }
+  const attachedLink = modal?.kind === "attach" ? modal.link : null;
+  const baseAmount = attachedLink ? Number(attachedLink.baseAmountFcfa || (attachedLink.amountFcfa - (attachedLink.serviceFeeFcfa || 0))) : 0;
+  const amountMatches = selectedOrder && Number(selectedOrder.totalFcfa) > 0 && Number(selectedOrder.totalFcfa) === baseAmount;
 
-  async function resendSms(link, phone = "") {
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      const updated = await externalPaymentLinksService.resendSms(link.id, {
-        phone: phone || undefined,
-      });
-      setMessage(
-        updated.smsResult?.accepted
-          ? `SMS renvoyé au ${updated.smsTo || phone || link.customerPhone}.`
-          : `SMS non envoyé : ${updated.smsResult?.errorMessage || updated.smsLastError || "erreur inconnue"}.`,
-      );
-      setResendDraft({ id: "", phone: "" });
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Renvoi SMS impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function syncWave(link) {
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      const updated = await externalPaymentLinksService.syncWave(link.id);
-      setMessage(
-        updated.status === "PAID"
-          ? `Paiement confirmé pour ${updated.reference}.`
-          : `Synchronisation effectuée. Statut Wave: ${updated.providerStatus || updated.status}.`,
-      );
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Synchronisation Wave impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function attachToOrder(link, preorderNumber = "") {
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      const result = await externalPaymentLinksService.attachToOrder(link.id, {
-        preorderNumber,
-      });
-      setMessage(result?.message || `Paiement ${link.reference} rattaché à la commande.`);
-      setAttachDraft({ id: "", preorderNumber: "" });
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Rattachement impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function copyLink(link) {
-    try {
-      await navigator.clipboard.writeText(link.publicUrl);
-      setMessage("Lien copié.");
-    } catch {
-      setMessage(link.publicUrl);
-    }
-  }
-
-  async function copyText(value, label = "Copié.") {
-    try {
-      await navigator.clipboard.writeText(value || "");
-      setMessage(label);
-    } catch {
-      setMessage(value || "");
-    }
-  }
-
-  async function cancelLink(link) {
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
-      await externalPaymentLinksService.updateStatus(link.id, "CANCELLED");
-      setMessage(`Lien ${link.reference} annulé.`);
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Mise à jour impossible.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">
-          Paiements externes
-        </p>
-        <h1 className="text-2xl font-bold text-gray-950">Liens hors précommande</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Générez un lien Wave avec majoration automatique de 1% de frais.
-        </p>
+  return <div className="space-y-4">
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div><h1 className="text-2xl font-bold text-gray-950">Paiements Wave hors précommande</h1><p className="mt-1 text-sm text-gray-500">Créez un lien, suivez le paiement et rattachez-le à une commande.</p></div>
+      <div className="flex flex-wrap gap-2"><button type="button" onClick={() => openModal("qr")} className={actionClass}><QrCode className="h-4 w-4" />Outils QR</button><button type="button" onClick={() => openModal("create")} className={`${actionClass} !bg-gray-900 !text-white`}><Plus className="h-4 w-4" />Nouveau lien</button></div>
+    </header>
+    <CashRegisterStatusPanel />
+    {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+    {notice && <div role="status" className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-sm break-words ${notice.tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}><span>{notice.text}</span><button type="button" aria-label="Fermer le message" onClick={() => setNotice(null)}><X className="h-4 w-4" /></button></div>}
+    <div><p className="mb-2 text-xs text-gray-500">Indicateurs sur les résultats filtrés · montants encaissés incluant les frais Wave</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Résultats" value={total} /><Stat label="En attente" value={stats.activeCount || 0} /><Stat label="Paiements confirmés" value={stats.paidCount || 0} /><Stat label="Montant encaissé" value={formatFcfa(stats.paidAmountFcfa)} /></div></div>
+    <section className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-bold">Suivi des paiements</h2><button type="button" onClick={() => load()} disabled={loading} className={actionClass}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Actualiser</button></div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Field label="Rechercher"><div className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2"><Search className="h-4 w-4 shrink-0 text-gray-400" /><input aria-label="Rechercher par facture, référence, client ou téléphone" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Facture, référence, client…" className="min-w-0 w-full text-sm outline-none" /></div></Field>
+        <Field label="Statut du paiement"><select className={inputClass()} value={filters.status} disabled={filters.watch} onChange={(e) => updateFilter("status", e.target.value)}><option value="">Tous les statuts</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+        <Field label="Origine"><select className={inputClass()} value={filters.source} onChange={(e) => updateFilter("source", e.target.value)}><option value="">Toutes les origines</option><option value="ADMIN">Agent</option><option value="QR_FORM">QR</option></select></Field>
+        <div className="grid grid-cols-2 gap-2"><Field label="Créé du"><input type="date" className={inputClass()} value={filters.createdFrom} max={filters.createdTo || undefined} onChange={(e) => updateFilter("createdFrom", e.target.value)} /></Field><Field label="Au"><input type="date" className={inputClass()} value={filters.createdTo} min={filters.createdFrom || undefined} onChange={(e) => updateFilter("createdTo", e.target.value)} /></Field></div>
       </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3"><button type="button" aria-pressed={filters.watch} onClick={() => updateFilter("watch", !filters.watch)} className={`${actionClass} ${filters.watch ? "!border-amber-300 !bg-amber-50 !text-amber-800" : ""}`}><AlertTriangle className="h-4 w-4" />À surveiller · expiration sous 2 h</button><button type="button" onClick={() => { setFilters({ status: "", source: "", createdFrom: "", createdTo: "", watch: false }); setQuery(""); setPage(1); }} className="text-sm font-medium text-gray-600 underline">Réinitialiser</button></div>
+      <p role="status" className={`mt-3 text-xs ${refreshError ? "text-amber-700" : "text-gray-500"}`}>{refreshError || (lastUpdated ? `Dernière actualisation : ${lastUpdated.toLocaleTimeString("fr-FR")} · Suivi automatique toutes les 15 s` : "Chargement des paiements…")}</p>
+      <div className="mt-4 overflow-x-auto" aria-busy={loading}><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500"><tr>{["Facture / référence", "Client", "Montant", "Paiement", "SMS", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3">{label}</th>)}</tr></thead><tbody>
+        {links.map((link) => <tr key={link.id} className="border-t border-gray-100 align-top hover:bg-gray-50/50">
+          <td className="px-3 py-3"><button type="button" onClick={() => openModal("detail", link)} className="min-h-11 text-left font-semibold text-indigo-700 underline">{link.invoiceReference || link.reference}</button><div className="font-mono text-xs text-gray-500">{link.reference}</div><div className="mt-1 text-xs text-gray-500">{link.source === "QR_FORM" ? "QR" : "Agent"} · {formatDateTime(link.createdAt)}</div>{link.attachedOrder && <div className="mt-1 text-xs font-medium text-emerald-700">Rattaché à {link.attachedOrder.preorderNumber}</div>}</td>
+          <td className="px-3 py-3"><div className="font-semibold">{link.customerName && link.customerName !== link.customerPhone ? link.customerName : link.customerPhone || "—"}</div><div className="text-xs text-gray-500">{link.customerPhone}</div>{link.customerFboNumber && <div className="text-xs text-gray-500">FBO {link.customerFboNumber}</div>}</td>
+          <td className="whitespace-nowrap px-3 py-3"><div className="font-semibold">{formatFcfa(link.amountFcfa)}</div><div className="text-xs text-gray-500">Facture {formatFcfa(link.baseAmountFcfa || link.amountFcfa)}</div><div className="text-xs text-gray-500">Frais {formatFcfa(link.serviceFeeFcfa)}</div></td>
+          <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusClass(link.status)}`}>{STATUS_LABELS[link.status] || link.status}</span><div className="mt-2 text-xs text-gray-500">{link.status === "PAID" ? formatDateTime(link.paidAt) : expiryInfo(link).label}</div></td>
+          <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${smsStatusClass(link.smsStatus)}`}>{SMS_LABELS[link.smsStatus] || "Non envoyé"}</span><div className="mt-2 text-xs text-gray-500">{link.smsTo || "—"}</div>{link.smsLastError && <div className="mt-1 max-w-48 text-xs text-red-600">{link.smsLastError}</div>}</td>
+          <td className="px-3 py-3"><div className="flex min-w-56 flex-wrap gap-2">
+            {link.status === "ACTIVE" && <><button type="button" disabled={pending.has(link.id) || !link.providerSessionId} onClick={() => runAction(link.id, async () => { const result = await externalPaymentLinksService.syncWave(link.id); setNotice({ text: result.status === "PAID" ? `Paiement confirmé pour ${link.reference}.` : `Paiement vérifié : ${STATUS_LABELS[result.status] || result.status}.`, tone: "success" }); await latestLoad.current({ silent: true }); })} className={actionClass}><RefreshCw className="h-4 w-4" />{pending.has(link.id) ? "En cours…" : "Vérifier Wave"}</button><button type="button" disabled={pending.has(link.id)} onClick={() => openModal("resend", link)} className={actionClass}><Send className="h-4 w-4" />Renvoyer SMS</button></>}
+            {link.status === "PAID" && <><button type="button" onClick={() => { if (!printExternalWaveReceipt(link)) setError("Autorisez les fenêtres pour imprimer le reçu."); }} className={`${actionClass} !border-emerald-200 !text-emerald-700`}><Printer className="h-4 w-4" />Reçu</button>{!link.attachedOrder && <button type="button" disabled={pending.has(link.id)} onClick={() => openModal("attach", link)} className={actionClass}><LinkIcon className="h-4 w-4" />Rattacher commande</button>}</>}
+            {link.publicUrl && link.status === "ACTIVE" && <button type="button" onClick={() => copy(link.publicUrl)} className={actionClass}><Copy className="h-4 w-4" />Copier le lien</button>}
+            <button type="button" onClick={() => openModal("detail", link)} className={actionClass}>Détails</button>
+            {["ACTIVE", "DRAFT"].includes(link.status) && <button type="button" disabled={pending.has(link.id)} onClick={() => openModal("cancel", link)} className={`${actionClass} !text-red-700`}>Annuler le lien</button>}
+          </div></td>
+        </tr>)}
+        {!links.length && <tr><td colSpan={6} className="px-3 py-10 text-center text-gray-500">{loading ? "Chargement…" : error ? "La liste n’a pas pu être chargée." : "Aucun paiement ne correspond aux filtres."}</td></tr>}
+      </tbody></table></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500"><span>{total ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} sur ${total}` : "Aucun résultat"}</span><div className="flex items-center gap-2"><button type="button" disabled={loading || page <= 1} onClick={() => setPage((value) => value - 1)} className={actionClass}><ChevronLeft className="h-4 w-4" />Précédent</button><span>Page {page} / {totalPages}</span><button type="button" disabled={loading || page >= totalPages} onClick={() => setPage((value) => value + 1)} className={actionClass}>Suivant<ChevronRight className="h-4 w-4" /></button></div></div>
+    </section>
 
-      <CashRegisterStatusPanel />
-
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
-      ) : null}
-      {message ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 break-all">{message}</div>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Liens" value={totals.count} />
-        <Stat label="Actifs" value={totals.active} />
-        <Stat label="Payés" value={totals.paid} />
-        <Stat label="Montant payé" value={formatFcfa(totals.paidAmount)} />
-      </div>
-
-      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-2xl bg-white p-3 text-amber-700">
-              <QrCode className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold text-gray-950">QR de génération Wave</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                À scanner depuis votre téléphone pour générer rapidement un lien, à partager ensuite au client (SMS, WhatsApp...). Pour une affiche en libre-service où le client scanne, saisit sa facture et paie directement en un clic, utilisez « Imprimer l'affiche ».
-              </p>
-              {qrConfig?.url ? (
-                <div className="mt-2 truncate rounded-lg bg-white px-3 py-2 font-mono text-xs text-gray-600">
-                  {qrConfig.url}
-                </div>
-              ) : (
-                <div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-red-600">
-                  Token QR non configuré côté backend.
-                </div>
-              )}
-            </div>
-          </div>
-          {qrDataUrl ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <img src={qrDataUrl} alt="QR génération lien Wave" className="h-28 w-28 rounded-xl border border-amber-200 bg-white p-2" />
-              <div className="grid gap-2">
-                <button type="button" onClick={() => copyText(qrConfig.url, "URL QR copiée.")} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-gray-800">
-                  <Copy className="h-4 w-4" />
-                  Copier l'URL
-                </button>
-                <a href={qrDataUrl} download="qr-generation-lien-wave.png" className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-3 py-2 text-xs font-bold text-white">
-                  <Download className="h-4 w-4" />
-                  Télécharger QR
-                </a>
-                <button type="button" onClick={() => printQrPoster(posterQrDataUrl || qrDataUrl)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-                  <Printer className="h-4 w-4" />
-                  Imprimer l'affiche
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div>
-            <h2 className="text-lg font-bold">Liens générés</h2>
-            <p className="text-sm text-gray-500">Suivi des paiements Wave hors précommande.</p>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
-              <Plus className="h-4 w-4" />
-              Nouveau lien
-            </button>
-            <button
-              type="button"
-              onClick={() => load()}
-              disabled={loading}
-              title="Actualiser maintenant"
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Actualiser
-            </button>
-            <label className="flex w-full items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 sm:w-56">
-              <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Recherche..." className="w-full bg-transparent text-sm outline-none" />
-            </label>
-            <select
-              className={inputClass()}
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              disabled={watchOnly}
-              title={watchOnly ? "Désactivé pendant le filtre « À surveiller »" : undefined}
-            >
-              <option value="">Tous statuts</option>
-              <option value="ACTIVE">Actifs</option>
-              <option value="PAID">Payés</option>
-              <option value="CANCELLED">Annulés</option>
-              <option value="EXPIRED">Expirés</option>
-            </select>
-            <select className={inputClass()} value={source} onChange={(e) => setSource(e.target.value)}>
-              <option value="">Toutes sources</option>
-              <option value="ADMIN">Admin</option>
-              <option value="QR_FORM">Kiosque QR</option>
-            </select>
-            <div className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5">
-              <input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} className="bg-transparent text-sm outline-none" title="Créé à partir du" />
-              <span className="text-xs text-gray-400">→</span>
-              <input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} className="bg-transparent text-sm outline-none" title="Créé jusqu'au" />
-            </div>
-            <button
-              type="button"
-              onClick={toggleWatchOnly}
-              title="Liens actifs déjà expirés ou expirant sous 2h"
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${
-                watchOnly
-                  ? "border-amber-300 bg-amber-100 text-amber-800"
-                  : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              À surveiller
-            </button>
-            {(query || status || source || createdFrom || createdTo || watchOnly) ? (
-              <button type="button" onClick={resetFilters} className="text-xs font-semibold text-gray-500 underline hover:text-gray-700">
-                Réinitialiser les filtres
-              </button>
-            ) : null}
-          </div>
-          {totals.active ? (
-            <p className="mt-2 text-xs text-gray-400">
-              Actualisation automatique toutes les {Math.round(POLL_INTERVAL_MS / 1000)} s tant que des liens sont actifs.
-            </p>
-          ) : null}
-
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-3 py-2">Référence</th>
-                  <th className="px-3 py-2">Source</th>
-                  <th className="px-3 py-2">Client</th>
-                  <th className="px-3 py-2">Montant</th>
-                  <th className="px-3 py-2">Statut</th>
-                  <th className="px-3 py-2">Validité</th>
-                  <th className="px-3 py-2">Confirmation</th>
-                  <th className="px-3 py-2">SMS</th>
-                  <th className="px-3 py-2">Créé le</th>
-                  <th className="px-3 py-2">Créé par</th>
-                  <th className="px-3 py-2">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {links.map((link) => (
-                  <tr key={link.id} className="border-t border-gray-100">
-                    <td className="px-3 py-2">
-                      <div className="font-mono text-xs">{link.reference}</div>
-                      <div className="text-xs text-gray-500">Facture {link.invoiceReference || "—"}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-600">
-                        {link.source === "QR_FORM" ? "QR" : "Admin"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-semibold">{link.customerPhone || "—"}</div>
-                      <div className="text-xs text-gray-500">Téléphone FBO</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-semibold">{formatFcfa(link.amountFcfa)}</div>
-                      <div className="text-xs text-gray-500">
-                        Base {formatFcfa(link.baseAmountFcfa || link.amountFcfa)} + frais {formatFcfa(link.serviceFeeFcfa)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusClass(link.status)}`}>{link.status}</span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className={`text-xs ${expiryInfo(link).className}`}>{expiryInfo(link).label}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="space-y-1">
-                        <div className={link.status === "PAID" ? "font-semibold text-emerald-700" : "font-semibold text-gray-500"}>
-                          {link.status === "PAID" ? "Paiement confirmé" : "Non confirmé"}
-                        </div>
-                        <div className="text-xs text-gray-500">{link.paidAt ? formatDateTime(link.paidAt) : link.providerStatus || "—"}</div>
-                        {link.providerTransactionId ? (
-                          <div className="max-w-[180px] truncate font-mono text-xs text-gray-500" title={link.providerTransactionId}>{link.providerTransactionId}</div>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="space-y-1">
-                        <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${smsStatusClass(link.smsStatus)}`}>
-                          {link.smsStatus || "—"}
-                        </span>
-                        <div className="text-xs text-gray-500">{link.smsTo || "Aucun numéro"}</div>
-                        {link.smsLastError ? (
-                          <div className="max-w-[220px] truncate text-xs text-red-600" title={link.smsLastError}>{link.smsLastError}</div>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">{formatDateTime(link.createdAt)}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{creatorLabel(link)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => copyLink(link)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700">
-                          <Copy className="h-3.5 w-3.5" />
-                          Copier
-                        </button>
-                        {link.publicUrl ? (
-                          <a href={link.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Ouvrir
-                          </a>
-                        ) : null}
-                        {link.status === "ACTIVE" ? (
-                          <button type="button" onClick={() => syncWave(link)} disabled={saving || !link.providerSessionId} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Synchroniser
-                          </button>
-                        ) : null}
-                        {link.status === "ACTIVE" ? (
-                          <button type="button" onClick={() => setResendDraft({ id: link.id, phone: link.smsTo || link.customerPhone || "" })} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:opacity-50">
-                            <Send className="h-3.5 w-3.5" />
-                            Renvoyer SMS
-                          </button>
-                        ) : null}
-                        {link.status === "ACTIVE" ? (
-                          <button type="button" onClick={() => cancelLink(link)} disabled={saving} className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50">
-                            Annuler
-                          </button>
-                        ) : null}
-                        {link.status === "PAID" ? (
-                          <button type="button" onClick={() => printExternalWaveReceipt(link)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg bg-green-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
-                            <Printer className="h-3.5 w-3.5" />
-                            Reçu
-                          </button>
-                        ) : null}
-                        {link.status === "PAID" ? (
-                          <button type="button" onClick={() => setAttachDraft({ id: link.id, preorderNumber: "" })} disabled={saving} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:opacity-50">
-                            Rattacher commande
-                          </button>
-                        ) : null}
-                      </div>
-                      {resendDraft.id === link.id ? (
-                        <div className="mt-2 flex min-w-[280px] flex-wrap gap-2 rounded-xl border border-amber-100 bg-amber-50 p-2">
-                          <input className="min-w-0 flex-1 rounded-lg border border-amber-200 px-2 py-1 text-xs outline-none focus:border-amber-400" value={resendDraft.phone} onChange={(e) => setResendDraft({ id: link.id, phone: e.target.value })} placeholder="Autre numéro" />
-                          <button type="button" onClick={() => resendSms(link, resendDraft.phone)} disabled={saving} className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
-                            Envoyer
-                          </button>
-                          <button type="button" onClick={() => setResendDraft({ id: "", phone: "" })} className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-600">
-                            Fermer
-                          </button>
-                        </div>
-                      ) : null}
-                      {attachDraft.id === link.id ? (
-                        <div className="mt-2 flex min-w-[320px] flex-wrap gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
-                          <input
-                            className="min-w-0 flex-1 rounded-lg border border-emerald-200 px-2 py-1 text-xs outline-none focus:border-emerald-400"
-                            value={attachDraft.preorderNumber}
-                            onChange={(e) => setAttachDraft({ id: link.id, preorderNumber: e.target.value })}
-                            placeholder="PO-CIV-20260615-0051"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => attachToOrder(link, attachDraft.preorderNumber)}
-                            disabled={saving || !attachDraft.preorderNumber.trim()}
-                            className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                          >
-                            Rattacher
-                          </button>
-                          <button type="button" onClick={() => setAttachDraft({ id: "", preorderNumber: "" })} className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-600">
-                            Fermer
-                          </button>
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-                {!links.length && !loading ? (
-                  <tr>
-                    <td colSpan={11} className="px-3 py-8 text-center text-gray-500">Aucun lien externe.</td>
-                  </tr>
-                ) : null}
-                {loading ? (
-                  <tr>
-                    <td colSpan={11} className="px-3 py-8 text-center text-gray-500">Chargement...</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-            <span>
-              {total > 0
-                ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} sur ${total}`
-                : "Aucun résultat"}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1 || loading}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Précédent
-              </button>
-              <span className="text-xs font-semibold text-gray-600">
-                Page {page} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages || loading}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Suivant
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </section>
-
-      {showCreateModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form onSubmit={createLink} className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold">Générer un lien</h2>
-                <p className="mt-1 text-sm text-gray-500">Le lien sera envoyé automatiquement par SMS.</p>
-              </div>
-              <button type="button" onClick={() => setShowCreateModal(false)} className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <Field label="Réf. facture">
-                <input className={inputClass()} value={form.invoiceReference} onChange={(e) => setForm({ ...form, invoiceReference: e.target.value })} />
-              </Field>
-              <Field label="Montant sans frais">
-                <input type="number" min="1" className={inputClass()} value={form.baseAmountFcfa} onChange={(e) => setForm({ ...form, baseAmountFcfa: e.target.value })} />
-              </Field>
-              <Field label="Téléphone FBO">
-                <input className={inputClass()} value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
-              </Field>
-              <Field label="Validité du lien">
-                <select className={inputClass()} value={form.expiresInHours} onChange={(e) => setForm({ ...form, expiresInHours: e.target.value })}>
-                  {EXPIRY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </Field>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-600">Frais Wave 1%</span>
-                  <span className="font-bold">{formatFcfa(feePreview)}</span>
-                </div>
-                <div className="mt-2 flex justify-between gap-3 text-base">
-                  <span className="font-bold">Total à payer</span>
-                  <span className="font-black">{formatFcfa(totalPreview)}</span>
-                </div>
-              </div>
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
-                Paiement Wave uniquement
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setShowCreateModal(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">
-                Annuler
-              </button>
-              <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-                <LinkIcon className="h-4 w-4" />
-                Générer le lien
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
-    </div>
-  );
+    {modal && <Modal title={{ create: createdLink ? "Lien créé" : "Créer un lien Wave", resend: "Renvoyer le SMS", attach: "Rattacher le paiement", detail: "Détails du paiement", qr: "Outils QR", cancel: "Annuler le lien de paiement" }[modal.kind]} onClose={closeModal} busy={busy}>
+      {modalError && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{modalError}</div>}
+      {modal.kind === "create" && (createdLink ? <div className="space-y-4"><p className="text-sm">Facture {createdLink.invoiceReference} · <strong>{formatFcfa(createdLink.amountFcfa)}</strong></p><p role="status" className={`rounded-lg p-3 text-sm ${smsNotice(createdLink).tone === "warning" ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{smsNotice(createdLink).text}</p><input aria-label="Lien de paiement créé" readOnly value={createdLink.publicUrl} className={inputClass()} /><div className="flex flex-wrap gap-2"><button type="button" onClick={() => copy(createdLink.publicUrl)} className={actionClass}>Copier le lien</button>{!createdLink.smsResult?.accepted && <button type="button" disabled={pending.has(createdLink.id)} onClick={() => resend(createdLink)} className={actionClass}>Réessayer le SMS</button>}<button type="button" onClick={closeModal} className={actionClass}>Terminer</button></div></div> : <form onSubmit={createLink} className="space-y-4"><p className="text-sm text-gray-500">Le lien sera envoyé par SMS. Les frais Wave de 1 % sont ajoutés au montant de la facture.</p><Field label="Référence de facture *"><input required maxLength={100} className={inputClass()} value={form.invoiceReference} onChange={(e) => setForm({ ...form, invoiceReference: e.target.value })} /></Field><Field label="Montant de la facture hors frais (FCFA) *"><input required type="number" min="1" step="1" className={inputClass()} value={form.baseAmountFcfa} onChange={(e) => setForm({ ...form, baseAmountFcfa: e.target.value })} /></Field><Field label="Téléphone du destinataire *"><input required type="tel" inputMode="tel" autoComplete="tel" placeholder="Ex. 0700000000" className={inputClass()} value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} /></Field><Field label="Validité du lien"><select className={inputClass()} value={form.expiresInHours} onChange={(e) => setForm({ ...form, expiresInHours: e.target.value })}>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field><div className="rounded-xl bg-amber-50 p-3"><div className="flex justify-between text-sm"><span>Frais Wave · 1 %</span><span>{formatFcfa(computeWaveFee(form.baseAmountFcfa))}</span></div><div className="mt-2 flex justify-between font-bold"><span>Total à payer</span><span>{formatFcfa((Number(form.baseAmountFcfa) || 0) + computeWaveFee(form.baseAmountFcfa))}</span></div></div><button disabled={busy} className={`${actionClass} w-full !bg-gray-900 !text-white`}>{busy ? "Création…" : "Créer et envoyer par SMS"}</button></form>)}
+      {modal.kind === "resend" && <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!/^\+?\d{8,15}$/.test(phone.replace(/[\s().-]/g, ""))) { setModalError("Saisissez un numéro valide de 8 à 15 chiffres."); return; } resend(modal.link, phone); }}><p className="text-sm">Facture {modal.link.invoiceReference} · {formatFcfa(modal.link.amountFcfa)}</p><Field label="Téléphone du destinataire"><input required type="tel" className={inputClass()} value={phone} onChange={(e) => setPhone(e.target.value)} /></Field><button disabled={busy} className={actionClass}>{busy ? "Envoi…" : "Envoyer le SMS"}</button></form>}
+      {modal.kind === "attach" && <div className="space-y-4"><p className="text-sm">Paiement {modal.link.reference} · montant hors frais <strong>{formatFcfa(baseAmount)}</strong></p><Field label="Rechercher une commande non soldée"><input className={inputClass()} value={orderQuery} onChange={(e) => { setOrderQuery(e.target.value); setSelectedOrder(null); setModalError(""); }} placeholder="Numéro de commande, facture, nom ou FBO" /></Field><div role="status" className="text-sm text-gray-500">{orderLoading ? "Recherche…" : orderQuery.trim().length < 2 ? "Saisissez au moins 2 caractères." : !orders.length ? "Aucune commande non soldée trouvée." : "Sélectionnez la commande concernée."}</div><div className="space-y-2">{orders.map((order) => <button key={order.id} type="button" aria-pressed={selectedOrder?.id === order.id} onClick={() => setSelectedOrder(order)} className={`w-full rounded-xl border p-3 text-left ${selectedOrder?.id === order.id ? "border-indigo-400 bg-indigo-50" : "border-gray-200"}`}><div className="font-semibold">{order.preorderNumber} · {formatFcfa(order.totalFcfa)}</div><div className="text-sm text-gray-600">{order.fboNomComplet} · FBO {order.fboNumero} · Facture {order.factureReference || "—"}</div></button>)}</div>{selectedOrder && <div className={`rounded-xl p-3 text-sm ${amountMatches ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}><p>Facture commande : {formatFcfa(selectedOrder.totalFcfa)}</p><p>Paiement hors frais : {formatFcfa(baseAmount)}</p><p>Frais Wave : {formatFcfa(modal.link.serviceFeeFcfa)}</p><p className="mt-2 font-semibold">{amountMatches ? "Montants identiques. Cette commande sera marquée payée." : `Écart de ${formatFcfa(baseAmount - Number(selectedOrder.totalFcfa))}. Rattachement bloqué.`}</p></div>}<button type="button" disabled={busy || !amountMatches} onClick={() => runAction(modal.link.id, async () => { const result = await externalPaymentLinksService.attachToOrder(modal.link.id, { preorderNumber: selectedOrder.preorderNumber }); setNotice({ text: result.message, tone: "success" }); setModal(null); await latestLoad.current({ silent: true }); })} className={`${actionClass} w-full !bg-gray-900 !text-white`}>{busy ? "Rattachement…" : "Confirmer le rattachement"}</button></div>}
+      {modal.kind === "cancel" && <div className="space-y-4"><p>Annuler le lien de la facture <strong>{modal.link.invoiceReference || modal.link.reference}</strong> de <strong>{formatFcfa(modal.link.amountFcfa)}</strong> ? Le client ne pourra plus l’utiliser pour payer.</p><button type="button" disabled={busy} onClick={() => runAction(modal.link.id, async () => { await externalPaymentLinksService.updateStatus(modal.link.id, "CANCELLED"); setNotice({ text: `Lien ${modal.link.reference} annulé.`, tone: "success" }); setModal(null); await latestLoad.current({ silent: true }); })} className={`${actionClass} !border-red-200 !text-red-700`}>{busy ? "Annulation…" : "Confirmer l’annulation"}</button></div>}
+      {modal.kind === "detail" && <div className="space-y-4"><dl className="divide-y divide-gray-100">{[["Facture", modal.link.invoiceReference], ["Référence", modal.link.reference], ["Client", modal.link.customerName], ["Téléphone client", modal.link.customerPhone], ["Statut", STATUS_LABELS[modal.link.status]], ["Créé par", creatorLabel(modal.link)], ["Créé le", formatDateTime(modal.link.createdAt)], ["Validité", expiryInfo(modal.link).label], ["Montant facture", formatFcfa(modal.link.baseAmountFcfa || modal.link.amountFcfa)], ["Frais Wave", formatFcfa(modal.link.serviceFeeFcfa)], ["Total", formatFcfa(modal.link.amountFcfa)], ["Commande rattachée", modal.link.attachedOrder?.preorderNumber], ["Session Wave", getExternalWaveDetails(modal.link).sessionId], ["Transaction Wave", getExternalWaveDetails(modal.link).transactionId], ["Téléphone payeur Wave", getExternalWaveDetails(modal.link).payerPhone], ["Paiement confirmé le", formatDateTime(modal.link.paidAt)]].map(([label, value]) => <div key={label} className="grid grid-cols-[1fr_1.5fr] gap-3 py-2 text-sm"><dt className="text-gray-500">{label}</dt><dd className="break-all font-medium">{value || "—"}</dd></div>)}</dl>{modal.link.publicUrl && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => copy(modal.link.publicUrl)} className={actionClass}><Copy className="h-4 w-4" />Copier le lien</button><a href={modal.link.publicUrl} target="_blank" rel="noreferrer" className={actionClass}><ExternalLink className="h-4 w-4" />Ouvrir</a></div>}</div>}
+      {modal.kind === "qr" && <div className="space-y-4">{qrLoading && <p role="status">Chargement des QR…</p>}{qrError && <div role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{qrError}<button type="button" onClick={loadQr} className={`${actionClass} mt-2`}>Réessayer</button></div>}{qrImages && <>{[{ title: "Générer un lien depuis un téléphone", description: "Pour un agent : renseignez la facture, puis partagez le lien au client.", image: qrImages.agent, url: qrConfig.url, name: "qr-generation-wave.png" }, { title: "Paiement client en libre-service", description: "Pour le client : scannez, renseignez votre facture et payez avec Wave.", image: qrImages.customer, url: qrConfig.directUrl, name: "qr-paiement-wave.png" }].map((qr) => <section key={qr.title} className="rounded-xl border border-gray-200 p-4"><h3 className="font-semibold">{qr.title}</h3><p className="mt-1 text-sm text-gray-500">{qr.description}</p>{qr.image ? <><img src={qr.image} alt={qr.title} className="mx-auto my-3 h-40 w-40" /><div className="flex flex-wrap gap-2"><button type="button" onClick={() => copy(qr.url)} className={actionClass}>Copier le lien</button><a download={qr.name} href={qr.image} className={actionClass}><Download className="h-4 w-4" />Télécharger QR</a>{qr.image === qrImages.customer && <button type="button" onClick={() => { if (!printQrPoster(qrImages.customer)) setModalError("Autorisez les fenêtres pour imprimer l’affiche."); }} className={actionClass}><Printer className="h-4 w-4" />Imprimer l’affiche</button>}</div></> : <p className="mt-2 text-sm text-amber-700">QR client indisponible.</p>}</section>)}</>}</div>}
+    </Modal>}
+  </div>;
 }
