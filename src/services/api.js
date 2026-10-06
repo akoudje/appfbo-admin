@@ -72,7 +72,7 @@ function redirectToLogin() {
 api.interceptors.request.use((config) => {
   config.headers = config.headers || {};
 
-  config.headers["X-Country"] = getCountryCode();
+  config.headers["X-Country"] = config.headers["X-Country"] || getCountryCode();
 
   const token = getAdminToken();
   if (token) {

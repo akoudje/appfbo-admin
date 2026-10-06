@@ -1,5 +1,3 @@
-// src/components/layout/AdminLayout.jsx
-
 import { useEffect, useState } from "react";
 import Sidebar, { MobileSidebar } from "./Sidebar";
 import Topbar from "./Topbar";
@@ -7,39 +5,31 @@ import MobileNav from "./MobileNav";
 
 export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Fermer le menu si on repasse en desktop
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 1024) setMobileMenuOpen(false);
     };
-    onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Desktop */}
-      <div className="hidden md:flex h-screen">
-        <Sidebar />
-        <div className="flex flex-col flex-1 min-w-0">
-          <Topbar />
-          <main className="p-4 lg:p-6 overflow-auto">{children}</main>
+      <div className="flex min-h-screen md:h-screen">
+        <div className="hidden shrink-0 md:flex">
+          <Sidebar />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar onMenuClick={() => setMobileMenuOpen(true)} />
+          <main className="min-w-0 p-3 pb-24 md:overflow-auto md:p-4 md:pb-4 lg:p-6">
+            {children}
+          </main>
         </div>
       </div>
-
-      {/* Mobile */}
-      <div className="md:hidden pb-20">
-        <Topbar onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="p-3">{children}</main>
-
-        {/* Drawer mobile */}
+      <div className="md:hidden">
         <MobileSidebar
           isOpen={mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
         />
-
         <MobileNav />
       </div>
     </div>
