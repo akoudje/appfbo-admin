@@ -158,11 +158,20 @@ function createMainWindow() {
     },
   });
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    if (url === "about:blank" && frameName === "parcel-label") {
+      return { action: "allow", overrideBrowserWindowOptions: { width: 850, height: 850, autoHideMenuBar: true, webPreferences: { preload: undefined, nodeIntegration: false, contextIsolation: true, sandbox: true } } };
+    }
     if (isAllowedExternalUrl(url)) {
       shell.openExternal(url).catch(() => {});
     }
     return { action: "deny" };
+  });
+
+  win.webContents.on("did-create-window", (child, details) => {
+    if (details.frameName !== "parcel-label") return;
+    child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    child.webContents.on("will-navigate", (event) => event.preventDefault());
   });
 
   win.webContents.on("will-navigate", (event, url) => {

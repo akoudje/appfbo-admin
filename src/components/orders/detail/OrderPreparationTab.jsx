@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { openParcelLabel } from "../../../utils/parcelLabel";
 import { TextPromptDialog } from "../../ui/Dialogs";
 
 function Field({ label, children, optional = false }) {
@@ -118,6 +119,8 @@ export default function OrderPreparationTab({
   onResolveAnomaly,
   onGoToFulfillment,
 }) {
+  const [labelError, setLabelError] = useState("");
+  const [labelLoading, setLabelLoading] = useState(false);
   const [showAnomalyForm, setShowAnomalyForm] = useState(false);
   const [anomalyKind, setAnomalyKind] = useState("MISSING_ITEM");
   const [anomalyItemId, setAnomalyItemId] = useState("");
@@ -172,6 +175,14 @@ export default function OrderPreparationTab({
   const allChecked = totalItems > 0 && checkedCount === totalItems;
   const hasBlockingAnomaly = unresolvedAnomalies.some((item) => item.blocking);
 
+  const handlePrintLabel = async () => {
+    if (labelLoading) return;
+    setLabelLoading(true); setLabelError("");
+    try { await openParcelLabel(order); }
+    catch (error) { setLabelError(error.message || "Impossible de préparer l’étiquette."); }
+    finally { setLabelLoading(false); }
+  };
+
   const handleCreateAnomaly = async () => {
     if (!anomalyNote.trim()) return;
     await onCreateAnomaly?.({
@@ -195,6 +206,7 @@ export default function OrderPreparationTab({
             <p className="mt-1 text-xs text-gray-600">Vérifiez les références et les quantités avant de fermer le colis.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {(canBePrepared || status === "READY" || status === "FULFILLED") ? <button type="button" onClick={handlePrintLabel} disabled={labelLoading || saving} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-50">{labelLoading ? "Préparation de l’étiquette…" : "Imprimer l’étiquette"}</button> : null}
             <Badge tone="blue">{{ PAID: "À préparer", READY: "Prête à remettre", FULFILLED: "Remise effectuée" }[status] || "En attente"}</Badge>
             <Badge tone={stockDebited ? "emerald" : "gray"}>
               {stockDebited ? "Stock sorti" : "Stock en attente"}
@@ -230,6 +242,8 @@ export default function OrderPreparationTab({
           <div className="h-full bg-gray-900 transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
+
+      {labelError ? <div role="alert"><Alert tone="red">{labelError}</Alert></div> : null}
 
       {!canBePrepared && status !== "READY" ? (
         <Alert tone="gray">
