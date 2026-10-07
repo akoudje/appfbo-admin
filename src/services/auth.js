@@ -4,6 +4,11 @@
 const TOKEN_KEY = "adminToken";
 const ADMIN_USER_KEY = "admin_user";
 
+function notifyAdminSession() {
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event("admin-session-change"));
+}
+
 function getDesktopBridge() {
   if (typeof window === "undefined") return null;
   const bridge = window.desktopBridge;
@@ -32,10 +37,12 @@ export function setAdminToken(token) {
 
   if (bridge?.authToken?.set) {
     bridge.authToken.set(normalized);
+    notifyAdminSession();
     return normalized;
   }
 
   window.localStorage.setItem(TOKEN_KEY, normalized);
+  notifyAdminSession();
   return normalized;
 }
 
@@ -45,10 +52,12 @@ export function clearAdminToken() {
   const bridge = getDesktopBridge();
   if (bridge?.authToken?.clear) {
     bridge.authToken.clear();
+    notifyAdminSession();
     return;
   }
 
   window.localStorage.removeItem(TOKEN_KEY);
+  notifyAdminSession();
 }
 
 export function isAuthed() {
@@ -71,12 +80,14 @@ export function setAdminUser(user) {
   if (!user) return null;
 
   window.localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
+  notifyAdminSession();
   return user;
 }
 
 export function clearAdminUser() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(ADMIN_USER_KEY);
+  notifyAdminSession();
 }
 
 export function clearAdminSession() {

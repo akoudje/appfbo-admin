@@ -1,978 +1,934 @@
-// AdminUsersPage.jsx
-// Ce fichier contient la page de gestion des utilisateurs administrateurs.
-
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { usersService } from "../services/usersService";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
-import { Permission, getRolePermissions } from "../auth/permissions";
-
-/* ============================================================================
-   Config métier
-============================================================================ */
-
-const ROLE_GROUPS = [
-  {
-    label: "Exécution métier",
-    roles: [
-      {
-        value: "INVOICER",
-        label: "Facturier",
-        help: "Contrôle les précommandes et émet les préfactures.",
-      },
-      {
-        value: "CAISSIERE",
-        label: "Caissière",
-        help: "Encaisse, contrôle les paiements et lance la préparation.",
-      },
-      {
-        value: "ORDER_PREPARER",
-        label: "Préparateur de commande",
-        help: "Prépare et clôture les commandes déjà validées.",
-      },
-    ],
-  },
-  {
-    label: "Supervision métier",
-    roles: [
-      {
-        value: "FINANCE_MANAGER",
-        label: "Comptable / responsable financier",
-        help: "Suit les encaissements, clôtures caisse, rapports financiers et liens de paiement.",
-      },
-      {
-        value: "BILLING_MANAGER",
-        label: "Responsable facturation",
-        help: "Supervise la chaîne de facturation.",
-      },
-      {
-        value: "COUNTER_MANAGER",
-        label: "Responsable caisse",
-        help: "Supervise les caissières et la synthèse consolidée des caisses.",
-      },
-      {
-        value: "STOCK_MANAGER",
-        label: "Gestionnaire de stock",
-        help: "Pilote le stock et la préparation.",
-      },
-      {
-        value: "MARKETING_MANAGER",
-        label: "Responsable marketing",
-        help: "Pilote les campagnes marketing, les campagnes SMS et les exports.",
-      },
-    ],
-  },
-  {
-    label: "Direction et support",
-    roles: [
-      {
-        value: "OPERATIONS_DIRECTOR",
-        label: "Directeur des opérations",
-        help: "Supervision transverse des opérations pays.",
-      },
-      {
-        value: "SALES_DIRECTOR",
-        label: "Directeur commercial",
-        help: "Pilotage commercial et visibilité commandes.",
-      },
-      {
-        value: "MARKETING_ASSISTANT",
-        label: "Assistant marketing",
-        help: "Consultation limitée marketing et exports.",
-      },
-    ],
-  },
-  {
-    label: "Administration plateforme",
-    roles: [
-      {
-        value: "SUPER_ADMIN",
-        label: "Super Admin",
-        help: "Accès total à la plateforme.",
-      },
-      {
-        value: "TECH_ADMIN",
-        label: "Admin technique",
-        help: "Administration technique et support avancé.",
-      },
-    ],
-  },
-];
-
-const ROLE_OPTIONS = ROLE_GROUPS.flatMap((group) => group.roles);
-
-const COUNTRY_OPTIONS = [
-  { value: "CIV", label: "Côte d’Ivoire" },
-  { value: "BFA", label: "Burkina Faso" },
-  { value: "TGO", label: "Togo" },
-  { value: "BEN", label: "Bénin" },
-  { value: "NER", label: "Niger" },
-];
-
-const PERMISSION_OPTIONS = [
-  {
-    value: Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
-    label: "Génération de liens Wave hors application",
-    help: "Accès à la page de génération et de suivi des liens de paiement Wave.",
-  },
-  {
-    value: Permission.INVOICE_CREATE,
-    label: "Facturation",
-    help: "Accès aux actions de facturation des précommandes.",
-  },
-  {
-    value: Permission.PAYMENT_VALIDATE,
-    label: "Caisse et validation paiement",
-    help: "Accès aux actions d'encaissement et de validation des paiements.",
-  },
-  {
-    value: Permission.PREPARATION_UPDATE,
-    label: "Préparation commandes",
-    help: "Accès aux actions de préparation et clôture opérationnelle.",
-  },
-  {
-    value: Permission.EXPORT_READ,
-    label: "Rapports et exports",
-    help: "Accès aux rapports et exports disponibles.",
-  },
-  {
-    value: Permission.MARKETING_WRITE,
-    label: "Marketing",
-    help: "Accès aux campagnes marketing et SMS.",
-  },
-  {
-    value: Permission.PRODUCT_WRITE,
-    label: "Produits et stock",
-    help: "Accès aux modifications du catalogue produits.",
-  },
-  {
-    value: Permission.USER_ADMIN,
-    label: "Administration utilisateurs",
-    help: "Création et modification des comptes administrateurs.",
-  },
-];
-
-const ROLE_ASSIGNMENT_MATRIX = {
-  SUPER_ADMIN: new Set(ROLE_OPTIONS.map((role) => role.value)),
-  TECH_ADMIN: new Set(
-    ROLE_OPTIONS.map((role) => role.value).filter((role) => role !== "SUPER_ADMIN"),
-  ),
-  OPERATIONS_DIRECTOR: new Set([
-    "FINANCE_MANAGER",
-    "BILLING_MANAGER",
-    "COUNTER_MANAGER",
-    "STOCK_MANAGER",
-    "MARKETING_MANAGER",
-    "MARKETING_ASSISTANT",
-    "INVOICER",
-    "CAISSIERE",
-    "ORDER_PREPARER",
-  ]),
-};
-
-/* ============================================================================
-   Helpers
-============================================================================ */
-
-function getRoleLabel(role) {
-  return ROLE_OPTIONS.find((r) => r.value === role)?.label || role || "—";
-}
-
-function getRoleHelp(role) {
-  return ROLE_OPTIONS.find((r) => r.value === role)?.help || "";
-}
-
-function getCountryLabel(code) {
-  return COUNTRY_OPTIONS.find((c) => c.value === code)?.label || code || "—";
-}
-
-function formatDateTime(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("fr-FR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
-
-function emptyForm(countryCode = "CIV") {
-  return {
-    id: null,
-    fullName: "",
-    email: "",
-    password: "",
-    role: "",
-    countryCode,
-    actif: true,
-    permissionAllow: [],
-    permissionDeny: [],
+import { useConfirm } from "../hooks/useDialogs";
+import { usersService } from "../services/usersService";
+import { settingsService } from "../services/settingsService";
+import { clearAdminSession, setAdminUser } from "../services/auth";
+import UserFormDialog from "../components/users/UserFormDialog";
+import {
+  ROLE_GROUPS,
+  roleLabel,
+  formatDate,
+  emptyForm,
+  userForm,
+  userPatch,
+  validateUserForm,
+} from "../components/users/usersModel";
+const inputClass =
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:opacity-50";
+export default function AdminUsersPage() {
+  const { admin, role } = useAdminAuth(),
+    confirm = useConfirm(),
+    navigate = useNavigate();
+  const isSuper = role === "SUPER_ADMIN";
+  const [filters, setFilters] = useState({
+      q: "",
+      role: "",
+      country: "",
+      status: "",
+      page: 1,
+    }),
+    [search, setSearch] = useState(""),
+    [refresh, setRefresh] = useState(0),
+    [countriesRetry, setCountriesRetry] = useState(0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [users, setUsers] = useState([]),
+    [meta, setMeta] = useState({
+      totalCount: 0,
+      totalPages: 1,
+      manageableRoles: [],
+    }),
+    [countries, setCountries] = useState([]),
+    [countriesError, setCountriesError] = useState("");
+  const [loading, setLoading] = useState(true),
+    [busy, setBusy] = useState(false),
+    [opening, setOpening] = useState(""),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const [dialog, setDialog] = useState(null),
+    [form, setForm] = useState(() => emptyForm()),
+    [initial, setInitial] = useState(() => emptyForm()),
+    [formErrors, setFormErrors] = useState({}),
+    [formMessage, setFormMessage] = useState(""),
+    [conflict, setConflict] = useState(false);
+  const listRequest = useRef(0),
+    detailRequest = useRef(0),
+    mutation = useRef(false),
+    confirming = useRef(false);
+  useEffect(() => {
+    const timer = setTimeout(
+      () =>
+        setFilters((value) =>
+          value.q === search.trim()
+            ? value
+            : { ...value, q: search.trim(), page: 1 },
+        ),
+      350,
+    );
+    return () => clearTimeout(timer);
+  }, [search]);
+  useEffect(() => {
+    const request = ++listRequest.current;
+    setLoading(true);
+    setError("");
+    const params = {
+      page: filters.page,
+      pageSize: 20,
+      q: filters.q || undefined,
+      role: filters.role || undefined,
+      countryCode: filters.country || undefined,
+      actif:
+        filters.status === "active"
+          ? true
+          : filters.status === "inactive"
+            ? false
+            : undefined,
+    };
+    usersService
+      .getAll(params)
+      .then((result) => {
+        if (request !== listRequest.current) return;
+        if (filters.page > result.totalPages) {
+          setFilters((value) => ({
+            ...value,
+            page: Math.max(1, result.totalPages),
+          }));
+          return;
+        }
+        setUsers(result.data || []);
+        setMeta({
+          totalCount: result.totalCount || 0,
+          totalPages: Math.max(1, result.totalPages || 1),
+          manageableRoles: result.manageableRoles || [],
+        });
+      })
+      .catch((next) => {
+        if (request === listRequest.current)
+          setError(
+            next?.response?.data?.message ||
+              "Impossible de charger les utilisateurs.",
+          );
+      })
+      .finally(() => {
+        if (request === listRequest.current) setLoading(false);
+      });
+    return () => {
+      listRequest.current += 1;
+    };
+  }, [filters, refresh]);
+  useEffect(() => {
+    let active = true;
+    settingsService
+      .getCountriesList()
+      .then((rows) => {
+        if (active) {
+          setCountries(rows);
+          setCountriesError("");
+        }
+      })
+      .catch(() => {
+        if (active) setCountriesError("La liste des pays est indisponible.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [countriesRetry]);
+  useEffect(
+    () => () => {
+      detailRequest.current += 1;
+    },
+    [],
+  );
+  const dirty = useMemo(
+    () =>
+      dialog &&
+      dialog.mode !== "view" &&
+      JSON.stringify(form) !== JSON.stringify(initial),
+    [dialog, form, initial],
+  );
+  useEffect(() => {
+    if (!dirty && !busy) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, busy]);
+  const countryOptions = isSuper
+    ? countries
+    : countries.filter((country) => country.code === admin?.countryCode);
+  const patch =
+    dialog?.mode === "edit" ? userPatch(form, initial, isSuper) : {};
+  const closeDialog = async () => {
+    if (mutation.current || confirming.current) return;
+    if (dirty) {
+      confirming.current = true;
+      const ok = await confirm({
+        title: "Fermer sans enregistrer ?",
+        message: "Les modifications de cette fiche seront perdues.",
+        confirmLabel: "Fermer sans enregistrer",
+        tone: "warning",
+      });
+      confirming.current = false;
+      if (!ok) return;
+    }
+    detailRequest.current += 1;
+    setDialog(null);
+    setForm(emptyForm());
+    setInitial(emptyForm());
+    setFormErrors({});
+    setFormMessage("");
+    setConflict(false);
   };
-}
-
-function permissionOverrideState(value, permission) {
-  if (Array.isArray(value.permissionDeny) && value.permissionDeny.includes(permission)) {
-    return "deny";
+  function setDialogData(user, mode) {
+    const next =
+      mode === "create" ? emptyForm(admin?.countryCode || "") : userForm(user);
+    setForm(next);
+    setInitial(structuredClone(next));
+    setFormErrors({});
+    setFormMessage("");
+    setConflict(false);
+    setDialog({ mode, user });
   }
-  if (Array.isArray(value.permissionAllow) && value.permissionAllow.includes(permission)) {
-    return "allow";
+  const open = async (user, mode = "view") => {
+    if (mutation.current) return;
+    const request = ++detailRequest.current;
+    setOpening(user.id);
+    setError("");
+    try {
+      const result = await usersService.getById(user.id);
+      if (request !== detailRequest.current) return;
+      setDialogData(result, mode);
+    } catch (next) {
+      if (request === detailRequest.current)
+        setError(
+          next?.response?.data?.message || "Impossible de charger cette fiche.",
+        );
+    } finally {
+      if (request === detailRequest.current) setOpening("");
+    }
+  };
+  const reloadDialog = async () => {
+    if (mutation.current || !dialog?.user) return;
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Recharger cette fiche ?",
+        message: "Le brouillon sera remplacé par les valeurs enregistrées.",
+        confirmLabel: "Recharger",
+        tone: "warning",
+      }))
+    )
+      return;
+    await open(dialog.user, dialog.mode);
+  };
+  function afterUpdate(updated) {
+    if (updated.id === admin?.id) {
+      const changedSession =
+        dialog?.mode === "password" ||
+        [
+          "email",
+          "role",
+          "countryCode",
+          "permissionAllow",
+          "permissionDeny",
+        ].some((key) => key in patch);
+      if (changedSession) {
+        clearAdminSession();
+        navigate("/login", { replace: true });
+        return true;
+      }
+      setAdminUser({ ...admin, ...updated });
+    }
+    return false;
   }
-  return "inherit";
-}
-
-function withPermissionOverride(value, permission, nextState) {
-  const allow = new Set(value.permissionAllow || []);
-  const deny = new Set(value.permissionDeny || []);
-
-  allow.delete(permission);
-  deny.delete(permission);
-
-  if (nextState === "allow") allow.add(permission);
-  if (nextState === "deny") deny.add(permission);
-
-  return {
-    ...value,
-    permissionAllow: [...allow],
-    permissionDeny: [...deny],
+  const submit = async () => {
+    if (mutation.current || !dialog || dialog.mode === "view") return;
+    if (conflict) {
+      setFormMessage(
+        "Rechargez la fiche avant de réappliquer vos modifications.",
+      );
+      return;
+    }
+    const errors = validateUserForm(form, dialog.mode);
+    setFormErrors(errors);
+    setFormMessage("");
+    if (Object.keys(errors).length) {
+      setFormMessage("Corrigez les champs indiqués.");
+      return errors.fullName || errors.email
+        ? "identity"
+        : errors.role || errors.countryCode
+          ? "access"
+          : null;
+    }
+    if (dialog.mode === "edit" && !Object.keys(patch).length) {
+      setFormMessage("Aucune modification à enregistrer.");
+      return;
+    }
+    const changesAccess =
+      dialog.mode === "password" ||
+      [
+        "role",
+        "countryCode",
+        "permissionAllow",
+        "permissionDeny",
+        "email",
+      ].some((key) => key in patch);
+    if (changesAccess) {
+      confirming.current = true;
+      const ok = await confirm({
+        title:
+          dialog.mode === "password"
+            ? "Réinitialiser ce mot de passe ?"
+            : "Appliquer ces changements d’accès ?",
+        message:
+          "Les sessions précédentes de ce compte seront invalidées." +
+          (dialog.user?.id === admin?.id
+            ? " Vous devrez vous reconnecter."
+            : ""),
+        confirmLabel: "Confirmer",
+        tone: "warning",
+      });
+      confirming.current = false;
+      if (!ok) return;
+    }
+    mutation.current = true;
+    setBusy(true);
+    setConflict(false);
+    try {
+      let updated;
+      if (dialog.mode === "create")
+        updated = await usersService.create({
+          ...form,
+          fullName: form.fullName.trim(),
+          email: form.email.trim().toLowerCase(),
+          ...(isSuper
+            ? {}
+            : { permissionAllow: undefined, permissionDeny: undefined }),
+        });
+      else
+        updated = await usersService.update(form.id, {
+          ...(dialog.mode === "password" ? { password: form.password } : patch),
+          expectedUpdatedAt: dialog.user.updatedAt,
+        });
+      if (dialog.mode !== "create" && afterUpdate(updated)) return;
+      setNotice(
+        dialog.mode === "create"
+          ? "Compte créé. La liste respecte les filtres sélectionnés."
+          : dialog.mode === "password"
+            ? "Mot de passe réinitialisé et sessions révoquées."
+            : "Compte enregistré.",
+      );
+      setDialog(null);
+      setForm(emptyForm());
+      setInitial(emptyForm());
+      setRefresh((value) => value + 1);
+    } catch (next) {
+      setFormErrors(next?.response?.data?.errors || {});
+      setFormMessage(
+        next?.response?.data?.message ||
+          "Impossible d’enregistrer le compte. Votre brouillon est conservé.",
+      );
+      setConflict(
+        next?.response?.status === 409 && !next?.response?.data?.errors,
+      );
+    } finally {
+      mutation.current = false;
+      setBusy(false);
+    }
   };
-}
-
-/* ============================================================================
-   UI atoms
-============================================================================ */
-
-function Card({ title, actions, children }) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        {actions}
-      </div>
-      <div className="p-6">{children}</div>
-    </div>
-  );
-}
-
-function Alert({ tone = "blue", children }) {
-  const tones = {
-    blue: "border-blue-200 bg-blue-50 text-blue-800",
-    red: "border-red-200 bg-red-50 text-red-800",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    amber: "border-amber-200 bg-amber-50 text-amber-800",
+  const changeStatus = async (user) => {
+    if (
+      mutation.current ||
+      confirming.current ||
+      !user.actions?.canChangeStatus
+    )
+      return;
+    confirming.current = true;
+    const ok = await confirm({
+      title: user.actif ? "Désactiver ce compte ?" : "Réactiver ce compte ?",
+      message:
+        (user.fullName || user.email) +
+        (user.actif
+          ? " ne pourra plus se connecter. Ses sessions seront invalidées."
+          : " pourra de nouveau se connecter avec son mot de passe."),
+      confirmLabel: user.actif ? "Désactiver" : "Réactiver",
+      tone: "warning",
+    });
+    confirming.current = false;
+    if (!ok) return;
+    mutation.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await usersService.updateStatus(user.id, !user.actif, user.updatedAt);
+      setNotice(
+        user.actif
+          ? "Compte désactivé et sessions révoquées."
+          : "Compte réactivé.",
+      );
+      setRefresh((value) => value + 1);
+    } catch (next) {
+      setError(
+        next?.response?.data?.message || "Impossible de modifier ce statut.",
+      );
+    } finally {
+      mutation.current = false;
+      setBusy(false);
+    }
   };
-
-  return (
-    <div className={`rounded-xl border px-4 py-3 text-sm ${tones[tone] || tones.blue}`}>
-      {children}
-    </div>
-  );
-}
-
-function Badge({ children, tone = "gray" }) {
-  const tones = {
-    gray: "bg-gray-100 text-gray-700 border-gray-200",
-    blue: "bg-blue-100 text-blue-700 border-blue-200",
-    emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    amber: "bg-amber-100 text-amber-700 border-amber-200",
-    red: "bg-red-100 text-red-700 border-red-200",
-    violet: "bg-violet-100 text-violet-700 border-violet-200",
+  const revoke = async () => {
+    const user = dialog?.user;
+    if (!user || mutation.current || confirming.current) return;
+    confirming.current = true;
+    const ok = await confirm({
+      title: "Déconnecter les sessions ?",
+      message:
+        "Toutes les sessions précédentes de " +
+        (user.fullName || user.email) +
+        " seront invalidées." +
+        (user.id === admin?.id ? " Vous serez également déconnecté." : ""),
+      confirmLabel: "Déconnecter",
+      tone: "warning",
+    });
+    confirming.current = false;
+    if (!ok) return;
+    mutation.current = true;
+    setBusy(true);
+    try {
+      const updated = await usersService.revokeSessions(
+        user.id,
+        user.updatedAt,
+      );
+      if (user.id === admin?.id) {
+        clearAdminSession();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setDialogData(updated, "view");
+      setNotice("Les sessions de ce compte ont été révoquées.");
+      setRefresh((value) => value + 1);
+    } catch (next) {
+      setFormMessage(
+        next?.response?.data?.message || "Impossible de révoquer les sessions.",
+      );
+      setConflict(next?.response?.status === 409);
+    } finally {
+      mutation.current = false;
+      setBusy(false);
+    }
   };
-
+  const changeFilter = (key, value) => {
+    setFilters((previous) => ({ ...previous, [key]: value, page: 1 }));
+    setNotice("");
+  };
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
-        tones[tone] || tones.gray
-      }`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Field({ label, required, children }) {
-  return (
-    <label className="block space-y-1.5">
-      <div className="text-sm font-medium text-gray-700">
-        {label} {required ? <span className="text-red-500">*</span> : null}
-      </div>
-      {children}
-    </label>
-  );
-}
-
-/* ============================================================================
-   Modal formulaire
-============================================================================ */
-
-function UserFormModal({
-  open,
-  mode = "create",
-  value,
-  manageableRoleGroups,
-  onChange,
-  onClose,
-  onSubmit,
-  saving = false,
-  countryOptions = COUNTRY_OPTIONS,
-  countryLocked = false,
-  canManagePermissionOverrides = false,
-}) {
-  if (!open) return null;
-
-  const isEdit = mode === "edit";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              {isEdit ? "Modifier l’utilisateur" : "Nouvel utilisateur"}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Renseigne les informations du compte administrateur.
-            </p>
-          </div>
-
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            Utilisateurs et accès
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Comptes administrateurs, rôles et périmètres de travail.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            detailRequest.current += 1;
+            setDialogData(null, "create");
+          }}
+          disabled={busy || loading || !meta.manageableRoles.length}
+          className="rounded-lg bg-[#FFC600] px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+        >
+          Nouvel utilisateur
+        </button>
+      </header>
+      {notice ? (
+        <div
+          role="status"
+          className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
+          {notice}
           <button
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+            type="button"
+            aria-label="Fermer le message"
+            onClick={() => setNotice("")}
+            className="ml-3"
           >
-            ✕
+            ×
           </button>
         </div>
-
-        <div className="space-y-5 px-6 py-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Nom complet" required>
-              <input
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={value.fullName}
-                onChange={(e) => onChange({ ...value, fullName: e.target.value })}
-                placeholder="Ex: Marie Konan"
-                disabled={saving}
-              />
-            </Field>
-
-            <Field label="Email" required>
-              <input
-                type="email"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={value.email}
-                onChange={(e) => onChange({ ...value, email: e.target.value })}
-                placeholder="Ex: marie@forever.com"
-                disabled={saving}
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Rôle" required>
-              <select
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={value.role}
-                onChange={(e) => onChange({ ...value, role: e.target.value })}
-                disabled={saving}
-              >
-                <option value="">Sélectionner un rôle</option>
-                {manageableRoleGroups.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.roles.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              {value.role ? (
-                <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                  {getRoleHelp(value.role)}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-500">
-                  Sélectionne le rôle selon l’étape métier: facturation, caisse, préparation ou supervision.
-                </div>
-              )}
-            </Field>
-
-            <Field label="Pays">
-              <select
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={value.countryCode}
-                onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
-                disabled={saving || countryLocked}
-              >
-                {countryOptions.map((country) => (
-                  <option key={country.value} value={country.value}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <Field label={isEdit ? "Nouveau mot de passe (optionnel)" : "Mot de passe"} required={!isEdit}>
+      ) : null}
+      {error ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          {error}
+          <button
+            type="button"
+            onClick={() => setRefresh((value) => value + 1)}
+            disabled={busy || loading}
+            className="underline"
+          >
+            Actualiser la liste
+          </button>
+        </div>
+      ) : null}
+      {countriesError ? (
+        <p role="alert" className="text-sm text-amber-700">
+          {countriesError}{" "}
+          <button
+            type="button"
+            onClick={() => setCountriesRetry((value) => value + 1)}
+            className="underline"
+          >
+            Réessayer
+          </button>
+        </p>
+      ) : null}
+      <section className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="grid gap-1.5 text-xs font-medium text-gray-600">
+            Rechercher
             <input
-              type="password"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-              value={value.password}
-              onChange={(e) => onChange({ ...value, password: e.target.value })}
-              placeholder={isEdit ? "Laisser vide pour conserver l’actuel" : "Mot de passe"}
-              disabled={saving}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Nom ou email"
+              disabled={busy}
+              className={inputClass}
             />
-          </Field>
-
-          <label className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
-            <input
-              type="checkbox"
-              checked={value.actif}
-              onChange={(e) => onChange({ ...value, actif: e.target.checked })}
-              disabled={saving}
-            />
-            <div>
-              <div className="text-sm font-medium text-gray-900">Compte actif</div>
-              <div className="text-xs text-gray-500">
-                L’utilisateur pourra se connecter si ce compte est actif.
-              </div>
-            </div>
           </label>
-
-          {canManagePermissionOverrides ? (
-            <div className="rounded-xl border border-gray-200 p-4">
-              <div className="mb-3">
-                <div className="text-sm font-semibold text-gray-900">Droits spécifiques</div>
-                <div className="text-xs text-gray-500">
-                  Laisse “Hérité du rôle” par défaut. “Autoriser” ajoute un droit, “Refuser” retire un droit même s’il vient du rôle.
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {PERMISSION_OPTIONS.map((permission) => {
-                  const inherited = getRolePermissions(value.role).includes(permission.value);
-                  const state = permissionOverrideState(value, permission.value);
-
-                  return (
-                    <div
-                      key={permission.value}
-                      className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 p-3 md:grid-cols-[1fr_190px]"
+          <label
+            id="users-role-filter"
+            className={
+              "gap-1.5 text-xs font-medium text-gray-600 " +
+              (filtersOpen ? "grid" : "hidden sm:grid")
+            }
+          >
+            Rôle
+            <select
+              value={filters.role}
+              onChange={(event) => changeFilter("role", event.target.value)}
+              disabled={busy}
+              className={inputClass}
+            >
+              <option value="">Tous les rôles</option>
+              {ROLE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.roles.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <label
+            id="users-country-filter"
+            className={
+              "gap-1.5 text-xs font-medium text-gray-600 " +
+              (filtersOpen ? "grid" : "hidden sm:grid")
+            }
+          >
+            Pays
+            <select
+              value={isSuper ? filters.country : admin?.countryCode || ""}
+              onChange={(event) => changeFilter("country", event.target.value)}
+              disabled={busy || !isSuper}
+              className={inputClass}
+            >
+              {isSuper ? <option value="">Tous les pays</option> : null}
+              {countryOptions.map((country) => (
+                <option key={country.code} value={country.code}>
+                  {country.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            id="users-status-filter"
+            className={
+              "gap-1.5 text-xs font-medium text-gray-600 " +
+              (filtersOpen ? "grid" : "hidden sm:grid")
+            }
+          >
+            Statut
+            <select
+              value={filters.status}
+              onChange={(event) => changeFilter("status", event.target.value)}
+              disabled={busy}
+              className={inputClass}
+            >
+              <option value="">Tous les statuts</option>
+              <option value="active">Actifs</option>
+              <option value="inactive">Inactifs</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <p role="status" className="text-xs text-gray-500">
+            {loading
+              ? "Chargement des utilisateurs…"
+              : meta.totalCount + " compte(s) correspondant(s)"}
+            {!isSuper
+              ? " · " +
+                (admin?.countryName || admin?.countryCode || "Votre pays")
+              : ""}
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((value) => !value)}
+              aria-expanded={filtersOpen}
+              aria-controls="users-role-filter users-country-filter users-status-filter"
+              className="text-xs text-gray-600 underline sm:hidden"
+            >
+              {filtersOpen
+                ? "Masquer les filtres"
+                : "Filtres" +
+                  ([filters.role, filters.country, filters.status].filter(
+                    Boolean,
+                  ).length
+                    ? " (" +
+                      [filters.role, filters.country, filters.status].filter(
+                        Boolean,
+                      ).length +
+                      ")"
+                    : "")}
+            </button>
+            <button
+              type="button"
+              disabled={busy || loading}
+              onClick={() => setRefresh((value) => value + 1)}
+              className="text-xs text-gray-600 underline"
+            >
+              Actualiser
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setSearch("");
+                setFilters({
+                  q: "",
+                  role: "",
+                  country: "",
+                  status: "",
+                  page: 1,
+                });
+                setNotice("");
+              }}
+              className="text-xs text-gray-600 underline"
+            >
+              Effacer les filtres
+            </button>
+          </div>
+        </div>
+      </section>
+      <section
+        aria-busy={loading}
+        className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+      >
+        <div className="hidden overflow-x-auto sm:block">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                {[
+                  "Utilisateur",
+                  "Rôle et droits",
+                  "Pays",
+                  "Statut",
+                  "Actions",
+                ].map((label) => (
+                  <th key={label} scope="col" className="px-4 py-3 font-medium">
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr
+                  key={user.id}
+                  className={
+                    "border-t border-gray-100 " + (loading ? "opacity-50" : "")
+                  }
+                >
+                  <td className="px-4 py-4">
+                    <button
+                      type="button"
+                      disabled={busy || loading}
+                      onClick={() => open(user)}
+                      className="text-left font-medium text-gray-900 hover:underline"
                     >
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {permission.label}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-500">
-                          {permission.help}
-                        </div>
-                        <div className="mt-1 text-[11px] font-medium text-gray-400">
-                          Rôle actuel: {inherited ? "autorisé" : "non autorisé"}
-                        </div>
-                      </div>
-                      <select
-                        className="rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                        value={state}
-                        onChange={(e) =>
-                          onChange(withPermissionOverride(value, permission.value, e.target.value))
-                        }
-                        disabled={saving}
+                      {user.fullName || user.email}
+                      {user.id === admin?.id ? (
+                        <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+                          Votre compte
+                        </span>
+                      ) : null}
+                    </button>
+                    <p className="mt-1 text-xs text-gray-500">{user.email}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Dernière connexion : {formatDate(user.lastLoginAt)}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="font-medium text-gray-700">
+                      {roleLabel(user.role)}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {user.permissions?.length || 0} droits ·{" "}
+                      {user.permissionAllow?.length || 0} ajout(s) ·{" "}
+                      {user.permissionDeny?.length || 0} refus
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-gray-600">
+                    {user.role === "SUPER_ADMIN"
+                      ? "Tous les pays"
+                      : user.countryName || user.countryCode || "Non attribué"}
+                  </td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={
+                        "rounded-full px-2 py-1 text-xs font-medium " +
+                        (user.actif
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-gray-100 text-gray-500")
+                      }
+                    >
+                      {user.actif ? "Actif" : "Inactif"}
+                    </span>
+                    {user.lockedUntil &&
+                    new Date(user.lockedUntil) > new Date() ? (
+                      <p className="mt-2 text-xs text-amber-700">
+                        Verrouillé jusqu’au {formatDate(user.lockedUntil)}
+                      </p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => open(user)}
+                        disabled={busy || loading || Boolean(opening)}
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-xs disabled:opacity-50"
                       >
-                        <option value="inherit">Hérité du rôle</option>
-                        <option value="allow">Autoriser</option>
-                        <option value="deny">Refuser</option>
-                      </select>
+                        {opening === user.id ? "Ouverture…" : "Consulter"}
+                      </button>
+                      {user.actions?.canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => open(user, "edit")}
+                          disabled={busy || loading || Boolean(opening)}
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-xs disabled:opacity-50"
+                        >
+                          Modifier
+                        </button>
+                      ) : null}
+                      {user.actions?.canChangeStatus ? (
+                        <button
+                          type="button"
+                          onClick={() => changeStatus(user)}
+                          disabled={busy || loading}
+                          className={
+                            "rounded-lg border px-3 py-2 text-xs disabled:opacity-50 " +
+                            (user.actif
+                              ? "border-red-200 text-red-700"
+                              : "border-emerald-200 text-emerald-700")
+                          }
+                        >
+                          {user.actif ? "Désactiver" : "Réactiver"}
+                        </button>
+                      ) : null}
                     </div>
-                  );
-                })}
+                  </td>
+                </tr>
+              ))}
+              {!users.length ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-12 text-center text-sm text-gray-500"
+                  >
+                    {loading
+                      ? "Chargement…"
+                      : error
+                        ? "La liste est indisponible. Réessayez."
+                        : "Aucun utilisateur ne correspond à ces filtres."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="divide-y divide-gray-200 sm:hidden">
+          {users.map((user) => (
+            <article
+              key={user.id}
+              className={"space-y-3 p-4 " + (loading ? "opacity-50" : "")}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => open(user)}
+                    disabled={busy || loading}
+                    className="break-words text-left text-sm font-semibold text-gray-900"
+                  >
+                    {user.fullName || user.email}
+                  </button>
+                  <p className="break-all text-xs text-gray-500">
+                    {user.email}
+                  </p>
+                  {user.id === admin?.id ? (
+                    <span className="text-xs text-gray-500">Votre compte</span>
+                  ) : null}
+                </div>
+                <span
+                  className={
+                    "shrink-0 rounded-full px-2 py-1 text-xs " +
+                    (user.actif
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-gray-100 text-gray-500")
+                  }
+                >
+                  {user.actif ? "Actif" : "Inactif"}
+                </span>
               </div>
-            </div>
+              <div className="text-xs text-gray-600">
+                <p>
+                  {roleLabel(user.role)} ·{" "}
+                  {user.role === "SUPER_ADMIN"
+                    ? "Tous les pays"
+                    : user.countryName || user.countryCode || "Non attribué"}
+                </p>
+                <p className="mt-1 text-gray-500">
+                  Dernière connexion : {formatDate(user.lastLoginAt)}
+                </p>
+                {user.lockedUntil && new Date(user.lockedUntil) > new Date() ? (
+                  <p className="mt-1 text-amber-700">
+                    Verrouillé jusqu’au {formatDate(user.lockedUntil)}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => open(user)}
+                  disabled={busy || loading || Boolean(opening)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-xs disabled:opacity-50"
+                >
+                  {opening === user.id ? "Ouverture…" : "Consulter"}
+                </button>
+                {user.actions?.canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => open(user, "edit")}
+                    disabled={busy || loading || Boolean(opening)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs disabled:opacity-50"
+                  >
+                    Modifier
+                  </button>
+                ) : null}
+                {user.actions?.canChangeStatus ? (
+                  <button
+                    type="button"
+                    onClick={() => changeStatus(user)}
+                    disabled={busy || loading}
+                    className={
+                      "rounded-lg border px-3 py-2 text-xs disabled:opacity-50 " +
+                      (user.actif
+                        ? "border-red-200 text-red-700"
+                        : "border-emerald-200 text-emerald-700")
+                    }
+                  >
+                    {user.actif ? "Désactiver" : "Réactiver"}
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          ))}
+          {!users.length ? (
+            <p className="p-8 text-center text-sm text-gray-500">
+              {loading
+                ? "Chargement…"
+                : error
+                  ? "La liste est indisponible. Réessayez."
+                  : "Aucun compte ne correspond aux filtres."}
+            </p>
           ) : null}
         </div>
-
-        <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 p-4 text-xs text-gray-500">
+          <p>
+            {meta.totalCount ? (filters.page - 1) * 20 + 1 : 0}–
+            {Math.min(filters.page * 20, meta.totalCount)} sur {meta.totalCount}
+          </p>
+          <nav
+            aria-label="Pagination des utilisateurs"
+            className="flex items-center gap-3"
           >
-            Annuler
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={saving}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving
-              ? "Enregistrement..."
-              : isEdit
-                ? "Enregistrer les modifications"
-                : "Créer l’utilisateur"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================================
-   Page principale
-============================================================================ */
-
-export default function AdminUsersPage() {
-  const { admin, role: currentRole } = useAdminAuth();
-  const isSuperAdmin = currentRole === "SUPER_ADMIN";
-  const ownCountryCode = admin?.countryCode || "CIV";
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [countryFilter, setCountryFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [info, setInfo] = useState("");
-  const [error, setError] = useState("");
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("create");
-  const [form, setForm] = useState(emptyForm());
-
-  const loadUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const params = {};
-      if (search.trim()) params.q = search.trim();
-      if (roleFilter) params.role = roleFilter;
-      if (countryFilter) params.countryCode = countryFilter;
-      if (statusFilter === "ACTIVE") params.actif = true;
-      if (statusFilter === "INACTIVE") params.actif = false;
-
-      const data = await usersService.getAll(params);
-      setUsers(Array.isArray(data?.data) ? data.data : []);
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de charger les utilisateurs");
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, roleFilter, countryFilter, statusFilter]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
-
-  const filteredUsers = useMemo(() => users, [users]);
-  const activeFiltersCount = [search, roleFilter, countryFilter, statusFilter].filter(Boolean).length;
-  const manageableCountryOptions = useMemo(
-    () =>
-      isSuperAdmin
-        ? COUNTRY_OPTIONS
-        : COUNTRY_OPTIONS.filter((country) => country.value === ownCountryCode),
-    [isSuperAdmin, ownCountryCode],
-  );
-  const manageableRoleGroups = useMemo(() => {
-    const allowedRoles = ROLE_ASSIGNMENT_MATRIX[currentRole] || new Set();
-
-    return ROLE_GROUPS.map((group) => ({
-      ...group,
-      roles: group.roles.filter((role) => allowedRoles.has(role.value)),
-    })).filter((group) => group.roles.length > 0);
-  }, [currentRole]);
-
-  const openCreate = () => {
-    setError("");
-    setInfo("");
-    setModalMode("create");
-    setForm(emptyForm(isSuperAdmin ? "CIV" : ownCountryCode));
-    setModalOpen(true);
-  };
-
-  const openEdit = (user) => {
-    setError("");
-    setInfo("");
-    setModalMode("edit");
-    setForm({
-      id: user.id,
-      fullName: user.fullName || "",
-      email: user.email || "",
-      password: "",
-      role: user.role || "",
-      countryCode: isSuperAdmin ? user.countryCode || "CIV" : ownCountryCode,
-      actif: Boolean(user.actif),
-      permissionAllow: Array.isArray(user.permissionAllow) ? user.permissionAllow : [],
-      permissionDeny: Array.isArray(user.permissionDeny) ? user.permissionDeny : [],
-    });
-    setModalOpen(true);
-  };
-
-  const handleToggleStatus = async (user) => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const updated = await usersService.updateStatus(user.id, !user.actif);
-
-      setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? updated : u))
-      );
-
-      setInfo(
-        updated.actif
-          ? `Utilisateur activé : ${updated.fullName || updated.email}`
-          : `Utilisateur désactivé : ${updated.fullName || updated.email}`
-      );
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de mettre à jour le statut");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSubmitForm = async () => {
-    try {
-      setError("");
-      setInfo("");
-
-      if (!form.fullName.trim()) {
-        setError("Le nom complet est requis.");
-        return;
-      }
-
-      if (!form.email.trim()) {
-        setError("L’email est requis.");
-        return;
-      }
-
-      if (!form.role) {
-        setError("Le rôle est requis.");
-        return;
-      }
-
-      if (modalMode === "create" && !form.password.trim()) {
-        setError("Le mot de passe est requis pour la création.");
-        return;
-      }
-
-      setSaving(true);
-
-      if (modalMode === "create") {
-        const created = await usersService.create({
-          fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          password: form.password,
-          role: form.role,
-          countryCode: form.countryCode,
-          actif: Boolean(form.actif),
-          ...(isSuperAdmin
-            ? {
-                permissionAllow: form.permissionAllow,
-                permissionDeny: form.permissionDeny,
+            <button
+              type="button"
+              disabled={busy || loading || filters.page <= 1}
+              onClick={() =>
+                setFilters((value) => ({ ...value, page: value.page - 1 }))
               }
-            : {}),
-        });
-
-        setUsers((prev) => [created, ...prev]);
-        setInfo("Utilisateur créé avec succès.");
-      } else {
-        const updated = await usersService.update(form.id, {
-          fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          password: form.password?.trim() ? form.password : undefined,
-          role: form.role,
-          countryCode: form.countryCode,
-          actif: Boolean(form.actif),
-          ...(isSuperAdmin
-            ? {
-                permissionAllow: form.permissionAllow,
-                permissionDeny: form.permissionDeny,
+              className="rounded-lg border border-gray-300 px-3 py-2 disabled:opacity-40"
+            >
+              Précédent
+            </button>
+            <span>
+              Page {filters.page} sur {meta.totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={busy || loading || filters.page >= meta.totalPages}
+              onClick={() =>
+                setFilters((value) => ({ ...value, page: value.page + 1 }))
               }
-            : {}),
-        });
-
-        setUsers((prev) =>
-          prev.map((u) => (u.id === form.id ? updated : u))
-        );
-        setInfo("Utilisateur modifié avec succès.");
-      }
-
-      setModalOpen(false);
-      setForm(emptyForm(isSuperAdmin ? "CIV" : ownCountryCode));
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible d’enregistrer l’utilisateur");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleApplySearch = () => {
-    setSearch(searchInput);
-  };
-
-  const handleResetFilters = () => {
-    setSearch("");
-    setSearchInput("");
-    setRoleFilter("");
-    setCountryFilter("");
-    setStatusFilter("");
-  };
-
-  return (
-    <div className="space-y-6">
-      <Card
-        title="Gestion des utilisateurs"
-        actions={
-          <button
-            onClick={openCreate}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            + Nouvel utilisateur
-          </button>
-        }
-      >
-        <div className="space-y-5">
-          <Alert tone="blue">
-            Gère ici les comptes administrateurs de l’application : rôles,
-            pays, statut actif et accès à l’admin.
-          </Alert>
-
-          {error ? <Alert tone="red">{error}</Alert> : null}
-          {info ? <Alert tone="emerald">{info}</Alert> : null}
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="relative">
-                <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
-                <input
-                  className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                  placeholder="Rechercher par nom ou email..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleApplySearch();
-                  }}
-                />
-              </div>
-
-              <select
-                className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <option value="">Tous les rôles</option>
-                {ROLE_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.roles.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-
-              <select
-                className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={countryFilter}
-                onChange={(e) => setCountryFilter(e.target.value)}
-                disabled={!isSuperAdmin}
-              >
-                <option value="">{isSuperAdmin ? "Tous les pays" : getCountryLabel(ownCountryCode)}</option>
-                {manageableCountryOptions.map((country) => (
-                  <option key={country.value} value={country.value}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">Tous les statuts</option>
-                <option value="ACTIVE">Actifs</option>
-                <option value="INACTIVE">Inactifs</option>
-              </select>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                onClick={handleApplySearch}
-                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-black"
-              >
-                Rechercher
-              </button>
-              <button
-                onClick={handleResetFilters}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Reset
-              </button>
-            </div>
-            <div className="border-t border-gray-100 pt-3 text-xs text-gray-500">
-              {filteredUsers.length} utilisateur{filteredUsers.length > 1 ? "s" : ""} affiché{filteredUsers.length > 1 ? "s" : ""}
-              {activeFiltersCount > 0
-                ? ` avec ${activeFiltersCount} filtre${activeFiltersCount > 1 ? "s" : ""} actif${activeFiltersCount > 1 ? "s" : ""}.`
-                : " sans filtre actif."}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-0">
-              <thead>
-                <tr>
-                  <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Utilisateur
-                  </th>
-                  <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Rôle
-                  </th>
-                  <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Pays
-                  </th>
-                  <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Statut
-                  </th>
-                  <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Créé le
-                  </th>
-                  <th className="border-b border-gray-200 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-10 text-center text-sm text-gray-500"
-                    >
-                      Chargement...
-                    </td>
-                  </tr>
-                ) : filteredUsers.length ? (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td className="border-b border-gray-100 px-4 py-4">
-                        <div className="font-medium text-gray-900">
-                          {user.fullName || "—"}
-                        </div>
-                        <div className="mt-1 text-sm text-gray-500">
-                          {user.email || "—"}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-400">
-                          Dernière connexion: {formatDateTime(user.lastLoginAt)}
-                        </div>
-                      </td>
-
-                      <td className="border-b border-gray-100 px-4 py-4">
-                        <Badge tone="violet">{getRoleLabel(user.role)}</Badge>
-                        {Array.isArray(user.permissionDeny) && user.permissionDeny.length ? (
-                          <div className="mt-2">
-                            <Badge tone="red">{user.permissionDeny.length} droit refusé</Badge>
-                          </div>
-                        ) : null}
-                        {Array.isArray(user.permissionAllow) && user.permissionAllow.length ? (
-                          <div className="mt-2">
-                            <Badge tone="emerald">{user.permissionAllow.length} droit ajouté</Badge>
-                          </div>
-                        ) : null}
-                      </td>
-
-                      <td className="border-b border-gray-100 px-4 py-4">
-                        <Badge tone="blue">{getCountryLabel(user.countryCode)}</Badge>
-                      </td>
-
-                      <td className="border-b border-gray-100 px-4 py-4">
-                        {user.actif ? (
-                          <Badge tone="emerald">Actif</Badge>
-                        ) : (
-                          <Badge tone="red">Inactif</Badge>
-                        )}
-                        {user.lockedUntil ? (
-                          <div className="mt-2">
-                            <Badge tone="amber">
-                              Verrouillé jusqu’au {formatDateTime(user.lockedUntil)}
-                            </Badge>
-                          </div>
-                        ) : null}
-                      </td>
-
-                      <td className="border-b border-gray-100 px-4 py-4 text-sm text-gray-500">
-                        {formatDateTime(user.createdAt)}
-                      </td>
-
-                      <td className="border-b border-gray-100 px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openEdit(user)}
-                            disabled={saving}
-                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            Modifier
-                          </button>
-
-                          <button
-                            onClick={() => handleToggleStatus(user)}
-                            disabled={saving}
-                            className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
-                              user.actif
-                                ? "bg-red-600 hover:bg-red-700"
-                                : "bg-emerald-600 hover:bg-emerald-700"
-                            }`}
-                          >
-                            {user.actif ? "Désactiver" : "Activer"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-10 text-center text-sm text-gray-500"
-                    >
-                      Aucun utilisateur trouvé.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
-
-      <UserFormModal
-        open={modalOpen}
-        mode={modalMode}
-        value={form}
-        manageableRoleGroups={manageableRoleGroups}
-        onChange={setForm}
-        onClose={() => !saving && setModalOpen(false)}
-        onSubmit={handleSubmitForm}
-        saving={saving}
-        countryOptions={manageableCountryOptions}
-        countryLocked={!isSuperAdmin}
-        canManagePermissionOverrides={isSuperAdmin}
-      />
+              className="rounded-lg border border-gray-300 px-3 py-2 disabled:opacity-40"
+            >
+              Suivant
+            </button>
+          </nav>
+        </footer>
+      </section>
+      {dialog ? (
+        <UserFormDialog
+          key={dialog.mode + ":" + (dialog.user?.id || "new")}
+          mode={dialog.mode}
+          form={form}
+          baseline={dialog.user}
+          onChange={(next) => {
+            setForm(next);
+            setFormErrors({});
+            if (!conflict) setFormMessage("");
+          }}
+          onClose={closeDialog}
+          onSubmit={submit}
+          busy={busy}
+          submitBlocked={conflict}
+          errors={formErrors}
+          message={formMessage}
+          allowedRoles={meta.manageableRoles}
+          countries={countryOptions}
+          countryLocked={!isSuper}
+          canOverride={isSuper}
+          isOwn={dialog.user?.id === admin?.id}
+          onEdit={() => setDialogData(dialog.user, "edit")}
+          onPassword={() => setDialogData(dialog.user, "password")}
+          onRevoke={revoke}
+          onReload={conflict ? reloadDialog : undefined}
+        />
+      ) : null}
     </div>
   );
 }

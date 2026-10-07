@@ -7,10 +7,19 @@ export const usersService = {
 
   getById: async (id) => (await api.get(`/admin/users/${id}`)).data,
 
+  getHistory: async (id) => (await api.get(`/admin/users/${id}/history`)).data,
+  revokeSessions: async (id, expectedUpdatedAt) =>
+    (
+      await api.post(`/admin/users/${id}/sessions/revoke`, {
+        expectedUpdatedAt,
+      })
+    ).data,
+
   create: async (body) => (await api.post("/admin/users", body)).data,
 
   update: async (id, body) => (await api.put(`/admin/users/${id}`, body)).data,
 
-  updateStatus: async (id, actif) =>
-    (await api.patch(`/admin/users/${id}/status`, { actif })).data,
+  updateStatus: async (id, actif, expectedUpdatedAt) =>
+    (await api.patch(`/admin/users/${id}/status`, { actif, expectedUpdatedAt }))
+      .data,
 };
