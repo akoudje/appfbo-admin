@@ -1363,6 +1363,7 @@ function OrdersTab({
                   <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(order.status)}`}>
                     {statusLabel(order.status)}
                   </span>
+                  {order.ticketIssueCode&&<p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-900">Paiement confirmé · tickets à vérifier. Contrôlez les places disponibles puis utilisez « Revérifier les tickets ».</p>}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap items-start gap-2">
@@ -1371,7 +1372,7 @@ function OrdersTab({
                     {isWave && !isDeadOrderStatus(order.status) ? (
                       <button type="button" onClick={() => onSyncWave(order)} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Vérifier le paiement
+                        {order.ticketIssueCode ? "Revérifier les tickets" : "Vérifier le paiement"}
                       </button>
                     ) : null}
                     {isPaid && isWave ? (
@@ -1379,7 +1380,7 @@ function OrdersTab({
                         Imprimer reçu
                       </button>
                     ) : null}
-                    {isPaid ? (
+                    {isPaid && !order.ticketIssueCode ? (
                       <button
                         type="button"
                         onClick={() => onResendTickets(order)}
