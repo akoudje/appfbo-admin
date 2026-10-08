@@ -7,7 +7,13 @@ import { useEffect, useState } from "react";
 import * as packagingsService from "../services/productPackagingsService";
 import { useConfirm } from "../hooks/useDialogs";
 
-const EMPTY_FORM = { label: "", unitsPerPackage: "", barcode: "", prixFcfa: "", actif: true };
+const EMPTY_FORM = {
+  label: "",
+  unitsPerPackage: "",
+  barcode: "",
+  prixFcfa: "",
+  actif: true,
+};
 
 function extractApiErrorMessage(e) {
   return (
@@ -57,7 +63,10 @@ export default function ProductPackagingsManager({ productId, productSku }) {
       label: p.label || "",
       unitsPerPackage: String(p.unitsPerPackage ?? ""),
       barcode: p.barcode || "",
-      prixFcfa: p.prixFcfa === null || p.prixFcfa === undefined ? "" : String(p.prixFcfa),
+      prixFcfa:
+        p.prixFcfa === null || p.prixFcfa === undefined
+          ? ""
+          : String(p.prixFcfa),
       actif: Boolean(p.actif),
     });
     setError("");
@@ -68,13 +77,24 @@ export default function ProductPackagingsManager({ productId, productSku }) {
     setError("");
 
     const label = form.label.trim();
-    const unitsPerPackage = Number.parseInt(form.unitsPerPackage, 10);
+    const unitsPerPackage = Number(form.unitsPerPackage);
 
     if (!label) return setError("Le libellé est requis (ex: Carton de 12)");
-    if (!Number.isFinite(unitsPerPackage) || unitsPerPackage <= 0) {
+    if (
+      !Number.isSafeInteger(unitsPerPackage) ||
+      unitsPerPackage <= 0 ||
+      unitsPerPackage > 2147483647
+    ) {
       return setError("Le nombre d'unités doit être un entier positif");
     }
 
+    if (
+      form.prixFcfa.trim() !== "" &&
+      (!Number.isSafeInteger(Number(form.prixFcfa)) ||
+        Number(form.prixFcfa) < 0 ||
+        Number(form.prixFcfa) > 2147483647)
+    )
+      return setError("Le prix doit être un entier positif ou nul.");
     const payload = {
       label,
       unitsPerPackage,
@@ -86,11 +106,21 @@ export default function ProductPackagingsManager({ productId, productSku }) {
     setSaving(true);
     try {
       if (editingId) {
-        const updated = await packagingsService.update(productId, editingId, payload);
-        setPackagings((prev) => prev.map((p) => (p.id === editingId ? updated : p)));
+        const updated = await packagingsService.update(
+          productId,
+          editingId,
+          payload,
+        );
+        setPackagings((prev) =>
+          prev.map((p) => (p.id === editingId ? updated : p)),
+        );
       } else {
         const created = await packagingsService.create(productId, payload);
-        setPackagings((prev) => [...prev, created].sort((a, b) => a.unitsPerPackage - b.unitsPerPackage));
+        setPackagings((prev) =>
+          [...prev, created].sort(
+            (a, b) => a.unitsPerPackage - b.unitsPerPackage,
+          ),
+        );
       }
       startCreate();
     } catch (e) {
@@ -103,14 +133,16 @@ export default function ProductPackagingsManager({ productId, productSku }) {
   async function onDelete(p) {
     const ok = await confirm({
       tone: "danger",
-      title: "Supprimer le conditionnement",
-      message: `Supprimer le conditionnement "${p.label}" ?`,
-      confirmLabel: "Supprimer",
+      title: "Désactiver le conditionnement",
+      message: `Désactiver le conditionnement "${p.label}" ?`,
+      confirmLabel: "Désactiver",
     });
     if (!ok) return;
     try {
       await packagingsService.remove(productId, p.id);
-      setPackagings((prev) => prev.filter((x) => x.id !== p.id));
+      setPackagings((prev) =>
+        prev.map((x) => (x.id === p.id ? { ...x, actif: false } : x)),
+      );
       if (editingId === p.id) startCreate();
     } catch (e) {
       setError(extractApiErrorMessage(e));
@@ -120,11 +152,14 @@ export default function ProductPackagingsManager({ productId, productSku }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">Unités de caisse</h3>
+        <h3 className="text-sm font-semibold text-gray-900">
+          Conditionnements de vente
+        </h3>
         <p className="mt-0.5 text-xs text-gray-500">
-          Conditionnements de vente (pack de 6, carton de 12...) pour le SKU{" "}
-          <span className="font-medium text-gray-700">{productSku}</span>. Le SKU reste le
-          même pour tous les conditionnements.
+          Informations communes à tous les pays : packs, cartons et codes-barres
+          pour le SKU{" "}
+          <span className="font-medium text-gray-700">{productSku}</span>. Le
+          SKU reste le même pour tous les conditionnements.
         </p>
       </div>
 
@@ -152,16 +187,26 @@ export default function ProductPackagingsManager({ productId, productSku }) {
             <tbody>
               {packagings.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-3 text-center text-xs text-gray-400">
-                    Aucun conditionnement pour ce produit — il est vendu à l'unité.
+                  <td
+                    colSpan={6}
+                    className="py-3 text-center text-xs text-gray-400"
+                  >
+                    Aucun conditionnement pour ce produit — il est vendu à
+                    l'unité.
                   </td>
                 </tr>
               )}
               {packagings.map((p) => (
                 <tr key={p.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-3 font-medium text-gray-800">{p.label}</td>
-                  <td className="py-2 pr-3 text-gray-600">{p.unitsPerPackage}</td>
-                  <td className="py-2 pr-3 text-gray-500">{p.barcode || "—"}</td>
+                  <td className="py-2 pr-3 font-medium text-gray-800">
+                    {p.label}
+                  </td>
+                  <td className="py-2 pr-3 text-gray-600">
+                    {p.unitsPerPackage}
+                  </td>
+                  <td className="py-2 pr-3 text-gray-500">
+                    {p.barcode || "—"}
+                  </td>
                   <td className="py-2 pr-3 text-gray-600">
                     {p.prixFcfa === null || p.prixFcfa === undefined
                       ? "—"
@@ -189,9 +234,10 @@ export default function ProductPackagingsManager({ productId, productSku }) {
                     <button
                       type="button"
                       onClick={() => onDelete(p)}
+                      disabled={!p.actif || saving}
                       className="text-xs font-semibold text-red-600 hover:underline"
                     >
-                      Supprimer
+                      Désactiver
                     </button>
                   </td>
                 </tr>
@@ -201,9 +247,14 @@ export default function ProductPackagingsManager({ productId, productSku }) {
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <form
+        onSubmit={onSubmit}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-5"
+      >
         <div className="col-span-2 sm:col-span-1">
-          <label className="mb-1 block text-xs font-medium text-gray-700">Libellé</label>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            Libellé
+          </label>
           <input
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
@@ -212,32 +263,44 @@ export default function ProductPackagingsManager({ productId, productSku }) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Nb unités</label>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            Nb unités
+          </label>
           <input
             type="number"
             min="1"
             value={form.unitsPerPackage}
-            onChange={(e) => setForm((f) => ({ ...f, unitsPerPackage: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, unitsPerPackage: e.target.value }))
+            }
             placeholder="12"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Code-barres</label>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            Code-barres
+          </label>
           <input
             value={form.barcode}
-            onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, barcode: e.target.value }))
+            }
             placeholder="Optionnel"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Prix (FCFA)</label>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            Prix (FCFA)
+          </label>
           <input
             type="number"
             min="0"
             value={form.prixFcfa}
-            onChange={(e) => setForm((f) => ({ ...f, prixFcfa: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, prixFcfa: e.target.value }))
+            }
             placeholder="Auto"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
@@ -247,7 +310,9 @@ export default function ProductPackagingsManager({ productId, productSku }) {
             <input
               type="checkbox"
               checked={form.actif}
-              onChange={(e) => setForm((f) => ({ ...f, actif: e.target.checked }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, actif: e.target.checked }))
+              }
             />
             Actif
           </label>
@@ -257,7 +322,7 @@ export default function ProductPackagingsManager({ productId, productSku }) {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="rounded-lg bg-yellow-400 px-3 py-2 text-sm font-semibold text-black disabled:opacity-60"
           >
             {editingId ? "Enregistrer" : "Ajouter le conditionnement"}
           </button>

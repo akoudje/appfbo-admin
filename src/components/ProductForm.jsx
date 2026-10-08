@@ -1,909 +1,448 @@
-// src/components/ProductForm.jsx
-
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useConfirm } from "../hooks/useDialogs";
 import ProductThumb from "./ProductThumb";
 import { getCountryCode } from "../services/api";
-
-const GRADE_PRICE_FIELDS = [
-  { key: "CLIENT_PRIVILEGIE", label: "Client privilégié" },
-  { key: "ANIMATEUR_ADJOINT", label: "Animateur adjoint" },
-  { key: "ANIMATEUR", label: "Animateur" },
-  { key: "MANAGER_ADJOINT", label: "Manager adjoint" },
-  { key: "MANAGER", label: "Manager" },
-];
-
-const DEFAULT_CATEGORIES = [
-  { value: "NON_CLASSE", label: "Non classé" },
-  { value: "BUVABLE", label: "Buvable" },
-  { value: "COMBO_PACKS", label: "Combo Packs" },
-  { value: "GESTION_DE_POIDS", label: "Gestion de poids" },
-  { value: "NUTRITION", label: "Nutrition" },
-  { value: "PRODUIT_DE_LA_RUCHE", label: "Produit de la ruche" },
-  { value: "SOINS_DE_LA_PEAU", label: "Soins de la peau" },
-  { value: "SOINS_PERSONNELS", label: "Soins personnels" },
-];
-
-function validateField(name, value) {
-  switch (name) {
-    case "sku":
-      return !String(value || "").trim() ? "Le SKU est requis" : "";
-    case "nom":
-      return !String(value || "").trim() ? "Le nom est requis" : "";
-    case "prixBaseFcfa":
-      if (value === "" || value === null) return "Le prix est requis";
-      if (!Number.isFinite(Number(value))) return "Le prix est invalide";
-      if (Number(value) < 0) return "Le prix doit être positif";
-      return "";
-    case "cc":
-      if (value === "" || value === null) return "Le CC est requis";
-      if (!Number.isFinite(Number(value))) return "Le CC est invalide";
-      if (Number(value) < 0) return "Le CC doit être positif";
-      return "";
-    case "poidsKg":
-      if (value === "" || value === null) return "Le poids est requis";
-      if (!Number.isFinite(Number(value))) return "Le poids est invalide";
-      if (Number(value) < 0) return "Le poids doit être positif";
-      return "";
-    case "stockQty":
-      if (value === "" || value === null) return "";
-      if (!Number.isFinite(Number(value))) return "Le stock est invalide";
-      if (Number(value) < 0) return "Le stock doit être ≥ 0";
-      if (!Number.isInteger(Number(value))) return "Le stock doit être un entier";
-      return "";
-    case "maxQtyPerOrder":
-      if (value === "" || value === null) return "";
-      if (!Number.isFinite(Number(value))) return "La limite est invalide";
-      if (Number(value) < 1) return "La limite doit être ≥ 1";
-      if (!Number.isInteger(Number(value))) return "La limite doit être un entier";
-      return "";
-    case "gradePrice":
-      if (value === "" || value === null || value === undefined) return "";
-      if (!Number.isFinite(Number(value))) return "Le prix est invalide";
-      if (Number(value) < 0) return "Le prix doit être positif";
-      return "";
-    case "category":
-      return !String(value || "").trim() ? "La catégorie est requise" : "";
-    default:
-      return "";
-  }
-}
-
-function toFixed3Safe(v) {
-  if (v === "" || v === null || v === undefined) return "";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return String(v);
-  return n.toFixed(3);
-}
-
-function maskUrl(url) {
-  try {
-    const u = new URL(url);
-    return `${u.protocol}//${u.hostname}/…`;
-  } catch {
-    return "URL invalide";
-  }
-}
-
-function imageSourceTag(url) {
-  if (!url)
-    return { label: "Aucune image", cls: "bg-gray-100 text-gray-700 border-gray-200" };
-  if (/cloudinary\.com/i.test(url)) {
-    return { label: "Cloudinary", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-  }
-  return { label: "Externe", cls: "bg-amber-50 text-amber-700 border-amber-200" };
-}
-
-function extractApiErrorMessage(e) {
-  return (
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    "Une erreur est survenue. Réessaie."
-  );
-}
-
-function InlineAlert({ type = "success", title, message, onClose }) {
-  const styles =
-    type === "success"
-      ? {
-          wrap: "border-emerald-200 bg-emerald-50",
-          title: "text-emerald-900",
-          text: "text-emerald-800",
-          icon: (
-            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          ),
-        }
-      : {
-          wrap: "border-red-200 bg-red-50",
-          title: "text-red-900",
-          text: "text-red-800",
-          icon: (
-            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ),
-        };
-
-  return (
-    <div className={`border rounded-xl p-4 flex items-start gap-3 ${styles.wrap}`}>
-      <div className="mt-0.5">{styles.icon}</div>
-      <div className="flex-1 min-w-0">
-        {title && <div className={`text-sm font-semibold ${styles.title}`}>{title}</div>}
-        {message && <div className={`text-sm mt-0.5 ${styles.text}`}>{message}</div>}
-      </div>
-      {onClose && (
-        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
+import {
+  CATEGORIES,
+  GRADES,
+  formValues,
+  validateProduct,
+  productPayload,
+} from "../lib/products/productModel";
+const inputClass =
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 disabled:bg-gray-50";
 export default function ProductForm({
-  mode = "create", // "create" | "edit"
+  mode = "create",
   initialValues,
-  onSubmit, // peut throw OU retourner { ok:boolean, message?:string }
-  onUploadImage, // (file) => Promise<string imageUrl>
-  loading,
-  categoryOptions,
+  onSubmit,
+  loading = false,
+  onReload,
 }) {
-  const navigate = useNavigate();
-  const isEdit = mode === "edit";
-  const countryCode = getCountryCode();
-  const usesDirectGradePricing = ["BFA", "CIV"].includes(countryCode);
-
-  const categories =
-    Array.isArray(categoryOptions) && categoryOptions.length ? categoryOptions : DEFAULT_CATEGORIES;
-
-  const [form, setForm] = useState({
-    sku: "",
-    nom: "",
-    prixBaseFcfa: "",
-    cc: "0.000",
-    poidsKg: "0.000",
-    actif: true,
-    imageUrl: "",
-    category: "NON_CLASSE",
-    stockQty: "0",
-    maxQtyPerOrder: "",
-    gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => ({ ...acc, [item.key]: "" }), {}),
-    details: "",
-  });
-
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-  const [uploadBusy, setUploadBusy] = useState(false);
-  const [pendingImageFile, setPendingImageFile] = useState(null);
-  const [revealUrl, setRevealUrl] = useState(false);
-
-  // ✅ Feedback UI
-  const [banner, setBanner] = useState(null); // { type: 'success'|'error', title, message }
-
-  // snapshot pour dirty-check (edit)
-  const initialSnapshotRef = useRef(null);
-
+  const editing = mode === "edit",
+    navigate = useNavigate(),
+    confirm = useConfirm(),
+    country = getCountryCode();
+  const [form, setForm] = useState(() => formValues(initialValues)),
+    [errors, setErrors] = useState({}),
+    [message, setMessage] = useState(""),
+    [file, setFile] = useState(null);
+  const initial = useRef(formValues(initialValues)),
+    saving = useRef(false),
+    formRef = useRef(null);
+  const dirty =
+    JSON.stringify(form) !== JSON.stringify(initial.current) || !!file;
   useEffect(() => {
-    if (isEdit && initialValues) {
-      const next = {
-        sku: initialValues.sku || "",
-        nom: initialValues.nom || "",
-        prixBaseFcfa: String(initialValues.prixBaseFcfa ?? ""),
-        cc: String(initialValues.cc ?? "0.000"),
-        poidsKg: String(initialValues.poidsKg ?? "0.000"),
-        actif: Boolean(initialValues.actif),
-        imageUrl: initialValues.imageUrl || "",
-        category: initialValues.category || "NON_CLASSE",
-        stockQty: String(initialValues.stockQty ?? 0),
-        maxQtyPerOrder:
-          initialValues.maxQtyPerOrder === null ||
-          initialValues.maxQtyPerOrder === undefined
-            ? ""
-            : String(initialValues.maxQtyPerOrder),
-        gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => {
-          acc[item.key] =
-            initialValues.gradePrices?.[item.key] === null ||
-            initialValues.gradePrices?.[item.key] === undefined
-              ? ""
-              : String(initialValues.gradePrices[item.key]);
-          return acc;
-        }, {}),
-        details: initialValues.details || "",
-      };
-      setForm(next);
-      initialSnapshotRef.current = next;
-    } else {
-      const next = {
-        sku: "",
-        nom: "",
-        prixBaseFcfa: "",
-        cc: "0.000",
-        poidsKg: "0.000",
-        actif: true,
-        imageUrl: "",
-        category: "NON_CLASSE",
-        stockQty: "0",
-        maxQtyPerOrder: "",
-        gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => ({ ...acc, [item.key]: "" }), {}),
-        details: "",
-      };
-      setForm(next);
-      initialSnapshotRef.current = next;
-    }
-
-    setErrors({});
-    setTouched({});
-    setRevealUrl(false);
-    setBanner(null);
-    setPendingImageFile(null);
-  }, [isEdit, initialValues]);
-
+    const guard = (e) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [dirty]);
   useEffect(() => {
-    return () => {
-      if (form.imageUrl?.startsWith?.("blob:")) {
+    const intercept = async (e) => {
+      const anchor = e.target.closest?.("a[href]");
+      if (
+        !dirty ||
+        !anchor ||
+        e.defaultPrevented ||
+        e.button !== 0 ||
+        e.metaKey ||
+        e.ctrlKey ||
+        anchor.target === "_blank"
+      )
+        return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (
+        await confirm({
+          title: "Quitter cette fiche ?",
+          message: "Vos modifications non enregistrées seront perdues.",
+          confirmLabel: "Quitter",
+          tone: "warning",
+        })
+      )
+        navigate(
+          url.hash.startsWith("#/")
+            ? url.hash.slice(1)
+            : url.pathname + url.search,
+        );
+    };
+    document.addEventListener("click", intercept, true);
+    return () => document.removeEventListener("click", intercept, true);
+  }, [dirty, confirm, navigate]);
+  useEffect(
+    () => () => {
+      if (form.imageUrl?.startsWith("blob:"))
         URL.revokeObjectURL(form.imageUrl);
-      }
-    };
-  }, [form.imageUrl]);
-
-  const validateForm = useMemo(() => {
-    return {
-      sku: validateField("sku", form.sku),
-      nom: validateField("nom", form.nom),
-      prixBaseFcfa: validateField("prixBaseFcfa", form.prixBaseFcfa),
-      cc: validateField("cc", form.cc),
-      poidsKg: validateField("poidsKg", form.poidsKg),
-      category: validateField("category", form.category),
-      stockQty: validateField("stockQty", form.stockQty),
-      maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
-      ...(usesDirectGradePricing
-        ? GRADE_PRICE_FIELDS.reduce((acc, item) => {
-            acc[`gradePrices.${item.key}`] = validateField(
-              "gradePrice",
-              form.gradePrices?.[item.key],
-            );
-            return acc;
-          }, {})
-        : {}),
-    };
-  }, [form, usesDirectGradePricing]);
-
-  const hasErrors = Object.values(validateForm).some((x) => x);
-
-  const isDirty = useMemo(() => {
-    const snap = initialSnapshotRef.current;
-    if (!snap) return true;
-    const keys = Object.keys(snap);
-    for (const k of keys) {
-      if (typeof snap[k] === "object" || typeof form[k] === "object") {
-        if (JSON.stringify(snap[k] || {}) !== JSON.stringify(form[k] || {})) return true;
-        continue;
-      }
-      if (String(snap[k] ?? "") !== String(form[k] ?? "")) return true;
-    }
-    return false;
-  }, [form]);
-
-  const canSubmit = !hasErrors && (isEdit ? isDirty : Object.keys(touched).length > 0);
-
-  const handleChange = (field, value) => {
-    setForm((p) => ({ ...p, [field]: value }));
-    setTouched((p) => ({ ...p, [field]: true }));
-    if (errors[field]) setErrors((p) => ({ ...p, [field]: "" }));
-    if (banner) setBanner(null);
-  };
-
-  const handleGradePriceChange = (grade, value) => {
-    setForm((p) => ({
-      ...p,
-      gradePrices: {
-        ...(p.gradePrices || {}),
-        [grade]: value,
-      },
-    }));
-    setTouched((p) => ({ ...p, [`gradePrices.${grade}`]: true }));
-    if (errors[`gradePrices.${grade}`]) {
-      setErrors((p) => ({ ...p, [`gradePrices.${grade}`]: "" }));
-    }
-    if (banner) setBanner(null);
-  };
-
-  const handleBlur = (field) => {
-    setTouched((p) => ({ ...p, [field]: true }));
-    setErrors((p) => ({ ...p, [field]: validateField(field, form[field]) }));
-
-    if (field === "cc" || field === "poidsKg") {
-      setForm((p) => ({ ...p, [field]: toFixed3Safe(p[field]) }));
-    }
-  };
-
-  const submit = async () => {
-    const allTouched = Object.keys(form).reduce((acc, k) => ((acc[k] = true), acc), {});
-    setTouched(allTouched);
-
-    const validationErrors = {
-      sku: validateField("sku", form.sku),
-      nom: validateField("nom", form.nom),
-      prixBaseFcfa: validateField("prixBaseFcfa", form.prixBaseFcfa),
-      cc: validateField("cc", form.cc),
-      poidsKg: validateField("poidsKg", form.poidsKg),
-      category: validateField("category", form.category),
-      stockQty: validateField("stockQty", form.stockQty),
-      maxQtyPerOrder: validateField("maxQtyPerOrder", form.maxQtyPerOrder),
-      ...(usesDirectGradePricing
-        ? GRADE_PRICE_FIELDS.reduce((acc, item) => {
-            acc[`gradePrices.${item.key}`] = validateField(
-              "gradePrice",
-              form.gradePrices?.[item.key],
-            );
-            return acc;
-          }, {})
-        : {}),
-    };
-    setErrors(validationErrors);
-    if (Object.values(validationErrors).some((e) => e)) {
-      setBanner({
-        type: "error",
-        title: "Vérifie les champs",
-        message: "Certains champs sont invalides. Corrige puis réessaie.",
-      });
+    },
+    [form.imageUrl],
+  );
+  function change(key, value) {
+    setForm((p) => ({ ...p, [key]: value }));
+    setMessage("");
+    setErrors((p) => ({ ...p, [key]: "" }));
+  }
+  async function leave() {
+    if (
+      !dirty ||
+      (await confirm({
+        title: "Quitter cette fiche ?",
+        message: "Vos modifications non enregistrées seront perdues.",
+        confirmLabel: "Quitter",
+        tone: "warning",
+      }))
+    )
+      navigate(initialValues?.returnTo || "/products");
+  }
+  async function submit(e) {
+    e.preventDefault();
+    if (saving.current) return;
+    const invalid = validateProduct(form, editing);
+    setErrors(invalid);
+    if (Object.keys(invalid).length) {
+      setMessage("Vérifiez les champs signalés.");
+      setTimeout(
+        () => formRef.current?.querySelector('[aria-invalid="true"]')?.focus(),
+        0,
+      );
       return;
     }
-
+    saving.current = true;
+    setMessage("");
     try {
-      setBanner(null);
-
-      const result = await onSubmit?.({
-        sku: form.sku.trim(),
-        nom: form.nom.trim(),
-        prixBaseFcfa: Number(form.prixBaseFcfa),
-        cc: String(form.cc),
-        poidsKg: String(form.poidsKg),
-        actif: Boolean(form.actif),
-        imageUrl:
-          !isEdit && pendingImageFile
-            ? null
-            : form.imageUrl
-              ? String(form.imageUrl).trim()
-              : null,
-        category: form.category || "NON_CLASSE",
-        details: form.details ? String(form.details) : null,
-        stockQty: Number(form.stockQty ?? 0),
-        maxQtyPerOrder:
-          form.maxQtyPerOrder === "" ? null : Number(form.maxQtyPerOrder),
-        ...(usesDirectGradePricing
-          ? {
-              gradePrices: GRADE_PRICE_FIELDS.reduce((acc, item) => {
-                const raw = form.gradePrices?.[item.key];
-                if (raw !== "" && raw !== null && raw !== undefined) {
-                  acc[item.key] = Number(raw);
-                }
-                return acc;
-              }, {}),
-            }
-          : {}),
-      }, {
-        imageFile: !isEdit ? pendingImageFile : null,
-      });
-
-      // Support 2 contrats :
-      // 1) onSubmit throw => catch
-      // 2) onSubmit retourne {ok:false,message}
-      if (result && typeof result === "object" && result.ok === false) {
-        setBanner({
-          type: "error",
-          title: "Opération échouée",
-          message: result.message || "Impossible d’enregistrer. Réessaie.",
-        });
+      const result = await onSubmit(
+        productPayload(form, initial.current, editing),
+        { imageFile: file },
+      );
+      if (result?.ok === false) {
+        setMessage(result.message);
         return;
       }
-
-      // ✅ succès
-      setBanner({
-        type: "success",
-        title: isEdit ? "Produit mis à jour" : "Produit créé",
-        message: isEdit
-          ? "Les modifications ont été enregistrées avec succès."
-          : "Le produit a été créé avec succès.",
-      });
-
-      initialSnapshotRef.current = { ...form };
-      setTouched({});
-      setErrors({});
-    } catch (e) {
-      const msg = extractApiErrorMessage(e);
-      setBanner({
-        type: "error",
-        title: "Opération échouée",
-        message: msg,
-      });
+      initial.current = { ...form };
+      setFile(null);
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message ||
+          "Impossible d’enregistrer. Vos saisies sont conservées.",
+      );
+    } finally {
+      saving.current = false;
     }
-  };
-
-  const uploadImage = async (file) => {
-    if (!file) return;
-
-    if (!isEdit) {
-      if (form.imageUrl?.startsWith?.("blob:")) {
-        URL.revokeObjectURL(form.imageUrl);
-      }
-      const previewUrl = URL.createObjectURL(file);
-      setPendingImageFile(file);
-      handleChange("imageUrl", previewUrl);
-      setBanner({
-        type: "success",
-        title: "Image prête",
-        message: "L’image sera envoyée automatiquement à la création du produit.",
-      });
+  }
+  function chooseImage(selected) {
+    if (!selected) return;
+    if (
+      !["image/png", "image/jpeg", "image/webp"].includes(selected.type) ||
+      selected.size > 5 * 1024 * 1024
+    ) {
+      setMessage("Choisissez une image PNG, JPEG ou WebP de 5 Mo maximum.");
       return;
     }
-
-    if (!onUploadImage) return;
-
-    setUploadBusy(true);
-    try {
-      setBanner(null);
-      const url = await onUploadImage(file);
-      handleChange("imageUrl", url || "");
-      setBanner({
-        type: "success",
-        title: "Image mise à jour",
-        message: "L’image du produit a été mise à jour avec succès.",
-      });
-    } catch (e) {
-      setBanner({
-        type: "error",
-        title: "Upload échoué",
-        message: extractApiErrorMessage(e),
-      });
-    } finally {
-      setUploadBusy(false);
-    }
-  };
-
-  const imgTag = imageSourceTag(form.imageUrl);
-
-  const uploadDisabled = isEdit
-    ? !onUploadImage || loading || uploadBusy
-    : loading || uploadBusy;
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            {isEdit ? "Modifier le produit" : "Créer un produit"}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isEdit
-              ? "Mettez à jour les informations et l’image."
-              : "Renseignez les champs puis créez. L’upload image se fait sur la page d’édition."}
+    setFile(selected);
+    change("imageUrl", URL.createObjectURL(selected));
+  }
+  function field(key, label, type = "text", options = {}) {
+    return (
+      <div>
+        <label
+          htmlFor={`product-${key}`}
+          className="mb-1.5 block text-sm font-medium"
+        >
+          {label}
+        </label>
+        <input
+          id={`product-${key}`}
+          type={type}
+          value={form[key] ?? ""}
+          onChange={(e) => change(key, e.target.value)}
+          disabled={loading || options.disabled}
+          aria-invalid={!!errors[key]}
+          aria-describedby={errors[key] ? `error-${key}` : undefined}
+          className={inputClass}
+          {...options}
+        />
+        {errors[key] && (
+          <p id={`error-${key}`} className="mt-1 text-xs text-red-700">
+            {errors[key]}
           </p>
-        </div>
-
-        {isEdit && (
-          <span
-            className={`text-xs px-3 py-1 rounded-full border ${
-              isDirty
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-            }`}
-            title={isDirty ? "Modifications non enregistrées" : "Aucun changement"}
-          >
-            {isDirty ? "Non enregistré" : "À jour"}
-          </span>
         )}
       </div>
-
-      <div className="p-6 space-y-6">
-        {/* ✅ Banner feedback */}
-        {banner && (
-          <InlineAlert
-            type={banner.type}
-            title={banner.title}
-            message={banner.message}
-            onClose={() => setBanner(null)}
-          />
+    );
+  }
+  return (
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      className="overflow-hidden rounded-2xl border bg-white shadow-sm"
+    >
+      <header className="flex flex-wrap items-center justify-between gap-3 bg-black p-5 text-white">
+        <div>
+          <h1 className="text-xl font-semibold">
+            {editing ? "Modifier le produit" : "Nouveau produit"}
+          </h1>
+          <p className="mt-1 text-sm text-gray-300">Catalogue · {country}</p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-xs">
+          {dirty ? "Modifications non enregistrées" : "Fiche à jour"}
+        </span>
+      </header>
+      <div className="space-y-7 p-5 sm:p-6">
+        {message && (
+          <p
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          >
+            {message}
+          </p>
         )}
-
-        {/* Image */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="w-44">
-            <div className="w-44 aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 relative">
-              <ProductThumb
-                url={form.imageUrl}
-                alt={form.nom || "Aperçu"}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute top-2 left-2">
-                <span className={`text-[11px] px-2 py-1 rounded-full border ${imgTag.cls}`}>
-                  {imgTag.label}
-                </span>
-              </div>
+        <fieldset className="space-y-4">
+          <legend className="mb-1 text-base font-semibold">
+            Informations communes
+          </legend>
+          <p className="text-sm text-gray-500">
+            Ces informations et l’image sont partagées par tous les pays où ce
+            produit est proposé.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {field("sku", "Référence produit (SKU)", "text", {
+              maxLength: 100,
+              required: true,
+            })}
+            {field("nom", "Nom du produit", "text", {
+              maxLength: 250,
+              required: true,
+            })}
+            <div>
+              <label
+                htmlFor="product-category"
+                className="mb-1.5 block text-sm font-medium"
+              >
+                Catégorie
+              </label>
+              <select
+                id="product-category"
+                value={form.category}
+                disabled={loading}
+                onChange={(e) => change("category", e.target.value)}
+                className={inputClass}
+              >
+                {CATEGORIES.filter(([key]) => key).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {form.imageUrl && (
-              <div className="mt-2 text-[11px] text-gray-500">
-                Source :{" "}
-                <span className="font-mono text-gray-700">
-                  {revealUrl ? form.imageUrl : maskUrl(form.imageUrl)}
-                </span>{" "}
-                <button
-                  type="button"
-                  className="ml-2 text-blue-600 hover:text-blue-700 font-medium"
-                  onClick={() => setRevealUrl((v) => !v)}
-                >
-                  {revealUrl ? "Masquer" : "Afficher"}
-                </button>
-              </div>
+            {field("cc", "Coefficient CC", "text", { inputMode: "decimal" })}
+            {field("poidsKg", "Poids (kg)", "text", { inputMode: "decimal" })}
+          </div>
+          <div>
+            <label
+              htmlFor="product-details"
+              className="mb-1.5 block text-sm font-medium"
+            >
+              Description
+            </label>
+            <textarea
+              id="product-details"
+              rows={4}
+              maxLength={20000}
+              value={form.details || ""}
+              disabled={loading}
+              onChange={(e) => change("details", e.target.value)}
+              className={inputClass}
+            />
+            {errors.details && (
+              <p className="text-xs text-red-700">{errors.details}</p>
             )}
           </div>
-
-          <div className="flex-1">
-          <p className="text-sm text-gray-700 mb-2">
-            Image produit (admin).
-            {!isEdit && <span className="text-gray-500"> — Upload possible dès la création.</span>}
-          </p>
-
-            <div className="flex flex-wrap gap-2">
-              <label
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white transition ${
-                  uploadDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50"
-                }`}
-                title={!isEdit ? "Upload disponible uniquement en édition" : ""}
-              >
+          <div className="flex flex-wrap items-center gap-4">
+            <ProductThumb
+              url={form.imageUrl}
+              alt={form.nom || "Aperçu du produit"}
+              className="h-28 w-28 rounded-xl border object-contain"
+            />
+            <div className="space-y-2">
+              <label className="inline-block cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium">
+                {form.imageUrl
+                  ? "Choisir une autre image"
+                  : "Ajouter une image"}
                 <input
+                  aria-label="Choisir une image produit"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  disabled={uploadDisabled}
+                  disabled={loading}
+                  className="sr-only"
                   onChange={(e) => {
-                    const f = e.target.files?.[0];
+                    chooseImage(e.target.files?.[0]);
                     e.target.value = "";
-                    if (f) uploadImage(f);
                   }}
                 />
-                <span className="text-sm font-medium text-gray-700">
-                  {uploadBusy
-                    ? "Upload..."
-                    : form.imageUrl
-                    ? "Remplacer l’image"
-                    : "Télécharger une image"}
-                </span>
               </label>
-
-              {form.imageUrl && isEdit && (
+              {form.imageUrl && (
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => {
-                    if (!isEdit && form.imageUrl?.startsWith?.("blob:")) {
-                      URL.revokeObjectURL(form.imageUrl);
-                    }
-                    setPendingImageFile(null);
-                    handleChange("imageUrl", "");
+                    setFile(null);
+                    change("imageUrl", "");
                   }}
-                  disabled={loading || uploadBusy}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="ml-2 text-sm text-red-700"
                 >
-                  Retirer l’image
+                  Retirer
                 </button>
               )}
-              {form.imageUrl && !isEdit && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (form.imageUrl?.startsWith?.("blob:")) {
-                      URL.revokeObjectURL(form.imageUrl);
-                    }
-                    setPendingImageFile(null);
-                    handleChange("imageUrl", "");
-                  }}
-                  disabled={loading || uploadBusy}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Retirer l’image
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => navigate("/products")}
-                disabled={loading || uploadBusy}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Retour à la liste
-              </button>
-            </div>
-
-            {form.imageUrl &&
-              !form.imageUrl.startsWith("blob:") &&
-              !form.imageUrl.startsWith("data:") &&
-              /cloudinary\.com/i.test(form.imageUrl) === false && (
-              <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
-                ⚠️ Image externe détectée. Pour éviter les liens instables, privilégie l’upload Cloudinary côté admin.
-              </div>
-            )}
-
-            <p className="text-xs text-gray-500 mt-2">
-              Reco : image carrée, PNG/JPG/WebP, bonne résolution (min 800×800).
-            </p>
-          </div>
-        </div>
-
-        {/* Category + stock */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={errors.category && touched.category ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Catégorie <span className="text-red-500">*</span>
-            </label>
-            <select
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.category && touched.category ? "border-red-300" : "border-gray-300"
-              }`}
-              value={form.category}
-              onChange={(e) => handleChange("category", e.target.value)}
-              onBlur={() => handleBlur("category")}
-              disabled={loading}
-            >
-              {categories.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            {errors.category && touched.category && (
-              <p className="mt-1 text-xs text-red-600">{errors.category}</p>
-            )}
-          </div>
-
-          <div className={errors.stockQty && touched.stockQty ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Stock disponible
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.stockQty && touched.stockQty ? "border-red-300" : "border-gray-300"
-              }`}
-              type="number"
-              min="0"
-              step="1"
-              value={form.stockQty}
-              onChange={(e) => handleChange("stockQty", e.target.value)}
-              onBlur={() => handleBlur("stockQty")}
-              disabled={loading}
-              placeholder="0"
-            />
-            {errors.stockQty && touched.stockQty && (
-              <p className="mt-1 text-xs text-red-600">{errors.stockQty}</p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">0 = rupture (filtrable côté public)</p>
-          </div>
-
-          <div className={errors.maxQtyPerOrder && touched.maxQtyPerOrder ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Limite par commande
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.maxQtyPerOrder && touched.maxQtyPerOrder
-                  ? "border-red-300"
-                  : "border-gray-300"
-              }`}
-              type="number"
-              min="1"
-              step="1"
-              value={form.maxQtyPerOrder}
-              onChange={(e) => handleChange("maxQtyPerOrder", e.target.value)}
-              onBlur={() => handleBlur("maxQtyPerOrder")}
-              disabled={loading}
-              placeholder="Ex: 1"
-            />
-            {errors.maxQtyPerOrder && touched.maxQtyPerOrder && (
-              <p className="mt-1 text-xs text-red-600">{errors.maxQtyPerOrder}</p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Vide = limite globale du pays. Ex: Calcium = 1.
-            </p>
-          </div>
-        </div>
-
-        {/* details */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Détails du produit</label>
-          <textarea
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg min-h-[120px] resize-y"
-            value={form.details}
-            onChange={(e) => handleChange("details", e.target.value)}
-            disabled={loading}
-            placeholder="Description longue, conseils d’utilisation, bénéfices…"
-          />
-        </div>
-
-        {/* core fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className={errors.sku && touched.sku ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              SKU <span className="text-red-500">*</span>
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.sku && touched.sku ? "border-red-300" : "border-gray-300"
-              }`}
-              value={form.sku}
-              onChange={(e) => handleChange("sku", e.target.value)}
-              onBlur={() => handleBlur("sku")}
-              disabled={loading}
-            />
-            {errors.sku && touched.sku && (
-              <p className="mt-1 text-xs text-red-600">{errors.sku}</p>
-            )}
-          </div>
-
-          <div className={errors.prixBaseFcfa && touched.prixBaseFcfa ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Prix de base (FCFA) <span className="text-red-500">*</span>
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.prixBaseFcfa && touched.prixBaseFcfa ? "border-red-300" : "border-gray-300"
-              }`}
-              type="number"
-              min="0"
-              step="10"
-              value={form.prixBaseFcfa}
-              onChange={(e) => handleChange("prixBaseFcfa", e.target.value)}
-              onBlur={() => handleBlur("prixBaseFcfa")}
-              disabled={loading}
-            />
-            {errors.prixBaseFcfa && touched.prixBaseFcfa && (
-              <p className="mt-1 text-xs text-red-600">{errors.prixBaseFcfa}</p>
-            )}
-          </div>
-
-          <div className={`md:col-span-2 ${errors.nom && touched.nom ? "error" : ""}`}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nom du produit <span className="text-red-500">*</span>
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.nom && touched.nom ? "border-red-300" : "border-gray-300"
-              }`}
-              value={form.nom}
-              onChange={(e) => handleChange("nom", e.target.value)}
-              onBlur={() => handleBlur("nom")}
-              disabled={loading}
-            />
-            {errors.nom && touched.nom && (
-              <p className="mt-1 text-xs text-red-600">{errors.nom}</p>
-            )}
-          </div>
-
-          <div className={errors.cc && touched.cc ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Coefficient CC <span className="text-red-500">*</span>
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.cc && touched.cc ? "border-red-300" : "border-gray-300"
-              }`}
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.cc}
-              onChange={(e) => handleChange("cc", e.target.value)}
-              onBlur={() => handleBlur("cc")}
-              disabled={loading}
-            />
-            {errors.cc && touched.cc && (
-              <p className="mt-1 text-xs text-red-600">{errors.cc}</p>
-            )}
-          </div>
-
-          <div className={errors.poidsKg && touched.poidsKg ? "error" : ""}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Poids (Kg) <span className="text-red-500">*</span>
-            </label>
-            <input
-              className={`w-full px-4 py-2 border rounded-lg ${
-                errors.poidsKg && touched.poidsKg ? "border-red-300" : "border-gray-300"
-              }`}
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.poidsKg}
-              onChange={(e) => handleChange("poidsKg", e.target.value)}
-              onBlur={() => handleBlur("poidsKg")}
-              disabled={loading}
-            />
-            {errors.poidsKg && touched.poidsKg && (
-              <p className="mt-1 text-xs text-red-600">{errors.poidsKg}</p>
-            )}
-          </div>
-        </div>
-
-        {usesDirectGradePricing && (
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <div className="mb-3">
-              <h2 className="text-sm font-semibold text-blue-950">
-                Prix AS400 par grade - {countryCode}
-              </h2>
-              <p className="mt-1 text-xs text-blue-800">
-                Ces prix remplacent le calcul par remise pour les précommandes {countryCode}.
+              <p className="text-xs text-gray-500">
+                PNG, JPEG ou WebP · 5 Mo maximum. L’image sera envoyée lors de
+                l’enregistrement.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-              {GRADE_PRICE_FIELDS.map((item) => {
-                const errorKey = `gradePrices.${item.key}`;
-                return (
-                  <div key={item.key}>
-                    <label className="block text-xs font-medium text-blue-950 mb-1">
-                      {item.label}
+          </div>
+        </fieldset>
+        <fieldset className="space-y-4 border-t pt-5">
+          <legend className="px-1 text-base font-semibold">
+            Tarifs · {country}
+          </legend>
+          <p className="text-sm text-gray-500">
+            Ces tarifs s’appliquent uniquement au pays sélectionné.
+          </p>
+          {field("prixBaseFcfa", "Prix de base (FCFA)", "text", {
+            inputMode: "numeric",
+            required: true,
+          })}
+          {["CIV", "BFA"].includes(country) && (
+            <>
+              <p className="text-sm text-gray-600">
+                Tarifs par grade. Une valeur vide retire le tarif spécifique ;
+                le calcul de secours configuré pour ce pays s’appliquera.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {GRADES.map(([key, label]) => (
+                  <div key={key}>
+                    <label
+                      htmlFor={`grade-${key}`}
+                      className="mb-1.5 block text-sm font-medium"
+                    >
+                      {label}
                     </label>
                     <input
-                      className={`w-full px-3 py-2 border rounded-lg bg-white ${
-                        errors[errorKey] && touched[errorKey]
-                          ? "border-red-300"
-                          : "border-blue-200"
-                      }`}
-                      type="number"
-                      min="0"
-                      step="10"
-                      value={form.gradePrices?.[item.key] ?? ""}
-                      onChange={(e) => handleGradePriceChange(item.key, e.target.value)}
+                      id={`grade-${key}`}
+                      inputMode="decimal"
+                      value={form.gradePrices[key]}
                       disabled={loading}
-                      placeholder="FCFA"
+                      aria-invalid={!!errors[`grade.${key}`]}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          gradePrices: {
+                            ...p.gradePrices,
+                            [key]: e.target.value,
+                          },
+                        }))
+                      }
+                      className={inputClass}
                     />
-                    {errors[errorKey] && touched[errorKey] && (
-                      <p className="mt-1 text-xs text-red-600">{errors[errorKey]}</p>
+                    {errors[`grade.${key}`] && (
+                      <p className="mt-1 text-xs text-red-700">
+                        {errors[`grade.${key}`]}
+                      </p>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            </>
+          )}
+        </fieldset>
+        <fieldset className="space-y-4 border-t pt-5">
+          <legend className="px-1 text-base font-semibold">
+            Disponibilité · {country}
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {editing ? (
+              <div className="rounded-xl bg-gray-50 p-4">
+                <p className="text-sm text-gray-500">Stock disponible</p>
+                <p className="mt-1 text-2xl font-semibold">{form.stockQty}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Les ajustements de stock se font depuis la liste produits avec
+                  un motif.
+                </p>
+              </div>
+            ) : (
+              field("stockQty", "Stock initial", "text", {
+                inputMode: "numeric",
+              })
+            )}
+            {field("maxQtyPerOrder", "Limite par commande", "text", {
+              inputMode: "numeric",
+              placeholder: "Limite globale du pays",
+            })}
           </div>
-        )}
-
-        {/* actif */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <div>
-            <p className="font-medium text-gray-900">Statut du produit</p>
-            <p className="text-sm text-gray-500">
-              {form.actif ? "Visible et disponible" : "Masqué et non disponible"}
-            </p>
-          </div>
+          <label className="flex items-center gap-3 rounded-xl border p-4">
+            <input
+              type="checkbox"
+              checked={form.actif}
+              disabled={loading}
+              onChange={(e) => change("actif", e.target.checked)}
+              className="h-5 w-5 accent-yellow-500"
+            />
+            <span>
+              <span className="block font-medium">Actif dans ce pays</span>
+              <span className="text-sm text-gray-500">
+                L’activation et la quantité en stock sont deux informations
+                distinctes.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+      </div>
+      <footer className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t bg-white/95 p-4 backdrop-blur">
+        {editing && onReload && (
           <button
             type="button"
-            onClick={() => handleChange("actif", !form.actif)}
             disabled={loading}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              form.actif ? "bg-blue-600" : "bg-gray-300"
-            }`}
+            onClick={async () => {
+              if (
+                !dirty ||
+                (await confirm({
+                  title: "Recharger cette fiche ?",
+                  message: "Les saisies non enregistrées seront perdues.",
+                  confirmLabel: "Recharger",
+                  tone: "warning",
+                }))
+              )
+                onReload();
+            }}
+            className="rounded-lg border px-4 py-2.5 text-sm"
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                form.actif ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
+            Recharger la fiche
           </button>
-        </div>
-      </div>
-
-      <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+        )}
         <button
           type="button"
-          onClick={submit}
-          disabled={loading || !canSubmit}
-          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-          title={!canSubmit && isEdit ? "Aucun changement à enregistrer ou erreurs de validation" : ""}
+          disabled={loading}
+          onClick={leave}
+          className="rounded-lg border px-4 py-2.5 text-sm"
         >
-          {isEdit ? "Mettre à jour" : "Créer"}
+          Retour à la liste
         </button>
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={loading || !dirty}
+          className="rounded-lg bg-[#FFC600] px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-50"
+        >
+          {loading
+            ? "Enregistrement…"
+            : editing
+              ? "Enregistrer les modifications"
+              : "Créer le produit"}
+        </button>
+      </footer>
+    </form>
   );
 }
