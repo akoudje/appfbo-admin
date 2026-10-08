@@ -1,6 +1,6 @@
 // src/components/orders/detail/OrderItemsTable.jsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { formatFcfa } from "../../../lib/format";
 
@@ -46,7 +46,19 @@ export default function OrderItemsTable({
   saving = false,
   onReplaceItem = null,
 }) {
-  const [replaceByItemId, setReplaceByItemId] = useState({});
+  const itemKey = (items || [])
+    .map((item) => item.id + ":" + (item.productId || item.product?.id || ""))
+    .join("|");
+  const [selection, setSelection] = useState({ key: "", values: {} });
+  const replaceByItemId = selection.key === itemKey ? selection.values : {};
+  const setReplaceByItemId = (update) =>
+    setSelection((previous) => ({
+      key: itemKey,
+      values:
+        typeof update === "function"
+          ? update(previous.key === itemKey ? previous.values : {})
+          : update,
+    }));
 
   const replacementMap = useMemo(() => {
     const map = new Map();
@@ -57,21 +69,20 @@ export default function OrderItemsTable({
     return map;
   }, [replacementProducts]);
 
-  useEffect(() => {
-    setReplaceByItemId({});
-  }, [items, replacementProducts]);
-
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b">
-        <div className="font-semibold">Items</div>
-        <div className="text-sm text-gray-500">{items?.length || 0} ligne(s)</div>
+        <div className="font-semibold">Articles</div>
+        <div className="text-sm text-gray-500">
+          {items?.length || 0} ligne(s)
+        </div>
       </div>
 
       <div className="overflow-auto">
         {canReplace ? (
           <div className="flex flex-wrap items-center gap-2 border-b bg-gray-50 px-4 py-2">
             <input
+              data-draft="false"
               value={replacementQuery}
               onChange={(e) => onReplacementQueryChange?.(e.target.value)}
               placeholder="Rechercher un produit de remplacement (SKU ou nom)"
@@ -90,7 +101,7 @@ export default function OrderItemsTable({
             <tr className="text-left">
               <th className="p-3">SKU</th>
               <th className="p-3">Produit</th>
-              <th className="p-3">Qty</th>
+              <th className="p-3">Qté</th>
               <th className="p-3">Remise</th>
               <th className="p-3">PU</th>
               <th className="p-3">Total</th>
@@ -153,7 +164,9 @@ export default function OrderItemsTable({
                               .filter((p) => p?.id && p.id !== it.productId)
                               .map((p) => (
                                 <option key={p.id} value={p.id}>
-                                  {(p.sku || "—") + " - " + (p.nom || "Produit")}
+                                  {(p.sku || "—") +
+                                    " - " +
+                                    (p.nom || "Produit")}
                                 </option>
                               ))}
                           </select>

@@ -97,7 +97,7 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
     case AdminRole.INVOICER:
     case AdminRole.BILLING_MANAGER:
       return [
-        { key: "workflow", label: "Workflow" },
+        { key: "workflow", label: "Traitement" },
         { key: "billing", label: "Facturation" },
         { key: "history", label: "Historique" },
         ...(canAccessCancel && !["FULFILLED", "CANCELLED"].includes(orderStatus)
@@ -108,24 +108,24 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
     case AdminRole.COUNTER_MANAGER:
     case AdminRole.FINANCE_MANAGER:
       return [
-        { key: "payment", label: "Paiement" },
+        { key: "payment", label: "Règlement" },
         { key: "history", label: "Historique" },
       ];
     case AdminRole.ORDER_PREPARER:
     case AdminRole.STOCK_MANAGER:
       return [
         { key: "preparation", label: "Préparation" },
-        { key: "fulfillment", label: "Clôture" },
+        { key: "fulfillment", label: "Remise" },
         { key: "history", label: "Historique" },
       ];
     default:
       return [
-        { key: "overview", label: "Aperçu" },
-        { key: "workflow", label: "Workflow" },
+        { key: "overview", label: "Résumé" },
+        { key: "workflow", label: "Traitement" },
         { key: "billing", label: "Facturation" },
-        { key: "payment", label: "Paiement" },
+        { key: "payment", label: "Règlement" },
         { key: "preparation", label: "Préparation" },
-        { key: "fulfillment", label: "Clôture" },
+        { key: "fulfillment", label: "Remise" },
         { key: "history", label: "Historique" },
         ...(canAccessCancel && !["FULFILLED", "CANCELLED"].includes(orderStatus)
           ? [{ key: "cancel", label: "Annulation" }]

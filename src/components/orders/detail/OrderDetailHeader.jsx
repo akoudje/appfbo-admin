@@ -1,103 +1,104 @@
-// src/components/orders/detail/OrderDetailHeader.jsx
-
 import { Link } from "react-router-dom";
+import { ArrowLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 import StatusBadge from "../../StatusBadge";
-import { formatFcfa } from "../../../lib/format";
-
-function Badge({ children, tone = "gray" }) {
-  const tones = {
-    gray: "bg-gray-100 text-gray-700 border-gray-200",
-    blue: "bg-blue-100 text-blue-700 border-blue-200",
-    amber: "bg-amber-100 text-amber-800 border-amber-200",
-    violet: "bg-violet-100 text-violet-700 border-violet-200",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${
-        tones[tone] || tones.gray
-      }`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function PaymentModeBadge({ mode }) {
-  if (!mode) return <Badge tone="gray">Paiement non défini</Badge>;
-  const isCash = mode === "ESPECES";
-  return (
-    <Badge tone={isCash ? "amber" : "blue"}>
-      {isCash ? "💵 Espèces" : "💳 Mobile money"}
-      <span className="opacity-70">{mode}</span>
-    </Badge>
-  );
-}
-
-function DeliveryModeBadge({ mode }) {
-  if (!mode) return <Badge tone="gray">Livraison non définie</Badge>;
-  const isPickup = mode === "RETRAIT_SITE_FLP";
-  return (
-    <Badge tone={isPickup ? "violet" : "gray"}>
-      {isPickup ? "🏢 Retrait FLP" : "🚚 Livraison"}
-      <span className="opacity-70">{mode}</span>
-    </Badge>
-  );
-}
-
+import {
+  orderAmounts,
+  orderLabel,
+} from "../../../lib/orders/orderPresentation";
+import { formatFcfa, formatDateTime } from "../../../lib/format";
 export default function OrderDetailHeader({
   order,
   saving,
-  canCancel,
   onRefresh,
+  primaryAction,
+  onPrimaryAction,
+  canCancel,
   onGoCancel,
+  loadedAt,
+  backHref = "/orders",
 }) {
+  const amounts = orderAmounts(order);
   return (
-    <div className="flex items-start justify-between gap-3 flex-wrap">
-      <div>
-        <Link to="/orders" className="text-sm text-gray-600 underline">
-          ← Retour commandes
-        </Link>
-
-        <div className="mt-2 flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl font-semibold">Détail commande</h1>
-          <StatusBadge status={order?.status} />
-          <PaymentModeBadge mode={order?.paymentMode} />
-          <DeliveryModeBadge mode={order?.deliveryMode} />
-        </div>
-
-        <div className="text-xs text-gray-500 font-mono mt-1">
-          {order?.id}
-        </div>
-
-        <div className="text-sm text-gray-500 mt-2 flex gap-4 flex-wrap">
-          <span>
-            <b>FBO :</b> {order?.fboNomComplet || "—"}
-          </span>
-          <span>
-            <b>Réf. facture :</b> {order?.factureReference || "—"}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex gap-2 flex-wrap items-center">
-        <div className="text-right mr-2">
-          <div className="text-xs text-gray-500">Total</div>
-          <div className="text-lg font-semibold">
-            {formatFcfa(order?.totalFcfa || 0)}
+    <header className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <Link
+        to={backHref}
+        className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900"
+      >
+        <ArrowLeft size={14} />
+        Retour aux commandes
+      </Link>
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Précommande {order.preorderNumber || "—"}
+          </p>
+          <h1 className="mt-1 text-xl font-semibold text-gray-950">
+            {order.fboNomComplet || "Client non renseigné"}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            FBO {order.fboNumero || "—"} · {orderLabel(order.deliveryMode)}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <StatusBadge status={order.status} />
+            <span className="text-xs text-gray-600">
+              {orderLabel(order.preorderPaymentMode || order.paymentMode)}
+            </span>
+            {order.parcelNumber && (
+              <span className="font-mono text-xs text-gray-500">
+                {order.parcelNumber}
+              </span>
+            )}
           </div>
         </div>
-
-        <button className="btn" onClick={onRefresh} disabled={saving}>
-          Rafraîchir
-        </button>
-
-        {canCancel && (
-          <button className="btn" onClick={onGoCancel} disabled={saving}>
-            Annuler
-          </button>
-        )}
+        <div className="text-right">
+          <p className="text-xs text-gray-500">{amounts.label}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-950">
+            {amounts.display === null ? "—" : formatFcfa(amounts.display)}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            Créée le {formatDateTime(order.createdAt)}
+          </p>
+        </div>
       </div>
-    </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
+        <div className="flex flex-wrap gap-2">
+          {primaryAction && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => onPrimaryAction(primaryAction)}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+            >
+              {primaryAction.label}
+              <ArrowUpRight size={16} />
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
+          >
+            <RefreshCw size={15} />
+            Actualiser
+          </button>
+          {canCancel && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onGoCancel}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              Annuler
+            </button>
+          )}
+        </div>
+        <span className="text-xs text-gray-400">
+          {loadedAt
+            ? "Actualisé à " + new Date(loadedAt).toLocaleTimeString("fr-FR")
+            : ""}
+        </span>
+      </div>
+    </header>
   );
 }

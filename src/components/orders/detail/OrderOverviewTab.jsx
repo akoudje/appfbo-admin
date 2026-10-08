@@ -1,3 +1,7 @@
+import {
+  orderAmounts,
+  orderLabel,
+} from "../../../lib/orders/orderPresentation";
 // src/components/orders/detail/OrderOverviewTab.jsx
 
 import { useState } from "react";
@@ -130,14 +134,7 @@ function formatDateTime(value) {
   }
 }
 
-function humanizeEnum(value) {
-  if (!value) return "—";
-  return String(value)
-    .trim()
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (m) => m.toUpperCase());
-}
+const humanizeEnum = orderLabel;
 
 // ============================================================================
 // Composant principal
@@ -151,16 +148,20 @@ export default function OrderOverviewTab({
   stockRestored,
   canReplaceBillingItems = false,
   replacementProducts = [],
+  replacementQuery = "",
+  setReplacementQuery = null,
+  replacementLoading = false,
   replacingItemId = "",
   saving = false,
   onReplaceBillingItem = null,
 }) {
+  const amounts = orderAmounts(order);
   const status = order?.status;
   const isCancelled = status === "CANCELLED";
   const isPaid = status === "PAID";
   const isReady = status === "READY";
-  const [showInfoPanel, setShowInfoPanel] = useState(true);
-  const [showBillingPanel, setShowBillingPanel] = useState(true);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [showBillingPanel, setShowBillingPanel] = useState(false);
 
   const renderAlert = () => {
     if (emptyOrder) {
@@ -168,15 +169,13 @@ export default function OrderOverviewTab({
         <Alert tone="amber" title="⚠️ Commande incomplète">
           <p>
             Cette commande contient{" "}
-            <strong>{order?.items?.length || 0} article(s)</strong> pour un total de{" "}
-            <strong>{formatFcfa(order?.totalFcfa)}</strong>.
+            <strong>{order?.items?.length || 0} article(s)</strong> pour un
+            total de <strong>{formatFcfa(order?.totalFcfa)}</strong>.
           </p>
           <p className="mt-2">
             Si c'est une commande abandonnée, recommande au FBO de :
-            <br />
-            • <strong>Annuler</strong> la commande
-            <br />
-            • Ou <strong>recommencer</strong> depuis le début
+            <br />• <strong>Annuler</strong> la commande
+            <br />• Ou <strong>recommencer</strong> depuis le début
           </p>
         </Alert>
       );
@@ -188,7 +187,9 @@ export default function OrderOverviewTab({
           <div className="space-y-2">
             <div>
               <span className="text-gray-600">Motif :</span>{" "}
-              <span className="font-medium">{order?.cancelReason || "Non spécifié"}</span>
+              <span className="font-medium">
+                {order?.cancelReason || "Non spécifié"}
+              </span>
             </div>
             {stockRestored && (
               <div className="flex items-center gap-2 text-emerald-700">
@@ -209,8 +210,7 @@ export default function OrderOverviewTab({
             <strong>préparation du colis</strong>.
           </p>
           <p className="mt-1">
-            Le stock sera décrémenté au moment du passage en statut{" "}
-            <strong>READY</strong>.
+            La caisse réserve le stock au lancement de la préparation.
           </p>
         </Alert>
       );
@@ -234,8 +234,19 @@ export default function OrderOverviewTab({
 
       <OrderTimeline steps={steps} status={status} />
 
+      <OrderItemsTable
+        items={order?.items || []}
+        totalFcfa={amounts.confirmed ?? amounts.indicative ?? 0}
+        canReplace={canReplaceBillingItems}
+        replacementProducts={replacementProducts}
+        replacementQuery={replacementQuery}
+        onReplacementQueryChange={setReplacementQuery}
+        replacementLoading={replacementLoading}
+        replacingItemId={replacingItemId}
+        saving={saving}
+        onReplaceItem={onReplaceBillingItem}
+      />
       <OrderSummaryCards order={order} />
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <InfoCard
           title="Informations utiles"
@@ -244,12 +255,24 @@ export default function OrderOverviewTab({
           onToggle={() => setShowInfoPanel((prev) => !prev)}
         >
           <div className="space-y-2">
-            <Row label="Précommande" value={order?.preorderNumber || "—"} copyable />
+            <Row
+              label="Précommande"
+              value={order?.preorderNumber || "—"}
+              copyable
+            />
             <Row label="Numéro FBO" value={order?.fboNumero || "—"} copyable />
             <Row label="Client" value={order?.fboNomComplet || "—"} />
             <Row label="Grade initial" value={humanizeEnum(order?.fboGrade)} />
-            <Row label="Grade facturation" value={humanizeEnum(order?.billingGrade || order?.fboGrade)} />
-            <Row label="Paiement choisi" value={humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)} />
+            <Row
+              label="Grade facturation"
+              value={humanizeEnum(order?.billingGrade || order?.fboGrade)}
+            />
+            <Row
+              label="Paiement choisi"
+              value={humanizeEnum(
+                order?.preorderPaymentMode || order?.paymentMode,
+              )}
+            />
             <Row label="Livraison" value={humanizeEnum(order?.deliveryMode)} />
             <Row label="Point de vente" value={order?.pointDeVente || "—"} />
           </div>
@@ -262,29 +285,58 @@ export default function OrderOverviewTab({
           onToggle={() => setShowBillingPanel((prev) => !prev)}
         >
           <div className="space-y-2">
-            <Row label="Référence AS400" value={order?.factureReference || "—"} copyable />
-            <Row label="Montant indicatif" value={formatFcfa(order?.indicativeTotalFcfa || order?.totalFcfa || 0)} />
-            <Row label="Montant calculé" value={formatFcfa(order?.computedGradeTotalFcfa || order?.totalFcfa || 0)} />
-            <Row label="Montant AS400" value={formatFcfa(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0)} />
-            <Row label="Montant à payer" value={formatFcfa(order?.activePayment?.amountExpectedFcfa || order?.totalFcfa || 0)} />
-            <Row label="Soumise le" value={formatDateTime(order?.submittedAt)} />
-            <Row label="Facturée le" value={formatDateTime(order?.invoicedAt)} />
+            <Row
+              label="Référence AS400"
+              value={order?.factureReference || "—"}
+              copyable
+            />
+            <Row
+              label="Montant indicatif"
+              value={
+                amounts.indicative === null
+                  ? "—"
+                  : formatFcfa(amounts.indicative)
+              }
+            />
+            <Row
+              label="Montant calculé"
+              value={formatFcfa(
+                order?.computedGradeTotalFcfa || order?.totalFcfa || 0,
+              )}
+            />
+            <Row
+              label="Montant AS400"
+              value={
+                amounts.confirmed === null
+                  ? "Non reçu"
+                  : formatFcfa(amounts.confirmed)
+              }
+            />
+            <Row
+              label="Montant à payer"
+              value={
+                amounts.expected === null
+                  ? "Non reçu"
+                  : formatFcfa(amounts.expected)
+              }
+            />
+            <Row
+              label="Soumise le"
+              value={formatDateTime(order?.submittedAt)}
+            />
+            <Row
+              label="Facturée le"
+              value={formatDateTime(order?.invoicedAt)}
+            />
             {order?.billingAdjustmentReason ? (
-              <Row label="Motif ajustement" value={order.billingAdjustmentReason} />
+              <Row
+                label="Motif ajustement"
+                value={order.billingAdjustmentReason}
+              />
             ) : null}
           </div>
         </InfoCard>
       </div>
-
-      <OrderItemsTable
-        items={order?.items || []}
-        totalFcfa={order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0}
-        canReplace={canReplaceBillingItems}
-        replacementProducts={replacementProducts}
-        replacingItemId={replacingItemId}
-        saving={saving}
-        onReplaceItem={onReplaceBillingItem}
-      />
     </div>
   );
 }

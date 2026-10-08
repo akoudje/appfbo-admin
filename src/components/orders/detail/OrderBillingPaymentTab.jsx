@@ -1,3 +1,4 @@
+import { orderLabel } from "../../../lib/orders/orderPresentation";
 // src/components/orders/detail/OrderBillingPaymentTab.jsx
 import React from "react";
 import RequirePermission from "../../auth/RequirePermission";
@@ -560,7 +561,7 @@ function BillingActionCard({
               canInvoice ? 'bg-green-500 shadow-sm shadow-green-300' : 'bg-gray-400'
             }`} />
             <h4 className="font-semibold text-gray-900">
-              Facturation {isCash ? '(Espèces)' : '(Wave)'}
+              Facturation · {orderLabel(paymentMode)}
             </h4>
           </div>
           {canInvoice && (

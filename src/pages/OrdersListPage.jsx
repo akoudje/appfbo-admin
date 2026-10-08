@@ -1,250 +1,269 @@
-// admin-app/src/pages/orders/OrdersListPage.jsx
-// Page d'affichage de la liste des commandes, avec les filtres, les stats et le tableau.
-
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Download, RefreshCw, ClipboardList } from "lucide-react";
 import { useOrdersStore } from "../store/useOrdersStore";
 import OrdersFiltersCard from "../components/orders/OrdersFiltersCard";
 import OrdersStatsBar from "../components/orders/OrdersStatsBar";
 import OrdersTable from "../components/orders/OrdersTable";
 import ExportOrdersByNumberModal from "../components/orders/ExportOrdersByNumberModal";
-import RequirePermission from "../components/auth/RequirePermission";
-import { Permission } from "../auth/permissions";
-
+import { Permission, hasPermission } from "../auth/permissions";
+import { getOrderTabsForRole } from "../auth/workspaces";
+import useAdminAuth from "../hooks/useAdminAuth";
+import useOrdersScope, { ordersScopeKey } from "../hooks/orders/useOrdersScope";
+import { ordersService } from "../services/ordersService";
+import {
+  DEFAULT_ORDER_FILTERS,
+  readOrderFilters,
+  orderFilterParams,
+  orderRequestParams,
+} from "../lib/orders/orderFilters";
 export default function OrdersListPage() {
+  const [params, setParams] = useSearchParams();
+  const filters = useMemo(() => readOrderFilters(params), [params]);
+  const { role, permissions } = useAdminAuth();
+  const scope = useOrdersScope();
   const {
     orders,
     loading,
     error,
-    page,
-    pageSize,
-    totalPages,
     totalCount,
-
-    status,
-    q,
-    dateFrom,
-    dateTo,
-    paymentStatus,
-    billingWorkStatus,
-    priority,
-    as400Reference,
-    as400Amount,
-    lateWaveReview,
-    assignedOnly,
-    assignedToMe,
-    invoicerId,
-    sort,
-    dir,
-
-    setFilter,
-    setPage,
+    totalPages,
+    stats,
+    loadedAt,
+    _context,
     fetchOrders,
-    resetFilters,
-    clearError,
   } = useOrdersStore();
-
-  const [exportByNumberOpen, setExportByNumberOpen] = useState(false);
-
+  const [exportOpen, setExportOpen] = useState(false),
+    [exporting, setExporting] = useState(false),
+    [exportError, setExportError] = useState("");
+  const access = useMemo(
+    () => ({
+      billing: hasPermission(role, Permission.INVOICE_CREATE, permissions),
+      payment: hasPermission(role, Permission.PAYMENT_VALIDATE, permissions),
+      preparation: hasPermission(
+        role,
+        Permission.PREPARATION_UPDATE,
+        permissions,
+      ),
+      overview: getOrderTabsForRole(role, false, "SUBMITTED").some(
+        (tab) => tab.key === "overview",
+      ),
+    }),
+    [role, permissions],
+  );
+  const canExport = hasPermission(role, Permission.EXPORT_READ, permissions);
   useEffect(() => {
-    fetchOrders();
-  }, [
-    page,
-    pageSize,
-    status,
-    q,
-    dateFrom,
-    dateTo,
-    paymentStatus,
-    billingWorkStatus,
-    priority,
-    as400Reference,
-    as400Amount,
-    lateWaveReview,
-    assignedOnly,
-    assignedToMe,
-    invoicerId,
-    sort,
-    dir,
-    fetchOrders,
-  ]);
-
-  const submittedExportHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (dateFrom) params.set("dateFrom", dateFrom);
-    if (dateTo) params.set("dateTo", dateTo);
-    if (sort) params.set("sort", sort);
-    if (dir) params.set("dir", dir);
-    const query = params.toString();
-    return `/orders/submitted-export/print${query ? `?${query}` : ""}`;
-  }, [q, dateFrom, dateTo, sort, dir]);
-
-  const activeFiltersCount = [
-    status,
-    q,
-    dateFrom,
-    dateTo,
-    lateWaveReview,
-    assignedOnly,
-    assignedToMe,
-    invoicerId,
-  ].filter(Boolean).length;
-
+    fetchOrders(filters);
+  }, [fetchOrders, filters, scope]);
+  const change = useCallback(
+    (patch) => setParams(orderFilterParams({ ...filters, ...patch, page: 1 })),
+    [filters, setParams],
+  );
+  useEffect(() => {
+    if (!loading && !error && _context === scope && filters.page > totalPages)
+      setParams(orderFilterParams({ ...filters, page: totalPages }), {
+        replace: true,
+      });
+  }, [loading, error, _context, scope, filters, totalPages, setParams]);
+  const reset = () => setParams(orderFilterParams(DEFAULT_ORDER_FILTERS));
+  const rows = _context === scope ? orders : [];
+  const pending = loading || _context !== scope;
+  const submittedParams = new URLSearchParams(
+    Object.entries(orderRequestParams(filters)).filter(
+      ([, value]) => value !== undefined && value !== null && value !== "",
+    ),
+  );
+  submittedParams.delete("status");
+  submittedParams.delete("page");
+  submittedParams.delete("pageSize");
+  const views = [
+    ["Toutes", {}],
+    ...(access.billing ? [["À facturer", { status: "SUBMITTED" }]] : []),
+    ...(access.payment
+      ? [["Paiements à suivre", { paymentStatus: "PAYMENT_PENDING" }]]
+      : []),
+    ...(access.preparation
+      ? [
+          ["À préparer", { status: "PAID" }],
+          ["À remettre", { status: "READY" }],
+        ]
+      : []),
+    ...(access.billing ? [["Mes dossiers", { assignedToMe: true }]] : []),
+    ["À revoir", { billingWorkStatus: "ESCALATED" }],
+    ["Annulées", { status: "CANCELLED" }],
+  ];
+  async function exportView() {
+    setExporting(true);
+    setExportError("");
+    try {
+      const result = await ordersService.exportView(
+        orderRequestParams(filters),
+      );
+      if (ordersScopeKey() !== scope) return;
+      const url = URL.createObjectURL(result.data),
+        link = document.createElement("a");
+      link.href = url;
+      link.download =
+        "commandes-" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (failure) {
+      let message = failure?.response?.data?.message;
+      if (failure?.response?.data instanceof Blob) {
+        try {
+          message = JSON.parse(await failure.response.data.text()).message;
+        } catch {
+          /* Non-JSON transport error. */
+        }
+      }
+      setExportError(message || "Impossible de générer l’export. Réessayez.");
+    } finally {
+      setExporting(false);
+    }
+  }
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Commandes</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Vue globale des commandes, paiements et file de facturation
-            </p>
+    <div className="space-y-5 pb-8">
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl bg-gray-950 p-5 text-white">
+        <div>
+          <div className="flex items-center gap-2">
+            <ClipboardList size={24} aria-hidden="true" />
+            <h1 className="text-2xl font-semibold">Commandes</h1>
           </div>
-
-          <RequirePermission permission={Permission.PREORDER_READ}>
-            <div className="flex flex-wrap items-center gap-3">
-              <RequirePermission permission={Permission.EXPORT_READ}>
-                <a
-                  href={submittedExportHref}
+          <p className="mt-2 text-sm text-gray-300">
+            Suivez les dossiers et accédez à la prochaine étape de traitement.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => fetchOrders(filters)}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-3 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
+            Actualiser
+          </button>
+          {canExport && (
+            <details className="relative">
+              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black">
+                <Download size={16} />
+                Exporter
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-2 text-sm text-gray-800 shadow-lg">
+                <button
+                  type="button"
+                  disabled={exporting || pending}
+                  onClick={exportView}
+                  className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-100 disabled:opacity-50"
+                >
+                  {exporting ? "Génération…" : "Cette vue · CSV"}
+                </button>
+                <Link
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  to={
+                    "/orders/submitted-export/print?" +
+                    submittedParams.toString()
+                  }
+                  className="block rounded-lg px-3 py-2 hover:bg-gray-100"
                 >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 16V4m0 12 4-4m-4 4-4-4M4 20h16"
-                    />
-                  </svg>
-                  Exporter les soumises
-                </a>
+                  Soumises · feuille de préparation
+                </Link>
                 <button
-                  onClick={() => setExportByNumberOpen(true)}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                   type="button"
+                  onClick={() => setExportOpen(true)}
+                  className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-100"
                 >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 16V4m0 12 4-4m-4 4-4-4M4 20h16"
-                    />
-                  </svg>
-                  Exporter par numéro
+                  Sélection par numéro
                 </button>
-              </RequirePermission>
-
-              <button
-                onClick={() => fetchOrders()}
-                disabled={loading}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                type="button"
-              >
-                <svg
-                  className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                {loading ? "Chargement..." : "Rafraîchir"}
-              </button>
-            </div>
-          </RequirePermission>
+              </div>
+            </details>
+          )}
         </div>
-
-        <OrdersStatsBar totalCount={totalCount} orders={orders} />
-
-        <OrdersFiltersCard
-          filters={{
-            status,
-            q,
-            dateFrom,
-            dateTo,
-            lateWaveReview,
-            assignedOnly,
-            assignedToMe,
-            invoicerId,
-            sort,
-            dir,
-          }}
-          onFilterChange={setFilter}
-          onClear={resetFilters}
-        />
-
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500">
-          {totalCount} commande{totalCount > 1 ? "s" : ""} correspondent au périmètre courant
-          {activeFiltersCount > 0
-            ? ` avec ${activeFiltersCount} filtre${activeFiltersCount > 1 ? "s" : ""} actif${activeFiltersCount > 1 ? "s" : ""}.`
-            : " sans filtre actif."}
-          {" "}
-          Les badges de statut résument uniquement les commandes de la page affichée.
-        </div>
-
-        {error && (
-          <div className="p-4 bg-red-50 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-3 text-red-700">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span className="text-sm font-medium">{error}</span>
-            </div>
-
+      </header>
+      <nav aria-label="Vues des commandes" className="flex flex-wrap gap-2">
+        {views.map(([label, patch]) => {
+          const base = {
+            status: "",
+            paymentStatus: "",
+            billingWorkStatus: "",
+            assignedToMe: false,
+            assignedOnly: false,
+            invoicerId: "",
+            lateWaveReview: false,
+          };
+          const selected = Object.entries({ ...base, ...patch }).every(
+            ([key, value]) => filters[key] === value,
+          );
+          return (
             <button
-              onClick={clearError}
-              className="text-red-500 hover:text-red-700"
               type="button"
-              aria-label="Fermer"
+              key={label}
+              aria-pressed={selected}
+              onClick={() => change({ ...base, ...patch })}
+              className={
+                "rounded-full border px-4 py-2 text-sm font-medium " +
+                (selected
+                  ? "border-gray-950 bg-gray-950 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50")
+              }
             >
-              ✕
+              {label}
             </button>
-          </div>
-        )}
-
-        <OrdersTable
-          orders={orders}
-          loading={loading}
-          page={page}
-          pageSize={pageSize}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          setPage={setPage}
-          onResetFilters={resetFilters}
-        />
-      </div>
-
+          );
+        })}
+      </nav>
+      <OrdersStatsBar
+        totalCount={_context === scope ? totalCount : 0}
+        stats={_context === scope ? stats : null}
+        loading={pending}
+      />
+      <OrdersFiltersCard
+        filters={filters}
+        onFilterChange={change}
+        onClear={reset}
+      />
+      {(error || exportError) && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+        >
+          <span>{error || exportError}</span>
+          <button
+            type="button"
+            onClick={() => (error ? fetchOrders(filters) : exportView())}
+            className="font-semibold underline"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+      <p role="status" className="text-xs text-gray-500">
+        {pending
+          ? "Chargement de cette vue…"
+          : loadedAt
+            ? "Dernière actualisation : " +
+              new Date(loadedAt).toLocaleTimeString("fr-FR")
+            : ""}
+      </p>
+      <OrdersTable
+        orders={rows}
+        loading={pending}
+        error={error}
+        page={filters.page}
+        pageSize={filters.pageSize}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        setPage={(page) => setParams(orderFilterParams({ ...filters, page }))}
+        setPageSize={(pageSize) => change({ pageSize })}
+        access={access}
+        returnTo={"/orders?" + params.toString()}
+      />
       <ExportOrdersByNumberModal
-        open={exportByNumberOpen}
-        onClose={() => setExportByNumberOpen(false)}
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
       />
     </div>
   );

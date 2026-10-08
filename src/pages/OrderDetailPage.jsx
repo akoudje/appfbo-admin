@@ -1,3 +1,5 @@
+import useOrderPermissions from "../hooks/orders/useOrderPermissions";
+import useOrderActions from "../hooks/orders/useOrderActions";
 // src/pages/OrderDetailPage.jsx
 // Page de détail d'une commande, affichant les informations principales de la commande,
 // son statut, et proposant des onglets pour voir les détails, la facturation, le paiement,
@@ -5,15 +7,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import useOrderDetail from "../hooks/orders/useOrderDetail";
+import useOrdersScope from "../hooks/orders/useOrdersScope";
+import StatusBadge from "../components/StatusBadge";
+import { orderNextAction } from "../lib/orders/orderPresentation";
 import { ordersService } from "../services/ordersService";
-import { as400GatewayService } from "../services/as400GatewayService";
+import OrderDetailHeader from "../components/orders/detail/OrderDetailHeader";
+
 import { list as listProducts } from "../services/productsService";
 import RequirePermission from "../components/auth/RequirePermission";
 import { AdminRole, Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { useConfirm } from "../hooks/useDialogs";
-import { getDefaultOrderTabForRole, getOrderTabsForRole } from "../auth/workspaces";
+import {
+  getDefaultOrderTabForRole,
+  getOrderTabsForRole,
+} from "../auth/workspaces";
 
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
 import OrderOverviewTab from "../components/orders/detail/OrderOverviewTab";
@@ -30,39 +40,19 @@ function normalizeStr(v) {
   return String(v).trim();
 }
 
-function formatFcfa(value) {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "XOF",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-}
-
-function formatDateTime(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("fr-FR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
-
-function humanizeEnum(value) {
-  if (!value) return "—";
-  return String(value)
-    .trim()
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
 function isLateWaveReviewOrder(order) {
-  const status = String(order?.status || "").trim().toUpperCase();
-  const paymentStatus = String(order?.paymentStatus || "").trim().toUpperCase();
-  const billingWorkStatus = String(order?.billingWorkStatus || "").trim().toUpperCase();
-  const paymentProvider = String(order?.paymentProvider || "").trim().toUpperCase();
+  const status = String(order?.status || "")
+    .trim()
+    .toUpperCase();
+  const paymentStatus = String(order?.paymentStatus || "")
+    .trim()
+    .toUpperCase();
+  const billingWorkStatus = String(order?.billingWorkStatus || "")
+    .trim()
+    .toUpperCase();
+  const paymentProvider = String(order?.paymentProvider || "")
+    .trim()
+    .toUpperCase();
   const paymentMode = String(
     order?.preorderPaymentMode || order?.paymentMode || "",
   )
@@ -94,30 +84,6 @@ function Alert({ tone = "red", title, children }) {
   );
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    DRAFT: "bg-gray-100 text-gray-700 border-gray-200",
-    SUBMITTED: "bg-blue-100 text-blue-700 border-blue-200",
-    INVOICED: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    PAYMENT_PROOF_RECEIVED: "bg-amber-100 text-amber-700 border-amber-200",
-    PAYMENT_PENDING: "bg-amber-100 text-amber-700 border-amber-200",
-    PAID: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    READY: "bg-teal-100 text-teal-700 border-teal-200",
-    FULFILLED: "bg-green-100 text-green-700 border-green-200",
-    CANCELLED: "bg-red-100 text-red-700 border-red-200",
-  };
-
-  return (
-    <span
-      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
-        map[status] || map.DRAFT
-      }`}
-    >
-      {status || "—"}
-    </span>
-  );
-}
-
 function SummaryRow({ label, value }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
@@ -144,12 +110,8 @@ export default function OrderDetailPage() {
   const { role } = useAdminAuth();
   const confirm = useConfirm();
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [waveLoading, setWaveLoading] = useState(false);
-  const [order, setOrder] = useState(null);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
 
   const [activeTab, setActiveTab] = useState(
     searchParams.get("tab") || getDefaultOrderTabForRole(role),
@@ -192,86 +154,84 @@ export default function OrderDetailPage() {
 
   const [cancelReason, setCancelReason] = useState("");
 
-  const [messages, setMessages] = useState([]);
-  const [as400Requests, setAs400Requests] = useState([]);
   const [replacementProducts, setReplacementProducts] = useState([]);
   const [replacementQuery, setReplacementQuery] = useState("");
   const [replacementLoading, setReplacementLoading] = useState(false);
   const [replacingItemId, setReplacingItemId] = useState("");
 
-  const load = async (options = {}) => {
-    const preserveFormDrafts = Boolean(options.preserveFormDrafts);
-    const silent = Boolean(options.silent);
+  const scope = useOrdersScope();
+  const historyVisible = [
+    "history",
+    "billing",
+    "payment",
+    "fulfillment",
+  ].includes(activeTab);
+  const billingAllowed = usePermission(Permission.INVOICE_CREATE);
+  const hydrateOrderForms = (data) => {
+    setInvoiceRef(data?.factureReference || "");
+    setInvoiceWaTo(data?.factureWhatsappTo || "");
+    setInvoiceEmail(data?.fboEmail || "");
+    setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
+    setInvoiceAmountFcfa(
+      data?.as400InvoiceTotalFcfa !== null &&
+        data?.as400InvoiceTotalFcfa !== undefined
+        ? String(data.as400InvoiceTotalFcfa)
+        : "",
+    );
+    setPaymentLink(data?.paymentLink || "");
+    setInvoicePreview(null);
 
-    try {
-      if (!silent) setLoading(true);
-      setError("");
+    setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
+    setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
+    setProofNote(data?.manualPaymentProofNote || data?.paymentProofNote || "");
 
-      const [data, messageData, as400Data] = await Promise.all([
-        ordersService.getById(id),
-        ordersService.getMessages(id).catch(() => []),
-        as400GatewayService
-          .listRequests({ preorderId: id, take: 10 })
-          .catch(() => ({ items: [] })),
-      ]);
+    setPackingNote(data?.packingNote || "");
+    setDeliveryTracking(data?.deliveryTracking || "");
+    setPickupCode("");
 
-      setOrder(data);
-      setMessages(Array.isArray(messageData) ? messageData : []);
-      setAs400Requests(Array.isArray(as400Data?.items) ? as400Data.items : []);
-
-      if (!preserveFormDrafts) {
-        setInvoiceRef(data?.factureReference || "");
-        setInvoiceWaTo(data?.factureWhatsappTo || "");
-        setInvoiceEmail(data?.fboEmail || "");
-        setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
-        setInvoiceAmountFcfa(
-          data?.as400InvoiceTotalFcfa !== null &&
-          data?.as400InvoiceTotalFcfa !== undefined
-            ? String(data.as400InvoiceTotalFcfa)
-            : "",
-        );
-        setPaymentLink(data?.paymentLink || "");
-        setInvoicePreview(null);
-
-        setProofUrl(data?.manualPaymentProofUrl || data?.paymentProofUrl || "");
-        setProofRef(data?.manualPaymentReference || data?.paymentRef || "");
-        setProofNote(
-          data?.manualPaymentProofNote || data?.paymentProofNote || "",
-        );
-
-        setPackingNote(data?.packingNote || "");
-        setDeliveryTracking(data?.deliveryTracking || "");
-        setPickupCode("");
-
-        setVerifyNote("");
-        setCashNote("");
-        setCashReceiptNumber("");
-        setCashDeskLabel("");
-        setCashAmountReceivedFcfa("");
-        setFulfillNote("");
-        setPickupPointLabel(data?.pickupPointLabel || "");
-        setDeliveryCarrier(data?.deliveryCarrier || "");
-        setFulfillmentMode(data?.fulfillmentMode || "");
-        setPickupRecipientType(data?.pickupRecipientType || "CUSTOMER");
-        setPickupRecipientName(data?.pickupRecipientName || data?.fboNomComplet || "");
-        setPickupRecipientPhone(data?.pickupRecipientPhone || "");
-        setPickupConfirmationNote(data?.pickupConfirmationNote || "");
-        setInvoiceNote("");
-        setCancelReason("");
-      }
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible de charger la commande",
-      );
-    } finally {
-      if (!silent) setLoading(false);
-    }
+    setVerifyNote("");
+    setCashNote("");
+    setCashReceiptNumber("");
+    setCashDeskLabel("");
+    setCashAmountReceivedFcfa("");
+    setFulfillNote("");
+    setPickupPointLabel(data?.pickupPointLabel || "");
+    setDeliveryCarrier(data?.deliveryCarrier || "");
+    setFulfillmentMode(data?.fulfillmentMode || "");
+    setPickupRecipientType(data?.pickupRecipientType || "CUSTOMER");
+    setPickupRecipientName(
+      data?.pickupRecipientName || data?.fboNomComplet || "",
+    );
+    setPickupRecipientPhone(data?.pickupRecipientPhone || "");
+    setPickupConfirmationNote(data?.pickupConfirmationNote || "");
+    setInvoiceNote("");
+    setCancelReason("");
   };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  const {
+    order,
+    loading,
+    refreshing,
+    error,
+    info,
+    loadedAt,
+    setOrder,
+    setError,
+    setInfo,
+    messages,
+    as400Requests,
+    load,
+    dirty,
+    markDirty,
+    isCurrentOrder,
+    auxiliaryErrors,
+    reloadAuxiliary,
+  } = useOrderDetail({
+    id,
+    scope,
+    onHydrate: hydrateOrderForms,
+    loadMessages: historyVisible,
+    loadAs400: billingAllowed && (historyVisible || activeTab === "workflow"),
+  });
 
   useEffect(() => {
     const next = searchParams.get("tab") || getDefaultOrderTabForRole(role);
@@ -290,60 +250,32 @@ export default function OrderDetailPage() {
     });
   };
 
-  const status = order?.status;
-  const paymentStatus = order?.paymentStatus;
-  const canAccessBilling = usePermission(Permission.INVOICE_CREATE);
-  const canAccessPayment = usePermission(Permission.PAYMENT_VALIDATE);
-  const canAccessPreparation = usePermission(Permission.PREPARATION_UPDATE);
-  const canAccessCancel = usePermission(Permission.PREORDER_UPDATE_STATUS);
-
-  const preorderNumber =
-    order?.preorderNumber || (order?.id ? `#${order.id.slice(-8)}` : "—");
-
-  const paymentModeRaw = String(
-    order?.preorderPaymentMode || order?.paymentMode || "",
-  )
-    .trim()
-    .toUpperCase();
-
-  const paymentProviderRaw = String(order?.paymentProvider || "")
-    .trim()
-    .toUpperCase();
-
-  const isCash =
-    paymentModeRaw.includes("ESPE") ||
-    paymentModeRaw.includes("CASH") ||
-    paymentProviderRaw === "MANUAL";
-
-  const isWave =
-    paymentProviderRaw === "WAVE" ||
-    paymentModeRaw.includes("MOBILE") ||
-    paymentModeRaw.includes("WAVE") ||
-    paymentModeRaw.includes("MOMO");
-
-  const isAutoPayment = !isCash && isWave;
-  const isGlobalAdmin =
-    role === AdminRole.SUPER_ADMIN || role === AdminRole.TECH_ADMIN;
-  const canSwitchPaymentToCash =
-    isGlobalAdmin &&
-    (isWave || paymentModeRaw === "BANK_TRANSFER" || paymentModeRaw === "ECOBANK_PAY" || paymentModeRaw === "PI_SPI") &&
-    ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
-      status,
-    );
-  const canSwitchPaymentToWave =
-    isGlobalAdmin &&
-    isCash &&
-    paymentStatus !== "PAID" &&
-    ["INVOICED", "PAYMENT_PENDING"].includes(status);
-  const canSwitchPaymentToBankTransfer =
-    isGlobalAdmin &&
-    paymentModeRaw !== "BANK_TRANSFER" &&
-    paymentStatus !== "PAID" &&
-    ["INVOICED", "PAYMENT_PENDING"].includes(status);
-  const canFulfillNoNotification =
-    [AdminRole.SUPER_ADMIN, AdminRole.TECH_ADMIN, AdminRole.OPERATIONS_DIRECTOR].includes(
-      role,
-    ) && ["PAID", "READY"].includes(status);
+  const {
+    status,
+    paymentStatus,
+    canAccessBilling,
+    canAccessPayment,
+    canAccessPreparation,
+    canAccessCancel,
+    isCash,
+    isWave,
+    isAutoPayment,
+    isGlobalAdmin,
+    canSwitchPaymentToCash,
+    canSwitchPaymentToWave,
+    canSwitchPaymentToBankTransfer,
+    canFulfillNoNotification,
+    canInvoice,
+    canEnqueueAs400Request,
+    canCorrectAs400Invoice,
+    canReplaceBillingItems,
+    canProof,
+    canVerify,
+    canPrepare,
+    canFulfill,
+    canCancel,
+    canCashPay,
+  } = useOrderPermissions(order, role, saving);
 
   useEffect(() => {
     if (!order) return;
@@ -351,20 +283,13 @@ export default function OrderDetailPage() {
     if (!isWave) return;
 
     const timer = setInterval(() => {
-      load({ preserveFormDrafts: true, silent: true });
+      if (document.visibilityState === "visible") load({ silent: true });
     }, 10000);
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, isWave, order?.id]);
 
-  const canInvoice = status === "SUBMITTED";
-  const canEnqueueAs400Request = canAccessBilling && status === "SUBMITTED";
-  const canCorrectAs400Invoice =
-    canAccessBilling &&
-    Boolean(order?.factureReference || order?.invoicedAt) &&
-    paymentStatus !== "PAID" &&
-    !["PAID", "READY", "FULFILLED", "CANCELLED"].includes(status);
   const canRelaunchPayment = useMemo(() => {
     if (status !== "CANCELLED" || paymentStatus === "PAID") return false;
     const logs = Array.isArray(order?.logs) ? order.logs : [];
@@ -394,25 +319,6 @@ export default function OrderDetailPage() {
     if (!canRelaunchPayment) return;
     setRelaunchPaymentMinutes(isBankStyleRelaunch ? "72" : "10");
   }, [canRelaunchPayment, isBankStyleRelaunch]);
-  const canReplaceBillingItems =
-    canAccessBilling &&
-    ["SUBMITTED", "INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED"].includes(
-      status,
-    );
-  const canProof =
-    status === "INVOICED" && !isCash && !isWave && !isAutoPayment;
-  const canVerify =
-    ["PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "INVOICED"].includes(
-      status,
-    ) && paymentStatus !== "PAID";
-  const canPrepare = status === "PAID" && Boolean(order?.preparationLaunchedAt);
-  const canFulfill = status === "READY";
-  const canCancel = !!status && !["FULFILLED", "CANCELLED"].includes(status);
-  const canCashPay =
-    isCash &&
-    ["SUBMITTED", "INVOICED", "PAYMENT_PENDING"].includes(status) &&
-    !saving;
-
   const emptyOrder = useMemo(() => {
     const itemCount = Array.isArray(order?.items) ? order.items.length : 0;
     const total = Number(order?.totalFcfa || 0);
@@ -519,8 +425,7 @@ export default function OrderDetailPage() {
     const logs = Array.isArray(order?.logs) ? order.logs : [];
     const replacementLog = logs.find(
       (log) =>
-        log?.action === "REPRICE" &&
-        Boolean(log?.meta?.requiresReinvoice),
+        log?.action === "REPRICE" && Boolean(log?.meta?.requiresReinvoice),
     );
     if (!replacementLog) return false;
 
@@ -542,14 +447,24 @@ export default function OrderDetailPage() {
   );
 
   const availableTabs = useMemo(() => {
-    return getOrderTabsForRole(role, canAccessCancel, order?.status).filter((tab) => {
-      if (tab.key === "billing") return canAccessBilling;
-      if (tab.key === "payment") return canAccessPayment;
-      if (tab.key === "preparation" || tab.key === "fulfillment") return canAccessPreparation;
-      if (tab.key === "cancel") return canAccessCancel;
-      return true;
-    });
-  }, [role, canAccessBilling, canAccessCancel, canAccessPayment, canAccessPreparation, order?.status]);
+    return getOrderTabsForRole(role, canAccessCancel, order?.status).filter(
+      (tab) => {
+        if (tab.key === "billing") return canAccessBilling;
+        if (tab.key === "payment") return canAccessPayment;
+        if (tab.key === "preparation" || tab.key === "fulfillment")
+          return canAccessPreparation;
+        if (tab.key === "cancel") return canAccessCancel;
+        return true;
+      },
+    );
+  }, [
+    role,
+    canAccessBilling,
+    canAccessCancel,
+    canAccessPayment,
+    canAccessPreparation,
+    order?.status,
+  ]);
 
   useEffect(() => {
     if (!availableTabs.some((tab) => tab.key === activeTab)) {
@@ -648,826 +563,124 @@ export default function OrderDetailPage() {
     };
   }, [canReplaceBillingItems, replacementQuery]);
 
-  const handleActionResult = async (result, fallbackInfo) => {
-    if (result?.alreadyDone) {
-      setInfo(result?.message || fallbackInfo || "Action déjà effectuée.");
-    } else {
-      setInfo("");
-    }
-    await load();
-  };
-
-  const navigateToNextPreparationQueueOrder = (nextTab) => {
-    if (searchParams.get("prepQueue") !== "1") return false;
-
-    const queueIds = String(searchParams.get("queueIds") || "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-    const currentIndex = queueIds.indexOf(id);
-    const nextId = currentIndex >= 0 ? queueIds[currentIndex + 1] : "";
-
-    if (!nextId) {
-      const queueTab = searchParams.get("queueTab");
-      navigate(queueTab ? `/preparation?tab=${encodeURIComponent(queueTab)}` : "/preparation", { replace: true });
-      return true;
-    }
-
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("tab", nextTab);
-    navigate(`/orders/${nextId}?${nextParams.toString()}`, { replace: true });
-    return true;
-  };
-
-  const handleResendInvoiceNotification = async (channel = "") => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const normalizedChannel = String(channel || "").trim().toUpperCase();
-      const result = await ordersService.resendInvoiceSms(
-        id,
-        {
-          ...(normalizedChannel ? { channel: normalizedChannel } : {}),
-          phone: normalizeStr(invoiceWaTo) || undefined,
-          email: normalizeStr(invoiceEmail) || undefined,
-        },
-      );
-      const sentChannels = (Array.isArray(result?.attempts) ? result.attempts : [])
-        .filter((attempt) => attempt?.sent || attempt?.queued)
-        .map((attempt) => String(attempt.channel || "").toUpperCase())
-        .filter(Boolean);
-      const uniqueChannels = [...new Set(sentChannels)];
-      const channelsLabel =
-        uniqueChannels.length > 0
-          ? uniqueChannels.join(" + ")
-          : normalizedChannel || "SMS / EMAIL";
-      const destinations = [
-        result?.toPhone ? `SMS: ${result.toPhone}` : null,
-        result?.toEmail ? `Email: ${result.toEmail}` : null,
-      ].filter(Boolean);
-      const hasPaymentLink = Boolean(
-        order?.paymentLink ||
-          order?.paymentLinkTarget ||
-          order?.trackedPaymentLink ||
-          order?.activePayment?.providerLaunchUrl,
-      );
-      if (result?.sent) {
-        setInfo(
-          `${hasPaymentLink ? "Notification de paiement avec lien" : "Notification de rappel de paiement"} renvoyée via ${channelsLabel}${
-            destinations.length ? ` vers ${destinations.join(" | ")}` : "."
-          }`,
-        );
-      } else if (result?.queued) {
-        setInfo(
-          `${hasPaymentLink ? "Notification de paiement avec lien" : "Notification de rappel de paiement"} mise en file via ${channelsLabel}${
-            destinations.length ? ` vers ${destinations.join(" | ")}` : "."
-          }`,
-        );
-      } else {
-        setInfo(
-          result?.errorMessage ||
-            "Le renvoi de notification a été lancé, mais aucun canal n'a confirmé l'envoi.",
-        );
-      }
-
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de renvoyer le lien de paiement par SMS / email",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveNotificationContacts = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.updateNotificationContacts(id, {
-        phone: normalizeStr(invoiceWaTo) || "",
-        email: normalizeStr(invoiceEmail) || "",
-      });
-
-      setInvoiceWaTo(result?.factureWhatsappTo || "");
-      setInvoiceEmail(result?.fboEmail || "");
-      setInfo("Coordonnées de notification mises à jour pour cette commande.");
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de mettre à jour les coordonnées de notification",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-const doInvoice = async () => {
-  try {
-    setSaving(true);
-    setError("");
-    setInfo("");
-
-    const body = {
-      factureReference: normalizeStr(invoiceRef) || undefined,
-      whatsappTo: normalizeStr(invoiceWaTo) || undefined,
-      notificationEmail: normalizeStr(invoiceEmail) || undefined,
-      fboGrade: normalizeStr(invoiceGrade) || undefined,
-      invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
-      note: normalizeStr(invoiceNote) || undefined,
-    };
-
-    await ordersService.invoice(id, body);
-    navigate("/billing?tab=queue&autoClaim=1");
-  } catch (e) {
-    setError(e?.response?.data?.message || "Impossible de facturer");
-  } finally {
-    setSaving(false);
-  }
-};
-
-  const doEnqueueAs400Request = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.enqueueAs400Request(id, {
-        mode: "OBSERVATION",
-        action: "CREATE_AND_VALIDATE_INVOICE",
-        note: "Demande AS400 créée depuis l'onglet facturation en mode observation.",
-      });
-
-      setInfo(
-        result?.created
-          ? "Demande AS400 créée en mode observation. Aucun automate n'a été exécuté."
-          : "Une demande AS400 active existe déjà pour cette commande.",
-      );
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de créer la demande AS400 en mode observation",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doCorrectAs400Invoice = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.correctAs400Invoice(id, {
-        factureReference: normalizeStr(invoiceRef) || undefined,
-        invoiceAmountFcfa: normalizeStr(invoiceAmountFcfa) || undefined,
-        note: normalizeStr(invoiceNote) || undefined,
-      });
-
-      setOrder(result?.order || result);
-      setInfo(
-        result?.message ||
-          "Facture AS400 corrigée. Le prochain paiement utilisera le nouveau montant.",
-      );
-      await load();
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de corriger la facture AS400");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doRelaunchPayment = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const value = Number.parseInt(String(relaunchPaymentMinutes || ""), 10);
-      const durationPayload = isBankStyleRelaunch
-        ? { durationHours: Number.isFinite(value) ? value : 72 }
-        : { durationMinutes: Number.isFinite(value) ? value : 10 };
-      const result = await ordersService.relaunchPayment(id, {
-        ...durationPayload,
-        note: normalizeStr(relaunchPaymentNote) || undefined,
-        switchToCash: Boolean(relaunchPaymentAsCash),
-      });
-      setOrder(result);
-      setInfo(
-        relaunchPaymentAsCash
-          ? "Commande relancée en mode caisse."
-          : "Commande relancée : un nouveau délai de paiement a été envoyé au client.",
-      );
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de relancer le paiement de cette commande",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doProof = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const body = {
-        manualPaymentProofUrl: normalizeStr(proofUrl) || undefined,
-        manualPaymentReference: normalizeStr(proofRef) || undefined,
-        note: normalizeStr(proofNote) || undefined,
-      };
-
-      const result = await ordersService.proof(id, body);
-      await handleActionResult(result, "Preuve déjà enregistrée.");
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible d'enregistrer la preuve",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doUploadBankProof = async (file) => {
-    if (!file) {
-      setError("Sélectionne le fichier de preuve à uploader.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.uploadBankProof(id, {
-        file,
-        reference: normalizeStr(proofRef) || undefined,
-        declaredAmountFcfa:
-          normalizeStr(order?.as400InvoiceTotalFcfa || order?.totalFcfa) ||
-          undefined,
-        note: normalizeStr(proofNote) || undefined,
-      });
-
-      await handleActionResult(result, "Preuve bancaire déjà enregistrée.");
-      setInfo("Preuve bancaire uploadée et passée en attente de validation.");
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible d'uploader la preuve bancaire",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doVerifyPayment = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.verifyPayment(id, {
-        note: normalizeStr(verifyNote) || undefined,
-      });
-
-      await handleActionResult(result, "Paiement déjà validé.");
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible de valider le paiement",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doCashPay = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.pay(id, {
-        note: normalizeStr(cashNote) || undefined,
-        receiptNumber: normalizeStr(cashReceiptNumber) || undefined,
-        cashDeskLabel: normalizeStr(cashDeskLabel) || undefined,
-        amountReceivedFcfa: normalizeStr(cashAmountReceivedFcfa) || undefined,
-      });
-
-      await handleActionResult(result, "Paiement espèces déjà enregistré.");
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible d'encaisser le paiement espèces",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doInitiateWave = async () => {
-    try {
-      setWaveLoading(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.initiateWavePayment(id);
-
-      if (result?.checkoutUrl) {
-        setInfo("Session Wave créée avec succès.");
-      } else {
-        setInfo("Paiement Wave initié.");
-      }
-
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible d'initier le paiement Wave",
-      );
-    } finally {
-      setWaveLoading(false);
-    }
-  };
-
-  const doSyncWave = async () => {
-    try {
-      setWaveLoading(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.syncWavePaymentStatus(id);
-
-      if (result?.mapped?.markOrderPaid) {
-        setInfo("Paiement Wave confirmé.");
-      } else {
-        setInfo("Statut Wave synchronisé.");
-      }
-
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de synchroniser le paiement Wave",
-      );
-    } finally {
-      setWaveLoading(false);
-    }
-  };
-
-  const doSimulateWave = async (scenario) => {
-    try {
-      setWaveLoading(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.simulateWavePayment(id, scenario);
-
-      if (result?.scenario === "succeeded") {
-        setInfo("Simulation Wave succeeded exécutée.");
-      } else if (result?.scenario === "expired") {
-        setInfo("Simulation Wave expired exécutée.");
-      } else if (result?.scenario === "cancelled") {
-        setInfo("Simulation Wave cancelled exécutée.");
-      } else {
-        setInfo("Simulation Wave processing exécutée.");
-      }
-
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible de simuler le paiement Wave",
-      );
-    } finally {
-      setWaveLoading(false);
-    }
-  };
-
-  const doSwitchPaymentToManual = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      await ordersService.switchPaymentToManual(id);
-      setInfo("Mode de paiement basculé en paiement à la caisse.");
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de basculer le mode de paiement en caisse",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doSwitchPaymentToWave = async () => {
-    try {
-      setWaveLoading(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.switchPaymentToWave(id, {
-        phone: normalizeStr(invoiceWaTo) || undefined,
-      });
-
-      setInfo(
-        result?.paymentLink
-          ? "Mode de paiement basculé vers Wave. Le lien est prêt: vous pouvez le renvoyer au client."
-          : "Mode de paiement basculé vers Wave. Paiement initié.",
-      );
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de basculer le mode de paiement vers Wave",
-      );
-    } finally {
-      setWaveLoading(false);
-    }
-  };
-
-  const doSwitchPaymentToBankTransfer = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      await ordersService.switchPaymentToBankTransfer(id);
-      setInfo("Mode de paiement basculé vers virement bancaire. Instructions renvoyées au client.");
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de basculer le mode de paiement vers le virement bancaire",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doPrepare = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.prepare(id, {
-        packingNote: normalizeStr(packingNote) || undefined,
-      });
-
-      await handleActionResult(result, "Commande déjà préparée.");
-      navigateToNextPreparationQueueOrder("preparation");
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || "Impossible de marquer le colis prêt",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doResendConfirmationSms = async (channel = "") => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const normalizedChannel = String(channel || "").trim().toUpperCase();
-      const result = await ordersService.resendConfirmationSms(id, {
-        ...(normalizedChannel ? { channel: normalizedChannel } : {}),
-        phone: normalizeStr(invoiceWaTo) || undefined,
-        email: normalizeStr(invoiceEmail) || undefined,
-      });
-      if (result?.sent) {
-        const channelsSent = (Array.isArray(result?.attempts) ? result.attempts : [])
-          .filter((attempt) => attempt?.sent || attempt?.queued)
-          .map((attempt) => String(attempt.channel || "").toUpperCase())
-          .filter(Boolean);
-        const channelLabel =
-          [...new Set(channelsSent)].join(" + ") ||
-          String(result?.channel || normalizedChannel || "SMS").toUpperCase();
-        const destinations = [
-          result?.toPhone ? `SMS: ${result.toPhone}` : null,
-          result?.toEmail ? `Email: ${result.toEmail}` : null,
-        ].filter(Boolean);
-        setInfo(
-          `Notification de confirmation renvoyée via ${channelLabel}${
-            destinations.length ? ` vers ${destinations.join(" | ")}` : "."
-          }`,
-        );
-      } else {
-        setInfo(
-          result?.errorMessage ||
-            "Le renvoi de notification a été lancé, mais aucun canal n'a confirmé l'envoi.",
-        );
-      }
-
-      if (result?.toPhone) setInvoiceWaTo(result.toPhone);
-      if (result?.toEmail) setInvoiceEmail(result.toEmail);
-      await load();
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de renvoyer le SMS de confirmation",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doFulfill = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.fulfill(id, {
-        deliveryTracking: normalizeStr(deliveryTracking) || undefined,
-        pickupCode: normalizeStr(pickupCode) || undefined,
-        pickupPointLabel: normalizeStr(pickupPointLabel) || undefined,
-        deliveryCarrier: normalizeStr(deliveryCarrier) || undefined,
-        fulfillmentMode: normalizeStr(fulfillmentMode) || undefined,
-        pickupRecipientType: normalizeStr(pickupRecipientType) || undefined,
-        pickupRecipientName: normalizeStr(pickupRecipientName) || undefined,
-        pickupRecipientPhone: normalizeStr(pickupRecipientPhone) || undefined,
-        pickupConfirmationNote: normalizeStr(pickupConfirmationNote) || undefined,
-        note: normalizeStr(fulfillNote) || undefined,
-      });
-
-      await handleActionResult(result, "Commande déjà clôturée.");
-      navigateToNextPreparationQueueOrder("fulfillment");
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de clôturer");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doCancel = async () => {
-    try {
-      if (!normalizeStr(cancelReason)) {
-        setError("Motif d'annulation requis.");
-        return;
-      }
-
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.cancel(id, {
-        reason: normalizeStr(cancelReason),
-      });
-
-      await handleActionResult(result, "Commande déjà annulée.");
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible d'annuler");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const copyWhatsApp = async () => {
-    const text = order?.whatsappMessage || "";
-    if (!text) return;
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setInfo("Message SMS copie.");
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      setInfo("Message SMS copie.");
-    }
-  };
-
-  const doFulfillNoNotification = async () => {
-    const confirmed = await confirm({
-      tone: "warning",
-      title: "Clôturer sans notification",
-      message:
-        "Cette action va clôturer la commande sans envoyer de SMS ni email au client. Elle débitera le stock si nécessaire et sera tracée dans l'historique. Continuer ?",
-      confirmLabel: "Clôturer",
-    });
-    if (!confirmed) return;
-
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.fulfillNoNotification(id, {
-        deliveryTracking: normalizeStr(deliveryTracking) || undefined,
-        pickupPointLabel: normalizeStr(pickupPointLabel) || undefined,
-        deliveryCarrier: normalizeStr(deliveryCarrier) || undefined,
-        fulfillmentMode: normalizeStr(fulfillmentMode) || undefined,
-        pickupRecipientType: normalizeStr(pickupRecipientType) || undefined,
-        pickupRecipientName: normalizeStr(pickupRecipientName) || undefined,
-        pickupRecipientPhone: normalizeStr(pickupRecipientPhone) || undefined,
-        pickupConfirmationNote: normalizeStr(pickupConfirmationNote) || undefined,
-        note:
-          normalizeStr(fulfillNote) ||
-          "Commande déjà livrée physiquement. Clôture admin sans notification.",
-      });
-
-      if (result?.alreadyDone) {
-        setInfo("Commande déjà clôturée.");
-      } else {
-        setInfo("Commande clôturée sans notification SMS/email.");
-      }
-      await load();
-      navigateToNextPreparationQueueOrder("fulfillment");
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de clôturer sans notification",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doDownloadDeliveryNote = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      const response = await ordersService.downloadDeliveryNotePdf(id);
-      const blob = response?.data instanceof Blob ? response.data : new Blob([response?.data], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const parcelRef = order?.parcelNumber || order?.preorderNumber || id;
-      link.href = url;
-      link.download = `bon-livraison-${parcelRef}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de générer le bon de livraison");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doUpdatePreparationChecklistItem = async (itemId, checked) => {
-    try {
-      setSaving(true);
-      setError("");
-      const saved = await ordersService.updatePreparationChecklistItem(id, { itemId, checked });
-      setOrder((prev) => {
-        if (!prev) return prev;
-        const nextItems = Array.isArray(prev.preparationItems)
-          ? prev.preparationItems.map((item) =>
-              item.preorderItemId === itemId ? { ...item, ...saved } : item,
-            )
-          : [saved];
-        return {
-          ...prev,
-          preparationItems: nextItems,
-        };
-      });
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de mettre à jour la checklist de préparation",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doBulkUpdatePreparationChecklist = async (checked) => {
-    try {
-      setSaving(true);
-      setError("");
-      await ordersService.bulkUpdatePreparationChecklist(id, { checked });
-      setOrder((prev) => {
-        if (!prev) return prev;
-        const now = new Date().toISOString();
-        return {
-          ...prev,
-          preparationItems: Array.isArray(prev.preparationItems)
-            ? prev.preparationItems.map((item) => ({
-                ...item,
-                checked: Boolean(checked),
-                checkedAt: checked ? now : null,
-              }))
-            : prev.preparationItems,
-        };
-      });
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de mettre à jour la checklist de préparation",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doCreatePreparationAnomaly = async (body) => {
-    try {
-      setSaving(true);
-      setError("");
-      const created = await ordersService.createPreparationAnomaly(id, body);
-      setOrder((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          preparationAnomalies: [
-            created,
-            ...(Array.isArray(prev.preparationAnomalies)
-              ? prev.preparationAnomalies
-              : []),
-          ],
-        };
-      });
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible d'enregistrer l'anomalie de préparation",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doResolvePreparationAnomaly = async (anomalyId, resolutionNote) => {
-    try {
-      setSaving(true);
-      setError("");
-      const saved = await ordersService.resolvePreparationAnomaly(id, anomalyId, {
-        resolutionNote: normalizeStr(resolutionNote) || undefined,
-      });
-      setOrder((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          preparationAnomalies: Array.isArray(prev.preparationAnomalies)
-            ? prev.preparationAnomalies.map((item) =>
-                item.id === anomalyId ? { ...item, ...saved } : item,
-              )
-            : prev.preparationAnomalies,
-        };
-      });
-    } catch (e) {
-      setError(
-        e?.response?.data?.message ||
-          "Impossible de résoudre l'anomalie de préparation",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doReplaceBillingItem = async (itemId, nextProductId) => {
-    try {
-      setReplacingItemId(itemId);
-      setSaving(true);
-      setError("");
-      setInfo("");
-
-      const result = await ordersService.replaceBillingItem(id, itemId, {
-        replacementProductId: normalizeStr(nextProductId),
-      });
-
-      const nextStatus = result?.order?.status;
-      if (nextStatus === "SUBMITTED" && status !== "SUBMITTED") {
-        setInfo(
-          "Produit remplacé. La commande est repassée en SOUMISE: veuillez régénérer la facture puis renvoyer le SMS.",
-        );
-      } else {
-        setInfo("Produit remplacé. Les totaux de la commande ont été recalculés.");
-      }
-      await load();
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible de remplacer le produit");
-    } finally {
-      setSaving(false);
-      setReplacingItemId("");
-    }
-  };
+  const {
+    handleResendInvoiceNotification,
+    handleSaveNotificationContacts,
+    doInvoice,
+    doEnqueueAs400Request,
+    doCorrectAs400Invoice,
+    doRelaunchPayment,
+    doProof,
+    doUploadBankProof,
+    doVerifyPayment,
+    doCashPay,
+    doInitiateWave,
+    doSyncWave,
+    doSimulateWave,
+    doSwitchPaymentToManual,
+    doSwitchPaymentToWave,
+    doSwitchPaymentToBankTransfer,
+    doPrepare,
+    doResendConfirmationSms,
+    doFulfill,
+    doCancel,
+    copyWhatsApp,
+    doFulfillNoNotification,
+    doDownloadDeliveryNote,
+    doUpdatePreparationChecklistItem,
+    doBulkUpdatePreparationChecklist,
+    doCreatePreparationAnomaly,
+    doResolvePreparationAnomaly,
+    doReplaceBillingItem,
+  } = useOrderActions({
+    Blob,
+    URLSearchParams,
+    cancelReason,
+    cashAmountReceivedFcfa,
+    cashDeskLabel,
+    cashNote,
+    cashReceiptNumber,
+    confirm,
+    deliveryCarrier,
+    deliveryTracking,
+    document,
+    fulfillNote,
+    fulfillmentMode,
+    id,
+    invoiceAmountFcfa,
+    invoiceEmail,
+    invoiceGrade,
+    invoiceNote,
+    invoiceRef,
+    invoiceWaTo,
+    isBankStyleRelaunch,
+    isCurrentOrder,
+    load,
+    navigate,
+    navigator,
+    order,
+    packingNote,
+    pickupCode,
+    pickupConfirmationNote,
+    pickupPointLabel,
+    pickupRecipientName,
+    pickupRecipientPhone,
+    pickupRecipientType,
+    proofNote,
+    proofRef,
+    proofUrl,
+    relaunchPaymentAsCash,
+    relaunchPaymentMinutes,
+    relaunchPaymentNote,
+    searchParams,
+    setError,
+    setInfo,
+    setInvoiceEmail,
+    setInvoiceWaTo,
+    setOrder,
+    setReplacingItemId,
+    setSaving,
+    setWaveLoading,
+    status,
+    verifyNote,
+    window,
+  });
 
   if (loading) {
-    return <div className="text-sm text-gray-500">Chargement…</div>;
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6"
+      >
+        <p className="text-sm text-gray-600">Chargement de la commande…</p>
+        <div className="h-20 rounded-xl bg-gray-100 animate-pulse motion-reduce:animate-none" />
+        <div className="h-40 rounded-xl bg-gray-100 animate-pulse motion-reduce:animate-none" />
+      </div>
+    );
   }
 
-  if (!order) return null;
+  if (!order)
+    return (
+      <div className="rounded-2xl border border-red-200 bg-white p-6">
+        <h1 className="font-semibold text-gray-900">Commande indisponible</h1>
+        <p role="alert" className="mt-2 text-sm text-red-700">
+          {error || "Ce dossier n’est pas disponible dans le périmètre actuel."}
+        </p>
+        <div className="mt-4 flex gap-3">
+          <button type="button" onClick={() => load()} className="btn">
+            Réessayer
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/orders")}
+            className="btn"
+          >
+            Retour aux commandes
+          </button>
+        </div>
+      </div>
+    );
 
   const commonTabProps = {
     order,
@@ -1488,93 +701,59 @@ const doInvoice = async () => {
         <AccessDeniedPanel message="Accès refusé au détail de commande." />
       }
     >
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold text-gray-900 break-all">
-                  Précommande {preorderNumber}
-                </h2>
-                <StatusBadge status={order?.status} />
-              </div>
-
-              <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
-                <div className="min-w-[220px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Client</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-900">{order?.fboNomComplet || "—"}</div>
-                  <div className="text-xs text-gray-600">FBO {order?.fboNumero || "—"}</div>
-                </div>
-                <div className="min-w-[220px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Commande</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-900">{order?.preorderNumber || "—"}</div>
-                  <div className="text-xs text-gray-600">{formatDateTime(order?.createdAt)}</div>
-                </div>
-                <div className="min-w-[220px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Paiement</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-900">
-                    {humanizeEnum(order?.preorderPaymentMode || order?.paymentMode)}
-                  </div>
-                  <div className="text-xs text-gray-600">{formatFcfa(order?.totalFcfa)}</div>
-                </div>
-                <div className="min-w-[220px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Livraison</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-900">{humanizeEnum(order?.deliveryMode)}</div>
-                  <div className="text-xs text-gray-600">{order?.parcelNumber || "Colis non généré"}</div>
-                </div>
-                <div className="min-w-[220px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Préparation</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-900">
-                    {order?.preparationLaunchedAt ? formatDateTime(order?.preparationLaunchedAt) : "En attente caisse"}
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {order?.preparedAt ? `Prêt le ${formatDateTime(order?.preparedAt)}` : "Non finalisée"}
-                  </div>
-                </div>
-                <div className="min-w-[220px] rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-500">Référence</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-900">{order?.factureReference || "—"}</div>
-                  <div className="text-xs text-gray-600">{order?.id || "—"}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-start">
-              <button
-                onClick={load}
-                disabled={saving || waveLoading}
-                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                type="button"
-              >
-                Rafraîchir
-              </button>
-
-              {canReplaceBillingItems ? (
-                <button
-                  onClick={() => setTab("billing")}
-                  disabled={saving || waveLoading}
-                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
-                  type="button"
-                >
-                  Modifier produits
-                </button>
-              ) : null}
-
-              <RequirePermission permission={Permission.PREORDER_UPDATE_STATUS}>
-                {canCancel ? (
-                  <button
-                    onClick={() => setTab("cancel")}
-                    disabled={saving || waveLoading}
-                    className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                    type="button"
-                  >
-                    Annuler
-                  </button>
-                ) : null}
-              </RequirePermission>
-            </div>
+      <div className="space-y-4" onChangeCapture={markDirty}>
+        <OrderDetailHeader
+          order={order}
+          saving={saving || waveLoading || refreshing}
+          onRefresh={() => load()}
+          primaryAction={orderNextAction(order, {
+            billing: canAccessBilling,
+            payment: canAccessPayment,
+            preparation: canAccessPreparation,
+            overview: availableTabs.some((tab) => tab.key === "overview"),
+          })}
+          onPrimaryAction={(action) =>
+            action.route ? navigate(action.route) : setTab(action.tab)
+          }
+          canCancel={canCancel && canAccessCancel}
+          onGoCancel={() => setTab("cancel")}
+          loadedAt={loadedAt}
+          backHref={
+            /^\/orders(?:\?|$)/.test(searchParams.get("returnTo") || "")
+              ? searchParams.get("returnTo")
+              : "/orders"
+          }
+        />
+        {dirty && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            <span>
+              Modifications en cours : vos saisies sont conservées lors d’une
+              actualisation.
+            </span>
+            <button
+              type="button"
+              disabled={saving || waveLoading}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    tone: "warning",
+                    title: "Abandonner les saisies",
+                    message:
+                      "Les modifications non enregistrées seront remplacées par les données de la commande.",
+                    confirmLabel: "Abandonner",
+                  })
+                )
+                  load({ resetDrafts: true });
+              }}
+              className="font-semibold underline"
+            >
+              Abandonner les saisies
+            </button>
           </div>
-        </div>
+        )}
 
         {error ? (
           <Alert tone="red" title="Erreur">
@@ -1590,8 +769,9 @@ const doInvoice = async () => {
 
         {showLateWaveReviewAlert ? (
           <Alert tone="amber" title="Paiement Wave tardif à revoir">
-            Cette précommande a été annulée automatiquement, puis un paiement Wave a été confirmé après coup.
-            Le dossier doit être vérifié manuellement avant toute réactivation ou remboursement.
+            Cette précommande a été annulée automatiquement, puis un paiement
+            Wave a été confirmé après coup. Le dossier doit être vérifié
+            manuellement avant toute réactivation ou remboursement.
           </Alert>
         ) : null}
 
@@ -1610,6 +790,9 @@ const doInvoice = async () => {
             stockSummary={stockSummary}
             stockDebited={stockDebited}
             stockRestored={stockRestored}
+            replacementQuery={replacementQuery}
+            setReplacementQuery={setReplacementQuery}
+            replacementLoading={replacementLoading}
             canReplaceBillingItems={canReplaceBillingItems}
             replacementProducts={replacementProducts}
             replacingItemId={replacingItemId}
@@ -1701,17 +884,24 @@ const doInvoice = async () => {
               onResendInvoiceNotification={handleResendInvoiceNotification}
               canResendInvoiceNotification={Boolean(
                 order?.factureReference ||
-                  order?.invoicedAt ||
-                  ["INVOICED", "PAYMENT_PENDING", "PAYMENT_PROOF_RECEIVED", "PAID", "READY", "FULFILLED"].includes(
-                    String(order?.status || "").toUpperCase(),
-                  ),
+                order?.invoicedAt ||
+                [
+                  "INVOICED",
+                  "PAYMENT_PENDING",
+                  "PAYMENT_PROOF_RECEIVED",
+                  "PAID",
+                  "READY",
+                  "FULFILLED",
+                ].includes(String(order?.status || "").toUpperCase()),
               )}
               onInitiateWave={doInitiateWave}
               onRefreshWaveStatus={doSyncWave}
               onSyncWave={doSyncWave}
               onSimulateWave={doSimulateWave}
               waveLoading={waveLoading}
-              showWaveDevTools={true}
+              showWaveDevTools={
+                import.meta.env.DEV && role === AdminRole.TECH_ADMIN
+              }
               showReinvoiceHint={showReinvoiceHint}
               canSwitchToManualPayment={canSwitchPaymentToCash}
               onSwitchToManualPayment={doSwitchPaymentToManual}
@@ -1838,6 +1028,21 @@ const doInvoice = async () => {
           </RequirePermission>
         )}
 
+        {auxiliaryErrors.length > 0 && (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          >
+            {auxiliaryErrors.join(" ")}{" "}
+            <button
+              type="button"
+              onClick={reloadAuxiliary}
+              className="font-semibold underline"
+            >
+              Réessayer
+            </button>
+          </div>
+        )}
         {activeTab === "history" && (
           <RequirePermission
             permission={Permission.PREORDER_READ}
@@ -1850,6 +1055,10 @@ const doInvoice = async () => {
               messages={messages}
               logs={order?.logs}
               as400Requests={as400Requests}
+              canReadAs400={canAccessBilling}
+              notificationsUnavailable={auxiliaryErrors.some((value) =>
+                value.includes("notifications"),
+              )}
               role={role}
             />
           </RequirePermission>

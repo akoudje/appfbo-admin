@@ -3,22 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { ordersService } from "../services/ordersService";
 
 function buildQueryParams(searchParams) {
-  const params = {};
-  const q = searchParams.get("q");
-  const dateFrom = searchParams.get("dateFrom");
-  const dateTo = searchParams.get("dateTo");
-  const sort = searchParams.get("sort");
-  const dir = searchParams.get("dir");
-  const preorderNumbers = searchParams.get("preorderNumbers");
-
-  if (q) params.q = q;
-  if (dateFrom) params.dateFrom = dateFrom;
-  if (dateTo) params.dateTo = dateTo;
-  if (sort) params.sort = sort;
-  if (dir) params.dir = dir;
-  if (preorderNumbers) params.preorderNumbers = preorderNumbers;
-
-  return params;
+  const keys = ["q", "dateFrom", "dateTo", "sort", "dir", "preorderNumbers", "paymentStatus", "billingWorkStatus", "billingPriority", "as400Reference", "as400Amount", "assignedOnly", "assignedToMe", "invoicerId", "lateWaveReview"];
+  return Object.fromEntries(keys.filter(key => searchParams.has(key)).map(key => [key, searchParams.get(key)]));
 }
 
 function ExportOrderCard({ order }) {

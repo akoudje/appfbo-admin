@@ -1,3 +1,4 @@
+import { orderLabel } from "../../../lib/orders/orderPresentation";
 // src/components/orders/detail/OrderWorkflowTab.jsx
 // Onglet affichant les informations liées au workflow de facturation d'une commande : statut, dates clés, assignation, etc.
 
@@ -54,23 +55,24 @@ export default function OrderWorkflowTab({ order }) {
 
         <Row
           label="Statut facturation"
-          value={<Badge color="blue">{order?.billingWorkStatus}</Badge>}
+          value={
+            <Badge color="blue">{orderLabel(order?.billingWorkStatus)}</Badge>
+          }
         />
 
         <Row
           label="Priorité"
-          value={<Badge color="amber">{order?.billingPriority}</Badge>}
+          value={
+            <Badge color="amber">{orderLabel(order?.billingPriority)}</Badge>
+          }
         />
 
         <Row
-          label="Entrée dans la queue"
+          label="Entrée en file"
           value={formatDateTime(order?.billingQueueEnteredAt)}
         />
 
-        <Row
-          label="Assigné le"
-          value={formatDateTime(order?.assignedAt)}
-        />
+        <Row label="Assigné le" value={formatDateTime(order?.assignedAt)} />
 
         <Row
           label="Début traitement"
@@ -93,7 +95,7 @@ export default function OrderWorkflowTab({ order }) {
         />
 
         <Row
-          label="SLA deadline"
+          label="Échéance de traitement"
           value={formatDateTime(order?.billingSlaDeadlineAt)}
         />
       </div>
@@ -109,20 +111,11 @@ export default function OrderWorkflowTab({ order }) {
           value={invoicer ? invoicer.fullName : "Non assigné"}
         />
 
-        <Row
-          label="Email"
-          value={invoicer?.email}
-        />
+        <Row label="Email" value={invoicer?.email} />
 
-        <Row
-          label="Rôle"
-          value={invoicer?.role}
-        />
+        <Row label="Rôle" value={invoicer?.role} />
 
-        <Row
-          label="Assigné par"
-          value={order?.assignedByAdmin?.fullName}
-        />
+        <Row label="Assigné par" value={order?.assignedByAdmin?.fullName} />
 
         <Row
           label="Date assignation"
