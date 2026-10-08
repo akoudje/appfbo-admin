@@ -12,6 +12,8 @@ export const settingsService = {
   updateCountrySettings: async (body, countryCode) =>
     (await api.patch("/admin/country-settings", body, countryConfig(countryCode))).data,
 
+  getHistory: async (countryCode) => (await api.get("/admin/country-settings/history", countryConfig(countryCode))).data,
+
   getCountriesList: async () =>
     (await api.get("/admin/countries")).data,
 

@@ -32,7 +32,11 @@ function filterLogsByRole(logs = [], role) {
     return items.filter((log) => billingActions.has(log?.action));
   }
 
-  if (role === "CAISSIERE" || role === "COUNTER_MANAGER" || role === "FINANCE_MANAGER") {
+  if (
+    role === "CAISSIERE" ||
+    role === "COUNTER_MANAGER" ||
+    role === "FINANCE_MANAGER"
+  ) {
     return items.filter((log) => cashierActions.has(log?.action));
   }
 
@@ -47,7 +51,11 @@ function getHistoryTitle(role) {
   if (role === "INVOICER" || role === "BILLING_MANAGER") {
     return "Historique facturation";
   }
-  if (role === "CAISSIERE" || role === "COUNTER_MANAGER" || role === "FINANCE_MANAGER") {
+  if (
+    role === "CAISSIERE" ||
+    role === "COUNTER_MANAGER" ||
+    role === "FINANCE_MANAGER"
+  ) {
     return "Historique caisse";
   }
   if (role === "ORDER_PREPARER" || role === "STOCK_MANAGER") {
@@ -67,7 +75,9 @@ function formatDateTime(value) {
 }
 
 function channelLabel(channel) {
-  const key = String(channel || "").trim().toUpperCase();
+  const key = String(channel || "")
+    .trim()
+    .toUpperCase();
   if (key === "SMS") return "SMS";
   if (key === "WHATSAPP") return "WhatsApp";
   if (key === "EMAIL") return "Email";
@@ -75,7 +85,9 @@ function channelLabel(channel) {
 }
 
 function statusBadgeClass(status) {
-  const key = String(status || "").trim().toUpperCase();
+  const key = String(status || "")
+    .trim()
+    .toUpperCase();
   if (["DELIVERED", "READ"].includes(key)) {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -89,11 +101,17 @@ function statusBadgeClass(status) {
 }
 
 function as400StatusBadgeClass(status) {
-  const key = String(status || "").trim().toUpperCase();
-  if (key === "COMPLETED") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (["PENDING", "RUNNING"].includes(key)) return "border-blue-200 bg-blue-50 text-blue-700";
-  if (key === "WAITING_HUMAN") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (["FAILED", "CANCELLED"].includes(key)) return "border-red-200 bg-red-50 text-red-700";
+  const key = String(status || "")
+    .trim()
+    .toUpperCase();
+  if (key === "COMPLETED")
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (["PENDING", "RUNNING"].includes(key))
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  if (key === "WAITING_HUMAN")
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  if (["FAILED", "CANCELLED"].includes(key))
+    return "border-red-200 bg-red-50 text-red-700";
   return "border-gray-200 bg-gray-50 text-gray-700";
 }
 
@@ -111,7 +129,9 @@ function formatFcfa(value) {
 function extractDestination(message) {
   if (String(message?.channel || "").toUpperCase() === "EMAIL") {
     const emailEvt = (message?.events || []).find((evt) =>
-      String(evt?.note || "").toLowerCase().includes("@"),
+      String(evt?.note || "")
+        .toLowerCase()
+        .includes("@"),
     );
     if (emailEvt?.note) return emailEvt.note;
   }
@@ -231,7 +251,10 @@ function As400History({ requests }) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">
-                      {String(request?.action || "DEMANDE AS400").replaceAll("_", " ")}
+                      {String(request?.action || "DEMANDE AS400").replaceAll(
+                        "_",
+                        " ",
+                      )}
                     </span>
                     <span
                       className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${as400StatusBadgeClass(
@@ -253,7 +276,9 @@ function As400History({ requests }) {
                   </div>
                   <div>
                     <span className="text-gray-500">Montant demandé:</span>{" "}
-                    {formatFcfa(request?.requestedAmountFcfa || request?.as400AmountFcfa)}
+                    {formatFcfa(
+                      request?.requestedAmountFcfa || request?.as400AmountFcfa,
+                    )}
                   </div>
                   <div>
                     <span className="text-gray-500">Facture demandée:</span>{" "}
@@ -270,13 +295,18 @@ function As400History({ requests }) {
                     {logs.slice(0, 5).map((log) => (
                       <div key={log.id} className="text-xs text-gray-600">
                         <span className="font-semibold text-gray-800">
-                          {String(log?.event || "EVENEMENT").replaceAll("_", " ")}
+                          {String(log?.event || "EVENEMENT").replaceAll(
+                            "_",
+                            " ",
+                          )}
                         </span>{" "}
                         <span className="text-gray-400">
                           {formatDateTime(log?.createdAt)}
                         </span>
                         {log?.message ? (
-                          <div className="mt-0.5 text-gray-500">{log.message}</div>
+                          <div className="mt-0.5 text-gray-500">
+                            {log.message}
+                          </div>
                         ) : null}
                       </div>
                     ))}
@@ -291,7 +321,14 @@ function As400History({ requests }) {
   );
 }
 
-export default function OrderHistoryTab({ logs, role, messages, as400Requests }) {
+export default function OrderHistoryTab({
+  logs,
+  role,
+  messages,
+  as400Requests,
+  canReadAs400 = true,
+  notificationsUnavailable = false,
+}) {
   const filteredLogs = filterLogsByRole(logs, role);
 
   return (
@@ -303,9 +340,15 @@ export default function OrderHistoryTab({ logs, role, messages, as400Requests })
         </div>
       </div>
 
-      <NotificationHistory messages={messages} />
+      {notificationsUnavailable ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          L’historique des notifications n’a pas pu être chargé.
+        </p>
+      ) : (
+        <NotificationHistory messages={messages} />
+      )}
 
-      <As400History requests={as400Requests} />
+      {canReadAs400 ? <As400History requests={as400Requests} /> : null}
 
       <OrderHistoryTimeline logs={filteredLogs} />
     </div>

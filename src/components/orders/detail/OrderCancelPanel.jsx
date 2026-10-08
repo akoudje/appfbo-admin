@@ -44,9 +44,9 @@ export default function OrderCancelPanel({
       </div>
 
       <Alert tone="red" title="Attention">
-        L’annulation est irréversible.  
-        Si la commande a déjà été préparée, le stock sera réintégré automatiquement
-        par le backend.
+        L’annulation clôt ce dossier. Le stock déjà réservé est réintégré une
+        seule fois. Si un règlement existe, son traitement reste distinct de
+        l’annulation.
       </Alert>
 
       <div className="card p-4 space-y-4">
@@ -56,6 +56,8 @@ export default function OrderCancelPanel({
           <textarea
             className="input min-h-[110px]"
             value={cancelReason}
+            maxLength={1000}
+            required
             onChange={(e) => setCancelReason(e.target.value)}
             placeholder="Paiement non reçu / erreur / rupture stock..."
             disabled={!canCancel || saving}
@@ -64,9 +66,9 @@ export default function OrderCancelPanel({
 
         <div className="flex gap-2 flex-wrap items-center">
           <button
-            className="btn"
+            className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             onClick={onCancel}
-            disabled={!canCancel || saving}
+            disabled={!canCancel || saving || !cancelReason.trim()}
           >
             {saving ? "..." : "Annuler la commande"}
           </button>

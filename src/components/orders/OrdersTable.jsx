@@ -1,435 +1,283 @@
-// admin-app/src/components/orders/OrdersTable.jsx
-// Composant d'affichage de la liste des commandes dans un tableau,
-// avec pagination, tri et filtres.
-
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight, ArrowUpRight } from "lucide-react";
 import StatusBadge from "../StatusBadge";
-import OrderPaymentBadge from "./OrderPaymentBadge";
-import OrderBillingBadge from "./OrderBillingBadge";
-import RequirePermission from "../auth/RequirePermission";
-import { Permission } from "../../auth/permissions";
-
-function isLateWaveReviewOrder(order) {
-  const status = String(order?.status || "").trim().toUpperCase();
-  const paymentStatus = String(order?.paymentStatus || "").trim().toUpperCase();
-  const billingWorkStatus = String(order?.billingWorkStatus || "").trim().toUpperCase();
-  const paymentProvider = String(order?.paymentProvider || "").trim().toUpperCase();
-  const paymentMode = String(
-    order?.preorderPaymentMode || order?.paymentMode || "",
-  )
-    .trim()
-    .toUpperCase();
-
-  return (
-    status === "CANCELLED" &&
-    paymentStatus === "PAID" &&
-    billingWorkStatus === "ESCALATED" &&
-    (paymentProvider === "WAVE" || paymentMode === "WAVE")
-  );
-}
-
-function PriorityBadge({ priority }) {
-  const tones = {
-    LOW: "bg-gray-100 text-gray-700 border-gray-200",
-    NORMAL: "bg-blue-50 text-blue-700 border-blue-200",
-    HIGH: "bg-amber-50 text-amber-700 border-amber-200",
-    URGENT: "bg-red-50 text-red-700 border-red-200",
-  };
-
-  if (!priority) return <span className="text-xs text-gray-400">—</span>;
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
-        tones[priority] || tones.LOW
-      }`}
-    >
-      {priority}
-    </span>
-  );
-}
-
-function formatDate(dateString) {
-  if (!dateString) return "—";
-  return new Date(dateString).toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDateShort(dateString) {
-  if (!dateString) return "—";
-  return new Date(dateString).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatAmount(amount) {
-  const n = Number(amount) || 0;
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "XOF",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function EmptyState({ onReset }) {
-  return (
-    <tr>
-      <td colSpan={8} className="px-6 py-12 text-center">
-        <div className="flex flex-col items-center justify-center text-gray-500">
-          <svg
-            className="w-12 h-12 mb-4 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-            />
-          </svg>
-          <span className="text-sm mb-2">Aucune commande trouvée</span>
-          <button
-            onClick={onReset}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            type="button"
-          >
-            Réinitialiser les filtres
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function LoadingState() {
-  return (
-    <tr>
-      <td colSpan={8} className="px-6 py-12 text-center">
-        <div className="flex flex-col items-center justify-center text-gray-500">
-          <svg className="animate-spin h-8 w-8 mb-4" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="none"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-          <span className="text-sm">Chargement des commandes...</span>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function Pagination({
-  page,
-  pageSize,
-  totalPages,
-  totalCount,
-  loading,
-  setPage,
-}) {
-  if (totalPages <= 1) return null;
-
-  return (
-    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600">
-          Affichage {(page - 1) * pageSize + 1} -{" "}
-          {Math.min(page * pageSize, totalCount)} sur {totalCount} commandes
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPage(1)}
-            disabled={page <= 1 || loading}
-            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            type="button"
-          >
-            ⏮
-          </button>
-
-          <button
-            onClick={() => setPage(page - 1)}
-            disabled={page <= 1 || loading}
-            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            type="button"
-          >
-            ←
-          </button>
-
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) pageNum = i + 1;
-              else if (page <= 3) pageNum = i + 1;
-              else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
-              else pageNum = page - 2 + i;
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setPage(pageNum)}
-                  disabled={loading}
-                  className={`min-w-[32px] h-8 text-sm font-medium rounded-lg ${
-                    page === pageNum
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  type="button"
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => setPage(page + 1)}
-            disabled={page >= totalPages || loading}
-            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            type="button"
-          >
-            →
-          </button>
-
-          <button
-            onClick={() => setPage(totalPages)}
-            disabled={page >= totalPages || loading}
-            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            type="button"
-          >
-            ⏭
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+import {
+  orderAmounts,
+  orderLabel,
+  orderNextAction,
+} from "../../lib/orders/orderPresentation";
+import { formatFcfa, formatDateTime } from "../../lib/format";
 export default function OrdersTable({
   orders,
   loading,
+  error,
   page,
   pageSize,
   totalPages,
   totalCount,
   setPage,
-  onResetFilters,
+  setPageSize,
+  access,
+  returnTo = "/orders",
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1120px]">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Précommande
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                FBO
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Client
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Statuts
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Facturation
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Assignation
-              </th>
-              <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+    <section
+      aria-label="Liste des commandes"
+      aria-busy={loading}
+      className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+    >
+      {loading && (
+        <div
+          role="status"
+          className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-800"
+        >
+          Actualisation des résultats…
+        </div>
+      )}
+      <div
+        className={
+          "hidden md:block overflow-x-auto " +
+          (loading ? "opacity-60 pointer-events-none" : "")
+        }
+      >
+        <table className="w-full min-w-[840px] text-sm">
+          <thead className="sticky top-0 bg-gray-50 text-left text-xs text-gray-600">
+            <tr>
+              {[
+                "Références",
+                "Client / FBO",
+                "Montant",
+                "Suivi",
+                "Responsable",
+                "Action",
+              ].map((label) => (
+                <th scope="col" key={label} className="px-4 py-3 font-semibold">
+                  {label}
+                </th>
+              ))}
             </tr>
           </thead>
-
-          <tbody className="divide-y divide-gray-200">
-            {loading && (orders?.length || 0) === 0 ? (
-              <LoadingState />
-            ) : (orders?.length || 0) === 0 ? (
-              <EmptyState onReset={onResetFilters} />
-            ) : (
-              orders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="hover:bg-gray-50 transition-colors group"
+          <tbody className="divide-y divide-gray-100">
+            {!orders.length && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-12 text-center text-gray-500"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <RequirePermission
-                        permission={Permission.PREORDER_READ}
-                        fallback={
-                          <span className="font-mono text-sm font-semibold text-gray-900">
-                            {order.preorderNumber || "—"}
-                          </span>
+                  {loading
+                    ? "Chargement des commandes…"
+                    : error
+                      ? "Les résultats ne sont pas disponibles."
+                      : "Aucune commande ne correspond à cette vue."}
+                </td>
+              </tr>
+            )}
+            {orders.map((order) => {
+              const amount = orderAmounts(order),
+                action = orderNextAction(order, access);
+              const suffix = "returnTo=" + encodeURIComponent(returnTo);
+              const href =
+                action?.route ||
+                "/orders/" + order.id + "?tab=" + action.tab + "&" + suffix;
+              return (
+                <tr key={order.id} className="align-top hover:bg-gray-50">
+                  <td className="px-4 py-4">
+                    <Link
+                      to={"/orders/" + order.id + "?" + suffix}
+                      className="font-mono text-xs font-semibold text-gray-950 underline decoration-gray-300 underline-offset-4"
+                    >
+                      {order.preorderNumber || "Sans référence"}
+                    </Link>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {order.parcelNumber || "Colis non généré"}
+                    </p>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {formatDateTime(order.createdAt)}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="font-semibold text-gray-900">
+                      {order.fboNomComplet || "Client non renseigné"}
+                    </p>
+                    <p className="mt-1 font-mono text-xs text-gray-500">
+                      {order.fboNumero || "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {order.pointDeVente || "—"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <p className="font-semibold tabular-nums text-gray-900">
+                      {amount.display === null
+                        ? "—"
+                        : formatFcfa(amount.display)}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">{amount.label}</p>
+                    {order._count?.items === 0 && (
+                      <p className="mt-2 text-xs font-medium text-red-700">
+                        Aucun article : à vérifier
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    <StatusBadge status={order.status} />
+                    <p className="mt-1 text-xs text-gray-600">
+                      Paiement :{" "}
+                      {order.paymentStatus === "PAID"
+                        ? "Payé"
+                        : orderLabel(order.paymentStatus)}
+                    </p>
+                    {access.billing && order.billingWorkStatus && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {orderLabel(order.billingWorkStatus)} ·{" "}
+                        {orderLabel(order.billingPriority)}
+                      </p>
+                    )}
+                    {order.billingWorkStatus === "ESCALATED" && (
+                      <p className="mt-1 text-xs font-semibold text-red-700">
+                        Dossier à revoir
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="text-gray-700">
+                      {order.assignedInvoicer?.fullName || "Non assignée"}
+                    </p>
+                    {order.billingSlaDeadlineAt && (
+                      <p
+                        className={
+                          "mt-1 text-xs " +
+                          (new Date(order.billingSlaDeadlineAt) < new Date() &&
+                          !["PAID", "READY", "FULFILLED", "CANCELLED"].includes(
+                            order.status,
+                          )
+                            ? "font-semibold text-red-700"
+                            : "text-gray-500")
                         }
                       >
-                        <Link
-                          to={`/orders/${order.id}`}
-                          className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800"
-                        >
-                          {order.preorderNumber || "—"}
-                        </Link>
-                      </RequirePermission>
-                      <div className="text-xs text-gray-500">
-                        {order.parcelNumber || "Colis non généré"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Créée le {formatDateShort(order.createdAt)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        MAJ le {formatDateShort(order.updatedAt)}
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-800">
-                        {order.fboNumero || "—"}
-                      </code>
-                      <div className="text-xs text-gray-500">
-                        {order.fboGrade || "—"}
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">
-                      {order.fboNomComplet || "—"}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {order.pointDeVente || "—"}
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <div className="font-semibold text-gray-900">
-                      {formatAmount(order.totalFcfa)}
-                    </div>
-                    {Number(order._count?.items || 0) > 0 ? (
-                      <div className="text-xs text-gray-500">
-                        {order._count?.items || 0} article(s)
-                      </div>
-                    ) : (
-                      <div className="mt-1 inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
-                        Anomalie : aucun article
-                      </div>
+                        Échéance : {formatDateTime(order.billingSlaDeadlineAt)}
+                      </p>
                     )}
                   </td>
-
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <StatusBadge status={order.status} />
-                      <OrderPaymentBadge status={order.paymentStatus} />
-                      {isLateWaveReviewOrder(order) ? (
-                        <div className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700">
-                          Paiement Wave tardif
-                        </div>
-                      ) : null}
-                      <div className="text-xs text-gray-500">
-                        {order.paymentProvider || "—"}
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <OrderBillingBadge status={order.billingWorkStatus} />
-                      <PriorityBadge priority={order.billingPriority} />
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    {order.assignedInvoicer ? (
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {order.assignedInvoicer.fullName || "—"}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {order.assignedAt
-                            ? formatDate(order.assignedAt)
-                            : "Assignée"}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-400">
-                        Non assignée
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <RequirePermission permission={Permission.PREORDER_READ}>
-                        <Link
-                          to={`/orders/${order.id}`}
-                          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                          title="Voir les détails"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                        </Link>
-                      </RequirePermission>
-                    </div>
+                  <td className="px-4 py-4">
+                    <Link
+                      to={href}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-gray-400 hover:bg-gray-100"
+                    >
+                      {action.label}
+                      <ArrowUpRight size={14} />
+                    </Link>
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
-
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        loading={loading}
-        setPage={setPage}
-      />
-    </div>
+      <div
+        className={
+          "divide-y divide-gray-100 md:hidden " +
+          (loading ? "opacity-60 pointer-events-none" : "")
+        }
+      >
+        {!orders.length && (
+          <p className="p-6 text-center text-sm text-gray-500">
+            {loading
+              ? "Chargement…"
+              : error
+                ? "Résultats indisponibles."
+                : "Aucune commande dans cette vue."}
+          </p>
+        )}
+        {orders.map((order) => {
+          const amount = orderAmounts(order),
+            action = orderNextAction(order, access);
+          const href =
+            action.route ||
+            "/orders/" +
+              order.id +
+              "?tab=" +
+              action.tab +
+              "&returnTo=" +
+              encodeURIComponent(returnTo);
+          return (
+            <article key={order.id} className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {order.fboNomComplet || "Client non renseigné"}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {order.preorderNumber}
+                  </p>
+                  <p className="text-xs text-gray-500">FBO {order.fboNumero}</p>
+                </div>
+                <StatusBadge status={order.status} />
+              </div>
+              <div className="flex items-end justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {amount.display === null ? "—" : formatFcfa(amount.display)}
+                  </p>
+                  <p className="text-xs text-gray-500">{amount.label}</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {order.assignedInvoicer?.fullName || "Non assignée"}
+                  </p>
+                </div>
+                <Link
+                  to={href}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold"
+                >
+                  {action.label}
+                </Link>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-gray-50 px-4 py-3 text-xs text-gray-600">
+        <label className="flex items-center gap-2">
+          Par page
+          <select
+            aria-label="Commandes par page"
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value))}
+            disabled={loading}
+            className="rounded border border-gray-300 bg-white px-2 py-1"
+          >
+            {[20, 50, 100].map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+        <span>
+          {totalCount ? (page - 1) * pageSize + 1 : 0}–
+          {Math.min(page * pageSize, totalCount)} sur {totalCount}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Page précédente"
+            disabled={loading || page <= 1}
+            onClick={() => setPage(page - 1)}
+            className="rounded-lg border bg-white p-2 disabled:opacity-40"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span>
+            Page {page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            aria-label="Page suivante"
+            disabled={loading || page >= totalPages}
+            onClick={() => setPage(page + 1)}
+            className="rounded-lg border bg-white p-2 disabled:opacity-40"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }

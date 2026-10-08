@@ -42,11 +42,13 @@ export const ordersService = {
   getOverduePickups: async () =>
     (await api.get("/admin/orders/pickup-overdue")).data,
 
-  getById: async (id) =>
-    (await api.get(`/admin/orders/${normalizeOrderId(id)}`)).data,
+  getById: async (id, config = {}) =>
+    (await api.get(`/admin/orders/${normalizeOrderId(id)}`, config)).data,
 
-  getMessages: async (id) =>
-    (await api.get(`/admin/orders/${normalizeOrderId(id)}/messages`)).data,
+  getMessages: async (id, config = {}) =>
+    (await api.get(`/admin/orders/${normalizeOrderId(id)}/messages`, config)).data,
+
+  exportView: async (params) => api.get("/admin/orders/export", { params, responseType: "blob" }),
 
   downloadBankProofFile: async (id, proofId) =>
     await api.get(

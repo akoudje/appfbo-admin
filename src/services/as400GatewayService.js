@@ -7,8 +7,8 @@ export const as400GatewayService = {
   updateConfig: async (body = {}) =>
     (await api.put("/admin/as400/config", body)).data,
 
-  listRequests: async (params = {}) =>
-    (await api.get("/admin/as400/requests", { params })).data,
+  listRequests: async (params = {}, config = {}) =>
+    (await api.get("/admin/as400/requests", { ...config, params })).data,
 
   getRequest: async (id) =>
     (await api.get(`/admin/as400/requests/${id}`)).data,

@@ -30,6 +30,7 @@ export function setCountryCode(code) {
   const normalized = String(allowedCountry || DEFAULT_COUNTRY_CODE).trim().toUpperCase();
   if (typeof window !== "undefined") {
     window.localStorage.setItem(COUNTRY_STORAGE_KEY, normalized);
+    window.dispatchEvent(new Event("country-code-change"));
   }
   return normalized;
 }
@@ -72,7 +73,7 @@ function redirectToLogin() {
 api.interceptors.request.use((config) => {
   config.headers = config.headers || {};
 
-  config.headers["X-Country"] = getCountryCode();
+  config.headers["X-Country"] = config.headers["X-Country"] || getCountryCode();
 
   const token = getAdminToken();
   if (token) {
