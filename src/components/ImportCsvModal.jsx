@@ -1,661 +1,195 @@
-// src/components/ImportCsvModal.jsx
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { importCsv } from "../services/productsService";
-
-const CSV_TEMPLATE = [
-  "sku;nom;prixBaseFcfa;CLIENT_PRIVILEGIE;ANIMATEUR_ADJOINT;ANIMATEUR;MANAGER_ADJOINT;MANAGER;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details",
-  '123-ABC;"Aloe Vera Gel";15000;14250;10500;9300;8550;7800;0.482;3.300;true;https://example.com/image.jpg;BUVABLE;12;;"Gel a boire"',
-  "456-DEF;Forever Fiber;12500;;;;;;0.250;0.300;false;;NUTRITION;;1;",
-].join("\n");
-
-function splitCsvLines(text) {
-  const normalized = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < normalized.length; i += 1) {
-    const ch = normalized[i];
-    const next = normalized[i + 1];
-
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (ch === "\n" && !inQuotes) {
-      lines.push(current);
-      current = "";
-      continue;
-    }
-
-    current += ch;
-  }
-
-  lines.push(current);
-  return lines.filter((line) => line.trim() !== "");
-}
-
-function parseCsvLine(line, sep) {
-  const cells = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    const next = line[i + 1];
-
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (ch === sep && !inQuotes) {
-      cells.push(current.trim());
-      current = "";
-      continue;
-    }
-
-    current += ch;
-  }
-
-  cells.push(current.trim());
-  return cells;
-}
-
-function normalizeHeaderName(raw) {
-  const base = String(raw || "")
-    .replace(/^\uFEFF/, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/_/g, "");
-
-  const map = {
-    sku: "sku",
-    nom: "nom",
-    name: "nom",
-    prixbasefcfa: "prixBaseFcfa",
-    prix: "prixBaseFcfa",
-    price: "prixBaseFcfa",
-    cc: "cc",
-    poidskg: "poidsKg",
-    poids: "poidsKg",
-    weightkg: "poidsKg",
-    actif: "actif",
-    active: "actif",
-    imageurl: "imageUrl",
-    image: "imageUrl",
-    category: "category",
-    categorie: "category",
-    stockqty: "stockQty",
-    stock: "stockQty",
-    maxqtyperorder: "maxQtyPerOrder",
-    maxqty: "maxQtyPerOrder",
-    limiteparcommande: "maxQtyPerOrder",
-    details: "details",
-    detail: "details",
-    description: "details",
-    clientprivilegie: "CLIENT_PRIVILEGIE",
-    animateuradjoint: "ANIMATEUR_ADJOINT",
-    animateur: "ANIMATEUR",
-    manageradjoint: "MANAGER_ADJOINT",
-    manager: "MANAGER",
-  };
-
-  return map[base] || String(raw || "").trim();
-}
-
-function parseCsv(text) {
-  const lines = splitCsvLines(text);
-  if (lines.length < 2) return { headers: [], rows: [] };
-
-  const sep = lines[0].includes(";") ? ";" : ",";
-  const headers = parseCsvLine(lines[0], sep).map(normalizeHeaderName);
-
-  const rows = lines.slice(1).map((line) => {
-    const cols = parseCsvLine(line, sep);
-    const obj = {};
-    headers.forEach((h, idx) => (obj[h] = cols[idx] ?? ""));
-    return obj;
-  });
-
-  return { headers, rows };
-}
-
-function toBoolDefaultTrue(v) {
-  const s = (v ?? "").toString().trim().toLowerCase();
-  if (!s) return true;
-  return ["1", "true", "oui", "yes", "y"].includes(s);
-}
-
-function toNullableString(v) {
-  const s = (v ?? "").toString().trim();
-  return s ? s : "";
-}
-
-function toNumberOrNaN(v) {
-  const s = (v ?? "")
-    .toString()
-    .trim()
-    .replace(/\s+/g, "")
-    .replace(",", ".");
-  if (s === "") return NaN;
-  return Number(s);
-}
-
-function normalizeRow(r) {
-  return {
-    sku: toNullableString(r.sku),
-    nom: toNullableString(r.nom),
-    prixBaseFcfa: toNumberOrNaN(r.prixBaseFcfa),
-    cc: toNullableString(r.cc),
-    poidsKg: toNullableString(r.poidsKg),
-    actif: toBoolDefaultTrue(r.actif),
-    imageUrl: toNullableString(r.imageUrl),
-
-    // ✅ nouveaux champs
-    category: toNullableString(r.category) || "NON_CLASSE",
-    stockQty:
-      (r.stockQty ?? "").toString().trim() === ""
-        ? "" // autorise vide => default serveur
-        : toNumberOrNaN(r.stockQty),
-    maxQtyPerOrder:
-      (r.maxQtyPerOrder ?? "").toString().trim() === ""
-        ? ""
-        : toNumberOrNaN(r.maxQtyPerOrder),
-    details: toNullableString(r.details),
-    CLIENT_PRIVILEGIE:
-      (r.CLIENT_PRIVILEGIE ?? "").toString().trim() === ""
-        ? ""
-        : toNumberOrNaN(r.CLIENT_PRIVILEGIE),
-    ANIMATEUR_ADJOINT:
-      (r.ANIMATEUR_ADJOINT ?? "").toString().trim() === ""
-        ? ""
-        : toNumberOrNaN(r.ANIMATEUR_ADJOINT),
-    ANIMATEUR:
-      (r.ANIMATEUR ?? "").toString().trim() === ""
-        ? ""
-        : toNumberOrNaN(r.ANIMATEUR),
-    MANAGER_ADJOINT:
-      (r.MANAGER_ADJOINT ?? "").toString().trim() === ""
-        ? ""
-        : toNumberOrNaN(r.MANAGER_ADJOINT),
-    MANAGER:
-      (r.MANAGER ?? "").toString().trim() === ""
-        ? ""
-        : toNumberOrNaN(r.MANAGER),
-  };
-}
-
-function extractApiErrorMessage(e) {
-  return (
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    "Import échoué. Réessaie."
-  );
-}
-
-function InlineAlert({ type = "success", title, message, onClose }) {
-  const styles =
-    type === "success"
-      ? {
-          wrap: "border-emerald-200 bg-emerald-50",
-          title: "text-emerald-900",
-          text: "text-emerald-800",
-          icon: (
-            <svg
-              className="w-5 h-5 text-emerald-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          ),
-        }
-      : {
-          wrap: "border-red-200 bg-red-50",
-          title: "text-red-900",
-          text: "text-red-800",
-          icon: (
-            <svg
-              className="w-5 h-5 text-red-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          ),
-        };
-
-  return (
-    <div
-      className={`border rounded-xl p-4 flex items-start gap-3 ${styles.wrap}`}
-    >
-      <div className="mt-0.5">{styles.icon}</div>
-      <div className="flex-1 min-w-0">
-        {title && (
-          <div className={`text-sm font-semibold ${styles.title}`}>{title}</div>
-        )}
-        {message && (
-          <div className={`text-sm mt-0.5 ${styles.text}`}>{message}</div>
-        )}
-      </div>
-      {onClose && (
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
-export default function ImportCsvModal({ open, onClose, onDone }) {
-  const [rawText, setRawText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null);
-  const [banner, setBanner] = useState(null); // {type,title,message}
-
-  const parsed = useMemo(() => parseCsv(rawText), [rawText]);
-  const normalized = useMemo(() => parsed.rows.map(normalizeRow), [parsed.rows]);
-  const preview = useMemo(() => normalized.slice(0, 5), [normalized]);
-
-  const validate = useCallback((r) => {
-    const e = [];
-    if (!r.sku) e.push("sku");
-    if (!r.nom) e.push("nom");
-
-    if (!Number.isFinite(r.prixBaseFcfa) || r.prixBaseFcfa < 0)
-      e.push("prixBaseFcfa");
-
-    if (!r.cc || Number.isNaN(Number(r.cc))) e.push("cc");
-    if (!r.poidsKg || Number.isNaN(Number(r.poidsKg))) e.push("poidsKg");
-
-    // ✅ nouveaux champs
-    if (!r.category) e.push("category");
-    if (r.stockQty !== "") {
-      const n = Number(r.stockQty);
-      if (!Number.isFinite(n) || n < 0) e.push("stockQty");
-      else if (!Number.isInteger(n)) e.push("stockQty(int)");
-    }
-    if (r.maxQtyPerOrder !== "") {
-      const n = Number(r.maxQtyPerOrder);
-      if (!Number.isFinite(n) || n < 1) e.push("maxQtyPerOrder");
-      else if (!Number.isInteger(n)) e.push("maxQtyPerOrder(int)");
-    }
-    ["CLIENT_PRIVILEGIE", "ANIMATEUR_ADJOINT", "ANIMATEUR", "MANAGER_ADJOINT", "MANAGER"].forEach((key) => {
-      if (r[key] === "") return;
-      const n = Number(r[key]);
-      if (!Number.isFinite(n) || n < 0) e.push(key);
-    });
-
-    return e;
-  }, []);
-
-  const invalidRows = useMemo(
-    () =>
-      normalized
-        .map((r, idx) => {
-          const errors = validate(r);
-          return {
-            line: idx + 2,
-            sku: r.sku || "—",
-            nom: r.nom || "—",
-            errors,
-          };
-        })
-        .filter((x) => x.errors.length > 0),
-    [normalized, validate],
-  );
-
-  const invalidCount = invalidRows.length;
-
-  const close = useCallback(() => {
-    if (busy) return;
-    onClose?.();
-  }, [busy, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onEsc = (e) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [open, close]);
-
-  const downloadTemplate = () => {
-    if (busy) return;
-    const blob = new Blob([`\uFEFF${CSV_TEMPLATE}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "produits-template.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const submit = async () => {
+import {
+  parseProductCsv,
+  CSV_TEMPLATE,
+  downloadText,
+} from "../lib/products/productCsv";
+import ProductDialog from "./products/ProductDialog";
+function ImportForm({ onClose, onDone }) {
+  const [text, setText] = useState(""),
+    [preview, setPreview] = useState(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [confirmed, setConfirmed] = useState(false);
+  const lock = useRef(false);
+  const parsed = useMemo(() => {
     try {
-      setBusy(true);
-      setBanner(null);
-      setResult(null);
-
-      const validRows = normalized.filter((r) => validate(r).length === 0);
-      if (validRows.length === 0) {
-        setBanner({
-          type: "error",
-          title: "Aucune ligne valide",
-          message: "Corrige le CSV avant import.",
-        });
-        return;
-      }
-
-      // ✅ prépare payload côté API (nullables)
-      const rows = validRows.map((r) => ({
-        sku: r.sku,
-        nom: r.nom,
-        prixBaseFcfa: Number(r.prixBaseFcfa),
-        cc: r.cc,
-        poidsKg: r.poidsKg,
-        actif: Boolean(r.actif),
-
-        imageUrl: r.imageUrl ? r.imageUrl : null,
-        category: r.category || "NON_CLASSE",
-        details: r.details ? r.details : null,
-        stockQty:
-          r.stockQty === "" || r.stockQty === null || r.stockQty === undefined
-            ? null
-            : Number(r.stockQty),
-        maxQtyPerOrder:
-          r.maxQtyPerOrder === "" ||
-          r.maxQtyPerOrder === null ||
-          r.maxQtyPerOrder === undefined
-            ? null
-            : Number(r.maxQtyPerOrder),
-        CLIENT_PRIVILEGIE: r.CLIENT_PRIVILEGIE === "" ? undefined : Number(r.CLIENT_PRIVILEGIE),
-        ANIMATEUR_ADJOINT: r.ANIMATEUR_ADJOINT === "" ? undefined : Number(r.ANIMATEUR_ADJOINT),
-        ANIMATEUR: r.ANIMATEUR === "" ? undefined : Number(r.ANIMATEUR),
-        MANAGER_ADJOINT: r.MANAGER_ADJOINT === "" ? undefined : Number(r.MANAGER_ADJOINT),
-        MANAGER: r.MANAGER === "" ? undefined : Number(r.MANAGER),
-      }));
-
-      const res = await importCsv(rows);
-      setResult(res);
-
-      setBanner({
-        type: "success",
-        title: "Import terminé",
-        message: `Créés: ${res?.created ?? 0} • Mis à jour: ${
-          res?.updated ?? 0
-        } • Erreurs: ${res?.errors?.length ?? 0}`,
-      });
-
-      onDone?.();
+      return { rows: parseProductCsv(text) };
     } catch (e) {
-      const msg = extractApiErrorMessage(e);
-      setBanner({ type: "error", title: "Import échoué", message: msg });
+      return { rows: [], error: e.message };
+    }
+  }, [text]);
+  function change(value) {
+    setText(value);
+    setPreview(null);
+    setConfirmed(false);
+    setError("");
+  }
+  async function run(dryRun) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await importCsv(parsed.rows, {
+        dryRun,
+        confirmSharedChanges: confirmed,
+        previewToken: preview?.previewToken,
+      });
+      if (dryRun) setPreview(result);
+      else {
+        onDone?.(
+          `Import terminé : ${result.created} créations, ${result.updated} mises à jour.`,
+        );
+        onClose();
+      }
+    } catch (e) {
+      setError(
+        e.response?.data?.message || "Impossible de traiter le fichier.",
+      );
+      if (e.response?.data?.errors) setPreview(e.response.data);
     } finally {
+      lock.current = false;
       setBusy(false);
     }
-  };
-
-  if (!open) return null;
-
+  }
+  const shared = preview?.rows?.some((row) => row.sharedChanges?.length);
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-3"
-      onClick={(e) => e.target === e.currentTarget && close()}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-lg font-semibold text-gray-900">
-              Importer CSV
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Colonnes attendues :{" "}
-              <span className="font-mono">
-                sku, nom, prixBaseFcfa, CLIENT_PRIVILEGIE, ANIMATEUR_ADJOINT,
-                ANIMATEUR, MANAGER_ADJOINT, MANAGER, cc, poidsKg, actif,
-                imageUrl, category, stockQty, maxQtyPerOrder, details
-              </span>{" "}
-              • séparateur <b>;</b> ou <b>,</b>
-            </div>
-          </div>
-
-          <button
-            className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            onClick={close}
-            type="button"
-            disabled={busy}
-          >
-            Fermer
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4">
-          {banner && (
-            <InlineAlert
-              type={banner.type}
-              title={banner.title}
-              message={banner.message}
-              onClose={() => setBanner(null)}
+    <ProductDialog title="Importer des produits" onClose={onClose} busy={busy}>
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600">
+          Prévisualisez les changements avant de confirmer. Les colonnes
+          absentes ou facultatives vides sont conservées. Le stock des produits
+          existants ne sera pas modifié.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <label className="cursor-pointer rounded-lg border px-3 py-2 text-sm">
+            Choisir un fichier CSV
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              disabled={busy}
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  setError("Fichier limité à 2 Mo.");
+                  return;
+                }
+                change(await file.text());
+                e.target.value = "";
+              }}
             />
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Colle ton CSV ici</div>
-              <textarea
-                className="w-full min-h-[240px] border border-gray-300 rounded-xl p-3 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={rawText}
-                onChange={(e) => {
-                  setRawText(e.target.value);
-                  if (banner) setBanner(null);
-                }}
-                disabled={busy}
-                placeholder={`sku;nom;prixBaseFcfa;cc;poidsKg;actif;imageUrl;category;stockQty;maxQtyPerOrder;details
-123-ABC;Aloe Vera Gel;15000;14250;10500;9300;8550;7800;0.482;3.300;true;https://...;BUVABLE;12;1;Gel à boire...`}
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  onClick={() => {
-                    if (busy) return;
-                    setRawText("");
-                    setResult(null);
-                    setBanner(null);
-                  }}
-                  disabled={busy}
-                  type="button"
-                >
-                  Vider
-                </button>
-                <button
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  onClick={downloadTemplate}
-                  disabled={busy}
-                  type="button"
-                >
-                  Télécharger modèle
-                </button>
-              </div>
-            </div>
-
-            <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-gray-900">
-                  Aperçu (5 premières lignes)
-                </div>
-                <div className="text-xs text-gray-600">
-                  Lignes: <b>{normalized.length}</b> • Invalides:{" "}
-                  <b className={invalidCount ? "text-rose-700" : ""}>
-                    {invalidCount}
-                  </b>
-                </div>
-              </div>
-
-              <div className="mt-2 overflow-auto max-h-[240px] bg-white rounded-xl border border-gray-200">
-                <table className="w-full text-xs">
-                  <thead className="text-gray-500 bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="text-left p-2">SKU</th>
-                      <th className="text-left p-2">Nom</th>
-                      <th className="text-left p-2">Prix</th>
-                      <th className="text-left p-2">Catégorie</th>
-                      <th className="text-left p-2">Stock</th>
-                      <th className="text-left p-2">Actif</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.map((r, idx) => {
-                      const v = validate(r);
-                      const stockPreview =
-                        r.stockQty === "" ? "—" : String(r.stockQty);
-                      return (
-                        <tr key={idx} className="border-t border-gray-100">
-                          <td className="p-2 font-mono">{r.sku || "—"}</td>
-                          <td className="p-2">{r.nom || "—"}</td>
-                          <td className="p-2">
-                            {Number.isFinite(r.prixBaseFcfa)
-                              ? r.prixBaseFcfa
-                              : "—"}
-                          </td>
-                          <td className="p-2">{r.category || "—"}</td>
-                          <td className="p-2">{stockPreview}</td>
-                          <td className="p-2">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border ${
-                                r.actif
-                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                  : "bg-gray-50 text-gray-700 border-gray-200"
-                              }`}
-                            >
-                              {String(r.actif)}
-                            </span>
-                            {v.length ? (
-                              <span className="text-rose-700 ml-2">
-                                (invalid: {v.join(",")})
-                              </span>
-                            ) : null}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {normalized.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-4 text-center text-gray-500">
-                          Colle un CSV pour voir l’aperçu.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {result?.errors?.length ? (
-                <div className="mt-2 text-xs text-rose-700">
-                  ⚠️ {result.errors.length} ligne(s) en erreur (voir retour API).
-                </div>
-              ) : null}
-
-              {invalidRows.length > 0 ? (
-                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-2">
-                  <div className="text-xs font-semibold text-rose-800">
-                    Lignes invalides détectées avant envoi ({invalidRows.length})
-                  </div>
-                  <div className="mt-1 max-h-28 overflow-auto text-xs text-rose-900">
-                    {invalidRows.map((row) => (
-                      <div key={`${row.line}-${row.sku}`} className="py-0.5">
-                        Ligne {row.line}: {row.sku} / {row.nom} {"->"}{" "}
-                        {row.errors.join(", ")}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-                  onClick={submit}
-                  disabled={busy || normalized.length === 0}
-                  title="Importe toutes les lignes (les invalides seront ignorées et retournées en erreurs)"
-                  type="button"
-                >
-                  {busy ? "Import..." : "Importer"}
-                </button>
-              </div>
-
-              <div className="text-xs text-gray-500 mt-2">
-                Le serveur fait un <b>upsert par SKU</b>.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            Astuce : mets <b>category</b> (ex: BUVABLE) et <b>stockQty</b> (entier
-            ≥ 0). Pour l’image, privilégie l’upload sur la page d’édition.
-          </div>
+          </label>
           <button
-            className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            onClick={close}
-            type="button"
             disabled={busy}
+            onClick={() => downloadText(CSV_TEMPLATE, "modele-produits.csv")}
+            className="rounded-lg border px-3 py-2 text-sm"
           >
-            Fermer
+            Télécharger le modèle
           </button>
         </div>
+        <label className="block text-sm">
+          Contenu CSV
+          <textarea
+            rows={6}
+            disabled={busy}
+            value={text}
+            onChange={(e) => change(e.target.value)}
+            className="mt-1 w-full rounded-lg border p-3 font-mono text-xs"
+            placeholder="sku;nom;prixBaseFcfa;cc;poidsKg"
+          />
+        </label>
+        {(error || parsed.error) && (
+          <p role="alert" className="text-sm text-red-700">
+            {error || parsed.error}
+          </p>
+        )}
+        {preview && (
+          <div className="space-y-3 rounded-xl border p-3">
+            <p className="text-sm font-semibold">
+              {preview.created} créations · {preview.updated} mises à jour ·{" "}
+              {preview.errors.length} erreurs
+            </p>
+            <div className="max-h-40 overflow-y-auto space-y-2 text-xs">
+              {preview.rows?.map((row) => (
+                <p key={row.line}>
+                  Ligne {row.line} · {row.sku} ·{" "}
+                  {row.action === "CREATE" ? "Création" : "Mise à jour"}
+                  {row.stockIgnored ? " · Stock conservé" : ""}
+                </p>
+              ))}
+              {preview.errors.map((row) => (
+                <p key={row.index} className="text-red-700">
+                  Ligne {row.index} · {row.sku} : {row.errors.join(", ")}
+                </p>
+              ))}
+            </div>
+            {preview.errors.length > 0 && (
+              <button
+                onClick={() =>
+                  downloadText(
+                    "Ligne;SKU;Erreur\n" +
+                      preview.errors
+                        .map((row) =>
+                          [row.index, row.sku, row.errors.join(", ")]
+                            .map(
+                              (v) =>
+                                '"' + String(v).replaceAll('"', '""') + '"',
+                            )
+                            .join(";"),
+                        )
+                        .join("\n"),
+                    "erreurs-import.csv",
+                  )
+                }
+                className="rounded-lg border px-3 py-2 text-sm"
+              >
+                Télécharger les erreurs
+              </button>
+            )}
+            {shared && (
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                />
+                Je confirme les changements des informations communes à tous les
+                pays.
+              </label>
+            )}
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            disabled={busy || !parsed.rows.length || !!parsed.error}
+            onClick={() => run(true)}
+            className="rounded-lg border px-4 py-2 disabled:opacity-50"
+          >
+            {busy ? "Traitement…" : "Prévisualiser"}
+          </button>
+          {preview && !preview.errors.length && (
+            <button
+              disabled={busy || (shared && !confirmed)}
+              onClick={() => run(false)}
+              className="rounded-lg bg-yellow-400 px-4 py-2 font-semibold disabled:opacity-50"
+            >
+              Confirmer l’import
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500">
+          1 000 lignes maximum. Les tarifs spécifiques se retirent depuis la
+          fiche produit.
+        </p>
       </div>
-    </div>
+    </ProductDialog>
   );
+}
+export default function ImportCsvModal({ open, ...props }) {
+  return open ? <ImportForm {...props} /> : null;
 }
