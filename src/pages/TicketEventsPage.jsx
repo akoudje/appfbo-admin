@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { ticketEventsService } from "../services/ticketEventsService";
 import { useConfirm, usePrompt } from "../hooks/useDialogs";
+import { readEventAvailability, legacyEventAvailability, availabilityPresentation } from "../lib/ticketEvents/eventAvailability";
+
+const DEFAULT_ORDER_STATUS = "PAID";
 
 const TABS = [
   { key: "overview", label: "Vue d'ensemble" },
@@ -321,7 +324,7 @@ export default function TicketEventsPage() {
   const [selectedEventId, setSelectedEventId] = useState(searchParams.get("eventId") || "");
   const [activeTab, setActiveTab] = useState(TABS.some((tab) => tab.key === searchParams.get("tab")) ? searchParams.get("tab") : "overview");
   const [orderQuery, setOrderQuery] = useState("");
-  const [orderStatus, setOrderStatus] = useState("");
+  const [orderStatus, setOrderStatus] = useState(DEFAULT_ORDER_STATUS);
   const [orderPaymentMethod, setOrderPaymentMethod] = useState("");
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
   const [cashSaleForm, setCashSaleForm] = useState(emptyCashSaleForm);
@@ -350,6 +353,7 @@ export default function TicketEventsPage() {
   );
 
   const stats = eventSummary?.totals;
+  const availability = availabilityPresentation(eventSummary?.availability);
   const visibleEvents = events.filter((event) => {
     const now = Date.now();
     const start = new Date(event.startsAt).getTime();
@@ -400,7 +404,12 @@ export default function TicketEventsPage() {
       if (sequence !== loadSequence.current) return;
       setOrders(ordersResponse?.data || []);
       setPagination(ordersResponse.pagination || { page: 1, pageSize: 25, total: ordersResponse?.data?.length || 0, pageCount: 1 });
-      setEventSummary(summary);
+      setEventSummary({
+        ...summary,
+        availability: readEventAvailability(summary?.availability) || legacyEventAvailability(
+          nextEvents.find((item) => item.id === nextSelectedId), summary?.totals,
+        ),
+      });
       setUpdatedAt(new Date());
     } catch (err) {
       if (sequence !== loadSequence.current) return;
@@ -431,7 +440,7 @@ export default function TicketEventsPage() {
     auditSequence.current++;
     stopScanner();
     setMessage("");
-    setOrderQuery(""); setOrderStatus(""); setOrderPaymentMethod("");
+    setOrderQuery(""); setOrderStatus(DEFAULT_ORDER_STATUS); setOrderPaymentMethod("");
     setSelectedEventId(eventId);
     setTicketTypeForm(emptyTicketTypeForm());
     setCheckInResult(null);
@@ -440,7 +449,7 @@ export default function TicketEventsPage() {
     setCheckInLogs([]);
     setCheckInSummary(null);
     updateUrl({ eventId });
-    load({ eventId, q: "", status: "", paymentMethod: "" });
+    load({ eventId, q: "", status: DEFAULT_ORDER_STATUS, paymentMethod: "" });
   }
 
   function selectTab(tab) {
@@ -906,7 +915,7 @@ export default function TicketEventsPage() {
                   <Stat label="Billets vendus" value={loading ? "…" : stats?.ticketsCount ?? "—"} />
                   <Stat label="Recettes encaissées" value={loading ? "…" : stats ? formatFcfa(stats.totalFcfa) : "—"} />
                   <Stat label="Participants entrés" value={loading ? "…" : stats?.usedTickets ?? "—"} />
-                  <Stat label="Places disponibles · capacité globale" value={loading ? "…" : stats ? stats.remainingCapacity ?? "Non définie" : "—"} />
+                  <Stat label="Places disponibles" value={loading ? "…" : stats ? availability.value : "—"} hint={!loading && stats ? availability.hint : null} />
                 </div>
                 {loading ? <div role="status" className="animate-pulse space-y-3 py-8"><div className="h-6 w-1/3 rounded bg-gray-100" /><div className="h-36 rounded-xl bg-gray-100" /><p className="text-sm text-gray-500">Chargement des données de l’événement…</p></div> : <>
 
@@ -1172,9 +1181,9 @@ function OrdersTab({
             }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40"
           >
-            <option value="">Tous les statuts</option>
-            <option value="PENDING_PAYMENT">En attente</option>
             <option value="PAID">Payés</option>
+            <option value="PENDING_PAYMENT">En attente de paiement</option>
+            <option value="">Tous les statuts</option>
             <option value="EXPIRED">Expirés</option>
             <option value="CANCELLED">Annulés</option>
           </select>
@@ -1423,7 +1432,7 @@ function OrdersTab({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600">
         <span>{pagination.total} commande(s) · Page {pagination.page} sur {pagination.pageCount}</span>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="rounded-lg border px-3 py-2" onClick={() => { setOrderQuery(""); setOrderStatus(""); setOrderPaymentMethod(""); loadOrders({ q: "", status: "", paymentMethod: "" }); }}>Réinitialiser les filtres</button>
+          <button type="button" className="rounded-lg border px-3 py-2" onClick={() => { setOrderQuery(""); setOrderStatus(DEFAULT_ORDER_STATUS); setOrderPaymentMethod(""); loadOrders({ q: "", status: DEFAULT_ORDER_STATUS, paymentMethod: "" }); }}>Réinitialiser les filtres</button>
           <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={pagination.page <= 1} onClick={() => loadOrders({ page: pagination.page - 1 })}>Précédent</button>
           <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={pagination.page >= pagination.pageCount} onClick={() => loadOrders({ page: pagination.page + 1 })}>Suivant</button>
         </div>
@@ -2014,11 +2023,12 @@ function Info({ label, value }) {
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, hint }) {
   return (
     <div className="min-w-0 rounded-xl bg-gray-50 p-4">
       <div className="text-xs text-gray-600">{label}</div>
       <div className="mt-2 break-words text-2xl font-semibold tabular-nums text-gray-950">{value}</div>
+      {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
     </div>
   );
 }
