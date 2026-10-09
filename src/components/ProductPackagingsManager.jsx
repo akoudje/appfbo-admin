@@ -4,6 +4,7 @@
 // distingue un conditionnement d'un autre, c'est son libellé + son nombre d'unités.
 
 import { useEffect, useState } from "react";
+import { Package } from "lucide-react";
 import * as packagingsService from "../services/productPackagingsService";
 import { useConfirm } from "../hooks/useDialogs";
 
@@ -14,6 +15,8 @@ const EMPTY_FORM = {
   prixFcfa: "",
   actif: true,
 };
+const inputClass =
+  "min-h-10 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40";
 
 function extractApiErrorMessage(e) {
   return (
@@ -150,11 +153,12 @@ export default function ProductPackagingsManager({ productId, productSku }) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+    <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <Package size={18} aria-hidden="true" />
           Conditionnements de vente
-        </h3>
+        </h2>
         <p className="mt-0.5 text-xs text-gray-500">
           Informations communes à tous les pays : packs, cartons et codes-barres
           pour le SKU{" "}
@@ -164,24 +168,41 @@ export default function ProductPackagingsManager({ productId, productSku }) {
       </div>
 
       {error && (
-        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+        <div
+          role="alert"
+          className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-sm text-gray-500">Chargement...</div>
+        <div role="status" className="py-4 text-sm text-gray-500">
+          Chargement…
+        </div>
       ) : (
-        <div className="mb-4 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="mb-4 overflow-x-auto rounded-xl border border-gray-200">
+          <table className="w-full min-w-[580px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
-                <th className="py-2 pr-3">Libellé</th>
-                <th className="py-2 pr-3">Unités</th>
-                <th className="py-2 pr-3">Code-barres</th>
-                <th className="py-2 pr-3">Prix (FCFA)</th>
-                <th className="py-2 pr-3">Actif</th>
-                <th className="py-2 pr-3"></th>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs text-gray-600">
+                <th scope="col" className="px-3 py-3 font-semibold">
+                  Libellé
+                </th>
+                <th scope="col" className="px-3 py-3 font-semibold">
+                  Unités
+                </th>
+                <th scope="col" className="px-3 py-3 font-semibold">
+                  Code-barres
+                </th>
+                <th scope="col" className="px-3 py-3 font-semibold">
+                  Prix (FCFA)
+                </th>
+                <th scope="col" className="px-3 py-3 font-semibold">
+                  Statut
+                </th>
+                <th scope="col" className="px-3 py-3 font-semibold">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -189,7 +210,7 @@ export default function ProductPackagingsManager({ productId, productSku }) {
                 <tr>
                   <td
                     colSpan={6}
-                    className="py-3 text-center text-xs text-gray-400"
+                    className="px-3 py-6 text-center text-sm text-gray-500"
                   >
                     Aucun conditionnement pour ce produit — il est vendu à
                     l'unité.
@@ -197,37 +218,40 @@ export default function ProductPackagingsManager({ productId, productSku }) {
                 </tr>
               )}
               {packagings.map((p) => (
-                <tr key={p.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-3 font-medium text-gray-800">
+                <tr
+                  key={p.id}
+                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                >
+                  <td className="px-3 py-3 font-semibold text-gray-900">
                     {p.label}
                   </td>
-                  <td className="py-2 pr-3 text-gray-600">
+                  <td className="px-3 py-3 tabular-nums text-gray-600">
                     {p.unitsPerPackage}
                   </td>
-                  <td className="py-2 pr-3 text-gray-500">
+                  <td className="px-3 py-3 font-mono text-xs text-gray-500">
                     {p.barcode || "—"}
                   </td>
-                  <td className="py-2 pr-3 text-gray-600">
+                  <td className="px-3 py-3 font-semibold tabular-nums text-gray-900">
                     {p.prixFcfa === null || p.prixFcfa === undefined
                       ? "—"
                       : Number(p.prixFcfa).toLocaleString("fr-FR")}
                   </td>
-                  <td className="py-2 pr-3">
+                  <td className="px-3 py-3">
                     {p.actif ? (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 border border-emerald-200">
+                      <span className="inline-block rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-800">
                         Actif
                       </span>
                     ) : (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 border border-gray-200">
+                      <span className="inline-block rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
                         Inactif
                       </span>
                     )}
                   </td>
-                  <td className="py-2 pr-3 text-right whitespace-nowrap">
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => startEdit(p)}
-                      className="mr-2 text-xs font-semibold text-gray-700 hover:underline"
+                      className="mr-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
                     >
                       Modifier
                     </button>
@@ -235,7 +259,7 @@ export default function ProductPackagingsManager({ productId, productSku }) {
                       type="button"
                       onClick={() => onDelete(p)}
                       disabled={!p.actif || saving}
-                      className="text-xs font-semibold text-red-600 hover:underline"
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-red-700 hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
                     >
                       Désactiver
                     </button>
@@ -249,24 +273,32 @@ export default function ProductPackagingsManager({ productId, productSku }) {
 
       <form
         onSubmit={onSubmit}
-        className="grid grid-cols-2 gap-3 sm:grid-cols-5"
+        className="grid grid-cols-2 gap-3 border-t border-gray-200 pt-4 lg:grid-cols-5"
       >
-        <div className="col-span-2 sm:col-span-1">
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+        <div className="col-span-2 min-w-0 lg:col-span-1">
+          <label
+            htmlFor={`packaging-label-${productId}`}
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Libellé
           </label>
           <input
+            id={`packaging-label-${productId}`}
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
             placeholder="Carton de 12"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className={inputClass}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label
+            htmlFor={`packaging-units-${productId}`}
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Nb unités
           </label>
           <input
+            id={`packaging-units-${productId}`}
             type="number"
             min="1"
             value={form.unitsPerPackage}
@@ -274,27 +306,35 @@ export default function ProductPackagingsManager({ productId, productSku }) {
               setForm((f) => ({ ...f, unitsPerPackage: e.target.value }))
             }
             placeholder="12"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className={inputClass}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label
+            htmlFor={`packaging-barcode-${productId}`}
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Code-barres
           </label>
           <input
+            id={`packaging-barcode-${productId}`}
             value={form.barcode}
             onChange={(e) =>
               setForm((f) => ({ ...f, barcode: e.target.value }))
             }
             placeholder="Optionnel"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className={inputClass}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label
+            htmlFor={`packaging-price-${productId}`}
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Prix (FCFA)
           </label>
           <input
+            id={`packaging-price-${productId}`}
             type="number"
             min="0"
             value={form.prixFcfa}
@@ -302,13 +342,14 @@ export default function ProductPackagingsManager({ productId, productSku }) {
               setForm((f) => ({ ...f, prixFcfa: e.target.value }))
             }
             placeholder="Auto"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className={inputClass}
           />
         </div>
         <div className="flex items-end gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-gray-700">
+          <label className="flex min-h-10 items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
+              className="h-4 w-4 accent-[#FFC600]"
               checked={form.actif}
               onChange={(e) =>
                 setForm((f) => ({ ...f, actif: e.target.checked }))
@@ -318,11 +359,11 @@ export default function ProductPackagingsManager({ productId, productSku }) {
           </label>
         </div>
 
-        <div className="col-span-2 flex items-center gap-2 sm:col-span-5">
+        <div className="col-span-2 flex flex-wrap items-center gap-2 lg:col-span-5">
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-yellow-400 px-3 py-2 text-sm font-semibold text-black disabled:opacity-60"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#E6B200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
           >
             {editingId ? "Enregistrer" : "Ajouter le conditionnement"}
           </button>
@@ -330,13 +371,13 @@ export default function ProductPackagingsManager({ productId, productSku }) {
             <button
               type="button"
               onClick={startCreate}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
             >
               Annuler
             </button>
           )}
         </div>
       </form>
-    </div>
+    </section>
   );
 }

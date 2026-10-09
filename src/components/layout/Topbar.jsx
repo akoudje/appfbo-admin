@@ -70,7 +70,7 @@ function getPageTitle(pathname) {
   if (pathname === "/stock") return "Espace Stock";
   if (pathname === "/products") return "Produits";
   if (pathname === "/products/new") return "Nouveau produit";
-  if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier produit";
+  if (pathname.match(/^\/products\/[^/]+\/edit$/)) return "Modifier le produit";
   if (pathname === "/settings" || pathname === "/settings/") return "Paramètres";
   if (pathname === "/marketing/campaigns") return "Visuels marketing";
   if (pathname === "/marketing/sms-campaigns") return "Campagnes SMS";

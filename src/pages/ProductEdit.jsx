@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import ProductForm from "../components/ProductForm";
+import ProductPageHeader from "../components/products/ProductPageHeader";
 import ProductPackagingsManager from "../components/ProductPackagingsManager";
 import ProductHistory from "../components/products/ProductHistory";
 import { getById, update, uploadImage } from "../services/productsService";
@@ -97,34 +99,49 @@ export default function ProductEdit() {
       if (active === current.current) setSaving(false);
     }
   }
-  if (loading)
+  if (loading || error || !product)
     return (
-      <p className="p-8" role="status">
-        Chargement de la fiche…
-      </p>
-    );
-  if (error || !product)
-    return (
-      <div className="p-8">
-        <p role="alert" className="text-red-700">
-          {error || "Produit introuvable."}
-        </p>
-        <button
-          onClick={() => setReload((v) => v + 1)}
-          className="mt-4 rounded-lg bg-yellow-400 px-4 py-2"
+      <div className="space-y-5 pb-8">
+        <ProductPageHeader
+          title="Modifier le produit"
+          description="Consultez et mettez à jour la fiche produit."
         >
-          Réessayer
-        </button>
-        <button
-          onClick={() => navigate("/products")}
-          className="ml-3 rounded-lg border px-4 py-2"
-        >
-          Retour à la liste
-        </button>
+          <button
+            type="button"
+            onClick={() => navigate(location.state?.returnTo || "/products")}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-3 py-2 text-sm font-medium hover:bg-gray-800"
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+            Retour à la liste
+          </button>
+        </ProductPageHeader>
+        {loading ? (
+          <p
+            role="status"
+            className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 shadow-sm"
+          >
+            Chargement de la fiche…
+          </p>
+        ) : (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          >
+            <p>{error || "Produit introuvable."}</p>
+            <button
+              type="button"
+              onClick={() => setReload((v) => v + 1)}
+              className="inline-flex items-center gap-2 font-semibold underline"
+            >
+              <RefreshCw size={16} aria-hidden="true" />
+              Réessayer
+            </button>
+          </div>
+        )}
       </div>
     );
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+    <div className="space-y-5 pb-8">
       <ProductForm
         key={`${key}:${reload}`}
         mode="edit"
