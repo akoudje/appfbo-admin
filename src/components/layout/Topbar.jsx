@@ -74,6 +74,9 @@ function getPageTitle(pathname) {
   if (pathname === "/settings" || pathname === "/settings/") return "Paramètres";
   if (pathname === "/marketing/campaigns") return "Visuels marketing";
   if (pathname === "/marketing/sms-campaigns") return "Campagnes SMS";
+  if (pathname === "/marketing/ticket-events") return "Événements";
+  if (pathname === "/marketing/ticket-events/new") return "Nouvel événement";
+  if (pathname.match(/^\/marketing\/ticket-events\/[^/]+\/edit$/)) return "Modifier l’événement";
   if (pathname === "/settings/users" || pathname === "/users") return "Utilisateurs";
   if (pathname === "/settings/grade-discounts") return "Remises par grade";
   return "PRECOMMANDE FOREVER Admin Panel";
@@ -111,6 +114,9 @@ function getPageSubtitle(pathname, role) {
   }
   if (pathname === "/marketing/sms-campaigns") {
     return "Préparation, envoi et suivi des invitations SMS.";
+  }
+  if (pathname.startsWith("/marketing/ticket-events")) {
+    return "Publication des événements, billetterie et suivi des achats.";
   }
   if (pathname === "/settings/grade-discounts") {
     return "Pilotage des remises utilisées pour la facturation.";
