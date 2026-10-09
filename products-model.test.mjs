@@ -109,3 +109,22 @@ test("CSV rejects duplicate headings, unclosed quotes and wrong column counts", 
 test("CSV rejects unknown booleans instead of activating a product", () => {
   assert.throws(() => parseProductCsv("sku;actif\nSKU;incorrect"));
 });
+
+test("invalid page URLs reset to a safe first page", () => {
+  for (const value of [
+    "undefined",
+    "null",
+    "NaN",
+    "Infinity",
+    "-2",
+    "0",
+    "1.5",
+    "2abc",
+    "9999999999999999",
+  ])
+    assert.equal(readFilters("page=" + value).page, 1, value);
+  assert.equal(readFilters("page=3").page, 3);
+  assert.equal(filterSearch({ ...readFilters(""), page: undefined }), "");
+  assert.equal(filterSearch({ ...readFilters(""), page: NaN }), "");
+  assert.equal(filterSearch({ ...readFilters(""), q: null }), "");
+});

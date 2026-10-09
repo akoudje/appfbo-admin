@@ -123,6 +123,16 @@ export function productPayload(form, initial, editing = false) {
   }
   return result;
 }
+export function productPage(value, fallback = 1) {
+  const raw = String(value ?? "").trim();
+  const number = Number(raw);
+  return /^\d+$/.test(raw) &&
+    Number.isSafeInteger(number) &&
+    number >= 1 &&
+    number <= 2147483647
+    ? number
+    : fallback;
+}
 export function readFilters(search) {
   const p = new URLSearchParams(search);
   return {
@@ -133,7 +143,7 @@ export function readFilters(search) {
     incomplete: p.get("incomplete") || "",
     sort: p.get("sort") || "nom",
     dir: p.get("dir") || "asc",
-    page: Math.max(1, Number(p.get("page")) || 1),
+    page: productPage(p.get("page")),
     pageSize: [20, 30, 50, 100].includes(Number(p.get("pageSize")))
       ? Number(p.get("pageSize"))
       : 30,
@@ -141,7 +151,9 @@ export function readFilters(search) {
 }
 export function filterSearch(filters) {
   const p = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters))
+  for (const [key, raw] of Object.entries(filters)) {
+    if (raw === undefined || raw === null) continue;
+    const value = key === "page" ? productPage(raw) : raw;
     if (
       value !== "" &&
       !(key === "page" && value === 1) &&
@@ -150,5 +162,6 @@ export function filterSearch(filters) {
       !(key === "dir" && value === "asc")
     )
       p.set(key, value);
+  }
   return p.toString();
 }
