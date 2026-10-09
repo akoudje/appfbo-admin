@@ -52,7 +52,7 @@ function CreateWorkspace({ scope }) {
     }
   }
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <div className="space-y-5 pb-8">
       <ProductForm key={scope} onSubmit={submit} loading={loading} />
     </div>
   );

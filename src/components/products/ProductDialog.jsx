@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { X } from "lucide-react";
 export default function ProductDialog({
   title,
   onClose,
@@ -33,7 +34,7 @@ export default function ProductDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-dialog-title"
-        className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
+        className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl outline-none"
         onKeyDown={(e) => {
           if (e.key === "Escape" && !busy) closeRef.current();
           if (e.key === "Tab") {
@@ -62,8 +63,11 @@ export default function ProductDialog({
           }
         }}
       >
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <h2 id="product-dialog-title" className="text-xl font-semibold">
+        <div className="flex shrink-0 items-start justify-between gap-3 bg-gray-950 p-4 text-white">
+          <h2
+            id="product-dialog-title"
+            className="min-w-0 text-xl font-semibold"
+          >
             {title}
           </h2>
           <button
@@ -71,12 +75,12 @@ export default function ProductDialog({
             aria-label="Fermer"
             disabled={busy}
             onClick={onClose}
-            className="rounded-lg border px-3 py-1"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-600 text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
           >
-            ×
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 overflow-y-auto p-4">{children}</div>
       </section>
     </div>
   );

@@ -64,7 +64,7 @@ function ImportForm({ onClose, onDone }) {
           existants ne sera pas modifié.
         </p>
         <div className="flex flex-wrap gap-3">
-          <label className="cursor-pointer rounded-lg border px-3 py-2 text-sm">
+          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
             Choisir un fichier CSV
             <input
               type="file"
@@ -86,29 +86,32 @@ function ImportForm({ onClose, onDone }) {
           <button
             disabled={busy}
             onClick={() => downloadText(CSV_TEMPLATE, "modele-produits.csv")}
-            className="rounded-lg border px-3 py-2 text-sm"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
           >
             Télécharger le modèle
           </button>
         </div>
-        <label className="block text-sm">
+        <label className="block text-xs font-medium text-gray-600">
           Contenu CSV
           <textarea
             rows={6}
             disabled={busy}
             value={text}
             onChange={(e) => change(e.target.value)}
-            className="mt-1 w-full rounded-lg border p-3 font-mono text-xs"
+            className="mt-1 min-h-10 w-full rounded-lg border border-gray-300 bg-white p-3 font-mono text-xs text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:bg-gray-50 disabled:opacity-50"
             placeholder="sku;nom;prixBaseFcfa;cc;poidsKg"
           />
         </label>
         {(error || parsed.error) && (
-          <p role="alert" className="text-sm text-red-700">
+          <p
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          >
             {error || parsed.error}
           </p>
         )}
         {preview && (
-          <div className="space-y-3 rounded-xl border p-3">
+          <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-gray-700">
             <p className="text-sm font-semibold">
               {preview.created} créations · {preview.updated} mises à jour ·{" "}
               {preview.errors.length} erreurs
@@ -145,7 +148,7 @@ function ImportForm({ onClose, onDone }) {
                     "erreurs-import.csv",
                   )
                 }
-                className="rounded-lg border px-3 py-2 text-sm"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
               >
                 Télécharger les erreurs
               </button>
@@ -154,6 +157,7 @@ function ImportForm({ onClose, onDone }) {
               <label className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#FFC600]"
                   disabled={busy}
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
@@ -164,11 +168,11 @@ function ImportForm({ onClose, onDone }) {
             )}
           </div>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-4">
           <button
             disabled={busy || !parsed.rows.length || !!parsed.error}
             onClick={() => run(true)}
-            className="rounded-lg border px-4 py-2 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
           >
             {busy ? "Traitement…" : "Prévisualiser"}
           </button>
@@ -176,7 +180,7 @@ function ImportForm({ onClose, onDone }) {
             <button
               disabled={busy || (shared && !confirmed)}
               onClick={() => run(false)}
-              className="rounded-lg bg-yellow-400 px-4 py-2 font-semibold disabled:opacity-50"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#E6B200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
             >
               Confirmer l’import
             </button>

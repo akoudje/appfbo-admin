@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronDown, History } from "lucide-react";
 import { history } from "../../services/productsService";
 import { stockService } from "../../services/stockService";
 import { GRADES, categoryLabel } from "../../lib/products/productModel";
@@ -45,7 +46,7 @@ function Changes({ changes }) {
     after = changes.after || {},
     grades = changes.grades?.after || after.gradePrices || {};
   return (
-    <ul className="mt-2 space-y-1 text-xs text-gray-600">
+    <ul className="mt-2 space-y-1 break-words text-xs text-gray-600">
       {Object.entries(after)
         .filter(([key]) => fields[key])
         .map(([key, value]) => (
@@ -109,11 +110,14 @@ function HistoryContent({ productId }) {
     );
   if (data.error)
     return (
-      <div role="alert" className="mt-4">
-        <p className="text-sm text-red-700">{data.error}</p>
+      <div
+        role="alert"
+        className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3"
+      >
+        <p className="text-sm text-red-800">{data.error}</p>
         <button
           onClick={() => setRetry((v) => v + 1)}
-          className="mt-2 rounded-lg border px-3 py-1"
+          className="mt-2 inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
         >
           Réessayer
         </button>
@@ -128,10 +132,10 @@ function HistoryContent({ productId }) {
       {!data.catalog.items.length && (
         <p className="text-sm text-gray-500">Aucun changement enregistré.</p>
       )}
-      <ol className="divide-y">
+      <ol className="divide-y divide-gray-100">
         {data.catalog.items.map((row) => (
           <li key={row.id} className="py-3">
-            <p className="text-sm font-medium">
+            <p className="text-sm font-semibold text-gray-900">
               {actions[row.action] || "Modification du catalogue"}
             </p>
             <p className="mt-1 text-xs text-gray-500">
@@ -142,11 +146,11 @@ function HistoryContent({ productId }) {
           </li>
         ))}
       </ol>
-      <div className="flex items-center justify-end gap-3 text-sm">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
         <button
           disabled={page === 1}
           onClick={() => setPage((v) => v - 1)}
-          className="rounded-lg border px-3 py-1 disabled:opacity-40"
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-40"
         >
           Précédent
         </button>
@@ -154,19 +158,19 @@ function HistoryContent({ productId }) {
         <button
           disabled={page * data.catalog.pageSize >= data.catalog.totalCount}
           onClick={() => setPage((v) => v + 1)}
-          className="rounded-lg border px-3 py-1 disabled:opacity-40"
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-40"
         >
           Suivant
         </button>
       </div>
-      <p className="border-t pt-4 text-sm font-semibold">
+      <p className="border-t border-gray-200 pt-4 text-sm font-semibold text-gray-900">
         Derniers mouvements de stock (180 jours)
       </p>
       {!data.stock.data?.length && (
         <p className="text-sm text-gray-500">Aucun mouvement récent.</p>
       )}
       {(data.stock.data || []).map((row) => (
-        <p key={row.id} className="text-sm">
+        <p key={row.id} className="break-words text-sm text-gray-700">
           <span
             className={
               row.type === "CREDIT" ? "text-green-700" : "text-red-700"
@@ -187,14 +191,22 @@ function HistoryContent({ productId }) {
 export default function ProductHistory({ productId }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-2xl border bg-white p-5">
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full justify-between text-left font-semibold"
+        className="flex min-h-10 w-full items-center justify-between gap-3 text-left text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
       >
-        Historique du produit <span>{open ? "−" : "+"}</span>
+        <span className="flex items-center gap-2">
+          <History size={18} aria-hidden="true" />
+          Historique du produit
+        </span>
+        <ChevronDown
+          size={18}
+          aria-hidden="true"
+          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && <HistoryContent productId={productId} />}
     </section>

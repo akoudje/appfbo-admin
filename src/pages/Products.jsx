@@ -29,6 +29,7 @@ import ProductDialog from "../components/products/ProductDialog";
 import StockAdjustDialog from "../components/products/StockAdjustDialog";
 import CatalogCopyDialog from "../components/products/CatalogCopyDialog";
 import ProductHistory from "../components/products/ProductHistory";
+import ProductPageHeader from "../components/products/ProductPageHeader";
 const control =
   "h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50";
 const secondary =
@@ -291,38 +292,32 @@ export default function Products() {
   };
   return (
     <div className="space-y-5 pb-8">
-      <header className="rounded-2xl bg-gray-950 p-5 text-white">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Package size={24} aria-hidden="true" />
-              <h1 className="text-2xl font-semibold">Catalogue produits</h1>
-            </div>
-            <p className="mt-2 text-sm text-gray-300">
-              Gérez les tarifs et la disponibilité · <strong>{country}</strong>
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setRetry((v) => v + 1)}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-              Actualiser
-            </button>
-            {canWrite && (
-              <button
-                onClick={() => navigate("/products/new")}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#E6B200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
-              >
-                <Plus size={16} />
-                Nouveau produit
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+      <ProductPageHeader
+        title="Catalogue produits"
+        description={
+          <>
+            Gérez les tarifs et la disponibilité · <strong>{country}</strong>
+          </>
+        }
+      >
+        <button
+          onClick={() => setRetry((v) => v + 1)}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
+        >
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          Actualiser
+        </button>
+        {canWrite && (
+          <button
+            onClick={() => navigate("/products/new")}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#E6B200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
+          >
+            <Plus size={16} />
+            Nouveau produit
+          </button>
+        )}
+      </ProductPageHeader>
       {message && (
         <div
           role="status"
@@ -369,7 +364,7 @@ export default function Products() {
             <strong className="mr-2 text-2xl text-gray-950">
               {loading ? "…" : visible.totalCount}
             </strong>{" "}
-            produits dans cette vue
+            produit{visible.totalCount > 1 ? "s" : ""} dans cette vue
           </p>
           <p className="text-xs text-gray-500">
             {visible.legacy
@@ -408,11 +403,7 @@ export default function Products() {
           </h2>
           <div className="flex flex-wrap gap-2">
             {canExport && (
-              <button
-                disabled={busy}
-                onClick={exportCsv}
-                className={secondary}
-              >
+              <button disabled={busy} onClick={exportCsv} className={secondary}>
                 <Download size={15} />
                 Exporter la vue
               </button>
@@ -577,40 +568,22 @@ export default function Products() {
               <table className="w-full table-fixed text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-600">
                   <tr>
-                    <th
-                      scope="col"
-                      className="w-[30%] px-4 py-3 font-semibold"
-                    >
+                    <th scope="col" className="w-[30%] px-4 py-3 font-semibold">
                       Produit
                     </th>
-                    <th
-                      scope="col"
-                      className="w-[13%] px-3 py-3 font-semibold"
-                    >
+                    <th scope="col" className="w-[13%] px-3 py-3 font-semibold">
                       Catégorie
                     </th>
-                    <th
-                      scope="col"
-                      className="w-[12%] px-3 py-3 font-semibold"
-                    >
+                    <th scope="col" className="w-[12%] px-3 py-3 font-semibold">
                       Prix de base
                     </th>
-                    <th
-                      scope="col"
-                      className="w-[13%] px-3 py-3 font-semibold"
-                    >
+                    <th scope="col" className="w-[13%] px-3 py-3 font-semibold">
                       Stock
                     </th>
-                    <th
-                      scope="col"
-                      className="w-[9%] px-3 py-3 font-semibold"
-                    >
+                    <th scope="col" className="w-[9%] px-3 py-3 font-semibold">
                       Statut
                     </th>
-                    <th
-                      scope="col"
-                      className="w-[23%] px-3 py-3 font-semibold"
-                    >
+                    <th scope="col" className="w-[23%] px-3 py-3 font-semibold">
                       Actions
                     </th>
                   </tr>
