@@ -13,6 +13,7 @@ import {
   readFilters,
   filterSearch,
 } from "../lib/products/productModel";
+import { normalizeProductsResponse } from "../lib/products/productListResponse";
 import { formatFcfa } from "../lib/format";
 import ProductThumb from "../components/ProductThumb";
 import ImportCsvModal from "../components/ImportCsvModal";
@@ -128,6 +129,10 @@ export default function Products() {
     current = useRef("");
   const key = `${scope}:${queryKey}`;
   const visible = loadedKey === key ? data : emptyData;
+  const rawSearch = search.toString();
+  useEffect(() => {
+    if (rawSearch !== queryKey) setSearch(queryKey, { replace: true });
+  }, [rawSearch, queryKey, setSearch]);
   useEffect(() => {
     current.current = key;
     return () => {
@@ -145,9 +150,16 @@ export default function Products() {
     const timer = setTimeout(
       () => {
         products
-          .list(readFilters(queryKey), { signal: abort.signal })
-          .then((result) => {
+          .list(
+            { ...readFilters(queryKey), take: 500 },
+            { signal: abort.signal },
+          )
+          .then((payload) => {
             if (!abort.signal.aborted) {
+              const result = normalizeProductsResponse(
+                payload,
+                readFilters(queryKey),
+              );
               if (result.page !== readFilters(queryKey).page)
                 setSearch(
                   filterSearch({ ...readFilters(queryKey), page: result.page }),
@@ -163,6 +175,7 @@ export default function Products() {
               setLoadedKey(key);
               setError(
                 e.response?.data?.message ||
+                  e.message ||
                   "Impossible de charger le catalogue.",
               );
             }
@@ -470,13 +483,17 @@ export default function Products() {
           <div key={label} className="rounded-xl border bg-white p-4">
             <p className="text-xs text-gray-500">{label}</p>
             <p className="mt-1 text-2xl font-semibold">
-              {loading ? "…" : (value ?? 0)}
+              {loading ? "…" : (value ?? "—")}
             </p>
           </div>
         ))}
       </div>
       <p className="text-xs text-gray-500">
-        Compteurs calculés sur l’ensemble des résultats filtrés.
+        {visible.legacy
+          ? "Compteurs calculés sur les produits reçus correspondant aux filtres."
+          : "Compteurs calculés sur l’ensemble des résultats filtrés."}
+        {visible.limited &&
+          " Affichage limité aux 500 produits reçus ; certains produits peuvent manquer."}
       </p>
       {error && (
         <div
