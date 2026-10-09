@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarDays, Save, Upload } from "lucide-react";
 import { ticketEventsService } from "../services/ticketEventsService";
 
 const EVENT_STATUSES = [
@@ -21,14 +21,14 @@ function toDatetimeLocal(value) {
 function Field({ label, children }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      <span className="text-xs font-medium text-gray-600">{label}</span>
       {children}
     </label>
   );
 }
 
 function inputClass() {
-  return "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200";
+  return "min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40 disabled:bg-gray-50 disabled:text-gray-500";
 }
 
 function emptyEventForm() {
@@ -171,35 +171,39 @@ export default function TicketEventFormPage() {
   }
 
   if (loading) {
-    return <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">Chargement...</div>;
+    return <div role="status" className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">Chargement de l'événement…</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-5 pb-8">
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl bg-gray-950 p-5 text-white">
         <div>
-          <Link to="/marketing/ticket-events" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900">
-            <ArrowLeft className="h-4 w-4" />
+          <Link to="/marketing/ticket-events" className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC600]">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Retour aux événements
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-gray-950">
-            {isNew ? "Créer un événement" : "Modifier l'événement"}
-          </h1>
-          {publicUrl ? <p className="mt-1 text-sm text-gray-500">{publicUrl}</p> : null}
+          <div className="mt-3 flex items-center gap-2">
+            <CalendarDays size={24} aria-hidden="true" className="shrink-0" />
+            <h1 className="text-2xl font-semibold">
+              {isNew ? "Créer un événement" : "Modifier l'événement"}
+            </h1>
+          </div>
+          <p className="mt-2 text-sm text-gray-300">Renseignez les informations et les supports de la page événement.</p>
+          {publicUrl ? <p className="mt-2 break-all text-xs text-gray-400">Page publique : {publicUrl}</p> : null}
         </div>
-      </div>
+      </header>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>
       ) : null}
       {message ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>
+        <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
-        <form onSubmit={saveEvent} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-bold">Informations essentielles</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <form onSubmit={saveEvent} className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="text-lg font-semibold text-gray-950">Informations essentielles</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Field label="Titre">
               <input className={inputClass()} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} />
             </Field>
@@ -253,24 +257,28 @@ export default function TicketEventFormPage() {
               </Field>
             </div>
           </div>
-          <button type="submit" disabled={saving} className="mt-4 rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-black disabled:opacity-50">
-            {saving ? "Enregistrement..." : "Enregistrer événement"}
-          </button>
+          <div className="mt-5 border-t border-gray-200 pt-4">
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50">
+              <Save size={16} aria-hidden="true" />
+              {saving ? "Enregistrement…" : "Enregistrer l'événement"}
+            </button>
+          </div>
         </form>
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Affiche</h2>
+            <h2 className="mb-4 text-lg font-semibold text-gray-950">Affiche</h2>
             <Field label="URL affiche">
               <input className={inputClass()} value={eventForm.posterUrl} onChange={(e) => setEventForm({ ...eventForm, posterUrl: e.target.value })} />
             </Field>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className={`inline-flex items-center justify-center rounded-xl border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-800 ${uploadingPoster ? "opacity-60" : "cursor-pointer hover:bg-amber-50"}`}>
-                {uploadingPoster ? "Upload en cours..." : "Uploader l'affiche"}
+              <label className={`inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 focus-within:ring-2 focus-within:ring-[#FFC600]/60 ${uploadingPoster ? "opacity-60" : "cursor-pointer hover:bg-gray-50"}`}>
+                <Upload size={16} aria-hidden="true" />
+                {uploadingPoster ? "Importation…" : "Importer l'affiche"}
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
+                  className="sr-only"
                   disabled={uploadingPoster || saving}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -290,7 +298,7 @@ export default function TicketEventFormPage() {
 
           {videoEmbedUrl ? (
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-bold">Vidéo</h2>
+              <h2 className="text-lg font-semibold text-gray-950">Vidéo</h2>
               <div className="mt-3 aspect-video overflow-hidden rounded-xl border border-gray-200 bg-black">
                 <iframe
                   src={videoEmbedUrl}
@@ -306,7 +314,7 @@ export default function TicketEventFormPage() {
           {!isNew && event?.id ? (
             <Link
               to={`/marketing/ticket-events?eventId=${event.id}&tab=tickets`}
-              className="block rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+              className="block rounded-2xl border border-gray-200 bg-white p-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC600]/60"
             >
               Gérer les types de tickets, les achats et le contrôle d'accès
             </Link>

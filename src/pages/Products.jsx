@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Plus, RefreshCw, Download, Package } from "lucide-react";
+import {
+  Search,
+  Plus,
+  RefreshCw,
+  Download,
+  Package,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import * as products from "../services/productsService";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { getCountryCode } from "../services/api";
@@ -22,7 +30,9 @@ import StockAdjustDialog from "../components/products/StockAdjustDialog";
 import CatalogCopyDialog from "../components/products/CatalogCopyDialog";
 import ProductHistory from "../components/products/ProductHistory";
 const control =
-  "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-yellow-500 disabled:opacity-50";
+  "h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50";
+const secondary =
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50";
 const views = [
   ["all", "Tous", {}],
   ["active", "Actifs", { actif: "true" }],
@@ -37,7 +47,7 @@ function Actions({ product, canWrite, edit, toggle, stock, details, busy }) {
     <div className="flex flex-wrap gap-2">
       <button
         onClick={() => details(product)}
-        className="rounded-lg border px-2.5 py-1.5 text-xs"
+        className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
       >
         Consulter
       </button>
@@ -46,21 +56,21 @@ function Actions({ product, canWrite, edit, toggle, stock, details, busy }) {
           <button
             disabled={busy}
             onClick={() => edit(product)}
-            className="rounded-lg border px-2.5 py-1.5 text-xs disabled:opacity-50"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
           >
             Modifier
           </button>
           <button
             disabled={busy}
             onClick={() => stock(product)}
-            className="rounded-lg border px-2.5 py-1.5 text-xs disabled:opacity-50"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
           >
             Ajuster le stock
           </button>
           <button
             disabled={busy}
             onClick={() => toggle(product)}
-            className={`rounded-lg border px-2.5 py-1.5 text-xs disabled:opacity-50 ${product.actif ? "text-red-700" : "text-green-700"}`}
+            className={`rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50 ${product.actif ? "text-red-700" : "text-green-700"}`}
           >
             {product.actif ? "Désactiver" : "Réactiver"}
           </button>
@@ -75,10 +85,10 @@ function ProductIdentity({ product }) {
       <ProductThumb
         url={product.imageUrl}
         alt={product.nom}
-        className="h-12 w-12 shrink-0 rounded-lg border object-contain"
+        className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 bg-white object-contain"
       />
       <div className="min-w-0">
-        <p className="break-words font-medium text-gray-900">{product.nom}</p>
+        <p className="break-words font-semibold text-gray-900">{product.nom}</p>
         <p className="mt-1 font-mono text-xs text-gray-500">{product.sku}</p>
       </div>
     </div>
@@ -280,12 +290,12 @@ export default function Products() {
     busy,
   };
   return (
-    <main className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
-      <header className="rounded-2xl bg-black p-5 text-white sm:p-6">
+    <div className="space-y-5 pb-8">
+      <header className="rounded-2xl bg-gray-950 p-5 text-white">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <Package size={23} />
+              <Package size={24} aria-hidden="true" />
               <h1 className="text-2xl font-semibold">Catalogue produits</h1>
             </div>
             <p className="mt-2 text-sm text-gray-300">
@@ -296,17 +306,17 @@ export default function Products() {
             <button
               onClick={() => setRetry((v) => v + 1)}
               disabled={loading}
-              className="rounded-lg border border-white/30 p-2.5"
-              aria-label="Actualiser le catalogue"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
             >
-              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              Actualiser
             </button>
             {canWrite && (
               <button
                 onClick={() => navigate("/products/new")}
-                className="flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2.5 text-sm font-semibold text-black"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#E6B200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
               >
-                <Plus size={18} />
+                <Plus size={16} />
                 Nouveau produit
               </button>
             )}
@@ -324,57 +334,108 @@ export default function Products() {
           </button>
         </div>
       )}
-      <section className="rounded-2xl border bg-white p-4">
+      <nav aria-label="Vues des produits" className="flex flex-wrap gap-2">
+        {views.map(([id, label, patch]) => {
+          const selected =
+            query.actif === (patch.actif || "") &&
+            query.stock === (patch.stock || "") &&
+            query.incomplete === (patch.incomplete || "");
+          return (
+            <button
+              type="button"
+              key={id}
+              aria-pressed={selected}
+              onClick={() =>
+                filter({ actif: "", stock: "", incomplete: "", ...patch })
+              }
+              className={
+                "rounded-full border px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 " +
+                (selected
+                  ? "border-gray-950 bg-gray-950 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50")
+              }
+            >
+              {label}
+            </button>
+          );
+        })}
+      </nav>
+      <section
+        aria-label="Répartition des produits filtrés"
+        className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-gray-600">
+            <strong className="mr-2 text-2xl text-gray-950">
+              {loading ? "…" : visible.totalCount}
+            </strong>{" "}
+            produits dans cette vue
+          </p>
+          <p className="text-xs text-gray-500">
+            {visible.legacy
+              ? "Répartition sur les produits reçus correspondant aux filtres"
+              : "Répartition sur tous les résultats filtrés"}
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {[
+            ["Actifs", visible.stats.actifs],
+            ["Ruptures", visible.stats.rupture],
+            ["Stock faible", visible.stats.faible],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl bg-gray-50 px-3 py-2">
+              <span className="block text-xs text-gray-600">{label}</span>
+              <strong className="mt-1 block text-lg text-gray-900">
+                {loading ? "…" : (value ?? "—")}
+              </strong>
+            </div>
+          ))}
+        </div>
+        {visible.limited && (
+          <p className="mt-3 text-xs text-amber-800">
+            Affichage limité aux 500 produits reçus ; certains produits peuvent
+            manquer.
+          </p>
+        )}
+      </section>
+      <section
+        aria-label="Filtres des produits"
+        className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+      >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            {views.map(([id, label, patch]) => {
-              const selected =
-                query.actif === (patch.actif || "") &&
-                query.stock === (patch.stock || "") &&
-                query.incomplete === (patch.incomplete || "");
-              return (
-                <button
-                  key={id}
-                  aria-pressed={selected}
-                  onClick={() =>
-                    filter({ actif: "", stock: "", incomplete: "", ...patch })
-                  }
-                  className={`rounded-full px-3 py-1.5 text-sm ${selected ? "bg-yellow-400 font-semibold" : "bg-gray-100 text-gray-600"}`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+          <h2 className="text-sm font-semibold text-gray-900">
+            Filtres du catalogue
+          </h2>
           <div className="flex flex-wrap gap-2">
             {canExport && (
               <button
                 disabled={busy}
                 onClick={exportCsv}
-                className={`${control} flex items-center gap-2`}
+                className={secondary}
               >
                 <Download size={15} />
                 Exporter la vue
               </button>
             )}
             {canWrite && (
-              <button onClick={() => open("import")} className={control}>
+              <button onClick={() => open("import")} className={secondary}>
                 Importer CSV
               </button>
             )}
             {canWrite && actor?.role === "SUPER_ADMIN" && (
-              <button onClick={() => open("copy")} className={control}>
+              <button onClick={() => open("copy")} className={secondary}>
                 Copier vers un pays
               </button>
             )}
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr]">
           <label className="text-xs font-medium text-gray-600">
             Rechercher
             <div className="relative mt-1">
               <Search
-                size={17}
+                size={16}
+                aria-hidden="true"
                 className="absolute left-3 top-2.5 text-gray-400"
               />
               <input
@@ -426,8 +487,8 @@ export default function Products() {
             </select>
           </label>
         </div>
-        <details className="mt-3 border-t pt-3">
-          <summary className="cursor-pointer text-sm font-medium">
+        <details className="mt-4 rounded-xl border border-gray-200 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-gray-700">
             Filtres complémentaires
           </summary>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -458,7 +519,7 @@ export default function Products() {
             </label>
           </div>
         </details>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-gray-500">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs text-gray-500">
           <span>
             Stock faible : 1 à 5 unités · À compléter : sans image ou sans
             catégorie
@@ -466,35 +527,13 @@ export default function Products() {
           {queryKey && (
             <button
               onClick={() => setSearch("")}
-              className="font-medium text-gray-800 underline"
+              className="font-semibold text-gray-800 underline"
             >
               Réinitialiser les filtres
             </button>
           )}
         </div>
       </section>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          ["Résultats", visible.totalCount],
-          ["Actifs", visible.stats.actifs],
-          ["Ruptures", visible.stats.rupture],
-          ["Stock faible", visible.stats.faible],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border bg-white p-4">
-            <p className="text-xs text-gray-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold">
-              {loading ? "…" : (value ?? "—")}
-            </p>
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-gray-500">
-        {visible.legacy
-          ? "Compteurs calculés sur les produits reçus correspondant aux filtres."
-          : "Compteurs calculés sur l’ensemble des résultats filtrés."}
-        {visible.limited &&
-          " Affichage limité aux 500 produits reçus ; certains produits peuvent manquer."}
-      </p>
       {error && (
         <div
           role="alert"
@@ -503,15 +542,16 @@ export default function Products() {
           <p>{error}</p>
           <button
             onClick={() => setRetry((v) => v + 1)}
-            className="rounded-lg border border-red-200 px-3 py-2"
+            className="font-semibold underline"
           >
             Réessayer
           </button>
         </div>
       )}
       <section
+        aria-label="Liste des produits"
         aria-busy={loading}
-        className="overflow-hidden rounded-2xl border bg-white"
+        className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
       >
         {loading ? (
           <p role="status" className="p-12 text-center text-sm text-gray-500">
@@ -533,28 +573,58 @@ export default function Products() {
           </div>
         ) : (
           <>
-            <div className="hidden lg:block">
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full table-fixed text-sm">
-                <thead className="border-b bg-gray-50 text-left text-xs text-gray-500">
+                <thead className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-600">
                   <tr>
-                    <th className="w-[30%] px-4 py-3">Produit</th>
-                    <th className="w-[13%] px-3 py-3">Catégorie</th>
-                    <th className="w-[12%] px-3 py-3">Prix de base</th>
-                    <th className="w-[13%] px-3 py-3">Stock</th>
-                    <th className="w-[9%] px-3 py-3">Statut</th>
-                    <th className="w-[23%] px-3 py-3">Actions</th>
+                    <th
+                      scope="col"
+                      className="w-[30%] px-4 py-3 font-semibold"
+                    >
+                      Produit
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[13%] px-3 py-3 font-semibold"
+                    >
+                      Catégorie
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[12%] px-3 py-3 font-semibold"
+                    >
+                      Prix de base
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[13%] px-3 py-3 font-semibold"
+                    >
+                      Stock
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[9%] px-3 py-3 font-semibold"
+                    >
+                      Statut
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[23%] px-3 py-3 font-semibold"
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-gray-100">
                   {visible.items.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
+                    <tr key={p.id} className="align-top hover:bg-gray-50">
                       <td className="px-4 py-4">
                         <ProductIdentity product={p} />
                       </td>
                       <td className="break-words px-3 py-4 text-gray-600">
                         {categoryLabel(p.category)}
                       </td>
-                      <td className="px-3 py-4 font-medium">
+                      <td className="px-3 py-4 font-semibold tabular-nums text-gray-900">
                         {formatFcfa(p.prixBaseFcfa)}
                       </td>
                       <td className="px-3 py-4">
@@ -571,7 +641,7 @@ export default function Products() {
                 </tbody>
               </table>
             </div>
-            <div className="divide-y lg:hidden">
+            <div className="divide-y divide-gray-100 lg:hidden">
               {visible.items.map((p) => (
                 <article key={p.id} className="space-y-3 p-4">
                   <ProductIdentity product={p} />
@@ -593,11 +663,13 @@ export default function Products() {
             </div>
           </>
         )}
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm">
-          <label className="flex items-center gap-2 text-gray-600">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+          <label className="flex items-center gap-2">
             Par page
             <select
-              className={control}
+              aria-label="Produits par page"
+              disabled={loading}
+              className="rounded border border-gray-300 bg-white px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-50"
               value={query.pageSize}
               onChange={(e) => filter({ pageSize: Number(e.target.value) })}
             >
@@ -606,23 +678,32 @@ export default function Products() {
               ))}
             </select>
           </label>
-          <div className="flex flex-wrap items-center gap-3">
+          <span>
+            {visible.totalCount ? (query.page - 1) * query.pageSize + 1 : 0}–
+            {Math.min(query.page * query.pageSize, visible.totalCount)} sur{" "}
+            {visible.totalCount}
+          </span>
+          <div className="flex items-center gap-2">
             <button
+              type="button"
+              aria-label="Page précédente"
               disabled={loading || query.page <= 1}
               onClick={() => filter({ page: query.page - 1 })}
-              className={control}
+              className="rounded-lg border border-gray-200 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-40"
             >
-              Précédent
+              <ChevronLeft size={16} />
             </button>
             <span>
-              {query.page} / {pages}
+              Page {query.page} / {pages}
             </span>
             <button
+              type="button"
+              aria-label="Page suivante"
               disabled={loading || query.page >= pages}
               onClick={() => filter({ page: query.page + 1 })}
-              className={control}
+              className="rounded-lg border border-gray-200 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:opacity-40"
             >
-              Suivant
+              <ChevronRight size={16} />
             </button>
           </div>
         </footer>
@@ -686,7 +767,7 @@ export default function Products() {
             {canWrite && (
               <button
                 onClick={() => edit(selected)}
-                className="rounded-lg bg-yellow-400 px-4 py-2 font-semibold"
+                className="rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#E6B200] focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40"
               >
                 Modifier le produit
               </button>
@@ -694,6 +775,6 @@ export default function Products() {
           </div>
         </ProductDialog>
       )}
-    </main>
+    </div>
   );
 }

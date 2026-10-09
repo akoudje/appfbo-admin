@@ -234,7 +234,7 @@ function printTicketWaveReceipt(order = {}) {
 }
 
 function inputClass() {
-  return "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200";
+  return "min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40 disabled:bg-gray-50 disabled:text-gray-500";
 }
 
 function statusBadge(status) {
@@ -299,7 +299,7 @@ function ticketTypeToForm(type) {
 function Field({ label, children }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      <span className="text-xs font-medium text-gray-600">{label}</span>
       {children}
     </label>
   );
@@ -781,25 +781,36 @@ export default function TicketEventsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-5 pb-8">
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl bg-gray-950 p-5 text-white">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">
-            Billetterie événementielle
-          </p>
-          <h1 className="text-2xl font-bold text-gray-950">Gestion des événements</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={24} aria-hidden="true" />
+            <h1 className="text-2xl font-semibold">Événements</h1>
+          </div>
+          <p className="mt-2 text-sm text-gray-300">
             Pilotez la publication, les tickets, les achats et le contrôle d'accès.
           </p>
         </div>
-        <Link
-          to="/marketing/ticket-events/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-        >
-          <Plus className="h-4 w-4" />
-          Nouvel événement
-        </Link>
-      </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={loading || saving}
+            onClick={() => load({ page: pagination.page })}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC600] disabled:opacity-50"
+          >
+            <RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin" : ""} />
+            Actualiser
+          </button>
+          <Link
+            to="/marketing/ticket-events/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Nouvel événement
+          </Link>
+        </div>
+      </header>
 
       {error ? (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -812,7 +823,7 @@ export default function TicketEventsPage() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <section aria-label="Filtres des événements" className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[1fr_180px_2fr]">
           <Field label="Rechercher un événement"><input className={inputClass()} value={eventQuery} onChange={(e) => setEventQuery(e.target.value)} placeholder="Nom de l’événement" /></Field>
           <Field label="Période"><select className={inputClass()} value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
@@ -826,17 +837,17 @@ export default function TicketEventsPage() {
         </div>
         {!visibleEvents.length && !loading ? <p className="mt-3 text-sm text-gray-500">Aucun événement ne correspond à ces filtres.</p> : null}
         {checkInSession && !checkInSession.closedAt ? <p className="mt-3 text-sm text-amber-700">Fermez la session de contrôle avant de changer d’événement.</p> : null}
-      </div>
+      </section>
       <div className="space-y-4">
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
           {selectedEvent ? (
             <>
-              <div className="border-b border-gray-200 p-4">
+              <div className="border-b border-gray-200 p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-4">
-                    {selectedEvent.posterUrl ? <img src={selectedEvent.posterUrl} alt="" className="h-16 w-16 rounded-xl object-cover" /> : null}
-                    <div><div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-bold text-gray-950">{selectedEvent.title}</h2>
+                  <div className="flex min-w-0 items-center gap-4">
+                    {selectedEvent.posterUrl ? <img src={selectedEvent.posterUrl} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" /> : null}
+                    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2">
+                      <h2 className="break-words text-xl font-semibold text-gray-950">{selectedEvent.title}</h2>
                       <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(selectedEvent.status)}`}>
                         {statusLabel(selectedEvent.status)}
                       </span>
@@ -859,7 +870,7 @@ export default function TicketEventsPage() {
                     </a>
                     <Link
                       to={`/marketing/ticket-events/${selectedEvent.id}/edit`}
-                      className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white"
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                       <Edit className="h-4 w-4" />
                       Modifier l’événement
@@ -867,29 +878,29 @@ export default function TicketEventsPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex gap-1 overflow-x-auto border-b border-gray-100" aria-label="Sections de l’événement">
+                <nav className="mt-5 flex flex-wrap gap-2" aria-label="Sections de l’événement">
                   {TABS.map((tab) => (
                     <button
                       key={tab.key}
                       type="button"
                       aria-current={activeTab === tab.key ? "page" : undefined}
                       onClick={() => selectTab(tab.key)}
-                      className={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${
+                      className={`rounded-full border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC600]/60 ${
                         activeTab === tab.key
-                          ? "border-amber-500 text-gray-950 bg-amber-50"
-                          : "border-transparent text-gray-500 hover:bg-gray-50"
+                          ? "border-gray-950 bg-gray-950 text-white"
+                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                       }`}
                     >
                       {tab.label}
                     </button>
                   ))}
-                </div>
+                </nav>
               </div>
 
               <div className="p-4 sm:p-6" aria-busy={loading}>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
                   <span>Résultats de cet événement · indépendants des filtres de commandes</span>
-                  <button type="button" disabled={loading || saving} onClick={() => load({ page: pagination.page })} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 disabled:opacity-50"><RefreshCw className="h-3 w-3" />{loading ? "Actualisation…" : updatedAt ? `Actualisé le ${formatDateTime(updatedAt)}` : "Réessayer"}</button>
+                  <span>{loading ? "Actualisation…" : updatedAt ? `Actualisé le ${formatDateTime(updatedAt)}` : "Données non actualisées"}</span>
                 </div>
                 <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Stat label="Billets vendus" value={loading ? "…" : stats?.ticketsCount ?? "—"} />
@@ -1008,7 +1019,7 @@ function TicketsTab({ error, event, form, setForm, saving, onSubmit, onEdit, onT
   const [adding, setAdding] = useState(false);
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">Billets et tarifs</h3><p className="text-sm text-gray-500">Gérez les catégories, prix et capacités de vente.</p></div><button type="button" disabled={saving} onClick={() => { setForm(emptyTicketTypeForm()); setAdding(true); }} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">Ajouter un tarif</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">Billets et tarifs</h3><p className="text-sm text-gray-500">Gérez les catégories, prix et capacités de vente.</p></div><button type="button" disabled={saving} onClick={() => { setForm(emptyTicketTypeForm()); setAdding(true); }} className="rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2">Ajouter un tarif</button></div>
       {adding || form.id ? <AccessibleDialog title={form.id ? "Modifier le tarif" : "Ajouter un tarif"} onClose={() => { if (!saving) { setAdding(false); setForm(emptyTicketTypeForm()); } }}>
       <div className="flex justify-end p-3"><button type="button" disabled={saving} onClick={() => { setAdding(false); setForm(emptyTicketTypeForm()); }} className="rounded-lg border p-2" aria-label="Fermer le tarif"><X className="h-4 w-4" /></button></div>
       <form onSubmit={onSubmit} className="rounded-xl border border-gray-200 p-4">
@@ -1036,7 +1047,7 @@ function TicketsTab({ error, event, form, setForm, saving, onSubmit, onEdit, onT
           </label>
         </div>
         <div className="mt-4 flex gap-2">
-          <button type="submit" disabled={saving || !form.label.trim()} className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          <button type="submit" disabled={saving || !form.label.trim()} className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50">
             <Save className="h-4 w-4" />
             {form.id ? "Enregistrer" : "Ajouter"}
           </button>
@@ -1135,13 +1146,13 @@ function OrdersTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setCashSaleModalOpen(true)}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             Nouvelle vente au guichet
@@ -1159,7 +1170,7 @@ function OrdersTab({
               setOrderStatus(next);
               loadOrders({ status: next });
             }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40"
           >
             <option value="">Tous les statuts</option>
             <option value="PENDING_PAYMENT">En attente</option>
@@ -1175,14 +1186,14 @@ function OrdersTab({
               setOrderPaymentMethod(next);
               loadOrders({ paymentMethod: next });
             }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40"
           >
             <option value="">Tous les paiements</option>
             <option value="CASH">Espèces / Cash</option>
             <option value="WAVE">Wave</option>
             <option value="OTHER">Autres</option>
           </select>
-          <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+          <label className="flex min-w-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 focus-within:border-gray-900 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
             <Search className="h-4 w-4 text-gray-400" />
             <input
               value={orderQuery}
@@ -1190,10 +1201,10 @@ function OrdersTab({
               aria-label="Rechercher une commande"
               onKeyDown={(e) => { if (e.key === "Enter") loadOrders({ q: orderQuery }); }}
               placeholder="Commande, nom, téléphone, FBO…"
-              className="min-w-52 bg-transparent text-sm outline-none"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
             />
           </label>
-          <button type="button" onClick={() => loadOrders({ q: orderQuery })} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
+          <button type="button" onClick={() => loadOrders({ q: orderQuery })} className="rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2">
             Rechercher
           </button>
         </div>
@@ -1311,7 +1322,7 @@ function OrdersTab({
                   <button
                     type="submit"
                     disabled={saving || !cashSaleForm.ticketTypeId || !cashSaleForm.buyerFullName.trim() || !cashSaleForm.buyerPhone.trim() || !cashSaleForm.buyerEmail.trim()}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50"
                   >
                     <Ticket className="h-4 w-4" />
                     Générer ticket espèces
@@ -1339,7 +1350,7 @@ function OrdersTab({
               const isWave = String(order.paymentProvider || order.paymentMethod || "").toUpperCase() === "WAVE";
               const isPaid = order.status === "PAID" || order.paymentStatus === "SUCCEEDED";
               return (
-              <tr key={order.id} className="border-t border-gray-100 align-top">
+              <tr key={order.id} className="border-t border-gray-100 align-top hover:bg-gray-50">
                 <td className="px-3 py-3"><div className="font-mono text-xs">{order.orderNumber}</div><div className="mt-1 text-xs text-gray-500">{formatDateTime(order.createdAt)}</div></td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.buyerFullName}</div>
@@ -1621,7 +1632,7 @@ function BilanTab({ event }) {
         <button
           type="submit"
           disabled={sendingRestitution || !restitutionFile}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50"
         >
           {sendingRestitution ? "Envoi en cours…" : "Envoyer à tous les acheteurs"}
         </button>
@@ -1671,10 +1682,10 @@ function CheckInTab({
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
+            <p className="text-xs font-medium text-gray-500">
               Module contrôle accès
             </p>
-            <h3 className="mt-1 text-xl font-black text-gray-950">Scanner un ticket</h3>
+            <h3 className="mt-1 text-xl font-semibold text-gray-950">Scanner un ticket</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               Validation limitée à l'événement sélectionné : {event?.title || "événement"}.
             </p>
@@ -1718,7 +1729,7 @@ function CheckInTab({
                 type="button"
                 onClick={onOpenSession}
                 disabled={saving || !entryPoint.trim()}
-                className="rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                className="rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50"
               >
                 Ouvrir session
               </button>
@@ -1758,7 +1769,7 @@ function CheckInTab({
               </label>
               <div className="mt-2 flex gap-2">
                 <input
-                  className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                  className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40"
                   value={checkInValue}
                   onChange={(inputEvent) => setCheckInValue(inputEvent.target.value)}
                   placeholder="TCK-260628-XXXXXX"
@@ -1767,7 +1778,7 @@ function CheckInTab({
                 <button
                   type="submit"
                   disabled={saving || !checkInValue.trim()}
-                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  className="rounded-lg bg-[#FFC600] px-5 py-3 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50"
                 >
                   Valider
                 </button>
@@ -1863,7 +1874,7 @@ function CheckInAuditLog({ logs }) {
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-base font-black text-gray-950">Journal de contrôle</h4>
+          <h4 className="text-base font-semibold text-gray-950">Journal de contrôle</h4>
           <p className="mt-1 text-sm text-gray-500">Toutes les tentatives sont conservées, validées comme refusées.</p>
         </div>
         <span className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600">
@@ -1965,7 +1976,7 @@ function CheckInResultCard({ result }) {
 function RecentCheckIns({ items }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h4 className="text-sm font-black uppercase tracking-wide text-gray-700">Derniers contrôles</h4>
+      <h4 className="text-sm font-semibold text-gray-700">Derniers contrôles</h4>
       <div className="mt-3 space-y-2">
         {items.length ? (
           items.map((item, index) => (
@@ -2005,9 +2016,9 @@ function Info({ label, value }) {
 
 function Stat({ label, value }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
+    <div className="min-w-0 rounded-xl bg-gray-50 p-4">
+      <div className="text-xs text-gray-600">{label}</div>
+      <div className="mt-2 break-words text-2xl font-semibold tabular-nums text-gray-950">{value}</div>
     </div>
   );
 }
