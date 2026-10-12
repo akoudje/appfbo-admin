@@ -37,6 +37,8 @@ const LABELS = {
   BANK_TRANSFER: "Virement bancaire",
   ECOBANK_PAY: "Ecobank Pay",
   PI_SPI: "PI-SPI",
+  EXPEDITION_POSTE: "Expédition par La Poste",
+  EXPEDITION_CODITRANS: "Expédition par Coditrans",
   RETRAIT_SITE_FLP: "Retrait en agence",
   LIVRAISON: "Livraison",
   PICKUP: "Retrait",

@@ -274,6 +274,7 @@ export default function OrderOverviewTab({
               )}
             />
             <Row label="Livraison" value={humanizeEnum(order?.deliveryMode)} />
+            {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order?.deliveryMode) && <><Row label="Destinataire" value={order.shippingRecipientName} /><Row label="Téléphone destinataire" value={order.shippingRecipientPhone} /><Row label="Ville de destination" value={order.shippingDestinationCity} /><Row label="Frais d’expédition" value={order.shippingFeeFcfa == null ? "À déterminer par le préparateur" : `${order.shippingFeeFcfa} FCFA · règlement séparé`} /></>}
             <Row label="Point de vente" value={order?.pointDeVente || "—"} />
           </div>
         </InfoCard>
