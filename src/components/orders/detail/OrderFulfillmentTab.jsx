@@ -229,6 +229,8 @@ export default function OrderFulfillmentTab({
   const status = order?.status;
   const isReady = status === "READY";
   const isFulfilled = status === "FULFILLED";
+  const isShipping = ["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order?.deliveryMode);
+  const shippingPaid = !isShipping || order.shippingFeeFcfa === 0 || (order.shippingPaymentLink?.status === "PAID" && order.shippingPaymentLink?.providerStatus === "SUCCEEDED");
   const isPickupOrder = order?.deliveryMode === "RETRAIT_SITE_FLP";
   const missingPickupCode = isPickupOrder && !String(pickupCode || "").trim();
   const missingPickupRecipient =
@@ -336,7 +338,7 @@ export default function OrderFulfillmentTab({
           <p>Le colis est prêt. Tu peux maintenant confirmer :</p>
           <ul className="list-disc list-inside mt-2 space-y-1">
             <li>Le <strong>retrait</strong> par le client</li>
-            <li>Ou la <strong>livraison</strong> effective</li>
+            <li>{isShipping ? "La remise au transporteur, après paiement des frais" : <>Ou la <strong>livraison</strong> effective</>}</li>
           </ul>
           <p className="mt-2">La commande passera en statut <strong>Remise effectuée</strong>.</p>
         </Alert>
@@ -353,6 +355,7 @@ export default function OrderFulfillmentTab({
 
   return (
     <div className="space-y-4">
+      {isShipping && <Alert tone={shippingPaid ? "emerald" : "amber"} title="Expédition"><p>{order.shippingRecipientName} · {order.shippingRecipientPhone} · {order.shippingDestinationCity}</p><p>{shippingPaid ? "Les frais d’expédition sont réglés. Confirmez la remise au transporteur." : "Attendez le paiement des frais d’expédition. Vous pouvez le vérifier dans l’onglet Préparation."}</p></Alert>}
       <InfoSection title="Remise du colis">
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatCard
@@ -450,7 +453,7 @@ export default function OrderFulfillmentTab({
                   className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
                   value={fulfillmentMode || (isPickupOrder ? "PICKUP" : "DELIVERY")}
                   onChange={(e) => setFulfillmentMode?.(e.target.value)}
-                  disabled={!canFulfill || saving}
+                  disabled={!canFulfill || !shippingPaid || saving}
                 >
                   <option value="PICKUP">Retrait comptoir</option>
                   <option value="DELIVERY">Livraison</option>
@@ -464,7 +467,7 @@ export default function OrderFulfillmentTab({
                     value={pickupCode}
                     onChange={(e) => setPickupCode(e.target.value)}
                     placeholder="Code présenté au comptoir"
-                    disabled={!canFulfill || saving}
+                    disabled={!canFulfill || !shippingPaid || saving}
                   />
                 </Field>
               ) : (
@@ -474,7 +477,7 @@ export default function OrderFulfillmentTab({
                     value={deliveryTracking}
                     onChange={(e) => setDeliveryTracking(e.target.value)}
                     placeholder="Ex: TRACK123"
-                    disabled={!canFulfill || saving}
+                    disabled={!canFulfill || !shippingPaid || saving}
                   />
                 </Field>
               )}
@@ -486,7 +489,7 @@ export default function OrderFulfillmentTab({
                       className="input w-full rounded-lg border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-50 disabled:text-gray-500"
                       value={pickupRecipientType || "CUSTOMER"}
                       onChange={(e) => setPickupRecipientType?.(e.target.value)}
-                      disabled={!canFulfill || saving}
+                      disabled={!canFulfill || !shippingPaid || saving}
                     >
                       <option value="CUSTOMER">Client lui-même</option>
                       <option value="MANDATARY">Mandataire / proche</option>
@@ -501,7 +504,7 @@ export default function OrderFulfillmentTab({
                       value={pickupRecipientName || ""}
                       onChange={(e) => setPickupRecipientName?.(e.target.value)}
                       placeholder="Nom de la personne qui récupère"
-                      disabled={!canFulfill || saving}
+                      disabled={!canFulfill || !shippingPaid || saving}
                     />
                   </Field>
 
@@ -511,7 +514,7 @@ export default function OrderFulfillmentTab({
                       value={pickupRecipientPhone || ""}
                       onChange={(e) => setPickupRecipientPhone?.(e.target.value)}
                       placeholder="+225..."
-                      disabled={!canFulfill || saving}
+                      disabled={!canFulfill || !shippingPaid || saving}
                     />
                   </Field>
 
@@ -521,7 +524,7 @@ export default function OrderFulfillmentTab({
                       value={pickupConfirmationNote || ""}
                       onChange={(e) => setPickupConfirmationNote?.(e.target.value)}
                       placeholder="Ex: envoyé par le FBO"
-                      disabled={!canFulfill || saving}
+                      disabled={!canFulfill || !shippingPaid || saving}
                     />
                   </Field>
                 </>
@@ -537,7 +540,7 @@ export default function OrderFulfillmentTab({
                       : setDeliveryCarrier?.(e.target.value)
                   }
                   placeholder={isPickupOrder ? "Ex: Comptoir Abidjan 1" : "Ex: DHL"}
-                  disabled={!canFulfill || saving}
+                  disabled={!canFulfill || !shippingPaid || saving}
                 />
               </Field>
 
@@ -548,7 +551,7 @@ export default function OrderFulfillmentTab({
                     value={pickupPointLabel || ""}
                     onChange={(e) => setPickupPointLabel?.(e.target.value)}
                     placeholder="Ex: Adresse client / dépôt"
-                    disabled={!canFulfill || saving}
+                    disabled={!canFulfill || !shippingPaid || saving}
                   />
                 </Field>
               ) : null}
@@ -581,7 +584,7 @@ export default function OrderFulfillmentTab({
                 value={fulfillNote}
                 onChange={(e) => setFulfillNote(e.target.value)}
                 placeholder="Observation utile sur la remise"
-                disabled={!canFulfill || saving}
+                disabled={!canFulfill || !shippingPaid || saving}
               />
             </Field>
           </InfoSection>
@@ -613,9 +616,9 @@ export default function OrderFulfillmentTab({
                     : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow"
                 }`}
                 onClick={onFulfill}
-                disabled={!canFulfill || saving || missingPickupCode || missingPickupRecipient}
+                disabled={!canFulfill || !shippingPaid || saving || missingPickupCode || missingPickupRecipient}
               >
-                {saving ? "Clôture en cours..." : (isPickupOrder ? "Confirmer la remise" : "Confirmer la livraison")}
+                {saving ? "Clôture en cours..." : (isPickupOrder ? "Confirmer la remise" : isShipping ? "Confirmer l’expédition" : "Confirmer la livraison")}
               </button>
 
               <div className="text-xs text-gray-500">
@@ -640,7 +643,7 @@ export default function OrderFulfillmentTab({
                   <button
                     type="button"
                     onClick={onFulfillNoNotification}
-                    disabled={!canFulfillNoNotification || saving}
+                    disabled={!canFulfillNoNotification || !shippingPaid || saving}
                     className="mt-3 w-full rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Régulariser une remise déjà effectuée

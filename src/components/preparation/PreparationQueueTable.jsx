@@ -173,7 +173,7 @@ export default function PreparationQueueTable({
                 </td>
 
                 <td className="px-4 py-3">
-                  <div className="font-medium">{row._count?.items ?? "—"} référence(s) · {row.deliveryMode === "RETRAIT_SITE_FLP" ? "Retrait sur site" : "Livraison"}</div>
+                  <div className="font-medium">{row._count?.items ?? "—"} référence(s) · {({ RETRAIT_SITE_FLP: "Retrait sur site", EXPEDITION_POSTE: "La Poste", EXPEDITION_CODITRANS: "Coditrans" })[row.deliveryMode] || "Livraison"}</div>
                   <div className="text-xs text-gray-500">{formatFcfa(row.totalFcfa)}</div>
                   <div className="mt-1">
                     <OrderPaymentBadge status={row.paymentStatus} />
