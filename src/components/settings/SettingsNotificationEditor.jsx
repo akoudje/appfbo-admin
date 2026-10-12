@@ -33,6 +33,14 @@ const SAMPLES = {
   bankIban: "IBAN de démonstration",
   bankAccountDetails: "Compte de démonstration",
 };
+// invoiceRef a toujours la même valeur que preorderNumber (voir
+// buildTemplateContext côté backend) — ce n'est pas une donnée distincte.
+// On le garde dans SAMPLES pour que les modèles existants qui l'utilisent
+// déjà continuent de s'afficher correctement, mais on ne le propose plus
+// comme variable à insérer : c'est ce qui a mené à des factures affichant
+// deux fois la même référence sous deux libellés différents ("Référence
+// facture" / "Numéro de commande").
+const INSERTABLE_SAMPLE_KEYS = Object.keys(SAMPLES).filter((key) => key !== "invoiceRef");
 export default function SettingsNotificationEditor({
   templates,
   defaults,
@@ -50,9 +58,13 @@ export default function SettingsNotificationEditor({
   const current = templates[channel]?.[purpose];
   const body = channel === "sms" ? current || "" : current?.body || "";
   const subject = current?.subject || "";
+  // On reflète la vraie valeur (même vide) plutôt que de simuler un numéro
+  // de démonstration : sinon l'aperçu ne peut jamais révéler qu'une phrase
+  // du type "contactez-nous au {{supportPhone}}." rend "contactez-nous au ."
+  // dès que le téléphone d'assistance n'est pas configuré pour ce pays.
   const samples = {
     ...SAMPLES,
-    supportPhone: supportPhone || SAMPLES.supportPhone,
+    supportPhone: supportPhone || "",
   };
   const preview = (value) =>
     value.replace(
@@ -201,7 +213,7 @@ export default function SettingsNotificationEditor({
               Insérer une variable à la position du curseur
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {Object.keys(SAMPLES).map((key) => (
+              {INSERTABLE_SAMPLE_KEYS.map((key) => (
                 <button
                   type="button"
                   key={key}
