@@ -109,6 +109,10 @@ export function orderNextAction(order, access = {}) {
   if (order.status === "PAID") {
     if (!order.preparationLaunchedAt && access.payment)
       return { label: "Lancer en caisse", route: "/cashier" };
+    if (order.preparationLaunchedAt && access.preparation &&
+        ["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order.deliveryMode) &&
+        order.shippingFeeFcfa == null)
+      return { label: "Fixer les frais d’expédition", tab: "preparation", targetId: "shipping-quote" };
     if (order.preparationLaunchedAt && access.preparation)
       return { label: "Préparer le colis", tab: "preparation" };
   }

@@ -712,9 +712,15 @@ export default function OrderDetailPage() {
             preparation: canAccessPreparation,
             overview: availableTabs.some((tab) => tab.key === "overview"),
           })}
-          onPrimaryAction={(action) =>
-            action.route ? navigate(action.route) : setTab(action.tab)
-          }
+          onPrimaryAction={(action) => {
+            if (action.route) { navigate(action.route); return; }
+            setTab(action.tab);
+            if (action.targetId) requestAnimationFrame(() => requestAnimationFrame(() => {
+              const target = document.getElementById(action.targetId);
+              target?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+              target?.focus({ preventScroll: true });
+            }));
+          }}
           canCancel={canCancel && canAccessCancel}
           onGoCancel={() => setTab("cancel")}
           loadedAt={loadedAt}

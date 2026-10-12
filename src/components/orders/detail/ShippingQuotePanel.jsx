@@ -22,8 +22,8 @@ export default function ShippingQuotePanel({ order, reload, saving, allChecked }
     } catch (err) { setError(err.response?.data?.message || 'Impossible de mettre à jour les frais.'); }
     finally { setBusy(false); }
   }
-  return <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm">
-    <h3 className="font-semibold">Expédition par {postal ? 'La Poste' : 'Coditrans'}</h3>
+  return <section id="shipping-quote" tabIndex={-1} aria-labelledby="shipping-quote-title" className="scroll-mt-4 space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm">
+    <h3 id="shipping-quote-title" className="font-semibold">Expédition par {postal ? 'La Poste' : 'Coditrans'} · Frais d’expédition</h3>
     <p className="break-words">{order.shippingRecipientName} · {order.shippingRecipientPhone}</p>
     <p>Destination : <strong>{order.shippingDestinationCity}</strong></p>
     <p className="text-gray-600">Vérifiez tous les articles, puis saisissez les frais selon {postal ? 'le poids final du colis emballé' : 'la ville et le nombre réel de cartons'}. Ils seront réglés séparément par le client avant expédition.</p>

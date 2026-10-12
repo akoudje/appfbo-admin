@@ -60,6 +60,18 @@ test("pending status and business priorities have readable French labels", () =>
   assert.equal(orderLabel("URGENT"), "Urgente");
   assert.equal(orderLabel("BANK_TRANSFER"), "Virement bancaire");
 });
+test("shipping preparation points directly to fee entry until a quote is saved", () => {
+  const access = { preparation: true };
+  for (const deliveryMode of ["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"]) {
+    const order = { status: "PAID", preparationLaunchedAt: "now", deliveryMode };
+    assert.deepEqual(orderNextAction(order, access), { label: "Fixer les frais d’expédition", tab: "preparation", targetId: "shipping-quote" });
+    assert.equal(orderNextAction({ ...order, shippingFeeFcfa: 0 }, access).label, "Préparer le colis");
+    assert.equal(orderNextAction({ ...order, shippingFeeFcfa: 2500 }, access).label, "Préparer le colis");
+    assert.equal(orderNextAction({ ...order, preparationLaunchedAt: null }, { ...access, payment: true }).route, "/cashier");
+    assert.notEqual(orderNextAction(order, { preparation: false }).targetId, "shipping-quote");
+  }
+  assert.equal(orderNextAction({ status: "PAID", preparationLaunchedAt: "now", deliveryMode: "RETRAIT_SITE_FLP" }, access).label, "Préparer le colis");
+});
 test("URL filters survive a return to the list including false defaults, pagination and old priority links", () => {
   const selected = readOrderFilters(
     new URLSearchParams(
