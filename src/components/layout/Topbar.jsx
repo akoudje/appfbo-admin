@@ -67,6 +67,7 @@ function getPageTitle(pathname) {
   if (pathname === "/billing/as400") return "Gateway AS400";
   if (pathname === "/cashier") return "Espace Caisse";
   if (pathname === "/preparation") return "Espace Préparation";
+  if (pathname === "/preparation/shipments") return "Expéditions";
   if (pathname === "/stock") return "Espace Stock";
   if (pathname === "/products") return "Produits";
   if (pathname === "/products/new") return "Nouveau produit";

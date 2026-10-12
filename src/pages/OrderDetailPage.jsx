@@ -725,7 +725,7 @@ export default function OrderDetailPage() {
           onGoCancel={() => setTab("cancel")}
           loadedAt={loadedAt}
           backHref={
-            /^\/orders(?:\?|$)/.test(searchParams.get("returnTo") || "")
+            /^(?:\/orders|\/preparation\/shipments)(?:\?|$)/.test(searchParams.get("returnTo") || "")
               ? searchParams.get("returnTo")
               : "/orders"
           }

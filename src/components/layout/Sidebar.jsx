@@ -175,6 +175,14 @@ const NAV_ITEMS = [
   },
   {
     key: "preparation",
+    to: "/preparation/shipments",
+    label: "Expéditions",
+    permission: Permission.PREPARATION_UPDATE,
+    icon: ClipboardCheck,
+    description: "La Poste et Coditrans",
+  },
+  {
+    key: "preparation",
     to: "/preparation/pickup-code-requests",
     label: "Codes retrait",
     permission: Permission.PREPARATION_UPDATE,
