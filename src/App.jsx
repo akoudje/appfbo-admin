@@ -24,6 +24,7 @@ import AdminGradeDiscountsPage from "./pages/AdminGradeDiscountsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import OrdersListPage from "./pages/OrdersListPage";
 import SubmittedOrdersPrintPage from "./pages/SubmittedOrdersPrintPage";
+import OrdersTrackingReportPage from "./pages/OrdersTrackingReportPage";
 import CashierWorkspacePage from "./pages/CashierWorkspacePage";
 import CashierReceiptsPrintPage from "./pages/CashierReceiptsPrintPage";
 import CashClosurePage from "./pages/CashClosurePage";
@@ -129,6 +130,17 @@ export default function App() {
               fallback={<AccessDenied message="Accès refusé à l’export des commandes." />}
             >
               <SubmittedOrdersPrintPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/orders/tracking-report"
+          element={
+            <RequirePermission
+              permission={Permission.EXPORT_READ}
+              fallback={<AccessDenied message="Accès refusé à l’export des commandes." />}
+            >
+              <OrdersTrackingReportPage />
             </RequirePermission>
           }
         />

@@ -4,15 +4,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+function splitPreorderNumbers(rawText) {
+  return String(rawText || "")
+    .split(/[\s,;]+/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+}
+
 function parsePreorderNumbers(rawText) {
-  return Array.from(
-    new Set(
-      String(rawText || "")
-        .split(/[\s,;]+/)
-        .map((n) => n.trim())
-        .filter(Boolean),
-    ),
-  );
+  return Array.from(new Set(splitPreorderNumbers(rawText)));
 }
 
 export default function ExportOrdersByNumberModal({ open, onClose }) {
@@ -49,6 +49,15 @@ export default function ExportOrdersByNumberModal({ open, onClose }) {
     handleClose();
   };
 
+  // Liste brute (doublons compris) : le tableau de suivi les signale.
+  const openTrackingReport = () => {
+    if (numbers.length === 0) return;
+    const params = new URLSearchParams();
+    params.set("preorderNumbers", splitPreorderNumbers(rawText).join(","));
+    window.open(`/orders/tracking-report?${params.toString()}`, "_blank", "noreferrer");
+    handleClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-3"
@@ -65,7 +74,9 @@ export default function ExportOrdersByNumberModal({ open, onClose }) {
             <div className="text-xs text-gray-500 mt-1">
               Colle une liste de numéros de commande (ex: PO-CIV-20260914-0046),
               séparés par des espaces, virgules ou retours à la ligne.
-              Fonctionne quel que soit leur statut.
+              Fonctionne quel que soit leur statut. « Tableau de suivi » donne
+              client, réf. et montant AS400 et statut ; « Fiche de saisie » la
+              fiche imprimable avec les articles.
             </div>
           </div>
           <button
@@ -99,12 +110,22 @@ export default function ExportOrdersByNumberModal({ open, onClose }) {
             Annuler
           </button>
           <button
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 rounded-lg border border-blue-600 text-blue-700 text-sm font-semibold hover:bg-blue-50 disabled:opacity-50"
             onClick={openExport}
             disabled={numbers.length === 0}
             type="button"
+            title="Fiche imprimable avec les articles, à compléter (réf. et montant AS400)"
           >
-            Générer l'export
+            Fiche de saisie
+          </button>
+          <button
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+            onClick={openTrackingReport}
+            disabled={numbers.length === 0}
+            type="button"
+            title="Client, n° FBO, réf. et montant AS400, statut — imprimable et téléchargeable"
+          >
+            Tableau de suivi
           </button>
         </div>
       </div>
