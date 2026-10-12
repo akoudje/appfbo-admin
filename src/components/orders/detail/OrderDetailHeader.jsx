@@ -25,7 +25,7 @@ export default function OrderDetailHeader({
         className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900"
       >
         <ArrowLeft size={14} />
-        Retour aux commandes
+          {backHref.startsWith('/preparation/shipments') ? 'Retour aux expéditions' : 'Retour aux commandes'}
       </Link>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

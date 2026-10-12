@@ -16,6 +16,7 @@ import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
 import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
+import ShipmentsPage from "./pages/preparation/ShipmentsPage";
 import StockWorkspacePage from "./pages/stock/StockWorkspacePage";
 import Products from "./pages/Products";
 import ProductCreate from "./pages/ProductCreate.jsx";
@@ -283,6 +284,7 @@ export default function App() {
                   }
                 />
 
+                <Route path="/preparation/shipments" element={<RequirePermission permission={Permission.PREPARATION_UPDATE} fallback={<AccessDenied message="Accès refusé aux expéditions." />}><ShipmentsPage /></RequirePermission>} />
                 <Route
                   path="/preparation/pickup-code-requests"
                   element={

@@ -29,6 +29,9 @@ function normalizeOrderId(idOrOrder) {
 ========================================================= */
 
 export const ordersService = {
+  getShipments: async params => (await api.get('/admin/orders/shipments', { params })).data,
+  uploadShippingReceipt: async (id, file) => { const body = new FormData(); body.append('file', file); return (await api.post(`/admin/orders/${normalizeOrderId(id)}/shipping-receipt`, body)).data; },
+  downloadShippingReceipt: async id => api.get(`/admin/orders/${normalizeOrderId(id)}/shipping-receipt`, { responseType: 'blob' }),
   /* ============================
      Lecture
   ============================ */

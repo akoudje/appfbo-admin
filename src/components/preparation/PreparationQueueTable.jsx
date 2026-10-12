@@ -30,7 +30,7 @@ function formatAge(value) {
   return `${Math.floor(diffHours / 24)} j`;
 }
 
-function OrderStatusBadge({ status }) {
+function OrderStatusBadge({ status, shipping }) {
   const tones = {
     PAID: "bg-amber-50 text-amber-700 border-amber-200",
     READY: "bg-indigo-50 text-indigo-700 border-indigo-200",
@@ -40,7 +40,7 @@ function OrderStatusBadge({ status }) {
 
   return (
     <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${tones[status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-      {{ PAID: "À préparer", READY: "Prête à remettre", FULFILLED: "Remise effectuée", CANCELLED: "Annulée" }[status] || "—"}
+      {{ PAID: "À préparer", READY: shipping ? "Prêt · transporteur" : "Prête à remettre", FULFILLED: shipping ? "Remis au transporteur" : "Remise effectuée", CANCELLED: "Annulée" }[status] || "—"}
     </span>
   );
 }
@@ -66,7 +66,7 @@ function notificationStatusTone(status) {
 // Statut de livraison du SMS/email "colis prêt" (code de retrait) — même
 // principe que le badge de statut des liens de paiement, pour repérer d'un
 // coup d'œil les notifications qui n'ont pas abouti.
-function PickupNotificationBadge({ message }) {
+function PickupNotificationBadge({ message, shipping }) {
   if (!message) return null;
   const status = String(message.status || "").toUpperCase();
   return (
@@ -74,7 +74,7 @@ function PickupNotificationBadge({ message }) {
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${notificationStatusTone(status)}`}
       title={message.errorMessage || undefined}
     >
-      Code retrait ({message.channel === "EMAIL" ? "email" : message.channel === "SMS" ? "SMS" : "WhatsApp"}) :{" "}
+      {shipping ? 'Notification expédition' : 'Code retrait'} ({message.channel === "EMAIL" ? "email" : message.channel === "SMS" ? "SMS" : "WhatsApp"}) :{" "}
       {NOTIFICATION_STATUS_LABELS[status] || status || "—"}
     </span>
   );
@@ -168,7 +168,7 @@ export default function PreparationQueueTable({
                 <td className="px-4 py-3">
                   <div className="font-medium">{row.fboNomComplet || "—"}</div>
                   <div className="text-xs text-gray-500">
-                    FBO {row.fboNumero || "—"} • {row.pointDeVente || "—"}
+                    FBO {row.fboNumero || "—"} • {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(row.deliveryMode) ? `Destination : ${row.shippingDestinationCity || '—'}` : row.pointDeVente || "—"}
                   </div>
                 </td>
 
@@ -176,8 +176,10 @@ export default function PreparationQueueTable({
                   <div className="font-medium">{row._count?.items ?? "—"} référence(s) · {({ RETRAIT_SITE_FLP: "Retrait sur site", EXPEDITION_POSTE: "La Poste", EXPEDITION_CODITRANS: "Coditrans" })[row.deliveryMode] || "Livraison"}</div>
                   <div className="text-xs text-gray-500">{formatFcfa(row.totalFcfa)}</div>
                   <div className="mt-1">
+                    {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(row.deliveryMode) && <span className="mr-1 text-xs">Produits :</span>}
                     <OrderPaymentBadge status={row.paymentStatus} />
                   </div>
+                  {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(row.deliveryMode) && <p className="mt-1 text-xs">{row.shippingFeeFcfa == null ? 'Expédition : frais à fixer' : row.shippingFeeFcfa === 0 ? 'Expédition offerte' : `Expédition : ${row.shippingPaymentLink?.status === 'PAID' && row.shippingPaymentLink?.providerStatus === 'SUCCEEDED' ? 'payée' : 'à payer'} · ${formatFcfa(row.shippingPaymentLink?.amountFcfa ?? row.shippingFeeFcfa)}`}</p>}
                   <div className="text-xs text-gray-500">
                     {row.status === "READY"
                       ? `Prête depuis ${formatAge(row.preparedAt || row.updatedAt)}`
@@ -201,10 +203,10 @@ export default function PreparationQueueTable({
                 </td>
 
                 <td className="px-4 py-3">
-                  <OrderStatusBadge status={row.status} />
+                  <OrderStatusBadge status={row.status} shipping={["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(row.deliveryMode)} />
                   {["READY", "FULFILLED"].includes(row.status) ? (
                     <div className="mt-1.5">
-                      <PickupNotificationBadge message={row.messages?.[0]} />
+                      <PickupNotificationBadge message={row.messages?.[0]} shipping={["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(row.deliveryMode)} />
                     </div>
                   ) : null}
                 </td>

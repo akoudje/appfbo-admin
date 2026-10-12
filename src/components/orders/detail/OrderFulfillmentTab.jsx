@@ -1,4 +1,5 @@
 // src/components/orders/detail/OrderFulfillmentTab.jsx
+import ShippingHandoverPanel from './ShippingHandoverPanel';
 
 // ============================================================================
 // Sous-composants
@@ -220,6 +221,7 @@ export default function OrderFulfillmentTab({
   notificationEmail,
   setNotificationEmail,
   onFulfill,
+  reload,
   onFulfillNoNotification,
   canFulfillNoNotification = false,
   onDownloadDeliveryNote,
@@ -353,6 +355,7 @@ export default function OrderFulfillmentTab({
     );
   };
 
+  if (isShipping && (isReady || isFulfilled)) return <ShippingHandoverPanel key={order.id} order={order} reload={reload} />;
   return (
     <div className="space-y-4">
       {isShipping && <Alert tone={shippingPaid ? "emerald" : "amber"} title="Expédition"><p>{order.shippingRecipientName} · {order.shippingRecipientPhone} · {order.shippingDestinationCity}</p><p>{shippingPaid ? "Les frais d’expédition sont réglés. Confirmez la remise au transporteur." : "Attendez le paiement des frais d’expédition. Vous pouvez le vérifier dans l’onglet Préparation."}</p></Alert>}

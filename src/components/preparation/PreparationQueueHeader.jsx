@@ -1,6 +1,7 @@
 // admin-app/src/components/preparation/PreparationQueueHeader.jsx
 // composant d'affichage de l'en-tête de la page de la file de préparation, avec le titre, la description et le bouton de rafraîchissement. Prend en props le statut de chargement et la fonction de rafraîchissement.
 
+import { Link } from 'react-router-dom';
 export default function PreparationQueueHeader({ loading, onRefresh, lastUpdatedAt }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -16,6 +17,7 @@ export default function PreparationQueueHeader({ loading, onRefresh, lastUpdated
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Link to="/preparation/shipments" className="btn btn-primary min-h-11">Expéditions</Link>
           <button
             onClick={onRefresh}
             disabled={loading}
