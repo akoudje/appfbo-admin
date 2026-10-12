@@ -24,8 +24,9 @@ export function parcelFormatLayout(format = "label", orientation = "portrait") {
 
 export function parcelLabelHtml(order, qrSvg) {
   const text = escapeLabelText;
-  const delivery = order.deliveryMode === "LIVRAISON";
-  const destination = delivery ? "" : order.pickupPointLabel || order.pointDeVente || "";
+  const shipping = ["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order.deliveryMode);
+  const delivery = shipping || order.deliveryMode === "LIVRAISON";
+  const destination = shipping ? `${order.shippingDestinationCity || ""} · ${order.shippingRecipientPhone || ""}` : delivery ? "" : order.pickupPointLabel || order.pointDeVente || "";
   const reference = order.parcelNumber || order.preorderNumber || order.id;
   // Only explicitly selected customer and parcel fields enter the document.
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Étiquette colis — ${text(reference)}</title>
@@ -41,9 +42,9 @@ export function parcelLabelHtml(order, qrSvg) {
   <label>Nombre de colis<input id="count" type="number" min="1" max="50" step="1" value="1"></label>
   <label class="destination">${delivery ? "Adresse de livraison" : "Point de retrait"}<input id="destination" maxlength="180" value="${text(destination)}" placeholder="${delivery ? "Renseignez l’adresse de livraison" : "Renseignez le point de retrait"}"></label>
   <button id="print" type="button">Imprimer</button><p class="hint">Vérifiez la destination. Imprimez à 100 %, sans en-têtes ni pieds de page. Une étiquette par page. En paysage, le contenu pivote sur le même rouleau. Sur A4, découpez l’étiquette.</p><p id="error" role="alert"></p></div>
-  <template id="template"><section class="sheet"><article class="label"><div class="brand">FOREVER</div><div class="mode">${delivery ? "LIVRAISON" : order.deliveryMode === "RETRAIT_SITE_FLP" ? "RETRAIT" : "MODE À CONFIRMER"}</div>
+  <template id="template"><section class="sheet"><article class="label"><div class="brand">FOREVER</div><div class="mode">${shipping ? order.deliveryMode === "EXPEDITION_POSTE" ? "LA POSTE" : "CODITRANS" : delivery ? "LIVRAISON" : order.deliveryMode === "RETRAIT_SITE_FLP" ? "RETRAIT" : "MODE À CONFIRMER"}</div>
   <div><div class="small">Colis</div><div class="reference">${text(reference)}</div></div>
-  <div><div class="small">Bénéficiaire</div><div class="name">${text(order.fboNomComplet || "Non renseigné")}</div><div class="fbo">FBO ${text(order.fboNumero || "—")}</div></div>
+  <div><div class="small">${shipping ? "Destinataire" : "Bénéficiaire"}</div><div class="name">${text((shipping ? order.shippingRecipientName : order.fboNomComplet) || "Non renseigné")}</div><div class="fbo">FBO ${text(order.fboNumero || "—")}</div></div>
   <div><div class="small">${delivery ? "Destination" : "Point de retrait"}</div><div class="destination-text"></div></div>
   <div class="command">Commande : ${text(order.preorderNumber || order.id)}</div>
   <div class="bottom"><div class="qr">${qrSvg}</div><div><div class="number"></div><div class="caption">Scanner pour consulter la commande.<br>Accès réservé à l’équipe.</div></div></div></article></section></template><main id="labels"></main>

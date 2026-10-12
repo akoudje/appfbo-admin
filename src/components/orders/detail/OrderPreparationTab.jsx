@@ -1,3 +1,4 @@
+import ShippingQuotePanel from "./ShippingQuotePanel";
 import { useMemo, useState } from "react";
 import { openParcelLabel } from "../../../utils/parcelLabel";
 import { TextPromptDialog } from "../../ui/Dialogs";
@@ -108,6 +109,7 @@ function ChecklistRow({ item, disabled, onToggle }) {
 
 export default function OrderPreparationTab({
   order,
+  reload,
   saving,
   canPrepare,
   packingNote,
@@ -242,6 +244,8 @@ export default function OrderPreparationTab({
           <div className="h-full bg-gray-900 transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
+
+      {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order.deliveryMode) && <ShippingQuotePanel key={order.id + String(order.shippingQuotedAt || "")} order={order} reload={reload} saving={saving} allChecked={allChecked && !hasBlockingAnomaly} />}
 
       {labelError ? <div role="alert"><Alert tone="red">{labelError}</Alert></div> : null}
 
@@ -455,7 +459,7 @@ export default function OrderPreparationTab({
           <button
             type="button"
             onClick={onPrepare}
-            disabled={!canPrepare || saving || !allChecked || hasBlockingAnomaly}
+            disabled={!canPrepare || saving || !allChecked || hasBlockingAnomaly || (["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order.deliveryMode) && order.shippingFeeFcfa == null)}
             className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {saving ? "Préparation en cours..." : "Marquer colis prêt"}
