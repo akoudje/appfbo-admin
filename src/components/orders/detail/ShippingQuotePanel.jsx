@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ordersService } from '../../../services/ordersService';
 
 export default function ShippingQuotePanel({ order, reload, saving, allChecked }) {
@@ -7,6 +7,10 @@ export default function ShippingQuotePanel({ order, reload, saving, allChecked }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
+  useEffect(() => {
+    setAmount(String(order.shippingFeeFcfa ?? ''));
+    setMeasure(String(order.shippingWeightKg ?? order.shippingParcelCount ?? ''));
+  }, [order.shippingFeeFcfa, order.shippingWeightKg, order.shippingParcelCount]);
   const postal = order.deliveryMode === 'EXPEDITION_POSTE';
   const link = order.shippingPaymentLink;
   const notification = order.shippingNotification || notice;
@@ -22,7 +26,10 @@ export default function ShippingQuotePanel({ order, reload, saving, allChecked }
       if (action === 'sync') result = await ordersService.syncShippingPayment(order.id);
       else if (action === 'notify') result = await ordersService.notifyShippingPayment(order.id);
       else result = await ordersService.shippingQuote(order.id, { shippingFeeFcfa: amount, [postal ? 'shippingWeightKg' : 'shippingParcelCount']: measure });
-      if (result?.shippingNotification) setNotice(result.shippingNotification);
+      if (result?.shippingNotification) {
+        setNotice(result.shippingNotification);
+        if (['FAILED', 'PARTIAL'].includes(result.shippingNotification.status)) setError(result.shippingNotification.message);
+      }
       await reload();
     } catch (err) { setError(err.response?.data?.message || 'Impossible de mettre à jour les frais.'); }
     finally { setBusy(false); }
