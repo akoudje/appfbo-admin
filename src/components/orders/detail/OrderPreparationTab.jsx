@@ -245,7 +245,7 @@ export default function OrderPreparationTab({
         </div>
       </div>
 
-      {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order.deliveryMode) && <ShippingQuotePanel key={order.id + String(order.shippingQuotedAt || "")} order={order} reload={reload} saving={saving} allChecked={allChecked && !hasBlockingAnomaly} />}
+      {["EXPEDITION_POSTE", "EXPEDITION_CODITRANS"].includes(order.deliveryMode) && <ShippingQuotePanel key={order.id} order={order} reload={reload} saving={saving} allChecked={allChecked && !hasBlockingAnomaly} />}
 
       {labelError ? <div role="alert"><Alert tone="red">{labelError}</Alert></div> : null}
 
