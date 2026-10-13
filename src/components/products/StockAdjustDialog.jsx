@@ -1,14 +1,31 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ProductDialog from "./ProductDialog";
 import { stockService } from "../../services/stockService";
 export default function StockAdjustDialog({ product, onClose, onSaved }) {
   const [target, setTarget] = useState(String(product.stockQty)),
     [note, setNote] = useState(""),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [reserved, setReserved] = useState(null),
+    [needsConfirm, setNeedsConfirm] = useState(false);
   const lock = useRef(false);
-  async function submit(e) {
-    e.preventDefault();
+
+  // Unités déjà vendues (préparation non lancée) : encore comptées dans le stock.
+  useEffect(() => {
+    let active = true;
+    stockService
+      .getReserved(product.id)
+      .then((data) => active && setReserved(data))
+      .catch(() => active && setReserved(null));
+    return () => {
+      active = false;
+    };
+  }, [product.id]);
+
+  const targetQty = /^\d+$/.test(target) ? Number(target) : null;
+  const belowPaid = reserved && targetQty !== null && targetQty < reserved.paidQty;
+  async function submit(e, { confirmBelowReserved = false } = {}) {
+    e?.preventDefault?.();
     if (lock.current) return;
     if (!/^\d+$/.test(target) || !note.trim()) {
       setError(
@@ -25,9 +42,11 @@ export default function StockAdjustDialog({ product, onClose, onSaved }) {
         targetStockQty: Number(target),
         expectedStockQty: product.stockQty,
         note: note.trim(),
+        ...(confirmBelowReserved ? { confirmBelowReserved: true } : {}),
       });
       onSaved();
     } catch (e) {
+      setNeedsConfirm(e.response?.data?.code === "STOCK_BELOW_RESERVED");
       setError(e.response?.data?.message || "Impossible d’ajuster le stock.");
     } finally {
       lock.current = false;
@@ -43,13 +62,46 @@ export default function StockAdjustDialog({ product, onClose, onSaved }) {
         </p>
         <p className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
           Stock actuel : <strong>{product.stockQty}</strong> unités
+          {reserved && reserved.paidQty + reserved.pendingQty > 0 ? (
+            <span className="mt-1 block text-xs text-gray-600">
+              Dont déjà vendues, préparation non lancée :{" "}
+              <strong>{reserved.paidQty}</strong> payée{reserved.paidQty > 1 ? "s" : ""}
+              {reserved.pendingQty > 0 ? (
+                <>
+                  {" "}· <strong>{reserved.pendingQty}</strong> en attente de paiement
+                </>
+              ) : null}
+              {reserved.paid.length > 0 ? (
+                <span className="block font-mono text-[11px] text-gray-500">
+                  {reserved.paid.map((o) => o.preorderNumber).join(", ")}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </p>
+        {belowPaid && !needsConfirm ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            En dessous de {reserved.paidQty}, la caisse ne pourra plus lancer les commandes déjà payées.
+            Pour arrêter les ventes sans bloquer ces commandes, laissez au moins {reserved.paidQty} unité
+            {reserved.paidQty > 1 ? "s" : ""}.
+          </p>
+        ) : null}
         {error && (
           <p
             role="alert"
             className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
           >
             {error}
+            {needsConfirm ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={(event) => submit(event, { confirmBelowReserved: true })}
+                className="mt-2 block rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+              >
+                Le produit manque physiquement : confirmer quand même
+              </button>
+            ) : null}
           </p>
         )}
         <label className="block text-xs font-medium text-gray-600">
@@ -59,7 +111,10 @@ export default function StockAdjustDialog({ product, onClose, onSaved }) {
             inputMode="numeric"
             value={target}
             disabled={busy}
-            onChange={(e) => setTarget(e.target.value)}
+            onChange={(e) => {
+              setTarget(e.target.value);
+              setNeedsConfirm(false);
+            }}
             className="mt-1 min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFC600]/40 disabled:bg-gray-50 disabled:opacity-50"
             required
           />

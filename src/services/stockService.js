@@ -7,6 +7,9 @@ export const stockService = {
   listMovements: async (params = {}, config = {}) =>
     (await api.get("/admin/stock/movements", { ...config, params })).data,
 
+  getReserved: async (productId) =>
+    (await api.get("/admin/stock/reserved", { params: { productId } })).data,
+
   adjustStock: async (body) =>
     (await api.post("/admin/stock/adjust", body)).data,
 };
