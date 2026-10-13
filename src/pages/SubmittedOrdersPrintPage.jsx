@@ -19,12 +19,13 @@ function formatSubmittedAt(value) {
   });
 }
 
-// rank : position FIFO (1 = première soumise, donc première à traiter).
-function ExportOrderCard({ order, rank }) {
+// rank : position FIFO (1 = première soumise, donc première à traiter). Absent pour
+// une sélection par numéros, qui garde l'ordre de la liste collée.
+function ExportOrderCard({ order, rank = null }) {
   return (
     <article className="break-inside-avoid pb-3 mb-3">
       <div className="flex items-baseline justify-between gap-2 text-[10px] mb-1">
-        <span className="font-bold">N° {rank}</span>
+        {rank != null ? <span className="font-bold">N° {rank}</span> : null}
         <span className="text-gray-600">
           {order.preorderNumber}
           {order.submittedAt ? ` · soumise ${formatSubmittedAt(order.submittedAt)}` : ""}
@@ -121,7 +122,7 @@ export default function SubmittedOrdersPrintPage() {
           size: A4 landscape;
           margin: 8mm 8mm 10mm;
           @bottom-right { content: "Page " counter(page) " / " counter(pages); font-size: 9px; }
-          @bottom-left { content: "Ordre FIFO : de la plus ancienne soumission à la plus récente"; font-size: 9px; }
+          ${isCustomSelection ? "" : '@bottom-left { content: "Ordre FIFO : de la plus ancienne soumission à la plus récente"; font-size: 9px; }'}
         }
         @media print {
           body { background: #fff; }
@@ -136,7 +137,11 @@ export default function SubmittedOrdersPrintPage() {
             ? "Export d'une sélection de commandes"
             : "Export des commandes soumises"}
           {!loading && !error && orders.length > 0
-            ? ` · ${orders.length} commande${orders.length > 1 ? "s" : ""}, de la plus ancienne soumission à la plus récente`
+            ? ` · ${orders.length} commande${orders.length > 1 ? "s" : ""}, ${
+                isCustomSelection
+                  ? "dans l'ordre de la liste"
+                  : "de la plus ancienne soumission à la plus récente"
+              }`
             : ""}
         </div>
         <div className="flex items-center gap-3">
@@ -174,7 +179,11 @@ export default function SubmittedOrdersPrintPage() {
             style={{ columnCount: 4, columnGap: "7mm", columnFill: "auto" }}
           >
             {orders.map((order, index) => (
-              <ExportOrderCard key={order.id} order={order} rank={index + 1} />
+              <ExportOrderCard
+                key={order.id}
+                order={order}
+                rank={isCustomSelection ? null : index + 1}
+              />
             ))}
           </section>
         )}
