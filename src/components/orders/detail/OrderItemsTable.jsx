@@ -12,6 +12,14 @@ function getItemName(it) {
   return it?.productNameSnapshot || it?.product?.nom || "Produit";
 }
 
+// Ligne dont la quantité dépasse le stock pays actuel (null : stock inconnu).
+function getStockShortage(it) {
+  if (it?.countryStockQty == null && it?.countryProductActif !== false) return null;
+  const available = it?.countryProductActif === false ? 0 : Math.max(0, Number(it?.countryStockQty || 0));
+  const requested = Number(it?.qty || 0);
+  return requested > available ? { available, requested } : null;
+}
+
 function getDiscountPercent(it) {
   if (it?.discountPercent !== undefined && it?.discountPercent !== null) {
     const n = Number(it.discountPercent);
@@ -69,6 +77,12 @@ export default function OrderItemsTable({
     return map;
   }, [replacementProducts]);
 
+  // Alerte rupture uniquement tant que la commande est modifiable (avant paiement) :
+  // ensuite le stock de cette commande est déjà sorti, un stock à 0 peut être normal.
+  const shortages = canReplace
+    ? (items || []).filter((it) => getStockShortage(it))
+    : [];
+
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b">
@@ -77,6 +91,15 @@ export default function OrderItemsTable({
           {items?.length || 0} ligne(s)
         </div>
       </div>
+
+      {shortages.length > 0 ? (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800" role="alert">
+          <span className="font-semibold">
+            {shortages.length} article{shortages.length > 1 ? "s" : ""} en rupture ou en stock insuffisant.
+          </span>{" "}
+          Remplacez la ligne ou contactez le client avant de facturer.
+        </div>
+      ) : null}
 
       <div className="overflow-auto">
         {canReplace ? (
@@ -121,7 +144,16 @@ export default function OrderItemsTable({
                       {getItemSku(it)}
                     </td>
 
-                    <td className="p-3">{getItemName(it)}</td>
+                    <td className="p-3">
+                      {getItemName(it)}
+                      {canReplace && getStockShortage(it) ? (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 whitespace-nowrap">
+                          {getStockShortage(it).available > 0
+                            ? `Stock : ${getStockShortage(it).available}`
+                            : "Rupture"}
+                        </span>
+                      ) : null}
+                    </td>
 
                     <td className="p-3 whitespace-nowrap">{it.qty}</td>
 
