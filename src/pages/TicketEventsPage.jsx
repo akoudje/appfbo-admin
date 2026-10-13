@@ -21,6 +21,7 @@ import {
 import { ticketEventsService } from "../services/ticketEventsService";
 import { useConfirm, usePrompt } from "../hooks/useDialogs";
 import { readEventAvailability, legacyEventAvailability, availabilityPresentation } from "../lib/ticketEvents/eventAvailability";
+import { EVENT_COLLECTIONS, eventCollection, eventLifecycleStatus, normalizeEventCollection, filterManagementEvents, resolveEventSelection } from "../lib/ticketEvents/eventCollections";
 
 const DEFAULT_ORDER_STATUS = "PAID";
 
@@ -33,7 +34,7 @@ const TABS = [
 ];
 
 function statusLabel(status) {
-  return ({ PUBLISHED: "Publié", DRAFT: "Brouillon", CLOSED: "Clôturé", CANCELLED: "Annulé",
+  return ({ PUBLISHED: "Publié", DRAFT: "Brouillon", CLOSED: "Clôturé", CANCELLED: "Annulé", ENDED: "Terminé", SALES_CLOSED: "Ventes fermées",
     PAID: "Payé", PENDING_PAYMENT: "En attente de paiement", EXPIRED: "Expiré",
     SUCCEEDED: "Confirmé", PENDING: "En attente", FAILED: "Échoué", ACTIVE: "Actif",
     USED: "Utilisé", RESERVED: "Réservé" })[status] || status || "—";
@@ -318,7 +319,7 @@ export default function TicketEventsPage() {
   const [pagination, setPagination] = useState({ page: 1, pageSize: 25, total: 0, pageCount: 1 });
   const [updatedAt, setUpdatedAt] = useState(null);
   const [eventQuery, setEventQuery] = useState("");
-  const [eventFilter, setEventFilter] = useState("");
+  const [eventCollectionFilter, setEventCollectionFilter] = useState(normalizeEventCollection(searchParams.get("collection")));
   const loadSequence = useRef(0);
   const auditSequence = useRef(0);
   const [selectedEventId, setSelectedEventId] = useState(searchParams.get("eventId") || "");
@@ -348,23 +349,16 @@ export default function TicketEventsPage() {
   const scanLoopRef = useRef(null);
 
   const selectedEvent = useMemo(
-    () => events.find((event) => event.id === selectedEventId) || events[0] || null,
+    () => events.find((event) => event.id === selectedEventId) || null,
     [events, selectedEventId],
   );
 
   const stats = eventSummary?.totals;
   const availability = availabilityPresentation(eventSummary?.availability);
-  const visibleEvents = events.filter((event) => {
-    const now = Date.now();
-    const start = new Date(event.startsAt).getTime();
-    const end = event.endsAt ? new Date(event.endsAt).getTime() : null;
-    const matchesStatus = !eventFilter ||
-      (eventFilter === "DRAFT" && event.status === "DRAFT") ||
-      (eventFilter === "UPCOMING" && event.status === "PUBLISHED" && start > now) ||
-      (eventFilter === "ONGOING" && event.status === "PUBLISHED" && start <= now && (end === null || end >= now)) ||
-      (eventFilter === "FINISHED" && (event.status === "CLOSED" || (end !== null && end < now)));
-    return matchesStatus && event.title.toLocaleLowerCase("fr").includes(eventQuery.toLocaleLowerCase("fr"));
-  });
+  const collectionNow = Date.now();
+  const visibleEvents = filterManagementEvents(events, { collection: eventCollectionFilter, q: eventQuery }, collectionNow);
+  const collectionCounts = Object.fromEntries(EVENT_COLLECTIONS.map(([key]) => [key, events.filter(event => eventCollection(event, collectionNow) === key).length]));
+  const selectionLocked = loading || saving || Boolean(checkInSession && !checkInSession.closedAt);
 
   function updateUrl(next = {}) {
     const params = new URLSearchParams(searchParams);
@@ -374,6 +368,7 @@ export default function TicketEventsPage() {
     else params.delete("eventId");
     if (tab) params.set("tab", tab);
     else params.delete("tab");
+    params.set("collection", next.collection ?? eventCollectionFilter);
     setSearchParams(params, { replace: true });
   }
 
@@ -390,11 +385,16 @@ export default function TicketEventsPage() {
       const eventsResponse = await ticketEventsService.listEvents();
       if (sequence !== loadSequence.current) return;
       const nextEvents = eventsResponse?.data || [];
-      const nextSelectedId = nextEvents.some((item) => item.id === eventId) ? eventId : nextEvents[0]?.id || "";
+      const selection = resolveEventSelection(nextEvents, {
+        eventId,
+        collection: overrides.collection ?? searchParams.get("collection") ?? undefined,
+      });
+      const nextSelectedId = selection.eventId;
       setEvents(nextEvents);
       setSelectedEventId(nextSelectedId);
-      if (nextSelectedId !== eventId) updateUrl({ eventId: nextSelectedId });
-      if (!nextSelectedId) { setOrders([]); setEventSummary(null); return; }
+      setEventCollectionFilter(selection.collection);
+      if (nextSelectedId !== eventId || searchParams.get("collection") !== selection.collection) updateUrl({ eventId: nextSelectedId, collection: selection.collection });
+      if (!nextSelectedId) { setOrders([]); setEventSummary(null); setUpdatedAt(new Date()); setPagination({ page: 1, pageSize: 25, total: 0, pageCount: 1 }); return; }
       const [ordersResponse, summary] = await Promise.all([
         ticketEventsService.listOrders({ eventId: nextSelectedId, q: q || undefined,
           status: status || undefined, paymentMethod: paymentMethod || undefined,
@@ -436,11 +436,13 @@ export default function TicketEventsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedEventId, checkInSession?.id]);
 
-  function selectEvent(eventId) {
+  function selectEvent(eventId, collection = eventCollectionFilter) {
     auditSequence.current++;
     stopScanner();
     setMessage("");
     setOrderQuery(""); setOrderStatus(DEFAULT_ORDER_STATUS); setOrderPaymentMethod("");
+    if (collection !== eventCollectionFilter) setEventQuery("");
+    setEventCollectionFilter(collection);
     setSelectedEventId(eventId);
     setTicketTypeForm(emptyTicketTypeForm());
     setCheckInResult(null);
@@ -448,8 +450,8 @@ export default function TicketEventsPage() {
     setCheckInSession(null);
     setCheckInLogs([]);
     setCheckInSummary(null);
-    updateUrl({ eventId });
-    load({ eventId, q: "", status: DEFAULT_ORDER_STATUS, paymentMethod: "" });
+    updateUrl({ eventId, collection });
+    load({ eventId, collection, q: "", status: DEFAULT_ORDER_STATUS, paymentMethod: "" });
   }
 
   function selectTab(tab) {
@@ -833,15 +835,19 @@ export default function TicketEventsPage() {
       ) : null}
 
       <section aria-label="Filtres des événements" className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-[1fr_180px_2fr]">
+        <nav aria-label="Classement des événements" className="mb-4 grid grid-cols-3 gap-2">
+          {EVENT_COLLECTIONS.map(([key, label]) => <button key={key} type="button" aria-pressed={eventCollectionFilter === key} disabled={selectionLocked} onClick={() => selectEvent("", key)}
+            className={`flex min-h-11 flex-wrap items-center justify-center gap-2 border px-3 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC600] disabled:opacity-50 ${eventCollectionFilter === key ? "border-gray-950 bg-gray-950 text-white" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+            {label}<span className="text-xs">({loading ? "…" : collectionCounts[key]})</span>
+          </button>)}
+        </nav>
+        {eventCollectionFilter === "ARCHIVES" ? <p className="mb-4 text-sm text-gray-500">Événements clôturés, terminés ou annulés. Les commandes, rapports et historiques restent consultables.</p> : null}
+        <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
           <Field label="Rechercher un événement"><input className={inputClass()} value={eventQuery} onChange={(e) => setEventQuery(e.target.value)} placeholder="Nom de l’événement" /></Field>
-          <Field label="Période"><select className={inputClass()} value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
-            <option value="">Tous</option><option value="UPCOMING">À venir</option><option value="ONGOING">En cours</option><option value="FINISHED">Terminés</option><option value="DRAFT">Brouillons</option>
-          </select></Field>
-          <Field label="Événement sélectionné"><select className={inputClass()} value={selectedEventId} disabled={loading || saving || Boolean(checkInSession && !checkInSession.closedAt)} onChange={(e) => selectEvent(e.target.value)}>
+          <Field label="Événement sélectionné"><select className={inputClass()} value={selectedEventId} disabled={selectionLocked || !visibleEvents.length} onChange={(e) => selectEvent(e.target.value)}>
             {!visibleEvents.some((event) => event.id === selectedEventId) && selectedEvent ? <option value={selectedEvent.id}>{selectedEvent.title} (hors filtre)</option> : null}
             {!selectedEvent ? <option value="">Choisir un événement</option> : null}
-            {visibleEvents.map((event) => <option key={event.id} value={event.id}>{event.title} · {formatDateTime(event.startsAt)} · {statusLabel(event.status)}</option>)}
+            {visibleEvents.map((event) => <option key={event.id} value={event.id}>{event.title} · {formatDateTime(event.startsAt)} · {statusLabel(eventLifecycleStatus(event, collectionNow))}</option>)}
           </select></Field>
         </div>
         {!visibleEvents.length && !loading ? <p className="mt-3 text-sm text-gray-500">Aucun événement ne correspond à ces filtres.</p> : null}
@@ -857,8 +863,8 @@ export default function TicketEventsPage() {
                     {selectedEvent.posterUrl ? <img src={selectedEvent.posterUrl} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" /> : null}
                     <div className="min-w-0"><div className="flex flex-wrap items-center gap-2">
                       <h2 className="break-words text-xl font-semibold text-gray-950">{selectedEvent.title}</h2>
-                      <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(selectedEvent.status)}`}>
-                        {statusLabel(selectedEvent.status)}
+                      <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(eventLifecycleStatus(selectedEvent, collectionNow))}`}>
+                        {statusLabel(eventLifecycleStatus(selectedEvent, collectionNow))}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-gray-500">
