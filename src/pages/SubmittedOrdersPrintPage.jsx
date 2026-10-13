@@ -7,9 +7,29 @@ function buildQueryParams(searchParams) {
   return Object.fromEntries(keys.filter(key => searchParams.has(key)).map(key => [key, searchParams.get(key)]));
 }
 
-function ExportOrderCard({ order }) {
+function formatSubmittedAt(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// rank : position FIFO (1 = première soumise, donc première à traiter).
+function ExportOrderCard({ order, rank }) {
   return (
     <article className="break-inside-avoid pb-3 mb-3">
+      <div className="flex items-baseline justify-between gap-2 text-[10px] mb-1">
+        <span className="font-bold">N° {rank}</span>
+        <span className="text-gray-600">
+          {order.preorderNumber}
+          {order.submittedAt ? ` · soumise ${formatSubmittedAt(order.submittedAt)}` : ""}
+        </span>
+      </div>
       <div className="text-[12.5px] font-bold uppercase leading-tight mb-1.5">
         {order.fboNomComplet || "-"}
       </div>
@@ -97,7 +117,12 @@ export default function SubmittedOrdersPrintPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <style>{`
-        @page { size: A4 landscape; margin: 8mm; }
+        @page {
+          size: A4 landscape;
+          margin: 8mm 8mm 10mm;
+          @bottom-right { content: "Page " counter(page) " / " counter(pages); font-size: 9px; }
+          @bottom-left { content: "Ordre FIFO : de la plus ancienne soumission à la plus récente"; font-size: 9px; }
+        }
         @media print {
           body { background: #fff; }
           .print-toolbar { display: none !important; }
@@ -110,6 +135,9 @@ export default function SubmittedOrdersPrintPage() {
           {isCustomSelection
             ? "Export d'une sélection de commandes"
             : "Export des commandes soumises"}
+          {!loading && !error && orders.length > 0
+            ? ` · ${orders.length} commande${orders.length > 1 ? "s" : ""}, de la plus ancienne soumission à la plus récente`
+            : ""}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -145,8 +173,8 @@ export default function SubmittedOrdersPrintPage() {
             className="gap-[7mm]"
             style={{ columnCount: 4, columnGap: "7mm", columnFill: "auto" }}
           >
-            {orders.map((order) => (
-              <ExportOrderCard key={order.id} order={order} />
+            {orders.map((order, index) => (
+              <ExportOrderCard key={order.id} order={order} rank={index + 1} />
             ))}
           </section>
         )}
