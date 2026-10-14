@@ -284,6 +284,7 @@ function emptyCashSaleForm() {
     buyerFboNumber: "",
     buyerFboName: "",
     note: "",
+    isTest: false,
   };
 }
 
@@ -556,6 +557,35 @@ export default function TicketEventsPage() {
       await load({ eventId: selectedEventId });
     } catch (err) {
       setError(err?.response?.data?.message || "Annulation achat impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleOrderTestFlag(order) {
+    const nextIsTest = !order.isTest;
+    const ok = await confirm({
+      ...(nextIsTest ? {} : { tone: "danger" }),
+      title: nextIsTest ? "Marquer comme test" : "Retirer le marquage test",
+      message: nextIsTest
+        ? `Exclure l'achat ${order.orderNumber} du bilan (billet toujours valide et scannable) ?`
+        : `Réintégrer l'achat ${order.orderNumber} dans le bilan ?`,
+      confirmLabel: nextIsTest ? "Marquer comme test" : "Réintégrer au bilan",
+    });
+    if (!ok) return;
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      await ticketEventsService.setOrderTestFlag(order.id, nextIsTest);
+      setMessage(
+        nextIsTest
+          ? `Achat ${order.orderNumber} marqué comme test et exclu du bilan.`
+          : `Achat ${order.orderNumber} réintégré au bilan.`,
+      );
+      await load({ eventId: selectedEventId });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Mise à jour du marquage test impossible.");
     } finally {
       setSaving(false);
     }
@@ -964,6 +994,7 @@ export default function TicketEventsPage() {
                     onSyncWave={syncWavePayment}
                     onCancel={cancelOrder}
                     onResendTickets={resendOrderTicketsEmail}
+                    onToggleTestFlag={toggleOrderTestFlag}
                   />
                 ) : null}
                 {activeTab === "bilan" ? <BilanTab key={selectedEvent.id} event={selectedEvent} /> : null}
@@ -1144,6 +1175,7 @@ function OrdersTab({
   onSyncWave,
   onCancel,
   onResendTickets,
+  onToggleTestFlag,
 }) {
   const [detailOrder, setDetailOrder] = useState(null);
   const ticketTypes = event?.ticketTypes || [];
@@ -1323,6 +1355,20 @@ function OrdersTab({
                   />
                 </Field>
               </div>
+              <label className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={cashSaleForm.isTest}
+                  onChange={(event) => setCashSaleForm({ ...cashSaleForm, isTest: event.target.checked })}
+                />
+                <span>
+                  <span className="font-semibold text-amber-900">Billet de test</span>
+                  <span className="block text-xs text-amber-800">
+                    Billet réel et scannable, mais exclu des totaux du bilan (recette, billets vendus).
+                  </span>
+                </span>
+              </label>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs text-gray-500">Le ticket devient immédiatement actif après validation.</span>
                 <div className="flex flex-wrap gap-2">
@@ -1366,7 +1412,15 @@ function OrdersTab({
               const isPaid = order.status === "PAID" || order.paymentStatus === "SUCCEEDED";
               return (
               <tr key={order.id} className="border-t border-gray-100 align-top hover:bg-gray-50">
-                <td className="px-3 py-3"><div className="font-mono text-xs">{order.orderNumber}</div><div className="mt-1 text-xs text-gray-500">{formatDateTime(order.createdAt)}</div></td>
+                <td className="px-3 py-3">
+                  <div className="font-mono text-xs">{order.orderNumber}</div>
+                  <div className="mt-1 text-xs text-gray-500">{formatDateTime(order.createdAt)}</div>
+                  {order.isTest ? (
+                    <span className="mt-1 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                      Test
+                    </span>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.buyerFullName}</div>
                   <div className="text-xs text-gray-500">{order.buyerPhone}</div>
@@ -1421,6 +1475,9 @@ function OrdersTab({
                         Annuler
                       </button>
                     ) : null}
+                    <button type="button" onClick={() => onToggleTestFlag(order)} disabled={saving} className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 disabled:opacity-50">
+                      {order.isTest ? "Retirer le marquage test" : "Marquer comme test"}
+                    </button>
 </div></details>
                   </div>
                 </td>
@@ -1451,6 +1508,7 @@ function OrdersTab({
             <Info label="Email" value={detailOrder.buyerEmail || "Non renseigné"} /><Info label="Date de commande" value={formatDateTime(detailOrder.createdAt)} />
             <Info label="Montant" value={formatFcfa(detailOrder.totalFcfa)} /><Info label="Statut" value={statusLabel(detailOrder.status)} />
             <Info label="Paiement" value={paymentMethodLabel(detailOrder.paymentProvider || detailOrder.paymentMethod)} /><Info label="Référence du paiement" value={detailOrder.paymentReference || detailOrder.providerTransactionId || "—"} />
+            <Info label="Commande de test" value={detailOrder.isTest ? "Oui — exclue du bilan" : "Non"} />
           </div>
           <h4 className="mb-3 mt-6 font-semibold">Billets associés</h4>
           {(detailOrder.tickets || []).map((ticket) => <div key={ticket.id} className="flex flex-wrap justify-between gap-2 border-t py-3 text-sm"><span>{ticket.holderFullName || detailOrder.buyerFullName} · {ticket.ticketCode}</span><span>{statusLabel(ticket.status)}</span></div>)}
@@ -1563,6 +1621,12 @@ function BilanTab({ event }) {
           <Stat label="Billets vendus (payés)" value={summary.totals.ticketsCount} />
           <Stat label="Commandes payées" value={summary.totals.ordersCount} />
           <Stat label="Recette totale" value={formatFcfa(summary.totals.totalFcfa)} />
+        </div>
+      ) : null}
+
+      {summary?.totals?.testOrdersExcludedCount > 0 ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+          {summary.totals.testOrdersExcludedCount} commande(s) de test exclue(s) de ce bilan.
         </div>
       ) : null}
 
