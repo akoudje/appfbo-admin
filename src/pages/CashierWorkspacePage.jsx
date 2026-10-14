@@ -5,6 +5,7 @@ import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import CashRegisterStatusPanel from "../components/cashier/CashRegisterStatusPanel";
+import PackagingSummaryPanel from "../components/cashier/PackagingSummaryPanel";
 import useRealtimeAlerts from "../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../services/realtimeAlertsService";
 import {
@@ -1625,6 +1626,7 @@ export default function CashierWorkspacePage() {
         <TabButton active={activeTab === "processing"} onClick={() => setActiveTab("processing")} count={toCollect.length + toLaunchPreparation.length}>À traiter</TabButton>
         <TabButton active={activeTab === "completed"} onClick={() => setActiveTab("completed")} count={completedRows.length}>Terminées</TabButton>
         <TabButton active={activeTab === "search"} onClick={() => setActiveTab("search")} count={searchRows.length}>Recherche</TabButton>
+        <TabButton active={activeTab === "packaging"} onClick={() => setActiveTab("packaging")}>Emballages</TabButton>
       </div>
 
       {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
@@ -1725,6 +1727,8 @@ export default function CashierWorkspacePage() {
           onPrintReceipt={handlePrintReceipt}
         />
       ) : null}
+
+      {activeTab === "packaging" ? <PackagingSummaryPanel service={cashierService} /> : null}
 
       <OrderDrawer
         open={drawerOpen}
