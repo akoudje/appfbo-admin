@@ -39,6 +39,7 @@ export const Permission = {
   PREPARATION_UPDATE: "PREPARATION_UPDATE",
   EXPORT_READ: "EXPORT_READ",
   FBO_DOCUMENT_ISSUE: "FBO_DOCUMENT_ISSUE",
+  SPONSORSHIP_REVIEW: "SPONSORSHIP_REVIEW",
 };
 
 const allPermissions = Object.freeze(Object.values(Permission));
@@ -62,6 +63,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREPARATION_UPDATE,
     Permission.EXPORT_READ,
     Permission.FBO_DOCUMENT_ISSUE,
+    Permission.SPONSORSHIP_REVIEW,
   ],
 
   [AdminRole.SALES_DIRECTOR]: [
@@ -76,6 +78,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.INVOICE_CREATE,
     Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     Permission.EXPORT_READ,
+    Permission.SPONSORSHIP_REVIEW,
   ],
 
   [AdminRole.FINANCE_MANAGER]: [
@@ -93,6 +96,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.INVOICE_CREATE,
     Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     Permission.EXPORT_READ,
+    Permission.SPONSORSHIP_REVIEW,
   ],
 
   [AdminRole.MARKETING_MANAGER]: [
@@ -141,6 +145,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREORDER_READ,
     Permission.INVOICE_CREATE,
     Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
+    Permission.SPONSORSHIP_REVIEW,
   ],
 
   [AdminRole.ORDER_PREPARER]: [

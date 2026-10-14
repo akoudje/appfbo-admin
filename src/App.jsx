@@ -35,6 +35,8 @@ import SmsCampaignsPage from "./pages/SmsCampaignsPage";
 import TicketEventsPage from "./pages/TicketEventsPage";
 import TicketEventFormPage from "./pages/TicketEventFormPage";
 import FboDocumentsPage from "./pages/FboDocumentsPage";
+import SponsorshipsListPage from "./pages/SponsorshipsListPage";
+import SponsorshipReviewPage from "./pages/SponsorshipReviewPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
@@ -365,6 +367,30 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux documents FBO." />}
                     >
                       <FboDocumentsPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/sponsorships"
+                  element={
+                    <RequirePermission
+                      permission={Permission.SPONSORSHIP_REVIEW}
+                      fallback={<AccessDenied message="Accès refusé aux parrainages." />}
+                    >
+                      <SponsorshipsListPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/sponsorships/:id"
+                  element={
+                    <RequirePermission
+                      permission={Permission.SPONSORSHIP_REVIEW}
+                      fallback={<AccessDenied message="Accès refusé aux parrainages." />}
+                    >
+                      <SponsorshipReviewPage />
                     </RequirePermission>
                   }
                 />
