@@ -10,6 +10,7 @@ import {
   FileText,
   Filter,
   Loader2,
+  Package,
   Printer,
   ReceiptText,
   RefreshCw,
@@ -991,6 +992,15 @@ export default function DailySalesReportPage() {
   const refreshInterval = useRef(null);
   const initialLoadRef = useRef(false);
   const requestSeqRef = useRef(0);
+  const [packagingSummary, setPackagingSummary] = useState(null);
+  const [packagingError, setPackagingError] = useState("");
+
+  useEffect(() => {
+    reportsService
+      .getPackagingSummary()
+      .then(setPackagingSummary)
+      .catch((e) => setPackagingError(e?.response?.data?.message || "Impossible de charger le bilan emballages."));
+  }, []);
 
   const saveFilters = useCallback((filters) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
@@ -1608,6 +1618,29 @@ export default function DailySalesReportPage() {
               onReset={resetFilters}
               loading={loading}
             />
+          </div>
+        )}
+      </div>
+
+      {/* Bilan emballages — total depuis le début, indépendant de la période sélectionnée ci-dessus */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Package className="h-4 w-4" />
+          Bilan emballages · depuis le début
+        </div>
+        {packagingError ? (
+          <p className="mt-2 text-sm text-red-600">{packagingError}</p>
+        ) : packagingSummary ? (
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+            <span className="text-3xl font-bold text-gray-950">{formatFcfa(packagingSummary.totalEmballageFcfa)}</span>
+            <span className="text-sm text-gray-500">
+              sur {formatCount(packagingSummary.paidOrdersCount)} précommande{packagingSummary.paidOrdersCount > 1 ? "s" : ""} payée{packagingSummary.paidOrdersCount > 1 ? "s" : ""}
+            </span>
+          </div>
+        ) : (
+          <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Chargement…
           </div>
         )}
       </div>
