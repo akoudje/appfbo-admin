@@ -27,6 +27,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { reportsService } from "../services/reportsService";
+import PackagingSummaryPanel from "../components/cashier/PackagingSummaryPanel";
 import { formatFcfa, formatDateTime } from "../lib/format";
 
 // ==================== CONSTANTS ====================
@@ -1692,6 +1693,9 @@ export default function DailySalesReportPage() {
           </div>
         )}
       </div>
+
+      {/* Bilan emballages par jour / mois / année, avec export — même bloc que l'espace caisse */}
+      <PackagingSummaryPanel service={reportsService} title="Bilan emballages · par période" />
 
       {/* Error Display */}
       {error && (

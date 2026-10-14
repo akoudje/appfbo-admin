@@ -12,4 +12,11 @@ export const cashierService = {
 
   reportAs400CertificationMissing: async (orderId, body = {}) =>
     (await api.post(`/admin/cashier/orders/${orderId}/as400-certification/missing`, body)).data,
+
+  // Bilan emballages, avec les droits caisse (même format que reportsService).
+  getPackagingSummary: async (params = {}) =>
+    (await api.get("/admin/cashier/packaging-summary", { params })).data,
+
+  exportPackagingSummary: async (params = {}) =>
+    api.get("/admin/cashier/packaging-summary/export", { params, responseType: "blob" }),
 };
