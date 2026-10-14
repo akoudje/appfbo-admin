@@ -1631,12 +1631,60 @@ export default function DailySalesReportPage() {
         {packagingError ? (
           <p className="mt-2 text-sm text-red-600">{packagingError}</p>
         ) : packagingSummary ? (
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-            <span className="text-3xl font-bold text-gray-950">{formatFcfa(packagingSummary.totalEmballageFcfa)}</span>
-            <span className="text-sm text-gray-500">
-              sur {formatCount(packagingSummary.paidOrdersCount)} précommande{packagingSummary.paidOrdersCount > 1 ? "s" : ""} payée{packagingSummary.paidOrdersCount > 1 ? "s" : ""}
-            </span>
-          </div>
+          <>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+              <span className="text-3xl font-bold text-gray-950">{formatFcfa(packagingSummary.totalEmballageFcfa)}</span>
+              <span className="text-sm text-gray-500">
+                sur {formatCount(packagingSummary.paidOrdersCount)} précommande{packagingSummary.paidOrdersCount > 1 ? "s" : ""} payée{packagingSummary.paidOrdersCount > 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full border px-2 py-1 text-xs font-semibold ${
+                  packagingSummary.currentPackagingFeeFcfa > 0
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
+                }`}
+              >
+                Frais actuel : {formatFcfa(packagingSummary.currentPackagingFeeFcfa)} / précommande
+              </span>
+              {packagingSummary.currentPackagingFeeFcfa === 0 ? (
+                <span className="text-xs font-medium text-amber-700">
+                  Aucun frais d'emballage n'est appliqué sur les nouvelles précommandes de ce pays actuellement.
+                </span>
+              ) : null}
+            </div>
+
+            {packagingSummary.zeroFeeOrdersCount > 0 ? (
+              <p className="mt-2 text-xs text-gray-500">
+                {formatCount(packagingSummary.zeroFeeOrdersCount)} précommande(s) payée(s) à 0 FCFA d'emballage (avant l'introduction du frais, ou pendant une période où il a été désactivé pour ce pays).
+              </p>
+            ) : null}
+
+            {packagingSummary.byMonth?.length > 0 ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="py-1 pr-4">Mois</th>
+                      <th className="py-1 pr-4 text-right">Précommandes payées</th>
+                      <th className="py-1 text-right">Emballages (FCFA)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {packagingSummary.byMonth.map((row) => (
+                      <tr key={row.month}>
+                        <td className="py-1.5 pr-4 font-medium text-gray-700">{row.month === "INCONNU" ? "Date inconnue" : row.month}</td>
+                        <td className="py-1.5 pr-4 text-right">{formatCount(row.paidOrdersCount)}</td>
+                        <td className="py-1.5 text-right font-semibold">{formatFcfa(row.totalEmballageFcfa)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
             <Loader2 className="h-4 w-4 animate-spin" />
