@@ -117,6 +117,7 @@ export const PERMISSION_LABELS = {
   PREPARATION_UPDATE: "Préparer et remettre les colis",
   EXPORT_READ: "Consulter les rapports et exporter",
   FBO_DOCUMENT_ISSUE: "Émettre les documents FBO",
+  SPONSORSHIP_REVIEW: "Vérifier et approuver les parrainages",
 };
 export const permissionLabel = (key) =>
   PERMISSION_LABELS[key] || "Droit de la plateforme";

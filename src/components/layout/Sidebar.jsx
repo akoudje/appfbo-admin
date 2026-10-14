@@ -19,6 +19,7 @@ import {
   Store,
   FileBarChart,
   FileCheck2,
+  UserPlus,
 
   // Administration - Icônes distinctes pour éviter la confusion
   SlidersHorizontal,
@@ -246,6 +247,17 @@ const NAV_ITEMS = [
     description: "Attestations et traçabilité",
     color: "from-slate-600 to-gray-800",
     shortcut: "D",
+  },
+  {
+    key: "sponsorships",
+    to: "/sponsorships",
+    label: "Parrainages",
+    permission: Permission.SPONSORSHIP_REVIEW,
+    icon: UserPlus,
+    badge: null,
+    description: "Nouveaux distributeurs à vérifier",
+    color: "from-amber-500 to-orange-600",
+    shortcut: "P",
   },
 ];
 

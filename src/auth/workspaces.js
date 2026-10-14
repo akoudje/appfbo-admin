@@ -37,9 +37,9 @@ export function shouldShowDashboard(role) {
 export function getWorkspaceNavKeys(role) {
   switch (role) {
     case AdminRole.INVOICER:
-      return new Set(["billing", "as400", "external-payment-links"]);
+      return new Set(["billing", "as400", "external-payment-links", "sponsorships"]);
     case AdminRole.BILLING_MANAGER:
-      return new Set(["orders", "billing", "as400", "reports", "fbo-documents"]);
+      return new Set(["orders", "billing", "as400", "reports", "fbo-documents", "sponsorships"]);
     case AdminRole.COUNTER_MANAGER:
     case AdminRole.FINANCE_MANAGER:
       return new Set(["orders", "cashier", "external-payment-links", "cash-closures", "reports"]);
@@ -67,6 +67,7 @@ export function getWorkspaceNavKeys(role) {
         "products",
         "reports",
         "fbo-documents",
+        "sponsorships",
         "settings",
         "marketing",
         "sms-campaigns",
