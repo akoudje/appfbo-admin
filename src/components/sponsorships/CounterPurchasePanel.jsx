@@ -1,20 +1,15 @@
 // src/components/sponsorships/CounterPurchasePanel.jsx
-// Achat de parrainage fait par le facturier : reprend le panier préparé (ou le
-// compose), choisit paiement et livraison, puis préfacture directement avec la
-// référence et le montant AS400.
+// Relance de l'achat de parrainage par le facturier : reprend le panier du
+// parrain (ou en compose un), paiement et livraison, puis préfacture avec la
+// référence et le montant AS400 ; parrain et filleul sont notifiés.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { sponsorshipsService } from "../../services/sponsorshipsService";
 
-const PAYMENT_MODES = [
-  { value: "ESPECES", label: "Espèces" },
-  { value: "WAVE", label: "Wave" },
-  { value: "BANK_TRANSFER", label: "Virement bancaire" },
-  { value: "ECOBANK_PAY", label: "Ecobank Pay" },
-  { value: "PI_SPI", label: "PI SPI" },
-];
+import { PURCHASE_PAYMENT_MODES as PAYMENT_MODES } from "./sponsorshipStatus";
+
 const DELIVERY_MODES = [
   { value: "RETRAIT_SITE_FLP", label: "Retrait au siège" },
   { value: "LIVRAISON", label: "Livraison" },
@@ -24,12 +19,20 @@ const fcfa = (value) => `${Number(value || 0).toLocaleString("fr-FR")} F`;
 const inputClass = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm";
 
 export default function CounterPurchasePanel({ sponsorship, onDone }) {
-  const hasDraft = sponsorship.purchasePreorder?.status === "DRAFT";
-  const alreadySubmitted = sponsorship.purchasePreorder && sponsorship.purchasePreorder.status !== "DRAFT";
+  // Brouillon existant, ou panier du parrain enregistré sur le parrainage : pas de
+  // composition (le serveur reprend ce panier). Commande annulée : relance.
+  const parentCart = Array.isArray(sponsorship.purchaseItems) && sponsorship.purchaseItems.length > 0;
+  const hasDraft = sponsorship.purchasePreorder?.status === "DRAFT" || parentCart;
+  const alreadySubmitted = sponsorship.purchasePreorder && !["DRAFT", "CANCELLED"].includes(sponsorship.purchasePreorder.status);
   const [catalog, setCatalog] = useState({ loading: !hasDraft && !alreadySubmitted, products: [], error: "" });
   const [cart, setCart] = useState([]);
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState({ paymentMode: "ESPECES", deliveryMode: "RETRAIT_SITE_FLP", factureReference: "", invoiceAmountFcfa: "" });
+  const [form, setForm] = useState({
+    paymentMode: sponsorship.purchasePaymentMode || "ESPECES",
+    deliveryMode: sponsorship.purchaseDeliveryMode || "RETRAIT_SITE_FLP",
+    factureReference: "",
+    invoiceAmountFcfa: "",
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
@@ -97,7 +100,7 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
   if (result) {
     return (
       <p className="text-sm text-emerald-800">
-        Achat préfacturé : <Link to={`/orders/${result.preorderId}`} className="font-semibold underline">{result.preorderNumber}</Link>. La caisse peut encaisser ; le parrainage sera validé au paiement.
+        Achat préfacturé : <Link to={`/orders/${result.preorderId}`} className="font-semibold underline">{result.preorderNumber}</Link>. Parrain et filleul ont reçu le lien de paiement ; le parrainage sera validé au paiement.
       </p>
     );
   }
@@ -106,7 +109,13 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
     <div className="space-y-3">
       {hasDraft ? (
         <p className="text-sm text-violet-900">
-          Panier préparé par le parrain : commande <Link to={`/orders/${sponsorship.purchasePreorder.id}`} className="font-semibold underline">{sponsorship.purchasePreorder.preorderNumber}</Link> (brouillon).
+          {sponsorship.purchasePreorder?.status === "DRAFT" ? (
+            <>
+              Panier préparé par le parrain : commande <Link to={`/orders/${sponsorship.purchasePreorder.id}`} className="font-semibold underline">{sponsorship.purchasePreorder.preorderNumber}</Link> (brouillon).
+            </>
+          ) : (
+            <>Panier du parrain repris : {sponsorship.purchaseItems.length} produit(s), {fcfa(sponsorship.purchaseIndicativeTotalFcfa)} indicatifs (quantités recalées sur le stock).</>
+          )}
         </p>
       ) : catalog.loading ? (
         <p className="text-sm text-gray-500">Chargement du catalogue…</p>
@@ -181,7 +190,7 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
         onClick={submit}
         className="rounded-lg bg-violet-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
       >
-        {busy ? "Préfacturation…" : "Faire l'achat et préfacturer"}
+        {busy ? "Préfacturation…" : "Relancer et préfacturer"}
       </button>
     </div>
   );
