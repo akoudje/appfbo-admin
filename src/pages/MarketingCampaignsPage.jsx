@@ -3,6 +3,7 @@ import { marketingCampaignsService } from "../services/marketingCampaignsService
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
 import { useConfirm } from "../hooks/useDialogs";
+import HomeFeaturedEditor from "../components/marketing/HomeFeaturedEditor";
 
 export const DEFAULT_SETTINGS = {
   slides: [
@@ -1820,6 +1821,13 @@ export default function MarketingCampaignsPage() {
             />
           ))}
         </div>
+      </Card>
+
+      <Card
+        title="Sélection produits (page d’accueil)"
+        description="Choisissez les produits mis en avant sur la page d’accueil, ou masquez la section. Enregistrement immédiat, sans publication."
+      >
+        <HomeFeaturedEditor canWrite={canWrite} />
       </Card>
 
       <Card

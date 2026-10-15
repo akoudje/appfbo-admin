@@ -7,6 +7,11 @@ export const marketingCampaignsService = {
 
   publish: async (body) => (await api.post("/admin/marketing-campaigns/publish", body)).data,
 
+  // Accueil > « Sélection produits » (enregistrement direct, sans brouillon).
+  getHomeFeatured: async () => (await api.get("/admin/home-featured")).data,
+
+  saveHomeFeatured: async (body) => (await api.put("/admin/home-featured", body)).data,
+
   sendSmsTest: async (campaignId, body) =>
     (await api.post(`/admin/marketing-campaigns/sms/${campaignId}/send-test`, body)).data,
 
