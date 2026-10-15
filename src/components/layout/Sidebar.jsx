@@ -241,7 +241,7 @@ const NAV_ITEMS = [
     key: "fbo-documents",
     to: "/fbo-documents",
     label: "Documents FBO",
-    permission: Permission.PREORDER_READ,
+    permission: Permission.FBO_DOCUMENT_ISSUE,
     icon: FileCheck2,
     badge: null,
     description: "Attestations et traçabilité",
