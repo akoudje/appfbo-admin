@@ -209,6 +209,43 @@ export default function SponsorshipReviewPage() {
             </dl>
             {row.consentText ? <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-gray-600">« {row.consentText} »</p> : null}
           </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-sm font-semibold text-gray-900">Achat de parrainage prévu</h2>
+            {Array.isArray(row.purchaseItems) && row.purchaseItems.length ? (
+              <>
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs text-gray-500">
+                    <tr>
+                      <th className="py-1">Produit</th>
+                      <th className="py-1 text-right">Qté</th>
+                      <th className="py-1 text-right">Montant indicatif</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {row.purchaseItems.map((line) => (
+                      <tr key={line.productId}>
+                        <td className="py-1">{line.nom}{line.sku ? <span className="text-xs text-gray-500"> · {line.sku}</span> : null}</td>
+                        <td className="py-1 text-right">{line.qty}</td>
+                        <td className="py-1 text-right">{Number(line.lineTotalFcfa || 0).toLocaleString("fr-FR")} F</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-2 flex justify-between border-t border-gray-100 pt-2 text-sm font-semibold">
+                  <span>Total indicatif (prix Client privilégié)</span>
+                  <span>{Number(row.purchaseIndicativeTotalFcfa || 0).toLocaleString("fr-FR")} F</span>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  {row.purchasePreorder
+                    ? `Commande créée à l'approbation : ${row.purchasePreorder.preorderNumber} (${row.purchasePreorder.status === "DRAFT" ? "brouillon, en attente du parrain" : row.purchasePreorder.status}).`
+                    : "À l'approbation, ce panier deviendra une commande brouillon du filleul (quantités recalées sur le stock) ; le parrain choisira le paiement et la livraison."}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">Aucun panier préparé : le parrain composera l'achat après l'approbation.</p>
+            )}
+          </section>
         </div>
 
         <div className="space-y-4">
