@@ -68,6 +68,11 @@ export const ROLE_GROUPS = [
         label: "Assistant marketing",
         help: "Consultation limitée marketing et exports.",
       },
+      {
+        value: "ADMIN_ASSISTANT",
+        label: "Assistante administrative",
+        help: "Émet les documents FBO, avec les mêmes droits que l'assistant marketing.",
+      },
     ],
   },
   {
