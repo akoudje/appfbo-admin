@@ -20,6 +20,9 @@ export const sponsorshipsService = {
 
   agreementPdf: async (id) => api.get(`/admin/sponsorships/${id}/agreement.pdf`, { responseType: "blob" }),
 
+  // Fiche + pièce d'identité (impression / traitement), à tout statut.
+  dossierPdf: async (id) => api.get(`/admin/sponsorships/${id}/dossier.pdf`, { responseType: "blob", timeout: 120000 }),
+
   catalog: async (id) => (await api.get(`/admin/sponsorships/${id}/catalog`)).data,
 
   // { items?, paymentMode, deliveryMode, factureReference, invoiceAmountFcfa, note? }
