@@ -6,4 +6,14 @@ export const SPONSORSHIP_STATUS = {
   VALIDATED: { label: "Validé", style: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   REJECTED: { label: "Refusé", style: "bg-red-50 text-red-700 border-red-200" },
   EXPIRED: { label: "Expiré", style: "bg-gray-100 text-gray-600 border-gray-200" },
+  CANCELLED: { label: "Annulé", style: "bg-gray-100 text-gray-600 border-gray-200" },
 };
+
+// Modes de paiement de l'achat de parrainage (retrait au siège).
+export const PURCHASE_PAYMENT_MODES = [
+  { value: "WAVE", label: "Wave" },
+  { value: "BANK_TRANSFER", label: "Virement bancaire" },
+  { value: "ECOBANK_PAY", label: "Ecobank Pay" },
+  { value: "PI_SPI", label: "PI SPI" },
+  { value: "ESPECES", label: "Espèces" },
+];

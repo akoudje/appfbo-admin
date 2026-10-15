@@ -13,8 +13,13 @@ export const sponsorshipsService = {
 
   reject: async (id, reason) => (await api.post(`/admin/sponsorships/${id}/reject`, { reason })).data,
 
-  approve: async (id, recruitFboNumero) =>
-    (await api.post(`/admin/sponsorships/${id}/approve`, { recruitFboNumero })).data,
+  // Approbation + préfacturation de l'achat :
+  // { recruitFboNumero, factureReference, invoiceAmountFcfa, paymentMode, deliveryMode }.
+  // Réponse { ok: false, purchaseError } : approuvé, mais achat à relancer.
+  approve: async (id, body) => (await api.post(`/admin/sponsorships/${id}/approve`, body)).data,
+
+  // Annulation d'un parrainage approuvé dont l'achat n'est pas payé.
+  cancel: async (id, reason) => (await api.post(`/admin/sponsorships/${id}/cancel`, { reason })).data,
 
   evaluate: async (id) => (await api.post(`/admin/sponsorships/${id}/evaluate`)).data,
 
@@ -25,6 +30,6 @@ export const sponsorshipsService = {
 
   catalog: async (id) => (await api.get(`/admin/sponsorships/${id}/catalog`)).data,
 
-  // { items?, paymentMode, deliveryMode, factureReference, invoiceAmountFcfa, note? }
+  // Relance de l'achat : { items?, paymentMode, deliveryMode, factureReference, invoiceAmountFcfa, note? }
   counterPurchase: async (id, body) => (await api.post(`/admin/sponsorships/${id}/counter-purchase`, body)).data,
 };

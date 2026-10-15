@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Download, ExternalLink, Printer } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
-import { SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
+import { PURCHASE_PAYMENT_MODES, SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
 import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePanel";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { hasPermission, Permission } from "../auth/permissions";
@@ -94,6 +94,9 @@ export default function SponsorshipReviewPage() {
   const [busy, setBusy] = useState("");
   const [fboNumber, setFboNumber] = useState("");
   const [note, setNote] = useState("");
+  // Achat préfacturé à l'approbation : référence, montant et paiement AS400.
+  const [invoice, setInvoice] = useState({ factureReference: "", invoiceAmountFcfa: "", paymentMode: "" });
+  const [cancelReason, setCancelReason] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -119,6 +122,30 @@ export default function SponsorshipReviewPage() {
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Action impossible.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  // Approuver = attribuer le n° FBO + préfacturer l'achat, puis notification
+  // fusionnée (parrain et filleul, SMS + email avec la fiche cachetée).
+  const approve = async () => {
+    setBusy("approve");
+    setError("");
+    setNotice("");
+    try {
+      const result = await sponsorshipsService.approve(row.id, {
+        recruitFboNumero: fboNumber,
+        factureReference: invoice.factureReference,
+        invoiceAmountFcfa: Number(invoice.invoiceAmountFcfa),
+        paymentMode: invoice.paymentMode || row.purchasePaymentMode,
+        deliveryMode: row.purchaseDeliveryMode || "RETRAIT_SITE_FLP",
+      });
+      if (result.ok === false) setError(result.purchaseError);
+      else setNotice(`Parrainage approuvé et achat préfacturé (${result.purchasePreorderNumber}). Parrain et filleul sont notifiés par SMS et email.`);
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Approbation impossible.");
     } finally {
       setBusy("");
     }
@@ -288,7 +315,7 @@ export default function SponsorshipReviewPage() {
                 <p className="mt-2 text-xs text-gray-500">
                   {row.purchasePreorder
                     ? `Commande créée à l'approbation : ${row.purchasePreorder.preorderNumber} (${row.purchasePreorder.status === "DRAFT" ? "brouillon, en attente du parrain" : row.purchasePreorder.status}).`
-                    : "À l'approbation, ce panier deviendra une commande brouillon du filleul (quantités recalées sur le stock) ; le parrain choisira le paiement et la livraison."}
+                    : "À l'approbation, ce panier devient la commande préfacturée du filleul (quantités recalées sur le stock)."}
                 </p>
               </>
             ) : (
@@ -311,25 +338,68 @@ export default function SponsorshipReviewPage() {
         <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4">
           <h2 className="text-sm font-semibold text-gray-900">Décision</h2>
           {canDecide ? (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-gray-700">N° FBO attribué dans AS400</span>
-                <input
-                  value={fboNumber}
-                  onChange={(e) => setFboNumber(e.target.value)}
-                  placeholder="225-000-123-456"
-                  className="w-56 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
-                />
-              </label>
-              <button
-                type="button"
-                disabled={Boolean(busy) || underage || !fboNumber.trim()}
-                onClick={() => run("approve", () => sponsorshipsService.approve(row.id, fboNumber), "Parrainage approuvé : le filleul peut commander en Client privilégié.")}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {busy === "approve" ? "Approbation…" : "Approuver"}
-              </button>
-              {underage ? <span className="text-sm font-semibold text-red-600">Filleul mineur : approbation impossible.</span> : null}
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">
+                Approuver attribue le n° FBO et préfacture l'achat de parrainage : parrain et filleul reçoivent alors, par SMS et par email,
+                le n° FBO, la fiche cachetée et le lien de paiement. Le parrainage est validé au paiement, sans délai.
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">N° FBO attribué dans AS400</span>
+                  <input
+                    value={fboNumber}
+                    onChange={(e) => setFboNumber(e.target.value)}
+                    placeholder="225-000-123-456"
+                    className="w-56 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Référence AS400 de l'achat</span>
+                  <input
+                    value={invoice.factureReference}
+                    onChange={(e) => setInvoice((v) => ({ ...v, factureReference: e.target.value }))}
+                    className="w-44 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Montant AS400 (FCFA)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={invoice.invoiceAmountFcfa}
+                    onChange={(e) => setInvoice((v) => ({ ...v, invoiceAmountFcfa: e.target.value }))}
+                    className="w-36 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Paiement</span>
+                  <select
+                    value={invoice.paymentMode || row.purchasePaymentMode || ""}
+                    onChange={(e) => setInvoice((v) => ({ ...v, paymentMode: e.target.value }))}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>Choisir…</option>
+                    {PURCHASE_PAYMENT_MODES.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}{m.value === row.purchasePaymentMode ? " (choix du parrain)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={
+                    Boolean(busy) || underage || !canInvoice || !fboNumber.trim() || !invoice.factureReference.trim() ||
+                    !(Number(invoice.invoiceAmountFcfa) > 0) || !(invoice.paymentMode || row.purchasePaymentMode)
+                  }
+                  onClick={approve}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {busy === "approve" ? "Approbation…" : "Approuver et préfacturer"}
+                </button>
+              </div>
+              {underage ? <p className="text-sm font-semibold text-red-600">Filleul mineur : approbation impossible.</p> : null}
+              {!canInvoice ? <p className="text-sm text-amber-700">L'approbation préfacture l'achat : il faut aussi le droit de facturer.</p> : null}
             </div>
           ) : null}
           <div className="space-y-2">
@@ -367,31 +437,61 @@ export default function SponsorshipReviewPage() {
       {row.status === "APPROVED_PENDING_PURCHASE" ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900">
           <div>
-            Filleul <strong className="font-mono">{row.recruitFboNumero}</strong> (Client privilégié). Commande payée d'au moins{" "}
-            <strong>{Number(row.minPurchaseFcfa || 0).toLocaleString("fr-FR")} FCFA</strong> attendue avant le{" "}
-            <strong>{formatDate(row.purchaseDeadlineAt, true)}</strong>. Vérification automatique toutes les 5 minutes.
+            Filleul <strong className="font-mono">{row.recruitFboNumero}</strong> (Client privilégié).{" "}
+            {row.purchasePreorder ? (
+              <>
+                Achat : <Link to={`/orders/${row.purchasePreorder.id}`} className="font-semibold underline">{row.purchasePreorder.preorderNumber}</Link> ({row.purchasePreorder.status}).{" "}
+              </>
+            ) : null}
+            Validation automatique au paiement (contrôle toutes les 5 minutes), sans délai.
+            {row.purchaseDeadlineAt ? <> Ancien délai : {formatDate(row.purchaseDeadlineAt, true)}.</> : null}
           </div>
-          <button
-            type="button"
-            disabled={Boolean(busy)}
-            onClick={() => run("evaluate", () => sponsorshipsService.evaluate(row.id), "Vérification de l'achat effectuée.")}
-            className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-800"
-          >
-            Vérifier l'achat maintenant
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={() => run("evaluate", () => sponsorshipsService.evaluate(row.id), "Vérification de l'achat effectuée.")}
+              className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-800"
+            >
+              Vérifier l'achat maintenant
+            </button>
+            <input
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Motif d'annulation"
+              className="w-48 rounded-lg border border-violet-300 bg-white px-2 py-1.5 text-xs"
+            />
+            <button
+              type="button"
+              disabled={Boolean(busy) || !cancelReason.trim()}
+              onClick={() => {
+                if (!window.confirm("Annuler ce parrainage ? L'achat n'est pas payé ; la commande éventuelle reste à annuler depuis les commandes.")) return;
+                run("cancel", () => sponsorshipsService.cancel(row.id, cancelReason), "Parrainage annulé.").then(() => setCancelReason(""));
+              }}
+              className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"
+            >
+              Annuler le parrainage
+            </button>
+          </div>
         </section>
       ) : null}
 
-      {row.status === "APPROVED_PENDING_PURCHASE" && canInvoice ? (
+      {row.status === "APPROVED_PENDING_PURCHASE" && canInvoice && (!row.purchasePreorder || ["DRAFT", "CANCELLED"].includes(row.purchasePreorder.status)) ? (
         <section className="space-y-3 rounded-2xl border border-violet-200 bg-white p-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Faire l'achat maintenant (comptoir)</h2>
-            <p className="text-xs text-gray-500">Facultatif : préfacturez directement l'achat de parrainage avec la référence et le montant AS400. Sinon, le parrain le fait depuis son espace.</p>
+            <h2 className="text-sm font-semibold text-gray-900">Relancer l'achat</h2>
+            <p className="text-xs text-gray-500">
+              Aucune commande préfacturée en cours (échec à l'approbation ou commande annulée faute de paiement) : préfacturez de nouveau
+              l'achat. Parrain et filleul reçoivent un nouveau lien de paiement.
+            </p>
           </div>
           <CounterPurchasePanel sponsorship={row} onDone={load} />
         </section>
       ) : null}
 
+      {row.status === "CANCELLED" && row.cancellationReason ? (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">Motif de l'annulation : {row.cancellationReason}</div>
+      ) : null}
       {row.status === "REJECTED" && row.rejectionReason ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Motif du refus : {row.rejectionReason}</div>
       ) : null}
