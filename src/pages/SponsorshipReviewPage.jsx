@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, Printer } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
 import { SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
 import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePanel";
@@ -124,20 +124,24 @@ export default function SponsorshipReviewPage() {
     }
   };
 
-  // Fiche « Agrément de distribution » cachetée (impression / archive).
-  const openAgreement = async () => {
+  // Ouvre un PDF du parrainage dans un nouvel onglet (imprimer ou enregistrer depuis la visionneuse).
+  const openPdf = async (fetchPdf, errorMessage) => {
     const tab = window.open("", "_blank");
     try {
-      const response = await sponsorshipsService.agreementPdf(id);
+      const response = await fetchPdf(id);
       const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
       if (tab) tab.location.href = url;
       else window.location.href = url;
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch {
       if (tab) tab.close();
-      setError("Impossible d'ouvrir la fiche d'agrément.");
+      setError(errorMessage);
     }
   };
+  // Fiche « Agrément de distribution » cachetée (impression / archive).
+  const openAgreement = () => openPdf(sponsorshipsService.agreementPdf, "Impossible d'ouvrir la fiche d'agrément.");
+  // Dossier de traitement : fiche + pièce d'identité, à tout statut.
+  const openDossier = () => openPdf(sponsorshipsService.dossierPdf, "Impossible de générer le dossier.");
 
   if (!row) {
     return <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500">{error || "Chargement…"}</div>;
@@ -161,7 +165,15 @@ export default function SponsorshipReviewPage() {
             Parrainé par {row.sponsorNom} ({row.sponsorNumero}) · soumis le {formatDate(row.submittedAt, true)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={openDossier}
+            title="Fiche de parrainage et pièce d'identité dans un seul PDF, à imprimer ou enregistrer"
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800"
+          >
+            <Printer className="h-4 w-4" /> Dossier complet (PDF)
+          </button>
           {AGREEMENT_STATUSES.has(row.status) && row.recruitFboNumero ? (
             <button type="button" onClick={openAgreement} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
               <Download className="h-4 w-4" /> Fiche d'agrément (PDF)
