@@ -5,9 +5,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
 import { SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
+import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePanel";
+import useAdminAuth from "../hooks/useAdminAuth";
+import { hasPermission, Permission } from "../auth/permissions";
 
 const DOCUMENT_LABELS = { ID_FRONT: "CNI recto", ID_BACK: "CNI verso", PASSPORT: "Passeport", OTHER: "Autre pièce" };
 
@@ -71,8 +74,12 @@ function DocumentViewer({ sponsorshipId, document }) {
   );
 }
 
+const AGREEMENT_STATUSES = new Set(["APPROVED_PENDING_PURCHASE", "VALIDATED", "EXPIRED"]);
+
 export default function SponsorshipReviewPage() {
   const { id } = useParams();
+  const { role, permissions } = useAdminAuth();
+  const canInvoice = hasPermission(role, Permission.INVOICE_CREATE, permissions);
   const [row, setRow] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -109,6 +116,21 @@ export default function SponsorshipReviewPage() {
     }
   };
 
+  // Fiche « Agrément de distribution » cachetée (impression / archive).
+  const openAgreement = async () => {
+    const tab = window.open("", "_blank");
+    try {
+      const response = await sponsorshipsService.agreementPdf(id);
+      const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      if (tab) tab.close();
+      setError("Impossible d'ouvrir la fiche d'agrément.");
+    }
+  };
+
   if (!row) {
     return <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500">{error || "Chargement…"}</div>;
   }
@@ -131,7 +153,14 @@ export default function SponsorshipReviewPage() {
             Parrainé par {row.sponsorNom} ({row.sponsorNumero}) · soumis le {formatDate(row.submittedAt, true)}
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${status.style}`}>{status.label}</span>
+        <div className="flex items-center gap-2">
+          {AGREEMENT_STATUSES.has(row.status) && row.recruitFboNumero ? (
+            <button type="button" onClick={openAgreement} className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              <Download className="h-4 w-4" /> Fiche d'agrément (PDF)
+            </button>
+          ) : null}
+          <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${status.style}`}>{status.label}</span>
+        </div>
       </div>
 
       {notice ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div> : null}
@@ -330,6 +359,16 @@ export default function SponsorshipReviewPage() {
           >
             Vérifier l'achat maintenant
           </button>
+        </section>
+      ) : null}
+
+      {row.status === "APPROVED_PENDING_PURCHASE" && canInvoice ? (
+        <section className="space-y-3 rounded-2xl border border-violet-200 bg-white p-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Faire l'achat maintenant (comptoir)</h2>
+            <p className="text-xs text-gray-500">Facultatif : préfacturez directement l'achat de parrainage avec la référence et le montant AS400. Sinon, le parrain le fait depuis son espace.</p>
+          </div>
+          <CounterPurchasePanel sponsorship={row} onDone={load} />
         </section>
       ) : null}
 

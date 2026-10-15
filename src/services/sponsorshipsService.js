@@ -17,4 +17,11 @@ export const sponsorshipsService = {
     (await api.post(`/admin/sponsorships/${id}/approve`, { recruitFboNumero })).data,
 
   evaluate: async (id) => (await api.post(`/admin/sponsorships/${id}/evaluate`)).data,
+
+  agreementPdf: async (id) => api.get(`/admin/sponsorships/${id}/agreement.pdf`, { responseType: "blob" }),
+
+  catalog: async (id) => (await api.get(`/admin/sponsorships/${id}/catalog`)).data,
+
+  // { items?, paymentMode, deliveryMode, factureReference, invoiceAmountFcfa, note? }
+  counterPurchase: async (id, body) => (await api.post(`/admin/sponsorships/${id}/counter-purchase`, body)).data,
 };
