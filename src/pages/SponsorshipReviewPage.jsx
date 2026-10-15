@@ -12,6 +12,14 @@ import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePane
 import useAdminAuth from "../hooks/useAdminAuth";
 import { hasPermission, Permission } from "../auth/permissions";
 
+const ID_DOCUMENT_LABELS = {
+  CNI: "CNI",
+  PASSPORT: "Passeport",
+  DRIVING_LICENSE: "Permis de conduire",
+  CONSULAR_CARD: "Carte consulaire",
+  OTHER: "Autre pièce officielle",
+};
+
 const DOCUMENT_LABELS = { ID_FRONT: "CNI recto", ID_BACK: "CNI verso", PASSPORT: "Passeport", OTHER: "Autre pièce" };
 
 function formatDate(value, withTime = false) {
@@ -168,11 +176,11 @@ export default function SponsorshipReviewPage() {
 
       {row.duplicates?.length ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <div className="font-semibold">Doublon possible : même pièce ou même mobile sur un autre parrainage</div>
+          <div className="font-semibold">Doublon possible : même pièce, même mobile ou même email sur un autre parrainage</div>
           <ul className="mt-1 list-disc pl-5">
             {row.duplicates.map((d) => (
               <li key={d.id}>
-                <Link to={`/sponsorships/${d.id}`} className="underline">{d.lastName} {d.firstNames}</Link> · {SPONSORSHIP_STATUS[d.status]?.label || d.status} · CNI {d.idDocumentNumber} · {d.mobile}
+                <Link to={`/sponsorships/${d.id}`} className="underline">{d.lastName} {d.firstNames}</Link> · {SPONSORSHIP_STATUS[d.status]?.label || d.status} · pièce {d.idDocumentNumber} · {d.mobile} · {d.email}
               </li>
             ))}
           </ul>
@@ -196,8 +204,8 @@ export default function SponsorshipReviewPage() {
                 }
               />
               <Row label="Lieu de naissance" value={row.birthPlace} />
-              <Row label="N° CNI" value={row.idDocumentNumber} />
-              <Row label="N° passeport" value={row.passportNumber} />
+              <Row label="Pièce d'identité" value={`${ID_DOCUMENT_LABELS[row.idDocumentType] || "CNI"} n° ${row.idDocumentNumber}`} />
+              {row.passportNumber ? <Row label="N° passeport" value={row.passportNumber} /> : null}
               <Row label="Mobile" value={row.mobile} />
               <Row label="Email" value={row.email} />
               <Row label="Adresse" value={[row.addressArea, row.city, row.postalBox && `BP ${row.postalBox}`, row.homeCountry].filter(Boolean).join(", ")} />
