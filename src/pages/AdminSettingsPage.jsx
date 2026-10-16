@@ -478,6 +478,8 @@ export default function AdminSettingsPage() {
     publicAnnouncementEnabled: "commercial.publicAnnouncementEnabled",
     publicAnnouncementMessage: "commercial.publicAnnouncementMessage",
     closedOnSaturday: "commercial.closedOnSaturday",
+    sponsorshipEnabled: "commercial.sponsorshipEnabled",
+    sponsorshipMinPurchaseFcfa: "commercial.sponsorshipMinPurchaseFcfa",
     supportPhone: "countries.supportPhone",
     pickupAddress: "countries.pickupAddress",
     defaultPointDeVente: "countries.defaultPointDeVente",
@@ -1969,6 +1971,45 @@ export default function AdminSettingsPage() {
                                 : "gold"
                             }
                           />
+                        </div>
+
+                        {/* Parrainage en ligne : ouverture et achat minimum. */}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <ToggleCard
+                            label="Parrainage en ligne"
+                            hint="Ouvre le parrainage sur le site (accueil, menu, Mon espace). Désactivé : les accès sont masqués et aucun nouveau parrainage n'est accepté ; les parrainages en cours continuent."
+                            checked={settings.commercial.sponsorshipEnabled}
+                            settingKey="commercial.sponsorshipEnabled"
+                            onChange={(checked) =>
+                              setSettings((prev) => ({
+                                ...prev,
+                                commercial: {
+                                  ...prev.commercial,
+                                  sponsorshipEnabled: checked,
+                                },
+                              }))
+                            }
+                          />
+                          <Field
+                            label="Achat minimum de parrainage (FCFA)"
+                            hint="Montant AS400 minimal de l'achat qui valide le parrainage (hors livraison et emballage)."
+                          >
+                            <TextInput
+                              type="number"
+                              min="0"
+                              value={settings.commercial.sponsorshipMinPurchaseFcfa}
+                              data-setting-key="commercial.sponsorshipMinPurchaseFcfa"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    sponsorshipMinPurchaseFcfa: Number(e.target.value || 0),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
                         </div>
 
                         {!settings.commercial.preorderSubmissionEnabled && (

@@ -10,6 +10,8 @@ const LABELS = {
   publicAnnouncementEnabled: "Annonce publique",
   publicAnnouncementMessage: "Texte de l’annonce",
   closedOnSaturday: "Fermeture le samedi",
+  sponsorshipEnabled: "Parrainage en ligne",
+  sponsorshipMinPurchaseFcfa: "Achat minimum de parrainage",
   supportPhone: "Téléphone d’assistance",
   pickupAddress: "Adresse de retrait",
   defaultPointDeVente: "Point de vente",
