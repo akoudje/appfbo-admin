@@ -247,9 +247,8 @@ export default function SponsorshipReviewPage() {
               {row.passportNumber ? <Row label="N° passeport" value={row.passportNumber} /> : null}
               <Row label="Mobile" value={row.mobile} />
               <Row label="Email" value={row.email} />
-              <Row label="Adresse" value={[row.addressArea, row.city, row.postalBox && `BP ${row.postalBox}`, row.homeCountry].filter(Boolean).join(", ")} />
-              <Row label="Situation de famille" value={[row.maritalStatus, row.childrenCount != null ? `${row.childrenCount} enfant(s)` : null].filter(Boolean).join(" · ")} />
-              <Row label="N° RIB" value={row.bankRib} />
+              <Row label="Adresse" value={[row.addressArea, row.city, row.homeCountry].filter(Boolean).join(", ")} />
+              <Row label="Situation de famille" value={row.maritalStatus} />
             </dl>
           </section>
 
@@ -259,17 +258,6 @@ export default function SponsorshipReviewPage() {
               <dl>
                 <Row label="Nom et prénoms" value={`${row.spouseLastName || ""} ${row.spouseFirstNames || ""}`.trim()} />
                 <Row label="Naissance" value={[row.spouseBirthDate && formatDate(row.spouseBirthDate), row.spouseBirthPlace].filter(Boolean).join(" à ")} />
-              </dl>
-            </section>
-          ) : null}
-
-          {row.tradeRegisterNumber || row.profession ? (
-            <section className="rounded-2xl border border-gray-200 bg-white p-4">
-              <h2 className="mb-2 text-sm font-semibold text-gray-900">Activité commerciale</h2>
-              <dl>
-                <Row label="Profession / secteur" value={[row.profession, row.businessSector].filter(Boolean).join(" · ")} />
-                <Row label="Registre de commerce" value={[row.tradeRegisterNumber, row.tradeRegisterDate && formatDate(row.tradeRegisterDate), row.tradeRegisterPlace].filter(Boolean).join(" · ")} />
-                <Row label="TVA / ASDI" value={`${row.vatSubject == null ? "—" : row.vatSubject ? "Soumis" : "Non soumis"} / ${row.asdiSubject == null ? "—" : row.asdiSubject ? "Soumis" : "Non soumis"}`} />
               </dl>
             </section>
           ) : null}
