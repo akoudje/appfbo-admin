@@ -1,12 +1,11 @@
+import { DEFAULT_SETTINGS, createSmsCampaign } from "../services/marketingCampaignDefaults";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { marketingCampaignsService } from "../services/marketingCampaignsService";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
 import { useConfirm } from "../hooks/useDialogs";
 import {
-  DEFAULT_SETTINGS,
   SmsCampaignWorkspace,
-  createSmsCampaign,
 } from "./MarketingCampaignsPage";
 
 // Imports des icônes Lucide React
@@ -28,32 +27,6 @@ import {
   X,
 } from "lucide-react";
 
-// Alias des icônes pour la compatibilité
-const MessageIcon = MessageCircle;
-const CampaignIcon = Target;
-const UsersIcon = Users;
-const CheckCircleIcon = CheckCircle;
-const SendIcon = Send;
-const AlertCircleIcon = AlertCircle;
-const ThumbsUpIcon = ThumbsUp;
-const ClockIcon = Clock;
-const PlusIcon = Plus;
-const GridIcon = Grid3X3;
-const ListIcon = List;
-const SearchIcon = Search;
-const AlertTriangleIcon = AlertTriangle;
-const InfoIcon = Info;
-const XIcon = X;
-
-// Types et constantes
-const STATUS_DEFINITIONS = {
-  SENT: { label: "Envoyé", color: "bg-green-100 text-green-800" },
-  FAILED: { label: "Échec", color: "bg-red-100 text-red-800" },
-  CONFIRMED: { label: "Confirmé", color: "bg-blue-100 text-blue-800" },
-  SKIPPED: { label: "Ignoré", color: "bg-gray-100 text-gray-800" },
-  PENDING: { label: "En attente", color: "bg-yellow-100 text-yellow-800" },
-};
-
 function getCampaignStats(campaign = {}) {
   const recipients = Array.isArray(campaign.recipients) ? campaign.recipients : [];
   return recipients.reduce(
@@ -64,9 +37,10 @@ function getCampaignStats(campaign = {}) {
       if (status === "SENT") acc.sent += 1;
       if (status === "FAILED") acc.failed += 1;
       if (status === "CONFIRMED") acc.confirmed += 1;
+      if (recipient.phoneNormalized && ["READY", "PENDING", "FAILED"].includes(status)) acc.eligible += 1;
       return acc;
     },
-    { total: 0, valid: 0, sent: 0, failed: 0, confirmed: 0 },
+    { total: 0, valid: 0, sent: 0, failed: 0, confirmed: 0, eligible: 0 },
   );
 }
 
@@ -75,7 +49,7 @@ function useCampaignStats(campaigns = []) {
   return useMemo(() => {
     const stats = campaigns.reduce(
       (acc, campaign) => {
-        acc.campaigns += 1;
+
         const recipients = campaign.recipients || [];
         
         const statusCounts = recipients.reduce((statusAcc, recipient) => {
@@ -89,7 +63,7 @@ function useCampaignStats(campaigns = []) {
             sent: statusAcc.sent + (status === "SENT" ? 1 : 0),
             failed: statusAcc.failed + (status === "FAILED" ? 1 : 0),
             confirmed: statusAcc.confirmed + (status === "CONFIRMED" ? 1 : 0),
-            pending: statusAcc.pending + (status === "PENDING" ? 1 : 0),
+            pending: statusAcc.pending + ((["PENDING", "READY"].includes(status) && isValid) ? 1 : 0),
           };
         }, { contacts: 0, valid: 0, sent: 0, failed: 0, confirmed: 0, pending: 0 });
         
@@ -111,7 +85,7 @@ function useCampaignStats(campaigns = []) {
       ...stats,
       deliveryRate: stats.valid > 0 ? ((stats.sent + stats.confirmed) / stats.valid * 100).toFixed(1) : 0,
       failureRate: stats.valid > 0 ? (stats.failed / stats.valid * 100).toFixed(1) : 0,
-      responseRate: stats.sent > 0 ? (stats.confirmed / stats.sent * 100).toFixed(1) : 0,
+      responseRate: (stats.sent + stats.confirmed) > 0 ? (stats.confirmed / (stats.sent + stats.confirmed) * 100).toFixed(1) : 0,
     };
   }, [campaigns]);
 }
@@ -127,7 +101,7 @@ function MetricCard({ label, value, subValue, icon, trend }) {
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
             {label}
           </p>
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-3xl font-bold text-gray-900">
               {typeof value === 'number' ? value.toLocaleString() : value}
             </span>
@@ -242,7 +216,7 @@ export default function SmsCampaignsPage() {
   const [sortBy, setSortBy] = useState("date");
   const [viewMode, setViewMode] = useState("grid");
 
-  const smsCampaigns = settings.smsCampaigns || [];
+  const smsCampaigns = useMemo(() => settings.smsCampaigns || [], [settings.smsCampaigns]);
   const stats = useCampaignStats(smsCampaigns);
   
   // Filtrage et tri des campagnes
@@ -370,7 +344,7 @@ export default function SmsCampaignsPage() {
       recipients: (campaign.recipients || []).map((recipient, index) => ({
         ...recipient,
         id: `recipient-${Date.now()}-${index + 1}`,
-        status: recipient.phoneNormalized ? "READY" : "INVALID",
+        status: recipient.status === "SKIPPED" ? "SKIPPED" : recipient.phoneNormalized ? "READY" : "INVALID",
         providerMessageId: "",
         lastError: recipient.phoneNormalized ? "" : recipient.lastError || "",
         sentAt: null,
@@ -401,7 +375,8 @@ export default function SmsCampaignsPage() {
         phone: campaign.testPhone,
       });
       if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
-      setInfo(response?.ok ? "SMS de test envoyé." : "Test SMS traité avec erreur provider.");
+      if (response?.ok) setInfo("SMS de test envoyé.");
+      else setError("Le fournisseur a refusé le SMS de test. Vérifiez le numéro et la configuration SMS.");
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible d'envoyer le SMS de test.");
     } finally {
@@ -414,7 +389,7 @@ export default function SmsCampaignsPage() {
     const confirmed = await confirm({
       tone: "warning",
       title: "Envoyer la campagne SMS",
-      message: `Envoyer cette campagne SMS à ${stats.valid} destinataires valides ?`,
+      message: `Envoyer cette campagne SMS à ${stats.eligible} destinataires restants ?`,
       confirmLabel: "Envoyer",
     });
     if (!confirmed) return;
@@ -498,6 +473,27 @@ export default function SmsCampaignsPage() {
     load();
   }, []);
 
+  const sendingIds = smsCampaigns.filter((campaign) => campaign.status === "SENDING").map((campaign) => campaign.id).sort().join(",");
+  useEffect(() => {
+    if (!sendingIds) return;
+    let cancelled = false;
+    let timer;
+    const ids = new Set(sendingIds.split(","));
+    async function poll() {
+      try {
+        const data = await marketingCampaignsService.get();
+        if (cancelled) return;
+        const updates = new Map((data?.smsCampaigns || []).filter((campaign) => ids.has(campaign.id)).map((campaign) => [campaign.id, campaign]));
+        setSettings((previous) => ({ ...previous, smsCampaigns: previous.smsCampaigns.map((campaign) => updates.get(campaign.id) || campaign) }));
+      } catch {
+        if (!cancelled) setError("Actualisation du suivi indisponible. Nouvelle tentative automatique.");
+      }
+      if (!cancelled) timer = setTimeout(poll, 5000);
+    }
+    timer = setTimeout(poll, 5000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [sendingIds]);
+
   useEffect(() => {
     if (info || error) {
       const timer = setTimeout(() => {
@@ -532,7 +528,7 @@ export default function SmsCampaignsPage() {
         </div>
 
         {/* Statistiques */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
           <MetricCard
             label="Campagnes"
             value={stats.campaigns}
@@ -547,7 +543,7 @@ export default function SmsCampaignsPage() {
           <MetricCard
             label="Valides"
             value={stats.valid}
-            subValue={`${stats.deliveryRate}% livrés`}
+            subValue={`${stats.deliveryRate}% envoyés`}
             icon={<CheckCircle className="w-5 h-5 text-gray-400" />}
           />
           <MetricCard
@@ -575,8 +571,8 @@ export default function SmsCampaignsPage() {
         </div>
 
         {/* Notifications */}
-        <AnimatedNotification type="success" message={info} isVisible={!!info} />
-        <AnimatedNotification type="error" message={error} isVisible={!!error} />
+        <AnimatedNotification type="success" message={info} isVisible={!!info} onClose={() => setInfo("")} />
+        <AnimatedNotification type="error" message={error} isVisible={!!error} onClose={() => setError("")} />
         
         {/* Barre d'actions et filtres */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -587,14 +583,14 @@ export default function SmsCampaignsPage() {
                 <input
                   type="text"
                   placeholder="Rechercher une campagne..."
-                  value={searchQuery}
+                  aria-label="Rechercher une campagne" value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#FFC600] focus:border-transparent"
                 />
               </div>
               
               <select
-                value={statusFilter}
+                aria-label="Filtrer par statut" value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#FFC600]"
               >
@@ -607,7 +603,7 @@ export default function SmsCampaignsPage() {
               </select>
               
               <select
-                value={sortBy}
+                aria-label="Trier les campagnes" value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#FFC600]"
               >
@@ -620,13 +616,13 @@ export default function SmsCampaignsPage() {
             <div className="flex gap-2">
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => setViewMode("grid")}
+                  aria-label="Vue en grille" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}
                   className={`p-1.5 rounded ${viewMode === "grid" ? "bg-white shadow" : ""}`}
                 >
                   <Grid3X3 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setViewMode("list")}
+                  aria-label="Vue en liste" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}
                   className={`p-1.5 rounded ${viewMode === "list" ? "bg-white shadow" : ""}`}
                 >
                   <List className="w-4 h-4" />
@@ -635,6 +631,7 @@ export default function SmsCampaignsPage() {
               
               {canWrite && (
                 <button
+                  disabled={loading || saving || sendingSms}
                   onClick={handleCreateSmsCampaign}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFC600] text-black font-semibold rounded-lg hover:bg-[#e6b200] transition-all hover:shadow-lg"
                 >
@@ -650,7 +647,7 @@ export default function SmsCampaignsPage() {
             </span>
             {["DRAFT", "SENDING", "SENT", "PARTIAL", "FAILED"].map((status) => (
               <span key={status} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-gray-600">
-                {status}: {campaignStatusCounts[status] || 0}
+                {({ DRAFT: "Brouillon", SENDING: "En cours", SENT: "Envoyée", PARTIAL: "Partielle", FAILED: "Échec" })[status]} : {campaignStatusCounts[status] || 0}
               </span>
             ))}
             {hasActiveCampaignFilters ? (
@@ -676,6 +673,11 @@ export default function SmsCampaignsPage() {
           <LoadingSkeleton />
         ) : smsCampaigns.length === 0 ? (
           <EmptyState onCreateCampaign={handleCreateSmsCampaign} canWrite={canWrite} />
+        ) : filteredCampaigns.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center">
+            <h2 className="text-lg font-semibold">Aucune campagne ne correspond aux filtres</h2>
+            <button type="button" onClick={resetCampaignFilters} className="mt-4 rounded-lg bg-[#FFC600] px-4 py-2 font-medium">Effacer les filtres</button>
+          </div>
         ) : (
           <SmsCampaignWorkspace
             campaigns={filteredCampaigns}
@@ -689,7 +691,7 @@ export default function SmsCampaignsPage() {
             onResendFailed={handleResendFailedSms}
             onDuplicateCampaign={handleDuplicateSmsCampaign}
             onDeleteCampaign={handleDeleteSmsCampaign}
-            canWrite={canWrite}
+            canWrite={canWrite && !saving && !sendingSms}
             saving={saving}
             sending={sendingSms}
             viewMode={viewMode}
@@ -712,7 +714,7 @@ export default function SmsCampaignsPage() {
 }
 
 // Composants d'interface supplémentaires
-function AnimatedNotification({ type, message, isVisible }) {
+function AnimatedNotification({ type, message, isVisible, onClose }) {
   if (!isVisible || !message) return null;
   
   return (
@@ -734,7 +736,7 @@ function AnimatedNotification({ type, message, isVisible }) {
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
         )}
         <p className="text-sm font-medium flex-1">{message}</p>
-        <button className="text-current opacity-50 hover:opacity-100">
+        <button type="button" aria-label="Fermer la notification" onClick={onClose} className="text-current opacity-50 hover:opacity-100">
           <X className="w-4 h-4" />
         </button>
       </div>
