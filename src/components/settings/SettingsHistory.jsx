@@ -35,7 +35,7 @@ const LABELS = {
   themeSecondaryColor: "Couleur secondaire",
   themeDarkColor: "Couleur sombre",
   themeLogoPath: "Logo",
-  themeSliderEnabled: "Slider du catalogue",
+  themeSliderEnabled: "Slider de la page d’accueil",
   themeSidePanelsEnabled: "Panneaux du catalogue",
   notificationTemplates: "Modèles de messages",
   fboHelpTopics: "Rubriques d’aide FBO",

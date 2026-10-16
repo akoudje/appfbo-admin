@@ -2516,7 +2516,7 @@ export default function AdminSettingsPage() {
                         <div className="grid gap-3 sm:grid-cols-2">
                           <ToggleCard
                             label="Slider actif"
-                            hint="Affiche le slider marketing du catalogue"
+                            hint="Affiche le slider marketing sur la page d’accueil"
                             checked={settings.theme.sliderEnabled}
                             settingKey="theme.sliderEnabled"
                             onChange={(checked) =>

@@ -3,6 +3,60 @@ import { useEffect, useMemo, useState } from "react";
 import { marketingCampaignsService } from "../services/marketingCampaignsService";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
+import { useConfirm } from "../hooks/useDialogs";
+import HomeFeaturedEditor from "../components/marketing/HomeFeaturedEditor";
+
+export const DEFAULT_SETTINGS = {
+  slides: [
+    {
+      id: "slide-1",
+      title: "Slide 1",
+      image: "/Slide1.webp",
+      link: "",
+      active: true,
+      note: "Slide principal du catalogue FBO.",
+    },
+    {
+      id: "slide-2",
+      title: "Slide 2",
+      image: "/Slide2.webp",
+      link: "",
+      active: true,
+      note: "Slide secondaire du catalogue FBO.",
+    },
+    {
+      id: "slide-3",
+      title: "Slide 3",
+      image: "/Slide3.webp",
+      link: "",
+      active: true,
+      note: "Slide tertiaire du catalogue FBO.",
+    },
+  ],
+  sidePanels: {
+    left: {
+      title: "Panneau gauche",
+      image: "",
+      link: "",
+      active: false,
+      note: "Zone desktop pour future campagne.",
+    },
+    right: {
+      title: "Panneau droit",
+      image: "",
+      link: "",
+      active: false,
+      note: "Zone desktop pour future campagne.",
+    },
+  },
+  publishing: {
+    frontendTarget: "frontend",
+    environment: "preview",
+    lastUpdatedBy: "",
+    releaseNote: "",
+  },
+  smsCampaigns: [],
+};
 
 function Card({ title, description, actions, children }) {
   return (
@@ -571,7 +625,7 @@ function SlideEditor({ slide, onChange, disabled = false, onUploadError }) {
             <div>
               <div className="text-sm font-medium text-[#000000]">Slide actif</div>
               <div className="text-xs text-[#8d7a5c]">
-                Visible dans le slider du catalogue frontend.
+                Visible dans le slider de la page d’accueil.
               </div>
             </div>
           </label>
@@ -1492,7 +1546,7 @@ export default function MarketingCampaignsPage() {
       </header>
       <Card
         title="Visuels marketing"
-        description="Gère ici les visuels promotionnels du frontend utilisateur: slider catalogue, panneaux latéraux desktop et préparation de publication."
+        description="Gère ici les visuels promotionnels du frontend utilisateur : slider de la page d’accueil, panneaux latéraux du catalogue (desktop) et préparation de publication."
         actions={
           <div className="flex items-center gap-3">
             {info ? (
@@ -1580,7 +1634,7 @@ export default function MarketingCampaignsPage() {
 
       <Card
         title="Slides frontend"
-        description="Prépare les 3 visuels principaux affichés dans le catalogue utilisateur."
+        description="Prépare les 3 visuels principaux affichés en haut de la page d’accueil (format bandeau 1248 × 357)."
       >
         <div className="space-y-4">
           {settings.slides.map((slide, index) => (
@@ -1599,6 +1653,13 @@ export default function MarketingCampaignsPage() {
             />
           ))}
         </div>
+      </Card>
+
+      <Card
+        title="Sélection produits (page d’accueil)"
+        description="Choisissez les produits mis en avant sur la page d’accueil, ou masquez la section. Enregistrement immédiat, sans publication."
+      >
+        <HomeFeaturedEditor canWrite={canWrite} />
       </Card>
 
       <Card
