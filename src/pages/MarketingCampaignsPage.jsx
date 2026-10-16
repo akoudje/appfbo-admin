@@ -3,60 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { marketingCampaignsService } from "../services/marketingCampaignsService";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
-import { useConfirm } from "../hooks/useDialogs";
 import HomeFeaturedEditor from "../components/marketing/HomeFeaturedEditor";
-
-export const DEFAULT_SETTINGS = {
-  slides: [
-    {
-      id: "slide-1",
-      title: "Slide 1",
-      image: "/Slide1.webp",
-      link: "",
-      active: true,
-      note: "Slide principal du catalogue FBO.",
-    },
-    {
-      id: "slide-2",
-      title: "Slide 2",
-      image: "/Slide2.webp",
-      link: "",
-      active: true,
-      note: "Slide secondaire du catalogue FBO.",
-    },
-    {
-      id: "slide-3",
-      title: "Slide 3",
-      image: "/Slide3.webp",
-      link: "",
-      active: true,
-      note: "Slide tertiaire du catalogue FBO.",
-    },
-  ],
-  sidePanels: {
-    left: {
-      title: "Panneau gauche",
-      image: "",
-      link: "",
-      active: false,
-      note: "Zone desktop pour future campagne.",
-    },
-    right: {
-      title: "Panneau droit",
-      image: "",
-      link: "",
-      active: false,
-      note: "Zone desktop pour future campagne.",
-    },
-  },
-  publishing: {
-    frontendTarget: "frontend",
-    environment: "preview",
-    lastUpdatedBy: "",
-    releaseNote: "",
-  },
-  smsCampaigns: [],
-};
 
 function Card({ title, description, actions, children }) {
   return (
