@@ -13,6 +13,7 @@ function validateCountrySettings(patch, existing = {}) {
     preinvoicedAutoReminderAfterHours: [1, 719],
     preinvoicedAutoCancelAfterMinutes: [1, 43200],
     preinvoicedAutoReminderAfterMinutes: [1, 43199],
+    sponsorshipMinPurchaseFcfa: [0, 100000000],
   };
   for (const [key, [min, max]] of Object.entries(numbers))
     if (
@@ -27,6 +28,7 @@ function validateCountrySettings(patch, existing = {}) {
     "preorderSubmissionEnabled",
     "publicAnnouncementEnabled",
     "closedOnSaturday",
+    "sponsorshipEnabled",
     "enableWave",
     "enableOrangeMoney",
     "enableCash",

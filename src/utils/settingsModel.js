@@ -45,6 +45,8 @@ export const DEFAULT_SETTINGS = {
     publicAnnouncementEnabled: false,
     publicAnnouncementMessage: "",
     closedOnSaturday: false,
+    sponsorshipEnabled: false,
+    sponsorshipMinPurchaseFcfa: 53000,
     currencyLabel: "FCFA",
     pricingDisclaimer:
       "Les prix affichés sont indicatifs. Le montant final est confirmé par le facturier à partir de l'AS400.",
@@ -260,6 +262,10 @@ export function settingsFromApi(data = {}) {
         prev.commercial.publicAnnouncementMessage,
       closedOnSaturday:
         data.closedOnSaturday ?? prev.commercial.closedOnSaturday,
+      sponsorshipEnabled:
+        data.sponsorshipEnabled ?? prev.commercial.sponsorshipEnabled,
+      sponsorshipMinPurchaseFcfa:
+        data.sponsorshipMinPurchaseFcfa ?? prev.commercial.sponsorshipMinPurchaseFcfa,
       currencyLabel: data.currencyLabel ?? prev.commercial.currencyLabel,
       pricingDisclaimer:
         data.pricingDisclaimer ?? prev.commercial.pricingDisclaimer,
@@ -312,6 +318,8 @@ export function settingsToApi(settings) {
     publicAnnouncementEnabled: settings.commercial.publicAnnouncementEnabled,
     publicAnnouncementMessage: settings.commercial.publicAnnouncementMessage,
     closedOnSaturday: settings.commercial.closedOnSaturday,
+    sponsorshipEnabled: settings.commercial.sponsorshipEnabled,
+    sponsorshipMinPurchaseFcfa: settings.commercial.sponsorshipMinPurchaseFcfa,
     supportPhone: settings.countries.supportPhone,
     pickupAddress: settings.countries.pickupAddress,
     defaultPointDeVente: settings.countries.defaultPointDeVente,
