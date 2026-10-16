@@ -1,65 +1,13 @@
+import { DEFAULT_SETTINGS } from "../services/marketingCampaignDefaults";
 import { useEffect, useMemo, useState } from "react";
 import { marketingCampaignsService } from "../services/marketingCampaignsService";
 import { Permission } from "../auth/permissions";
 import { usePermission } from "../hooks/usePermission";
-import { useConfirm } from "../hooks/useDialogs";
 import HomeFeaturedEditor from "../components/marketing/HomeFeaturedEditor";
-
-export const DEFAULT_SETTINGS = {
-  slides: [
-    {
-      id: "slide-1",
-      title: "Slide 1",
-      image: "/Slide1.webp",
-      link: "",
-      active: true,
-      note: "Slide principal du catalogue FBO.",
-    },
-    {
-      id: "slide-2",
-      title: "Slide 2",
-      image: "/Slide2.webp",
-      link: "",
-      active: true,
-      note: "Slide secondaire du catalogue FBO.",
-    },
-    {
-      id: "slide-3",
-      title: "Slide 3",
-      image: "/Slide3.webp",
-      link: "",
-      active: true,
-      note: "Slide tertiaire du catalogue FBO.",
-    },
-  ],
-  sidePanels: {
-    left: {
-      title: "Panneau gauche",
-      image: "",
-      link: "",
-      active: false,
-      note: "Zone desktop pour future campagne.",
-    },
-    right: {
-      title: "Panneau droit",
-      image: "",
-      link: "",
-      active: false,
-      note: "Zone desktop pour future campagne.",
-    },
-  },
-  publishing: {
-    frontendTarget: "frontend",
-    environment: "preview",
-    lastUpdatedBy: "",
-    releaseNote: "",
-  },
-  smsCampaigns: [],
-};
 
 function Card({ title, description, actions, children }) {
   return (
-    <section className="border border-[#e7dec8] bg-white shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-[#e7dec8] bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#efe7d7] px-6 py-5">
         <div>
           <h2 className="text-lg font-semibold text-[#000000]">{title}</h2>
@@ -88,7 +36,7 @@ function TextInput(props) {
   return (
     <input
       {...props}
-      className={`w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20 ${
+      className={`w-full rounded-lg border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20 ${
         props.disabled ? "cursor-not-allowed bg-[#f6f2e8] text-[#8d7a5c]" : ""
       }`}
     />
@@ -99,7 +47,7 @@ function TextArea(props) {
   return (
     <textarea
       {...props}
-      className={`w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20 ${
+      className={`w-full rounded-lg border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20 ${
         props.disabled ? "cursor-not-allowed bg-[#f6f2e8] text-[#8d7a5c]" : ""
       }`}
     />
@@ -118,28 +66,6 @@ function StatusBadge({ active }) {
       {active ? "Actif" : "Inactif"}
     </span>
   );
-}
-
-export function createSmsCampaign() {
-  const now = new Date().toISOString();
-  return {
-    id: `sms-${Date.now()}`,
-    name: "Invitation événement",
-    type: "EVENT_INVITATION",
-    eventName: "",
-    eventDate: "",
-    location: "",
-    confirmationLink: "",
-    message:
-      "FOREVER: Bonjour {{nom}}, invitation {{eventDate}} a {{location}}.",
-    status: "DRAFT",
-    testPhone: "",
-    recipients: [],
-    createdAt: now,
-    updatedAt: now,
-    lastSentAt: null,
-    lastTestAt: null,
-  };
 }
 
 function normalizePhoneForUi(value = "") {
@@ -163,7 +89,7 @@ function parseRecipients(rawText = "") {
 
   return rows.map((row, index) => {
     const parts = row.split(/[;\t,]/).map((part) => part.trim());
-    const phoneCandidate = parts.find((part) => /\d{6,}/.test(part)) || row;
+    const phoneCandidate = parts.find((part) => normalizePhoneForUi(part)) || parts.find((part) => /\d{6,}/.test(part)) || row;
     const phoneNormalized = normalizePhoneForUi(phoneCandidate);
     const duplicateKey = phoneNormalized.replace(/\D/g, "");
     const isDuplicate = duplicateKey && seen.has(duplicateKey);
@@ -228,7 +154,7 @@ function StatusPill({ status }) {
   const normalized = String(status || "DRAFT").toUpperCase();
   return (
     <span className={`inline-flex border px-2 py-0.5 text-[11px] font-semibold ${statusTone(normalized)}`}>
-      {normalized}
+      {({ DRAFT: "Brouillon", READY: "Prêt", SENDING: "En cours", SENT: "Envoyé", PARTIAL: "Partiel", FAILED: "Échec", INVALID: "Invalide", SKIPPED: "Ignoré", CONFIRMED: "Confirmé", DECLINED: "Indisponible", PENDING: "En attente", CANCELLED: "Annulé" })[normalized] || normalized}
     </span>
   );
 }
@@ -247,6 +173,9 @@ function renderSmsPreview(campaign = {}) {
   return rendered
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -792,9 +721,11 @@ export function SmsCampaignWorkspace({
   const [recipientStatusFilter, setRecipientStatusFilter] = useState("ALL");
   const stats = getSmsStats(selectedCampaign || {});
   const preview = renderSmsPreview(selectedCampaign || {});
-  const smsTooLong = preview.length > 160;
+  const longestPreview = Math.max(preview.length, ...(selectedCampaign?.recipients || []).filter((recipient) => recipient.phoneNormalized && recipient.status !== "SKIPPED").map((recipient) => renderSmsPreview({ ...selectedCampaign, recipients: [recipient] }).length));
+  const smsTooLong = longestPreview > 160;
   const isCampaignSending = String(selectedCampaign?.status || "").toUpperCase() === "SENDING";
-  const sentProgress = stats.valid > 0 ? Math.round((stats.sent / stats.valid) * 100) : 0;
+  const canEdit = canWrite && !isCampaignSending && !saving && !sending;
+  const sentProgress = getCampaignSuccessRate(stats);
   const readinessChecks = [
     {
       key: "event",
@@ -817,7 +748,7 @@ export function SmsCampaignWorkspace({
       key: "message",
       label: "Message prêt",
       ok: Boolean(String(selectedCampaign?.message || "").trim()) && preview.length > 0 && !smsTooLong,
-      detail: `${preview.length}/160 caractères après remplacement.`,
+      detail: `${longestPreview}/160 caractères au maximum après personnalisation.`,
       step: "MESSAGE",
     },
     {
@@ -831,6 +762,7 @@ export function SmsCampaignWorkspace({
     },
   ];
   const canSendCampaign = readinessChecks.every((check) => check.ok);
+  const eligibleRecipients = (selectedCampaign?.recipients || []).filter((recipient) => recipient.phoneNormalized && !["SENT", "CONFIRMED", "DECLINED", "INVALID", "SKIPPED"].includes(String(recipient.status || "").toUpperCase())).length;
   const workflowSteps = [
     { id: "CONFIG", label: "Configuration", detail: selectedCampaign?.eventDate || "Événement" },
     { id: "RECIPIENTS", label: "Destinataires", detail: `${stats.valid}/${stats.total} valides` },
@@ -871,10 +803,11 @@ export function SmsCampaignWorkspace({
   });
 
   function patchCampaign(patch) {
-    if (!selectedCampaign) return;
+    if (!selectedCampaign || !canEdit) return;
     onUpdateCampaign({
       ...selectedCampaign,
       ...patch,
+      ...(["message", "eventName", "eventDate", "location", "confirmationLink", "recipients"].some((key) => Object.hasOwn(patch, key)) ? { lastTestAt: null } : {}),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -917,7 +850,7 @@ export function SmsCampaignWorkspace({
         <button
           type="button"
           onClick={onCreateCampaign}
-          disabled={!canWrite}
+          disabled={!canEdit}
           className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
         >
           Nouvelle campagne SMS
@@ -935,7 +868,7 @@ export function SmsCampaignWorkspace({
           <button
             type="button"
             onClick={onCreateCampaign}
-            disabled={!canWrite}
+            disabled={!canEdit}
             className="bg-[#FFC600] px-3 py-2 text-xs font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
           >
             Nouvelle
@@ -1033,7 +966,7 @@ export function SmsCampaignWorkspace({
                           <button
                             type="button"
                             onClick={() => onDuplicateCampaign(campaign)}
-                            disabled={!canWrite}
+                            disabled={!canEdit}
                             className="border border-[#e7dec8] bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-[#fcfbf7] disabled:opacity-50"
                           >
                             Dupliquer
@@ -1108,7 +1041,7 @@ export function SmsCampaignWorkspace({
               <button
                 type="button"
                 onClick={onSave}
-                disabled={!canWrite || saving || isCampaignSending}
+                disabled={!canEdit || saving || isCampaignSending}
                 className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
               >
                 {saving ? "Enregistrement..." : "Enregistrer"}
@@ -1120,14 +1053,14 @@ export function SmsCampaignWorkspace({
                 <TextInput
                   value={selectedCampaign.name || ""}
                   onChange={(e) => patchCampaign({ name: e.target.value })}
-                  disabled={!canWrite}
+                  disabled={!canEdit}
                 />
               </Field>
               <Field label="Nom de l'événement">
                 <TextInput
                   value={selectedCampaign.eventName || ""}
                   onChange={(e) => patchCampaign({ eventName: e.target.value })}
-                  disabled={!canWrite}
+                  disabled={!canEdit}
                 />
               </Field>
               <Field label="Date / heure">
@@ -1135,14 +1068,14 @@ export function SmsCampaignWorkspace({
                   value={selectedCampaign.eventDate || ""}
                   onChange={(e) => patchCampaign({ eventDate: e.target.value })}
                   placeholder="Ex: Samedi 18 mai à 09h00"
-                  disabled={!canWrite}
+                  disabled={!canEdit}
                 />
               </Field>
               <Field label="Lieu">
                 <TextInput
                   value={selectedCampaign.location || ""}
                   onChange={(e) => patchCampaign({ location: e.target.value })}
-                  disabled={!canWrite}
+                  disabled={!canEdit}
                 />
               </Field>
               <Field label="Lien de confirmation / info" hint="Optionnel. Non inclus par défaut dans le SMS.">
@@ -1150,7 +1083,7 @@ export function SmsCampaignWorkspace({
                   value={selectedCampaign.confirmationLink || ""}
                   onChange={(e) => patchCampaign({ confirmationLink: e.target.value })}
                   placeholder="https://..."
-                  disabled={!canWrite}
+                  disabled={!canEdit}
                 />
               </Field>
               <Field label="Téléphone de test">
@@ -1158,7 +1091,7 @@ export function SmsCampaignWorkspace({
                   value={selectedCampaign.testPhone || ""}
                   onChange={(e) => patchCampaign({ testPhone: e.target.value })}
                   placeholder="Ex: 0700000000"
-                  disabled={!canWrite}
+                  disabled={!canEdit}
                 />
               </Field>
             </div>
@@ -1172,13 +1105,13 @@ export function SmsCampaignWorkspace({
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               placeholder={"Aka Jean, 0700000000, Abidjan, Manager\nKouassi Awa, 0500000000, Bouake"}
-              disabled={!canWrite}
+              disabled={!canEdit}
             />
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleImportRecipients}
-                disabled={!canWrite || !importText.trim()}
+                disabled={!canEdit || !importText.trim()}
                 className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
               >
                 Importer la liste
@@ -1186,7 +1119,7 @@ export function SmsCampaignWorkspace({
               <button
                 type="button"
                 onClick={handleAppendRecipients}
-                disabled={!canWrite || !importText.trim()}
+                disabled={!canEdit || !importText.trim()}
                 className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
               >
                 Ajouter à la liste
@@ -1194,7 +1127,7 @@ export function SmsCampaignWorkspace({
               <button
                 type="button"
                 onClick={() => patchCampaign({ recipients: [] })}
-                disabled={!canWrite || !selectedCampaign.recipients?.length}
+                disabled={!canEdit || !selectedCampaign.recipients?.length}
                 className="border border-[#e7dec8] bg-white px-4 py-2 text-sm font-medium text-[#5D4B3C] hover:bg-[#fcfbf7] disabled:opacity-50"
               >
                 Vider
@@ -1219,7 +1152,7 @@ export function SmsCampaignWorkspace({
               <button
                 type="button"
                 onClick={() => onSendTest(selectedCampaign)}
-                disabled={!canWrite || sending || !selectedCampaign.testPhone || isCampaignSending}
+                disabled={!canEdit || sending || !normalizePhoneForUi(selectedCampaign.testPhone) || !preview || smsTooLong || isCampaignSending}
                 className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
               >
                 Test SMS
@@ -1235,7 +1168,7 @@ export function SmsCampaignWorkspace({
                 maxLength={160}
                 value={selectedCampaign.message || ""}
                 onChange={(e) => patchCampaign({ message: e.target.value })}
-                disabled={!canWrite}
+                disabled={!canEdit}
               />
             </Field>
             <div className="mt-4 border border-[#e7dec8] bg-[#fcfbf7] p-4">
@@ -1249,7 +1182,7 @@ export function SmsCampaignWorkspace({
                 }`}
               >
                 {preview.length}/160 caractères après remplacement des variables.
-                {smsTooLong ? " Le backend tronquera automatiquement le texte à 160 caractères." : ""}
+                {smsTooLong ? " Raccourcissez le texte : au moins un message personnalisé dépasse 160 caractères." : ""}
               </div>
             </div>
           </Card>
@@ -1317,7 +1250,7 @@ export function SmsCampaignWorkspace({
                 <button
                   type="button"
                   onClick={onSave}
-                  disabled={!canWrite || saving || isCampaignSending}
+                  disabled={!canEdit || saving || isCampaignSending}
                   className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
                 >
                   {saving ? "Enregistrement..." : "Enregistrer"}
@@ -1325,7 +1258,7 @@ export function SmsCampaignWorkspace({
                 <button
                   type="button"
                   onClick={() => onSendCampaign(selectedCampaign)}
-                  disabled={!canWrite || sending || !canSendCampaign || isCampaignSending}
+                  disabled={!canEdit || sending || !canSendCampaign || eligibleRecipients === 0 || isCampaignSending}
                   className="bg-black px-4 py-2 text-sm font-medium text-white hover:bg-[#333333] disabled:opacity-50"
                   title={!canSendCampaign ? "Validez tous les contrôles avant d'envoyer." : undefined}
                 >
@@ -1334,7 +1267,7 @@ export function SmsCampaignWorkspace({
                 <button
                   type="button"
                   onClick={() => onResendFailed(selectedCampaign)}
-                  disabled={!canWrite || sending || stats.failed <= 0 || isCampaignSending}
+                  disabled={!canEdit || sending || stats.failed <= 0 || !canSendCampaign || isCampaignSending}
                   className="border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
                 >
                   Renvoyer échecs
@@ -1355,7 +1288,7 @@ export function SmsCampaignWorkspace({
             <button
               type="button"
               onClick={() => onDeleteCampaign(selectedCampaign)}
-              disabled={!canWrite}
+              disabled={!canEdit}
               className="border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
             >
               Supprimer la campagne
@@ -1424,12 +1357,9 @@ export function SmsCampaignWorkspace({
 }
 
 export default function MarketingCampaignsPage() {
-  const confirm = useConfirm();
   const canWrite = usePermission(Permission.MARKETING_WRITE);
-  const [activeTab, setActiveTab] = useState("visuals");
   const [previewDevice, setPreviewDevice] = useState("desktop");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [selectedSmsCampaignId, setSelectedSmsCampaignId] = useState("");
   const [publishedSnapshot, setPublishedSnapshot] = useState({
     slides: DEFAULT_SETTINGS.slides,
     sidePanels: DEFAULT_SETTINGS.sidePanels,
@@ -1437,8 +1367,6 @@ export default function MarketingCampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishingNow, setPublishingNow] = useState(false);
-  const [sendingSms, setSendingSms] = useState(false);
-  const [pollingCampaignId, setPollingCampaignId] = useState(null);
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
 
@@ -1454,9 +1382,6 @@ export default function MarketingCampaignsPage() {
           publishing: data?.publishing || DEFAULT_SETTINGS.publishing,
           smsCampaigns: Array.isArray(data?.smsCampaigns) ? data.smsCampaigns : [],
         });
-        if (Array.isArray(data?.smsCampaigns) && data.smsCampaigns[0]?.id) {
-          setSelectedSmsCampaignId(data.smsCampaigns[0].id);
-        }
         setPublishedSnapshot({
           slides: Array.isArray(data?.publishedSlides)
             ? data.publishedSlides
@@ -1472,42 +1397,7 @@ export default function MarketingCampaignsPage() {
     load();
   }, []);
 
-  useEffect(() => {
-    if (!pollingCampaignId) return;
-    let cancelled = false;
-
-    async function poll() {
-      if (cancelled) return;
-      try {
-        const data = await marketingCampaignsService.get();
-        if (cancelled) return;
-        const campaigns = Array.isArray(data?.smsCampaigns) ? data.smsCampaigns : [];
-        setSettings((prev) => ({ ...prev, smsCampaigns: campaigns }));
-        const updated = campaigns.find((c) => c.id === pollingCampaignId);
-        if (updated && String(updated.status || "").toUpperCase() === "SENDING") {
-          setTimeout(poll, 5000);
-        } else {
-          setPollingCampaignId(null);
-          setSendingSms(false);
-          if (updated) {
-            const stats = getSmsStats(updated);
-            setInfo(`Envoi terminé : ${stats.sent} envoyés, ${stats.failed} échecs.`);
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setPollingCampaignId(null);
-          setSendingSms(false);
-        }
-      }
-    }
-
-    const t = setTimeout(poll, 5000);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [pollingCampaignId]);
+  const hasUnpublishedVisuals = JSON.stringify({ slides: settings.slides, sidePanels: settings.sidePanels }) !== JSON.stringify(publishedSnapshot);
 
   async function handleSave() {
     try {
@@ -1539,6 +1429,11 @@ export default function MarketingCampaignsPage() {
   }
 
   async function handlePublish() {
+    const activeVisuals = [...settings.slides, ...Object.values(settings.sidePanels)].filter((visual) => visual.active);
+    if (activeVisuals.some((visual) => !String(visual.image || "").trim())) {
+      setError("Ajoutez une image pour chaque emplacement actif avant de publier.");
+      return;
+    }
     try {
       setPublishingNow(true);
       setError("");
@@ -1589,129 +1484,13 @@ export default function MarketingCampaignsPage() {
     [publishedSnapshot.sidePanels],
   );
 
-  function handleCreateSmsCampaign() {
-    const nextCampaign = createSmsCampaign();
-    setSettings((prev) => ({
-      ...prev,
-      smsCampaigns: [nextCampaign, ...(prev.smsCampaigns || [])],
-    }));
-    setSelectedSmsCampaignId(nextCampaign.id);
-    setActiveTab("sms");
-  }
-
-  function handleUpdateSmsCampaign(nextCampaign) {
-    setSettings((prev) => ({
-      ...prev,
-      smsCampaigns: (prev.smsCampaigns || []).map((campaign) =>
-        campaign.id === nextCampaign.id ? nextCampaign : campaign,
-      ),
-    }));
-  }
-
-  async function handleDeleteSmsCampaign(campaign) {
-    const confirmed = await confirm({
-      tone: "danger",
-      title: "Supprimer la campagne",
-      message: `Supprimer la campagne "${campaign.name}" ?`,
-      confirmLabel: "Supprimer",
-    });
-    if (!confirmed) return;
-
-    const nextCampaigns = (settings.smsCampaigns || []).filter((item) => item.id !== campaign.id);
-    setSettings((prev) => ({ ...prev, smsCampaigns: nextCampaigns }));
-    setSelectedSmsCampaignId(nextCampaigns[0]?.id || "");
-    setInfo("Campagne supprimée du brouillon. Cliquez sur Enregistrer pour confirmer.");
-  }
-
-  async function handleSendSmsTest(campaign) {
-    try {
-      setSendingSms(true);
-      setError("");
-      setInfo("");
-      const saved = await marketingCampaignsService.save(settings);
-      if (Array.isArray(saved?.smsCampaigns)) {
-        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
-      }
-      const response = await marketingCampaignsService.sendSmsTest(campaign.id, {
-        phone: campaign.testPhone,
-      });
-      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
-      setInfo(response?.ok ? "SMS de test envoyé." : "Test SMS traité avec erreur provider.");
-    } catch (e) {
-      setError(e?.response?.data?.message || "Impossible d'envoyer le SMS de test.");
-    } finally {
-      setSendingSms(false);
-    }
-  }
-
-  async function handleSendSmsCampaign(campaign) {
-    const confirmed = await confirm({
-      tone: "warning",
-      title: "Envoyer la campagne SMS",
-      message: `Envoyer cette campagne SMS à ${getSmsStats(campaign).valid} destinataires valides ?`,
-      confirmLabel: "Envoyer",
-    });
-    if (!confirmed) return;
-
-    setSendingSms(true);
-    setError("");
-    setInfo("");
-    try {
-      const saved = await marketingCampaignsService.save(settings);
-      if (Array.isArray(saved?.smsCampaigns)) {
-        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
-      }
-      const response = await marketingCampaignsService.sendSmsCampaign(campaign.id);
-      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
-      if (response?.sending) {
-        setPollingCampaignId(campaign.id);
-        setInfo(`Envoi en cours pour ${response.total || "?"} destinataires…`);
-      } else {
-        setSendingSms(false);
-        setInfo(`Envoi terminé : ${response?.sentCount || 0} envoyés, ${response?.failedCount || 0} échecs.`);
-      }
-    } catch (e) {
-      setSendingSms(false);
-      setError(e?.response?.data?.message || "Impossible d'envoyer la campagne SMS.");
-    }
-  }
-
-  async function handleResendFailedSms(campaign) {
-    const confirmed = await confirm({
-      tone: "warning",
-      title: "Renvoyer les SMS en échec",
-      message: `Renvoyer uniquement aux ${getSmsStats(campaign).failed} destinataires en échec ?`,
-      confirmLabel: "Renvoyer",
-    });
-    if (!confirmed) return;
-
-    setSendingSms(true);
-    setError("");
-    setInfo("");
-    try {
-      const saved = await marketingCampaignsService.save(settings);
-      if (Array.isArray(saved?.smsCampaigns)) {
-        setSettings((prev) => ({ ...prev, smsCampaigns: saved.smsCampaigns }));
-      }
-      const response = await marketingCampaignsService.sendSmsCampaign(campaign.id, {
-        failedOnly: true,
-      });
-      if (response?.campaign) handleUpdateSmsCampaign(response.campaign);
-      if (response?.sending) {
-        setPollingCampaignId(campaign.id);
-        setInfo(`Renvoi en cours pour ${response.total || "?"} destinataires en échec…`);
-      } else {
-        setSendingSms(false);
-        setInfo(`Renvoi terminé : ${response?.sentCount || 0} envoyés, ${response?.failedCount || 0} échecs.`);
-      }
-    } catch (e) {
-      setSendingSms(false);
-      setError(e?.response?.data?.message || "Impossible de renvoyer les SMS en échec.");
-    }
-  }
-
   return (
     <div className="space-y-6">
+      <header className="rounded-2xl bg-[#1a1a1a] p-6 text-white sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FFC600]">Communication / Boutique</p>
+        <h1 className="mt-3 text-3xl font-bold">Campagnes marketing</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300">Pilotez vos espaces promotionnels, personnalisez vos visuels et suivez leur publication.</p>
+      </header>
       <Card
         title="Visuels marketing"
         description="Gère ici les visuels promotionnels du frontend utilisateur : slider de la page d’accueil, panneaux latéraux du catalogue (desktop) et préparation de publication."
@@ -1725,7 +1504,7 @@ export default function MarketingCampaignsPage() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || loading || !canWrite}
+              disabled={saving || publishingNow || loading || !canWrite}
               className="bg-[#FFC600] px-4 py-2 text-sm font-medium text-black hover:bg-[#e6b200] disabled:opacity-50"
             >
               {saving ? "Enregistrement..." : "Enregistrer le brouillon"}
@@ -1733,7 +1512,7 @@ export default function MarketingCampaignsPage() {
             <button
               type="button"
               onClick={handlePublish}
-              disabled={publishingNow || loading || !canWrite}
+              disabled={publishingNow || saving || loading || !canWrite}
               className="border border-[#000000] bg-white px-4 py-2 text-sm font-medium text-black hover:bg-[#f8f5ea] disabled:opacity-50"
             >
               {publishingNow ? "Publication..." : "Publier"}
@@ -1776,12 +1555,12 @@ export default function MarketingCampaignsPage() {
               <span className="font-medium text-[#5D4B3C]">État de publication</span>
               <span
                 className={`inline-flex items-center border px-2.5 py-1 text-xs font-medium ${
-                  settings.publishing.hasUnpublishedChanges
+                  hasUnpublishedVisuals
                     ? "border-amber-200 bg-amber-50 text-amber-700"
                     : "border-[#bad6a7] bg-[#eef7e8] text-[#587f34]"
                 }`}
               >
-                {settings.publishing.hasUnpublishedChanges
+                {hasUnpublishedVisuals
                   ? "Brouillon non publié"
                   : "Storefront synchronisé"}
               </span>
@@ -1809,7 +1588,7 @@ export default function MarketingCampaignsPage() {
             <SlideEditor
               key={slide.id}
               slide={slide}
-              disabled={!canWrite}
+              disabled={!canWrite || loading || saving || publishingNow}
               onUploadError={setError}
               onChange={(nextSlide) =>
                 setSettings((prev) => {
@@ -1838,7 +1617,7 @@ export default function MarketingCampaignsPage() {
           <SidePanelEditor
             title="Panneau gauche"
             value={settings.sidePanels.left}
-            disabled={!canWrite}
+            disabled={!canWrite || loading || saving || publishingNow}
             uploadSlot="side-panel-left"
             onUploadError={setError}
             onChange={(next) =>
@@ -1851,7 +1630,7 @@ export default function MarketingCampaignsPage() {
           <SidePanelEditor
             title="Panneau droit"
             value={settings.sidePanels.right}
-            disabled={!canWrite}
+            disabled={!canWrite || loading || saving || publishingNow}
             uploadSlot="side-panel-right"
             onUploadError={setError}
             onChange={(next) =>
@@ -1878,13 +1657,13 @@ export default function MarketingCampaignsPage() {
                   publishing: { ...prev.publishing, frontendTarget: e.target.value },
                 }))
               }
-              disabled={!canWrite}
+              disabled={!canWrite || loading || saving || publishingNow}
             />
           </Field>
 
           <Field label="Environnement">
             <select
-              className="w-full border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
+              className="w-full rounded-lg border border-[#e7dec8] px-3 py-2.5 text-sm outline-none focus:border-[#FFC600] focus:ring-4 focus:ring-[#FFC600]/20"
               value={settings.publishing.environment}
               onChange={(e) =>
                 setSettings((prev) => ({
@@ -1892,7 +1671,7 @@ export default function MarketingCampaignsPage() {
                   publishing: { ...prev.publishing, environment: e.target.value },
                 }))
               }
-              disabled={!canWrite}
+              disabled={!canWrite || loading || saving || publishingNow}
             >
               <option value="preview">Preview</option>
               <option value="production">Production</option>
@@ -1908,7 +1687,7 @@ export default function MarketingCampaignsPage() {
                   publishing: { ...prev.publishing, lastUpdatedBy: e.target.value },
                 }))
               }
-              disabled={!canWrite}
+              disabled={!canWrite || loading || saving || publishingNow}
             />
           </Field>
 
@@ -1922,7 +1701,7 @@ export default function MarketingCampaignsPage() {
                   publishing: { ...prev.publishing, releaseNote: e.target.value },
                 }))
               }
-              disabled={!canWrite}
+              disabled={!canWrite || loading || saving || publishingNow}
             />
           </Field>
         </div>
