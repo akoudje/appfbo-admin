@@ -257,7 +257,6 @@ export default function SponsorshipReviewPage() {
               <Row label="Nom" value={row.sponsorNom} />
               <Row label="N° FBO / niveau" value={`${row.sponsorNumero} · ${row.sponsorGrade}`} />
               <Row label="Téléphone" value={row.sponsorPhone} />
-              <Row label="Fait à" value={row.sponsorCity} />
               <Row label="Attestation" value={row.consentAcceptedAt ? `Acceptée le ${formatDate(row.consentAcceptedAt, true)}` : "—"} />
             </dl>
             {row.consentText ? <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-gray-600">« {row.consentText} »</p> : null}
