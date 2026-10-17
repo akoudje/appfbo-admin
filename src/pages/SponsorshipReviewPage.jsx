@@ -248,19 +248,8 @@ export default function SponsorshipReviewPage() {
               <Row label="Mobile" value={row.mobile} />
               <Row label="Email" value={row.email} />
               <Row label="Adresse" value={[row.addressArea, row.city, row.homeCountry].filter(Boolean).join(", ")} />
-              <Row label="Situation de famille" value={row.maritalStatus} />
             </dl>
           </section>
-
-          {row.spouseLastName || row.spouseFirstNames ? (
-            <section className="rounded-2xl border border-gray-200 bg-white p-4">
-              <h2 className="mb-2 text-sm font-semibold text-gray-900">Conjoint</h2>
-              <dl>
-                <Row label="Nom et prénoms" value={`${row.spouseLastName || ""} ${row.spouseFirstNames || ""}`.trim()} />
-                <Row label="Naissance" value={[row.spouseBirthDate && formatDate(row.spouseBirthDate), row.spouseBirthPlace].filter(Boolean).join(" à ")} />
-              </dl>
-            </section>
-          ) : null}
 
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="mb-2 text-sm font-semibold text-gray-900">Parrain</h2>
