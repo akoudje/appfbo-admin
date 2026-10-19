@@ -23,6 +23,7 @@ import { useConfirm } from "../hooks/useDialogs";
 import {
   getDefaultOrderTabForRole,
   getOrderTabsForRole,
+  getExtraOrderTabsFromOverride,
 } from "../auth/workspaces";
 
 import OrderDetailTabs from "../components/orders/detail/OrderDetailTabs";
@@ -107,7 +108,7 @@ export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { role } = useAdminAuth();
+  const { role, permissionAllow } = useAdminAuth();
   const confirm = useConfirm();
 
   const [saving, setSaving] = useState(false);
@@ -447,18 +448,24 @@ export default function OrderDetailPage() {
   );
 
   const availableTabs = useMemo(() => {
-    return getOrderTabsForRole(role, canAccessCancel, order?.status).filter(
-      (tab) => {
-        if (tab.key === "billing") return canAccessBilling;
-        if (tab.key === "payment") return canAccessPayment;
-        if (tab.key === "preparation" || tab.key === "fulfillment")
-          return canAccessPreparation;
-        if (tab.key === "cancel") return canAccessCancel;
-        return true;
-      },
+    const baseTabs = getOrderTabsForRole(role, canAccessCancel, order?.status);
+    // Un droit accordé spécifiquement à cet utilisateur doit toujours faire
+    // apparaître l'onglet correspondant, même absent de la liste par défaut
+    // de son rôle (voir getExtraOrderTabsFromOverride).
+    const extraTabs = getExtraOrderTabsFromOverride(permissionAllow).filter(
+      (tab) => !baseTabs.some((base) => base.key === tab.key),
     );
+    return [...baseTabs, ...extraTabs].filter((tab) => {
+      if (tab.key === "billing") return canAccessBilling;
+      if (tab.key === "payment") return canAccessPayment;
+      if (tab.key === "preparation" || tab.key === "fulfillment")
+        return canAccessPreparation;
+      if (tab.key === "cancel") return canAccessCancel;
+      return true;
+    });
   }, [
     role,
+    permissionAllow,
     canAccessBilling,
     canAccessCancel,
     canAccessPayment,
