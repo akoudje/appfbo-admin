@@ -138,7 +138,7 @@ const NAV_ITEMS = [
     icon: Banknote,
     badge: null,
     description: "Paiements et encaissements",
-    color: "from-purple-500 to-pink-500",
+    color: "from-lime-500 to-green-600",
     shortcut: "4",
   },
   {
@@ -223,7 +223,7 @@ const NAV_ITEMS = [
     icon: Store,
     badge: null,
     description: "Produits et prix",
-    color: "from-indigo-500 to-blue-500",
+    color: "from-stone-500 to-neutral-700",
     shortcut: "7",
   },
   {
@@ -288,7 +288,7 @@ const SETTINGS_ITEMS = [
       AdminRole.MARKETING_MANAGER,
       AdminRole.MARKETING_ASSISTANT,
     ],
-    color: "from-violet-500 to-purple-500",
+    color: "from-pink-500 to-rose-600",
     shortcut: "0",
   },
   {
@@ -629,7 +629,31 @@ function UserProfileCard({ fullName, email, role }) {
 }
 
 // Fonctions de filtrage améliorées
-function filterItems(items, role, permissions) {
+function itemMatchesPermission(item, role, permissions) {
+  if (Array.isArray(item.permissions)) {
+    return item.permissions.some((permission) =>
+      hasPermission(role, permission, permissions),
+    );
+  }
+  return !item.permission || hasPermission(role, item.permission, permissions);
+}
+
+// Un droit accordé explicitement à CET utilisateur (override "permissionAllow"
+// depuis la page Utilisateurs, distinct des droits hérités du rôle) doit
+// toujours rendre la section correspondante visible, même si la clé de
+// workspace du rôle de base ne l'inclut pas par défaut. Sans ce
+// contournement, chaque droit spécifique accordé à quelqu'un nécessite en
+// plus un correctif de code pour que le menu suive (cf. bugs ADMIN_ASSISTANT
+// / Documents FBO et CAISSIERE / Facturation).
+function itemHasExplicitOverride(item, permissionAllow) {
+  const allow = new Set(Array.isArray(permissionAllow) ? permissionAllow : []);
+  if (Array.isArray(item.permissions)) {
+    return item.permissions.some((permission) => allow.has(permission));
+  }
+  return Boolean(item.permission) && allow.has(item.permission);
+}
+
+function filterItems(items, role, permissions, permissionAllow = []) {
   const allowedKeys = getWorkspaceNavKeys(role);
 
   return items.filter((item) => {
@@ -643,44 +667,34 @@ function filterItems(items, role, permissions) {
       return false;
     }
 
-    // Vérification des clés de workspace
+    // Vérification des clés de workspace, avec contournement si l'utilisateur
+    // a explicitement reçu le droit correspondant (voir itemHasExplicitOverride).
     if (item.key && !allowedKeys.has(item.key)) {
-      if (
-        item.key === "external-payment-links" &&
-        item.permission &&
-        hasPermission(role, item.permission, permissions)
-      ) {
-        return true;
-      }
-      return false;
-    }
-
-    // Vérification des permissions
-    if (Array.isArray(item.permissions)) {
-      return item.permissions.some((permission) =>
-        hasPermission(role, permission, permissions),
+      return (
+        itemHasExplicitOverride(item, permissionAllow) &&
+        itemMatchesPermission(item, role, permissions)
       );
     }
 
-    return !item.permission || hasPermission(role, item.permission, permissions);
+    return itemMatchesPermission(item, role, permissions);
   });
 }
 
 // Composant Desktop principal
 export function DesktopSidebar({ collapsed, onToggle }) {
-  const { role, permissions, fullName, email } = useAdminAuth();
+  const { role, permissions, permissionAllow, fullName, email } = useAdminAuth();
   const [showDescriptions, setShowDescriptions] = useState(false);
   const sidebarRef = useRef(null);
 
   // Mémorisation des éléments filtrés pour performance
   const visibleNavItems = useMemo(
-    () => filterItems(NAV_ITEMS, role, permissions),
-    [role, permissions]
+    () => filterItems(NAV_ITEMS, role, permissions, permissionAllow),
+    [role, permissions, permissionAllow]
   );
-  
+
   const visibleSettingsItems = useMemo(
-    () => filterItems(SETTINGS_ITEMS, role, permissions),
-    [role, permissions]
+    () => filterItems(SETTINGS_ITEMS, role, permissions, permissionAllow),
+    [role, permissions, permissionAllow]
   );
 
   // Raccourci clavier global
@@ -846,17 +860,17 @@ export function DesktopSidebar({ collapsed, onToggle }) {
 
 // Version mobile avec animations améliorées
 export function MobileSidebar({ isOpen, onClose }) {
-  const { role, permissions, fullName, email } = useAdminAuth();
+  const { role, permissions, permissionAllow, fullName, email } = useAdminAuth();
   const sidebarRef = useRef(null);
 
   const visibleNavItems = useMemo(
-    () => filterItems(NAV_ITEMS, role, permissions),
-    [role, permissions]
+    () => filterItems(NAV_ITEMS, role, permissions, permissionAllow),
+    [role, permissions, permissionAllow]
   );
-  
+
   const visibleSettingsItems = useMemo(
-    () => filterItems(SETTINGS_ITEMS, role, permissions),
-    [role, permissions]
+    () => filterItems(SETTINGS_ITEMS, role, permissions, permissionAllow),
+    [role, permissions, permissionAllow]
   );
 
   useEffect(() => {
