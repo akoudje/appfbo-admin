@@ -137,3 +137,23 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
       ];
   }
 }
+
+// Permission derrière chaque onglet "métier" de la fiche commande. Utilisé
+// pour réintégrer un onglet absent de la liste par défaut du rôle quand
+// l'utilisateur a reçu ce droit spécifiquement (permissionAllow, page
+// Utilisateurs) — même principe que getWorkspaceNavKeys/Sidebar.filterItems,
+// appliqué ici aux onglets de la fiche commande (cf. bug CAISSIERE/Facturation
+// : droit INVOICE_CREATE accordé mais onglet "Facturation" absent de la liste
+// de son rôle).
+const ORDER_TABS_BY_PERMISSION = [
+  { key: "billing", label: "Facturation", permission: "INVOICE_CREATE" },
+  { key: "payment", label: "Règlement", permission: "PAYMENT_VALIDATE" },
+  { key: "preparation", label: "Préparation", permission: "PREPARATION_UPDATE" },
+  { key: "fulfillment", label: "Remise", permission: "PREPARATION_UPDATE" },
+  { key: "cancel", label: "Annulation", permission: "PREORDER_UPDATE_STATUS" },
+];
+
+export function getExtraOrderTabsFromOverride(permissionAllow = []) {
+  const allow = new Set(Array.isArray(permissionAllow) ? permissionAllow : []);
+  return ORDER_TABS_BY_PERMISSION.filter((tab) => allow.has(tab.permission));
+}
