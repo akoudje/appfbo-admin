@@ -4,7 +4,7 @@
 // complément ou refuser.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, Download, ExternalLink, Printer } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
 import { PURCHASE_PAYMENT_MODES, SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
@@ -86,11 +86,12 @@ const AGREEMENT_STATUSES = new Set(["APPROVED_PENDING_PURCHASE", "VALIDATED", "E
 
 export default function SponsorshipReviewPage() {
   const { id } = useParams();
+  const location = useLocation();
   const { role, permissions } = useAdminAuth();
   const canInvoice = hasPermission(role, Permission.INVOICE_CREATE, permissions);
   const [row, setRow] = useState(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(location.state?.notice || "");
   const [busy, setBusy] = useState("");
   const [fboNumber, setFboNumber] = useState("");
   const [note, setNote] = useState("");

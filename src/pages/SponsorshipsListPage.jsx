@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { UserPlus } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
 import { SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
 
@@ -49,12 +49,20 @@ export default function SponsorshipsListPage() {
             Vérifiez la fiche et la pièce d'identité, puis approuvez avec le n° FBO attribué dans AS400. Les plus anciennes soumissions en premier.
           </p>
         </div>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Nom, CNI, mobile, n° FBO…"
-          className="w-full max-w-xs rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Nom, CNI, mobile, n° FBO…"
+            className="w-full max-w-xs rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          />
+          <Link
+            to="/sponsorships/new-counter"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-[#FFC600] px-3 py-2 text-sm font-semibold text-black hover:bg-[#e6b200]"
+          >
+            <Plus className="h-4 w-4" /> Nouveau (comptoir)
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

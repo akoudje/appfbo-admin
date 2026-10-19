@@ -36,6 +36,7 @@ import TicketEventsPage from "./pages/TicketEventsPage";
 import TicketEventFormPage from "./pages/TicketEventFormPage";
 import FboDocumentsPage from "./pages/FboDocumentsPage";
 import SponsorshipsListPage from "./pages/SponsorshipsListPage";
+import SponsorshipCounterSubmitPage from "./pages/SponsorshipCounterSubmitPage";
 import SponsorshipReviewPage from "./pages/SponsorshipReviewPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
@@ -379,6 +380,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux parrainages." />}
                     >
                       <SponsorshipsListPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/sponsorships/new-counter"
+                  element={
+                    <RequirePermission
+                      permission={Permission.SPONSORSHIP_REVIEW}
+                      fallback={<AccessDenied message="Accès refusé aux parrainages." />}
+                    >
+                      <SponsorshipCounterSubmitPage />
                     </RequirePermission>
                   }
                 />
