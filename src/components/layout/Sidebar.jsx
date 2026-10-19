@@ -138,7 +138,7 @@ const NAV_ITEMS = [
     icon: Banknote,
     badge: null,
     description: "Paiements et encaissements",
-    color: "from-purple-500 to-pink-500",
+    color: "from-lime-500 to-green-600",
     shortcut: "4",
   },
   {
@@ -223,7 +223,7 @@ const NAV_ITEMS = [
     icon: Store,
     badge: null,
     description: "Produits et prix",
-    color: "from-indigo-500 to-blue-500",
+    color: "from-stone-500 to-neutral-700",
     shortcut: "7",
   },
   {
@@ -288,7 +288,7 @@ const SETTINGS_ITEMS = [
       AdminRole.MARKETING_MANAGER,
       AdminRole.MARKETING_ASSISTANT,
     ],
-    color: "from-violet-500 to-purple-500",
+    color: "from-pink-500 to-rose-600",
     shortcut: "0",
   },
   {
