@@ -32,4 +32,11 @@ export const sponsorshipsService = {
 
   // Relance de l'achat : { items?, paymentMode, deliveryMode, factureReference, invoiceAmountFcfa, note? }
   counterPurchase: async (id, body) => (await api.post(`/admin/sponsorships/${id}/counter-purchase`, body)).data,
+
+  // Soumission assistée au comptoir pour un parrain non reconnu par FBO
+  // Service : formData avec les mêmes champs que la soumission client, plus
+  // sponsorNumero/sponsorNom/sponsorGrade et les fichiers idFront/idBack/
+  // passport/other.
+  counterSubmit: async (formData) =>
+    (await api.post("/admin/sponsorships/counter-submit", formData)).data,
 };
