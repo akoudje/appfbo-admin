@@ -25,6 +25,9 @@ export default function useAdminAuth() {
       isAuthenticated: authed,
       role: admin?.role || null,
       permissions,
+      // Droits accordés spécifiquement à CET utilisateur (page Utilisateurs),
+      // distincts des droits hérités de son rôle — voir Sidebar.filterItems.
+      permissionAllow: Array.isArray(admin?.permissionAllow) ? admin.permissionAllow : [],
       fullName: admin?.fullName || null,
       email: admin?.email || null,
       countryId: admin?.countryId || null,
