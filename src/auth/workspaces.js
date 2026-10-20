@@ -11,6 +11,7 @@ const DASHBOARD_ROLES = new Set([
 export function getDefaultWorkspaceRoute(role) {
   switch (role) {
     case AdminRole.INVOICER:
+    case AdminRole.FACTURIER_CAISSIER:
     case AdminRole.BILLING_MANAGER:
       return "/billing";
     case AdminRole.CAISSIERE:
@@ -46,6 +47,9 @@ export function getWorkspaceNavKeys(role) {
       return new Set(["orders", "cashier", "external-payment-links", "cash-closures", "reports"]);
     case AdminRole.CAISSIERE:
       return new Set(["cashier", "external-payment-links", "cash-closures", "billing"]);
+    // Union Facturier (billing/as400/sponsorships) + Caissière (cashier/cash-closures).
+    case AdminRole.FACTURIER_CAISSIER:
+      return new Set(["billing", "as400", "external-payment-links", "sponsorships", "cashier", "cash-closures"]);
     case AdminRole.ORDER_PREPARER:
       return new Set(["preparation"]);
     case AdminRole.STOCK_MANAGER:
@@ -82,6 +86,7 @@ export function getWorkspaceNavKeys(role) {
 export function getDefaultOrderTabForRole(role) {
   switch (role) {
     case AdminRole.INVOICER:
+    case AdminRole.FACTURIER_CAISSIER:
     case AdminRole.BILLING_MANAGER:
       return "billing";
     case AdminRole.CAISSIERE:
@@ -114,6 +119,16 @@ export function getOrderTabsForRole(role, canAccessCancel, orderStatus) {
       return [
         { key: "payment", label: "Règlement" },
         { key: "history", label: "Historique" },
+      ];
+    case AdminRole.FACTURIER_CAISSIER:
+      return [
+        { key: "workflow", label: "Traitement" },
+        { key: "billing", label: "Facturation" },
+        { key: "payment", label: "Règlement" },
+        { key: "history", label: "Historique" },
+        ...(canAccessCancel && !["FULFILLED", "CANCELLED"].includes(orderStatus)
+          ? [{ key: "cancel", label: "Annulation" }]
+          : []),
       ];
     case AdminRole.ORDER_PREPARER:
     case AdminRole.STOCK_MANAGER:
