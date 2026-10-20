@@ -298,7 +298,7 @@ function buildWaveReceiptHtml({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Reçu paiement Wave</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+      body { font-family: Verdana, Geneva, sans-serif; margin: 24px; color: #111827; }
       h1 { font-size: 20px; margin: 0 0 14px; }
       .receipt-header {
         align-items: center;
