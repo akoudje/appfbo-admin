@@ -14,6 +14,11 @@ export const ROLE_GROUPS = [
         help: "Encaisse, contrôle les paiements et lance la préparation.",
       },
       {
+        value: "FACTURIER_CAISSIER",
+        label: "Facturier caissier",
+        help: "Facture, encaisse, certifie AS400, lance la préparation et traite les parrainages.",
+      },
+      {
         value: "ORDER_PREPARER",
         label: "Préparateur de commande",
         help: "Prépare et clôture les commandes déjà validées.",

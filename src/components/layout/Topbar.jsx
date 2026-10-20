@@ -41,6 +41,7 @@ function formatRoleLabel(role) {
     COUNTER_MANAGER: "Responsable caisse",
     CAISSIERE: "Caissière",
     INVOICER: "Facturier",
+    FACTURIER_CAISSIER: "Facturier caissier",
     ORDER_PREPARER: "Préparateur de commande",
   };
 
@@ -51,6 +52,7 @@ function getWorkspaceLabel(role) {
   const normalized = String(role || "").trim().toUpperCase();
 
   if (["INVOICER", "BILLING_MANAGER"].includes(normalized)) return "Facturation";
+  if (["FACTURIER_CAISSIER"].includes(normalized)) return "Facturation & Caisse";
   if (["CAISSIERE", "COUNTER_MANAGER"].includes(normalized)) return "Caisse";
   if (["FINANCE_MANAGER"].includes(normalized)) return "Finance";
   if (["ORDER_PREPARER"].includes(normalized)) return "Préparation";

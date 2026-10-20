@@ -32,6 +32,12 @@ function filterLogsByRole(logs = [], role) {
     return items.filter((log) => billingActions.has(log?.action));
   }
 
+  if (role === "FACTURIER_CAISSIER") {
+    return items.filter(
+      (log) => billingActions.has(log?.action) || cashierActions.has(log?.action),
+    );
+  }
+
   if (
     role === "CAISSIERE" ||
     role === "COUNTER_MANAGER" ||
@@ -50,6 +56,9 @@ function filterLogsByRole(logs = [], role) {
 function getHistoryTitle(role) {
   if (role === "INVOICER" || role === "BILLING_MANAGER") {
     return "Historique facturation";
+  }
+  if (role === "FACTURIER_CAISSIER") {
+    return "Historique facturation & caisse";
   }
   if (
     role === "CAISSIERE" ||
