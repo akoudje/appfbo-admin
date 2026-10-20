@@ -1,6 +1,7 @@
 import { orderLabel } from "../../../lib/orders/orderPresentation";
 // src/components/orders/detail/OrderBillingPaymentTab.jsx
 import React from "react";
+import { Phone, Mail } from "lucide-react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import OrderItemsTable from "./OrderItemsTable";
@@ -1905,6 +1906,7 @@ function ManualPaymentCard({
 export default function OrderBillingPaymentTab({
   order,
   saving,
+  variant = "billing",
   canInvoice,
   canEnqueueAs400Request = false,
   canCorrectAs400Invoice = false,
@@ -2130,6 +2132,64 @@ export default function OrderBillingPaymentTab({
         <Alert tone="amber" dismissible>
           Produit remplacé après facturation : refacturez cette commande puis renvoyez le SMS client.
         </Alert>
+      )}
+
+      {/* Contact client — mis en avant côté caisse pour relancer/appeler le
+          client en attente de paiement, sans fouiller le formulaire. */}
+      {variant === "payment" && paymentStatus !== "PAID" && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                Client en attente de paiement
+              </div>
+              <div className="mt-1 text-lg font-bold text-gray-900">
+                {order?.fboNomComplet || "—"}
+              </div>
+              <div className="text-sm text-gray-600">N° FBO {order?.fboNumero || "—"}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-4">
+                {invoiceWaTo ? (
+                  <a
+                    href={`tel:${String(invoiceWaTo).replace(/[^\d+]/g, "")}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:underline"
+                  >
+                    <Phone className="h-4 w-4" /> {invoiceWaTo}
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-400">Téléphone non renseigné</span>
+                )}
+                {invoiceEmail ? (
+                  <a
+                    href={`mailto:${invoiceEmail}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:underline"
+                  >
+                    <Mail className="h-4 w-4" /> {invoiceEmail}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+            {canResendInvoiceNotification ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onResendInvoiceNotification?.("SMS")}
+                  disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                  className="px-3 py-2 rounded-lg border border-indigo-300 bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                >
+                  Relancer par SMS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onResendInvoiceNotification?.("EMAIL")}
+                  disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                  className="px-3 py-2 rounded-lg border border-indigo-300 bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                >
+                  Relancer par email
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       )}
 
       {/* Grille principale : Items à gauche, Facturation à droite */}

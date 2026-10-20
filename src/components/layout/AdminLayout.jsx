@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import Sidebar, { MobileSidebar } from "./Sidebar";
 import Topbar from "./Topbar";
 import MobileNav from "./MobileNav";
+import useNavBadgeCounts from "../../hooks/useNavBadgeCounts";
 
 export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Calculé une seule fois ici (et non dans Sidebar/MobileSidebar, montés
+  // simultanément) pour n'ouvrir qu'une seule connexion temps réel.
+  const badgeCounts = useNavBadgeCounts();
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 1024) setMobileMenuOpen(false);
@@ -16,7 +20,7 @@ export default function AdminLayout({ children }) {
     <div className="min-h-screen bg-gray-50">
       <div className="flex min-h-screen md:h-screen">
         <div className="hidden shrink-0 md:flex">
-          <Sidebar />
+          <Sidebar badgeCounts={badgeCounts} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onMenuClick={() => setMobileMenuOpen(true)} />
@@ -29,6 +33,7 @@ export default function AdminLayout({ children }) {
         <MobileSidebar
           isOpen={mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
+          badgeCounts={badgeCounts}
         />
         <MobileNav />
       </div>
