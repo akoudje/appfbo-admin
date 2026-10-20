@@ -1,6 +1,7 @@
 import { orderLabel } from "../../../lib/orders/orderPresentation";
 // src/components/orders/detail/OrderBillingPaymentTab.jsx
 import React from "react";
+import { Phone, Mail } from "lucide-react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import OrderItemsTable from "./OrderItemsTable";
@@ -60,11 +61,11 @@ function Alert({ tone = "blue", title, children, className = "", dismissible = f
   const [isVisible, setIsVisible] = React.useState(true);
   
   const tones = {
-    amber: { border: "border-l-4 border-l-amber-500", bg: "bg-amber-50", text: "text-amber-800", icon: "⚠️" },
-    red: { border: "border-l-4 border-l-red-500", bg: "bg-red-50", text: "text-red-800", icon: "❌" },
-    blue: { border: "border-l-4 border-l-blue-500", bg: "bg-blue-50", text: "text-blue-800", icon: "ℹ️" },
-    emerald: { border: "border-l-4 border-l-emerald-500", bg: "bg-emerald-50", text: "text-emerald-800", icon: "✅" },
-    gray: { border: "border-l-4 border-l-gray-400", bg: "bg-gray-50", text: "text-gray-700", icon: "📌" },
+    amber: { border: "border border-amber-200", bg: "bg-amber-50", text: "text-amber-800", icon: "⚠️" },
+    red: { border: "border border-red-200", bg: "bg-red-50", text: "text-red-800", icon: "❌" },
+    blue: { border: "border border-blue-200", bg: "bg-blue-50", text: "text-blue-800", icon: "ℹ️" },
+    emerald: { border: "border border-emerald-200", bg: "bg-emerald-50", text: "text-emerald-800", icon: "✅" },
+    gray: { border: "border border-gray-200", bg: "bg-gray-50", text: "text-gray-700", icon: "📌" },
   };
 
   const config = tones[tone] || tones.blue;
@@ -297,7 +298,7 @@ function buildWaveReceiptHtml({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Reçu paiement Wave</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+      body { font-family: Verdana, Geneva, sans-serif; margin: 24px; color: #111827; }
       h1 { font-size: 20px; margin: 0 0 14px; }
       .receipt-header {
         align-items: center;
@@ -896,7 +897,7 @@ function BillingActionCard({
             className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
               !canSubmitInvoice
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800"
+                : "bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-md hover:shadow-lg hover:from-emerald-700 hover:to-emerald-800"
             }`}
             onClick={() => setConfirmationMode("invoice")}
             disabled={!canSubmitInvoice}
@@ -1905,6 +1906,7 @@ function ManualPaymentCard({
 export default function OrderBillingPaymentTab({
   order,
   saving,
+  variant = "billing",
   canInvoice,
   canEnqueueAs400Request = false,
   canCorrectAs400Invoice = false,
@@ -2130,6 +2132,64 @@ export default function OrderBillingPaymentTab({
         <Alert tone="amber" dismissible>
           Produit remplacé après facturation : refacturez cette commande puis renvoyez le SMS client.
         </Alert>
+      )}
+
+      {/* Contact client — mis en avant côté caisse pour relancer/appeler le
+          client en attente de paiement, sans fouiller le formulaire. */}
+      {variant === "payment" && paymentStatus !== "PAID" && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                Client en attente de paiement
+              </div>
+              <div className="mt-1 text-lg font-bold text-gray-900">
+                {order?.fboNomComplet || "—"}
+              </div>
+              <div className="text-sm text-gray-600">N° FBO {order?.fboNumero || "—"}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-4">
+                {invoiceWaTo ? (
+                  <a
+                    href={`tel:${String(invoiceWaTo).replace(/[^\d+]/g, "")}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:underline"
+                  >
+                    <Phone className="h-4 w-4" /> {invoiceWaTo}
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-400">Téléphone non renseigné</span>
+                )}
+                {invoiceEmail ? (
+                  <a
+                    href={`mailto:${invoiceEmail}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:underline"
+                  >
+                    <Mail className="h-4 w-4" /> {invoiceEmail}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+            {canResendInvoiceNotification ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onResendInvoiceNotification?.("SMS")}
+                  disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                  className="px-3 py-2 rounded-lg border border-indigo-300 bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                >
+                  Relancer par SMS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onResendInvoiceNotification?.("EMAIL")}
+                  disabled={saving || typeof onResendInvoiceNotification !== "function"}
+                  className="px-3 py-2 rounded-lg border border-indigo-300 bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                >
+                  Relancer par email
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       )}
 
       {/* Grille principale : Items à gauche, Facturation à droite */}

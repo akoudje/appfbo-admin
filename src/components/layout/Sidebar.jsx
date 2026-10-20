@@ -680,16 +680,35 @@ function filterItems(items, role, permissions, permissionAllow = []) {
   });
 }
 
+// Pastilles live (facturation/caisse/parrainages en attente) : ciblées par
+// "to" plutôt que "key", certaines pages partagent la même clé de workspace
+// (ex. "Facturation" et "Liens paiement" partagent key: "billing") sans
+// devoir porter la même pastille.
+const BADGE_COUNT_BY_PATH = {
+  "/billing": "billing",
+  "/cashier": "cashier",
+  "/sponsorships": "sponsorships",
+};
+
+function applyBadgeCounts(items, badgeCounts = {}) {
+  return items.map((item) => {
+    const countKey = BADGE_COUNT_BY_PATH[item.to];
+    if (!countKey) return item;
+    const count = Number(badgeCounts[countKey] || 0);
+    return count > 0 ? { ...item, badge: count } : item;
+  });
+}
+
 // Composant Desktop principal
-export function DesktopSidebar({ collapsed, onToggle }) {
+export function DesktopSidebar({ collapsed, onToggle, badgeCounts = {} }) {
   const { role, permissions, permissionAllow, fullName, email } = useAdminAuth();
   const [showDescriptions, setShowDescriptions] = useState(false);
   const sidebarRef = useRef(null);
 
   // Mémorisation des éléments filtrés pour performance
   const visibleNavItems = useMemo(
-    () => filterItems(NAV_ITEMS, role, permissions, permissionAllow),
-    [role, permissions, permissionAllow]
+    () => applyBadgeCounts(filterItems(NAV_ITEMS, role, permissions, permissionAllow), badgeCounts),
+    [role, permissions, permissionAllow, badgeCounts]
   );
 
   const visibleSettingsItems = useMemo(
@@ -859,13 +878,13 @@ export function DesktopSidebar({ collapsed, onToggle }) {
 }
 
 // Version mobile avec animations améliorées
-export function MobileSidebar({ isOpen, onClose }) {
+export function MobileSidebar({ isOpen, onClose, badgeCounts = {} }) {
   const { role, permissions, permissionAllow, fullName, email } = useAdminAuth();
   const sidebarRef = useRef(null);
 
   const visibleNavItems = useMemo(
-    () => filterItems(NAV_ITEMS, role, permissions, permissionAllow),
-    [role, permissions, permissionAllow]
+    () => applyBadgeCounts(filterItems(NAV_ITEMS, role, permissions, permissionAllow), badgeCounts),
+    [role, permissions, permissionAllow, badgeCounts]
   );
 
   const visibleSettingsItems = useMemo(
@@ -987,7 +1006,7 @@ export function MobileSidebar({ isOpen, onClose }) {
 }
 
 // Composant principal avec gestion d'état
-export default function Sidebar() {
+export default function Sidebar({ badgeCounts = {} }) {
   const [collapsed, setCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem("sidebar-collapsed");
@@ -1007,5 +1026,5 @@ export default function Sidebar() {
     }
   };
 
-  return <DesktopSidebar collapsed={collapsed} onToggle={handleToggle} />;
+  return <DesktopSidebar collapsed={collapsed} onToggle={handleToggle} badgeCounts={badgeCounts} />;
 }
