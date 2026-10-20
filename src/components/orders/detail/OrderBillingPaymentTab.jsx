@@ -61,11 +61,11 @@ function Alert({ tone = "blue", title, children, className = "", dismissible = f
   const [isVisible, setIsVisible] = React.useState(true);
   
   const tones = {
-    amber: { border: "border-l-4 border-l-amber-500", bg: "bg-amber-50", text: "text-amber-800", icon: "⚠️" },
-    red: { border: "border-l-4 border-l-red-500", bg: "bg-red-50", text: "text-red-800", icon: "❌" },
-    blue: { border: "border-l-4 border-l-blue-500", bg: "bg-blue-50", text: "text-blue-800", icon: "ℹ️" },
-    emerald: { border: "border-l-4 border-l-emerald-500", bg: "bg-emerald-50", text: "text-emerald-800", icon: "✅" },
-    gray: { border: "border-l-4 border-l-gray-400", bg: "bg-gray-50", text: "text-gray-700", icon: "📌" },
+    amber: { border: "border border-amber-200", bg: "bg-amber-50", text: "text-amber-800", icon: "⚠️" },
+    red: { border: "border border-red-200", bg: "bg-red-50", text: "text-red-800", icon: "❌" },
+    blue: { border: "border border-blue-200", bg: "bg-blue-50", text: "text-blue-800", icon: "ℹ️" },
+    emerald: { border: "border border-emerald-200", bg: "bg-emerald-50", text: "text-emerald-800", icon: "✅" },
+    gray: { border: "border border-gray-200", bg: "bg-gray-50", text: "text-gray-700", icon: "📌" },
   };
 
   const config = tones[tone] || tones.blue;
@@ -897,7 +897,7 @@ function BillingActionCard({
             className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
               !canSubmitInvoice
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800"
+                : "bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-md hover:shadow-lg hover:from-emerald-700 hover:to-emerald-800"
             }`}
             onClick={() => setConfirmationMode("invoice")}
             disabled={!canSubmitInvoice}
