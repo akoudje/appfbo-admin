@@ -600,7 +600,39 @@ export default function BillingQueuePage() {
     };
   }, [rows, currentAdminId, isBillingManager]);
 
-  const handleOpen = (row) => {
+  const handleOpen = async (row) => {
+    const isMine =
+      Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
+    const isUnclaimed = BILLING_QUEUE_STATUSES.has(row?.billingWorkStatus);
+
+    // Un dossier encore libre dans la file doit être pris en charge de façon
+    // atomique avant ouverture, sinon deux facturiers qui cliquent "Traiter"
+    // sur la même ligne au même moment se retrouvent tous les deux à la
+    // travailler. Les superviseurs (BILLING_MANAGER) consultent librement
+    // sans se l'attribuer.
+    if (!isBillingManager && isUnclaimed && !isMine) {
+      try {
+        setError("");
+        setInfo("");
+        const result = await ordersService.claimBillingPreorder(row.id);
+        if (!result?.ok) {
+          setError(
+            result?.reason === "MAX_ACTIVE_REACHED"
+              ? "Vous avez déjà des dossiers attribués. Finalisez-en un avant d'en prendre un nouveau."
+              : "Ce dossier vient d'être pris en charge par un autre facturier.",
+          );
+          await load();
+          return;
+        }
+      } catch (e) {
+        setError(
+          e?.response?.data?.message || "Impossible de prendre en charge ce dossier",
+        );
+        await load();
+        return;
+      }
+    }
+
     navigate(`/orders/${row.id}?tab=billing`);
   };
 
