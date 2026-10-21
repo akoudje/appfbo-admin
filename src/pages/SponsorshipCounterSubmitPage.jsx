@@ -9,6 +9,7 @@ import { useCallback, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
+import { formatFboNumber, defaultFboNumberPrefix } from "../utils/fboNumber";
 
 const SPONSOR_GRADE_OPTIONS = [
   { value: "ANIMATEUR_ADJOINT", label: "Animateur adjoint" },
@@ -27,7 +28,7 @@ const ID_DOCUMENT_OPTIONS = [
 
 function emptyForm() {
   return {
-    sponsorNumero: "",
+    sponsorNumero: defaultFboNumberPrefix(),
     sponsorNom: "",
     sponsorGrade: "",
     sponsorCity: "",
@@ -178,8 +179,10 @@ export default function SponsorshipCounterSubmitPage() {
                 id={id}
                 className={inputClass()}
                 value={form.sponsorNumero}
-                onChange={(e) => set("sponsorNumero", e.target.value)}
+                onChange={(e) => set("sponsorNumero", formatFboNumber(e.target.value))}
                 placeholder="221-000-250-359"
+                inputMode="numeric"
+                maxLength={15}
                 required
               />
             )}

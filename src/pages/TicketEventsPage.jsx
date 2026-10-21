@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ticketEventsService } from "../services/ticketEventsService";
 import { useConfirm, usePrompt } from "../hooks/useDialogs";
+import { formatFboNumber } from "../utils/fboNumber";
 import { readEventAvailability, legacyEventAvailability, availabilityPresentation } from "../lib/ticketEvents/eventAvailability";
 import { EVENT_COLLECTIONS, eventCollection, eventLifecycleStatus, normalizeEventCollection, filterManagementEvents, resolveEventSelection } from "../lib/ticketEvents/eventCollections";
 
@@ -1337,7 +1338,9 @@ function OrdersTab({
                   <input
                     className={inputClass()}
                     value={cashSaleForm.buyerFboNumber}
-                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboNumber: event.target.value })}
+                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboNumber: formatFboNumber(event.target.value) })}
+                    inputMode="numeric"
+                    maxLength={15}
                   />
                 </Field>
                 <Field label="Nom FBO">
