@@ -7,6 +7,10 @@ function buildQueryParams(searchParams) {
   return Object.fromEntries(keys.filter(key => searchParams.has(key)).map(key => [key, searchParams.get(key)]));
 }
 
+function formatFcfa(value) {
+  return new Intl.NumberFormat("fr-FR").format(Number(value || 0));
+}
+
 function formatSubmittedAt(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -41,22 +45,29 @@ function ExportOrderCard({ order, rank = null }) {
 
       <div className="min-h-[10mm] mb-2">
         {(order.items || []).length ? (
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+          <div className="flex flex-col gap-1">
             {order.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-baseline justify-between gap-1.5 text-[10.5px] leading-[1.35] border-b border-gray-300 pb-1"
+                className="flex items-baseline justify-between gap-1.5 text-[10px] leading-[1.35] border-b border-gray-300 pb-1"
               >
                 <span className="flex-1 font-semibold break-words">
                   {item.sku || "Article"}
                 </span>
-                <span className="whitespace-nowrap font-medium">x{Number(item.qty || 0)}</span>
+                <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
+                <span className="whitespace-nowrap text-gray-600">@{formatFcfa(item.prixUnitaireFcfa)}</span>
+                <span className="whitespace-nowrap font-medium">{formatFcfa(item.lineTotalFcfa)}</span>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-[10px] leading-[1.35]">Aucun article</div>
         )}
+      </div>
+
+      <div className="flex items-baseline justify-between text-[11px] font-bold mb-2 pt-1 border-t border-gray-400">
+        <span>Total commande</span>
+        <span>{formatFcfa(order.as400InvoiceTotalFcfa ?? order.indicativeTotalFcfa)} F</span>
       </div>
 
       <div className="border border-gray-300 min-h-[15mm] px-2.5 py-2">

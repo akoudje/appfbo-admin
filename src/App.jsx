@@ -130,7 +130,7 @@ export default function App() {
           path="/orders/submitted-export/print"
           element={
             <RequirePermission
-              permission={Permission.EXPORT_READ}
+              permissions={[Permission.EXPORT_READ, Permission.INVOICE_CREATE]}
               fallback={<AccessDenied message="Accès refusé à l’export des commandes." />}
             >
               <SubmittedOrdersPrintPage />
