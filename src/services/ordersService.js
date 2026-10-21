@@ -259,6 +259,9 @@ export const ordersService = {
   claimNextBilling: async () =>
     (await api.post("/admin/billing/claim-next")).data,
 
+  claimBillingPreorder: async (id) =>
+    (await api.post(`/admin/billing/${normalizeOrderId(id)}/claim`)).data,
+
   startBilling: async (id) =>
     (await api.post(`/admin/billing/${normalizeOrderId(id)}/start`)).data,
 
