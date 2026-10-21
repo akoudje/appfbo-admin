@@ -604,6 +604,17 @@ export default function BillingQueuePage() {
     navigate(`/orders/${row.id}?tab=billing`);
   };
 
+  const handlePrint = () => {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (priority) params.set("billingPriority", priority);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    // Le serveur restreint lui-même un facturier (sans droit d'export) à sa
+    // propre file (non réclamé + ses dossiers) : pas besoin de le préciser ici.
+    window.open(`/orders/submitted-export/print?${params.toString()}`, "_blank", "noopener");
+  };
+
   const handleClaimNext = async () => {
     try {
       setClaiming(true);
@@ -774,6 +785,7 @@ export default function BillingQueuePage() {
         claiming={claiming}
         onRefresh={load}
         onClaimNext={handleClaimNext}
+        onPrint={handlePrint}
       />
 
       {attentionAlert ? (

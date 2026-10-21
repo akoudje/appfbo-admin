@@ -6,6 +6,7 @@ export default function BillingQueueHeader({
   claiming,
   onRefresh,
   onClaimNext,
+  onPrint,
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -34,6 +35,14 @@ export default function BillingQueueHeader({
             type="button"
           >
             {claiming ? "Attribution..." : "Prendre le prochain dossier"}
+          </button>
+
+          <button
+            onClick={onPrint}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            type="button"
+          >
+            Imprimer ma file
           </button>
         </div>
       </div>
