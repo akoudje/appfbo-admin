@@ -344,6 +344,10 @@ export default function BillingQueuePage() {
         ordersService.getAll({
           ...commonFilters,
           billingWorkStatus: "WAITING_PAYMENT",
+          // Privé à chaque facturier (suivi de ses propres clients/bilan du
+          // jour) — à la différence des urgences/contentieux, volontairement
+          // partagées pour que n'importe qui de disponible puisse réagir.
+          ...(isBillingManager ? {} : { assignedToMe: true }),
           sort: "billingLastActivityAt",
           dir: "asc",
         }),
