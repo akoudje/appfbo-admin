@@ -612,7 +612,7 @@ function BillingActionCard({
                     inputMode="numeric"
                     type="number"
                     min={isBankStyleRelaunch ? "1" : "10"}
-                    max={isBankStyleRelaunch ? "720" : "30"}
+                    max={isBankStyleRelaunch ? "720" : "60"}
                     step="1"
                     disabled={saving}
                   />
