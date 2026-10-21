@@ -55,6 +55,7 @@ export default function BillingQueueTable({
   rows,
   loading,
   currentAdminId,
+  claimingRowId,
   onOpen,
   onStart,
   onRelease,
@@ -174,10 +175,11 @@ export default function BillingQueueTable({
                       <RequirePermission permission={Permission.PREORDER_READ}>
                         <button
                           onClick={() => onOpen(row)}
-                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          disabled={Boolean(claimingRowId)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                         >
-                          Traiter
+                          {claimingRowId === row.id ? "Prise en charge…" : "Traiter"}
                         </button>
                       </RequirePermission>
 
