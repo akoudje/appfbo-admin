@@ -11,6 +11,7 @@ import { PURCHASE_PAYMENT_MODES, SPONSORSHIP_STATUS } from "../components/sponso
 import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePanel";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { hasPermission, Permission } from "../auth/permissions";
+import { formatFboNumber, defaultFboNumberPrefix } from "../utils/fboNumber";
 
 const ID_DOCUMENT_LABELS = {
   CNI: "CNI",
@@ -93,7 +94,7 @@ export default function SponsorshipReviewPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(location.state?.notice || "");
   const [busy, setBusy] = useState("");
-  const [fboNumber, setFboNumber] = useState("");
+  const [fboNumber, setFboNumber] = useState(defaultFboNumberPrefix);
   const [note, setNote] = useState("");
   // Achat préfacturé à l'approbation : référence, montant et paiement AS400.
   const [invoice, setInvoice] = useState({ factureReference: "", invoiceAmountFcfa: "", paymentMode: "" });
@@ -325,8 +326,10 @@ export default function SponsorshipReviewPage() {
                   <span className="mb-1 block font-medium text-gray-700">N° FBO attribué dans AS400</span>
                   <input
                     value={fboNumber}
-                    onChange={(e) => setFboNumber(e.target.value)}
+                    onChange={(e) => setFboNumber(formatFboNumber(e.target.value))}
                     placeholder="225-000-123-456"
+                    inputMode="numeric"
+                    maxLength={15}
                     className="w-56 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
                   />
                 </label>
