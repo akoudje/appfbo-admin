@@ -235,7 +235,6 @@ export default function BillingQueuePage() {
 
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
-  const [claimingRowId, setClaimingRowId] = useState(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [attentionAlert, setAttentionAlert] = useState(null);
@@ -601,46 +600,7 @@ export default function BillingQueuePage() {
     };
   }, [rows, currentAdminId, isBillingManager]);
 
-  const handleOpen = async (row) => {
-    if (claimingRowId) return; // déjà une prise en charge en cours, on ignore le re-clic
-
-    const isMine =
-      Boolean(currentAdminId) && row?.assignedInvoicerId === currentAdminId;
-    const isUnclaimed = BILLING_QUEUE_STATUSES.has(row?.billingWorkStatus);
-
-    // Un dossier encore libre dans la file doit être pris en charge de façon
-    // atomique avant ouverture, sinon deux facturiers qui cliquent "Traiter"
-    // sur la même ligne au même moment se retrouvent tous les deux à la
-    // travailler. Les superviseurs (BILLING_MANAGER) consultent librement
-    // sans se l'attribuer. L'appel peut prendre plusieurs secondes : on
-    // affiche un état "en cours" sur la ligne pour que le clic ne semble
-    // jamais sans effet.
-    if (!isBillingManager && isUnclaimed && !isMine) {
-      try {
-        setClaimingRowId(row.id);
-        setError("");
-        setInfo("");
-        const result = await ordersService.claimBillingPreorder(row.id);
-        if (!result?.ok) {
-          setError(
-            result?.reason === "MAX_ACTIVE_REACHED"
-              ? "Vous avez déjà des dossiers attribués. Finalisez-en un avant d'en prendre un nouveau."
-              : "Ce dossier vient d'être pris en charge par un autre facturier.",
-          );
-          await load();
-          return;
-        }
-      } catch (e) {
-        setError(
-          e?.response?.data?.message || "Impossible de prendre en charge ce dossier",
-        );
-        await load();
-        return;
-      } finally {
-        setClaimingRowId(null);
-      }
-    }
-
+  const handleOpen = (row) => {
     navigate(`/orders/${row.id}?tab=billing`);
   };
 
@@ -1002,7 +962,6 @@ export default function BillingQueuePage() {
         rows={filteredRows}
         loading={loading}
         currentAdminId={currentAdminId}
-        claimingRowId={claimingRowId}
         onOpen={handleOpen}
         onStart={handleStart}
         onRelease={handleRelease}
