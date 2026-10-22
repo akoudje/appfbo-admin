@@ -26,39 +26,29 @@ const ID_DOCUMENT_OPTIONS = [
   { value: "OTHER", label: "Autre pièce officielle" },
 ];
 
+// Mêmes champs que la fiche de parrainage initiale (SponsorshipWizard, espace
+// client) : le parrain n'y saisit que son numéro FBO (nom/grade retrouvés par
+// recherche), son téléphone et son email ; ici la recherche échoue puisque le
+// numéro n'est pas encore reconnu, donc nom/grade sont saisis à la main en
+// remplacement — mais aucun champ supplémentaire (conjoint, activité
+// commerciale, etc.) qui n'existe pas côté client.
 function emptyForm() {
   return {
     sponsorNumero: defaultFboNumberPrefix(),
     sponsorNom: "",
     sponsorGrade: "",
-    sponsorCity: "",
     sponsorPhone: "",
+    sponsorEmail: "",
     lastName: "",
     firstNames: "",
     birthDate: "",
     birthPlace: "",
     idDocumentType: "CNI",
     idDocumentNumber: "",
-    passportNumber: "",
     mobile: "",
     email: "",
     addressArea: "",
     city: "",
-    postalBox: "",
-    zoneCode: "",
-    homeCountry: "CI",
-    maritalStatus: "",
-    childrenCount: "",
-    bankRib: "",
-    spouseLastName: "",
-    spouseFirstNames: "",
-    spouseBirthDate: "",
-    spouseBirthPlace: "",
-    profession: "",
-    businessSector: "",
-    tradeRegisterNumber: "",
-    tradeRegisterDate: "",
-    tradeRegisterPlace: "",
     consentAccepted: false,
   };
 }
@@ -202,14 +192,14 @@ export default function SponsorshipCounterSubmitPage() {
               </select>
             )}
           </Field>
-          <Field label="Téléphone du parrain" required>
+          <Field label="Téléphone du parrain" required hint="Il sera informé par SMS de l'avancement.">
             {(id) => (
               <input id={id} className={inputClass()} value={form.sponsorPhone} onChange={(e) => set("sponsorPhone", e.target.value)} required />
             )}
           </Field>
-          <Field label="Ville du parrain">
+          <Field label="Email du parrain" required hint="Il recevra la fiche approuvée et le lien de paiement.">
             {(id) => (
-              <input id={id} className={inputClass()} value={form.sponsorCity} onChange={(e) => set("sponsorCity", e.target.value)} />
+              <input id={id} type="email" className={inputClass()} value={form.sponsorEmail} onChange={(e) => set("sponsorEmail", e.target.value)} required />
             )}
           </Field>
         </Section>
@@ -238,14 +228,9 @@ export default function SponsorshipCounterSubmitPage() {
               </select>
             )}
           </Field>
-          <Field label="N° de la pièce d'identité" required>
+          <Field label={form.idDocumentType === "PASSPORT" ? "N° du passeport" : "N° de la pièce d'identité"} required>
             {(id) => (
               <input id={id} className={inputClass()} value={form.idDocumentNumber} onChange={(e) => set("idDocumentNumber", e.target.value)} required />
-            )}
-          </Field>
-          <Field label="N° de passeport" hint="Si différent de la pièce ci-dessus.">
-            {(id) => (
-              <input id={id} className={inputClass()} value={form.passportNumber} onChange={(e) => set("passportNumber", e.target.value)} />
             )}
           </Field>
         </Section>
@@ -262,15 +247,6 @@ export default function SponsorshipCounterSubmitPage() {
           </Field>
           <Field label="Quartier / zone">
             {(id) => <input id={id} className={inputClass()} value={form.addressArea} onChange={(e) => set("addressArea", e.target.value)} />}
-          </Field>
-          <Field label="Boîte postale">
-            {(id) => <input id={id} className={inputClass()} value={form.postalBox} onChange={(e) => set("postalBox", e.target.value)} />}
-          </Field>
-          <Field label="Code zone">
-            {(id) => <input id={id} className={inputClass()} value={form.zoneCode} onChange={(e) => set("zoneCode", e.target.value)} />}
-          </Field>
-          <Field label="Pays d'origine">
-            {(id) => <input id={id} className={inputClass()} value={form.homeCountry} onChange={(e) => set("homeCountry", e.target.value)} />}
           </Field>
         </Section>
 
@@ -309,50 +285,6 @@ export default function SponsorshipCounterSubmitPage() {
                 onChange={(e) => setFile("other", e.target.files?.[0] || null)}
               />
             )}
-          </Field>
-        </Section>
-
-        <Section title="Conjoint (optionnel)">
-          <Field label="Statut matrimonial">
-            {(id) => <input id={id} className={inputClass()} value={form.maritalStatus} onChange={(e) => set("maritalStatus", e.target.value)} />}
-          </Field>
-          <Field label="Nombre d'enfants">
-            {(id) => (
-              <input id={id} type="number" min="0" max="50" className={inputClass()} value={form.childrenCount} onChange={(e) => set("childrenCount", e.target.value)} />
-            )}
-          </Field>
-          <Field label="Nom du conjoint">
-            {(id) => <input id={id} className={inputClass()} value={form.spouseLastName} onChange={(e) => set("spouseLastName", e.target.value)} />}
-          </Field>
-          <Field label="Prénoms du conjoint">
-            {(id) => <input id={id} className={inputClass()} value={form.spouseFirstNames} onChange={(e) => set("spouseFirstNames", e.target.value)} />}
-          </Field>
-          <Field label="Date de naissance du conjoint">
-            {(id) => <input id={id} type="date" className={inputClass()} value={form.spouseBirthDate} onChange={(e) => set("spouseBirthDate", e.target.value)} />}
-          </Field>
-          <Field label="Lieu de naissance du conjoint">
-            {(id) => <input id={id} className={inputClass()} value={form.spouseBirthPlace} onChange={(e) => set("spouseBirthPlace", e.target.value)} />}
-          </Field>
-        </Section>
-
-        <Section title="Activité commerciale (optionnel)">
-          <Field label="Profession">
-            {(id) => <input id={id} className={inputClass()} value={form.profession} onChange={(e) => set("profession", e.target.value)} />}
-          </Field>
-          <Field label="Secteur d'activité">
-            {(id) => <input id={id} className={inputClass()} value={form.businessSector} onChange={(e) => set("businessSector", e.target.value)} />}
-          </Field>
-          <Field label="N° registre de commerce">
-            {(id) => <input id={id} className={inputClass()} value={form.tradeRegisterNumber} onChange={(e) => set("tradeRegisterNumber", e.target.value)} />}
-          </Field>
-          <Field label="Date du registre de commerce">
-            {(id) => <input id={id} type="date" className={inputClass()} value={form.tradeRegisterDate} onChange={(e) => set("tradeRegisterDate", e.target.value)} />}
-          </Field>
-          <Field label="Lieu du registre de commerce">
-            {(id) => <input id={id} className={inputClass()} value={form.tradeRegisterPlace} onChange={(e) => set("tradeRegisterPlace", e.target.value)} />}
-          </Field>
-          <Field label="RIB bancaire">
-            {(id) => <input id={id} className={inputClass()} value={form.bankRib} onChange={(e) => set("bankRib", e.target.value)} />}
           </Field>
         </Section>
 
