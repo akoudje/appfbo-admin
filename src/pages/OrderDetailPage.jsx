@@ -598,6 +598,8 @@ export default function OrderDetailPage() {
     doBulkUpdatePreparationChecklist,
     doCreatePreparationAnomaly,
     doResolvePreparationAnomaly,
+    doCreateBackorderCredit,
+    doCancelBackorderCredit,
     doReplaceBillingItem,
   } = useOrderActions({
     Blob,
@@ -990,6 +992,8 @@ export default function OrderDetailPage() {
               onBulkChecklist={doBulkUpdatePreparationChecklist}
               onCreateAnomaly={doCreatePreparationAnomaly}
               onResolveAnomaly={doResolvePreparationAnomaly}
+              onCreateBackorderCredit={doCreateBackorderCredit}
+              onCancelBackorderCredit={doCancelBackorderCredit}
               onGoToFulfillment={() => setTab("fulfillment")}
               stockSummary={stockSummary}
             />

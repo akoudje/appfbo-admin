@@ -55,32 +55,34 @@ const ANOMALY_OPTIONS = [
   { value: "BLOCKED_PARCEL", label: "Colis bloqué" },
 ];
 
-function ChecklistRow({ item, disabled, onToggle }) {
+function ChecklistRow({ item, disabled, onToggle, activeCredit, onDeclareUnavailable, declaring }) {
   const checked = Boolean(item?.checked);
   const line = item?.preorderItem || {};
   return (
     <div className="space-y-1">
-    <button
-      type="button"
-      aria-pressed={checked}
-      onClick={() => onToggle(item)}
-      disabled={disabled}
+    <div
       className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-        checked
+        activeCredit
+          ? "border-orange-300 bg-orange-50"
+          : checked
           ? "border-emerald-300 bg-emerald-50"
           : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
-      } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+      }`}
     >
       <div className="flex items-center gap-3">
-        <div
+        <button
+          type="button"
+          aria-pressed={checked}
+          onClick={() => onToggle(item)}
+          disabled={disabled || Boolean(activeCredit)}
           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
             checked
               ? "border-emerald-600 bg-emerald-600 text-white"
               : "border-gray-300 bg-white text-transparent"
-          }`}
+          } ${disabled || activeCredit ? "cursor-not-allowed opacity-70" : ""}`}
         >
           ✓
-        </div>
+        </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <span className="break-words font-semibold text-gray-900">
@@ -98,11 +100,27 @@ function ChecklistRow({ item, disabled, onToggle }) {
                 Cochée: <span className="font-medium">{formatDate(item?.checkedAt)}</span>
               </span>
             ) : null}
-            {checked ? <Badge tone="emerald">Vérifié</Badge> : <Badge tone="amber">À vérifier</Badge>}
+            {activeCredit ? (
+              <Badge tone="amber">Avoir — {activeCredit.reason}</Badge>
+            ) : checked ? (
+              <Badge tone="emerald">Vérifié</Badge>
+            ) : (
+              <Badge tone="amber">À vérifier</Badge>
+            )}
           </div>
         </div>
+        {!checked && !activeCredit ? (
+          <button
+            type="button"
+            onClick={() => onDeclareUnavailable(item)}
+            disabled={disabled || declaring}
+            className="shrink-0 rounded-lg border border-orange-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-50 disabled:opacity-50"
+          >
+            Indisponible (avoir)
+          </button>
+        ) : null}
       </div>
-    </button>
+    </div>
     </div>
   );
 }
@@ -119,6 +137,8 @@ export default function OrderPreparationTab({
   onBulkChecklist,
   onCreateAnomaly,
   onResolveAnomaly,
+  onCreateBackorderCredit,
+  onCancelBackorderCredit,
   onGoToFulfillment,
 }) {
   const [labelError, setLabelError] = useState("");
@@ -133,6 +153,12 @@ export default function OrderPreparationTab({
     anomalyId: "",
     value: "Anomalie traitée",
   });
+  const [creditDialog, setCreditDialog] = useState({
+    open: false,
+    itemId: "",
+    productLabel: "",
+  });
+  const [creditDeclaring, setCreditDeclaring] = useState(false);
 
   const status = order?.status;
   const stockDebited = Boolean(order?.stockDeductedAt);
@@ -152,9 +178,24 @@ export default function OrderPreparationTab({
     (item) => item.resolvedAt,
   );
 
+  const backorderCredits = Array.isArray(order?.backorderCredits) ? order.backorderCredits : [];
+  const activeCredits = backorderCredits.filter((credit) => credit.status !== "CANCELLED");
+  const activeCreditByItemId = useMemo(() => {
+    const map = new Map();
+    activeCredits.forEach((credit) => map.set(credit.preorderItemId, credit));
+    return map;
+  }, [activeCredits]);
+
+  // Une ligne couverte par un avoir actif (produit déclaré indisponible à la
+  // préparation) compte comme traitée : elle ne part pas dans ce colis mais
+  // c'est volontaire et suivi séparément (voir createBackorderCredit côté
+  // backend) — ça ne doit pas bloquer la remise du reste de la commande.
   const checkedCount = useMemo(
-    () => preparationItems.filter((item) => item.checked).length,
-    [preparationItems],
+    () =>
+      preparationItems.filter(
+        (item) => item.checked || activeCreditByItemId.has(item.preorderItemId),
+      ).length,
+    [preparationItems, activeCreditByItemId],
   );
   const totalItems = preparationItems.length;
   const totalUnits = useMemo(
@@ -197,6 +238,10 @@ export default function OrderPreparationTab({
     setAnomalyItemId("");
     setAnomalyKind("MISSING_ITEM");
     setAnomalyBlocking(true);
+  };
+
+  const handleCancelCredit = async (creditId) => {
+    await onCancelBackorderCredit?.(creditId, "Déclaration annulée");
   };
 
   return (
@@ -308,6 +353,18 @@ export default function OrderPreparationTab({
                 item={item}
                 disabled={!canBePrepared || saving}
                 onToggle={(row) => onToggleChecklistItem?.(row.preorderItemId, !row.checked)}
+                activeCredit={activeCreditByItemId.get(item.preorderItemId)}
+                declaring={creditDeclaring}
+                onDeclareUnavailable={(row) =>
+                  setCreditDialog({
+                    open: true,
+                    itemId: row.preorderItemId,
+                    productLabel:
+                      row.preorderItem?.productNameSnapshot ||
+                      row.preorderItem?.product?.nom ||
+                      "ce produit",
+                  })
+                }
               />
             ))
           )}
@@ -429,6 +486,36 @@ export default function OrderPreparationTab({
               ))
             )}
           </div>
+
+          {activeCredits.length > 0 ? (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <h4 className="font-semibold text-gray-900">Avoirs produits (rupture de stock)</h4>
+              {activeCredits.map((credit) => (
+                <div key={credit.id} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="amber">{{ ISSUED: "Déclaré", READY_FOR_PICKUP: "Prêt au retrait", FULFILLED: "Remis" }[credit.status] || credit.status}</Badge>
+                    <span className="text-sm font-medium text-gray-800">{credit.productNameSnapshot} x {credit.qty}</span>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-800">{credit.reason}</div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Déclaré par {credit.reportedBy?.fullName || "—"} le {formatDate(credit.createdAt)}
+                  </div>
+                  {credit.status === "ISSUED" ? (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => handleCancelCredit(credit.id)}
+                        disabled={saving}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:opacity-50"
+                      >
+                        Annuler cette déclaration
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4 xl:sticky xl:bottom-4 xl:self-end">
@@ -495,6 +582,32 @@ export default function OrderPreparationTab({
             ...prev,
             open: false,
           }));
+        }}
+      />
+
+      <TextPromptDialog
+        open={creditDialog.open}
+        title="Déclarer indisponible (avoir)"
+        description={`${creditDialog.productLabel} sera retiré du colis et suivi comme avoir produit à livrer séparément une fois réapprovisionné. Le client recevra le reste de sa commande normalement.`}
+        label="Motif (obligatoire)"
+        initialValue=""
+        placeholder="Ex: rupture constatée en rayon, 0 unité disponible"
+        multiline
+        required
+        busy={creditDeclaring}
+        cancelLabel="Annuler"
+        confirmLabel="Déclarer l'avoir"
+        onCancel={() => setCreditDialog({ open: false, itemId: "", productLabel: "" })}
+        onConfirm={async (value) => {
+          const reason = String(value || "").trim();
+          if (!reason) return;
+          setCreditDeclaring(true);
+          try {
+            await onCreateBackorderCredit?.({ itemId: creditDialog.itemId, reason });
+          } finally {
+            setCreditDeclaring(false);
+            setCreditDialog({ open: false, itemId: "", productLabel: "" });
+          }
         }}
       />
     </div>

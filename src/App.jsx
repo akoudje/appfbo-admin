@@ -17,6 +17,7 @@ import BillingQueuePage from "./pages/billing/BillingQueuePage";
 import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import ShipmentsPage from "./pages/preparation/ShipmentsPage";
+import BackorderCreditsPage from "./pages/BackorderCreditsPage";
 import StockWorkspacePage from "./pages/stock/StockWorkspacePage";
 import Products from "./pages/Products";
 import ProductCreate from "./pages/ProductCreate.jsx";
@@ -308,6 +309,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux colis en retard de retrait." />}
                     >
                       <PickupOverduePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/preparation/backorder-credits"
+                  element={
+                    <RequirePermission
+                      permission={Permission.PREPARATION_UPDATE}
+                      fallback={<AccessDenied message="Accès refusé aux avoirs produits." />}
+                    >
+                      <BackorderCreditsPage />
                     </RequirePermission>
                   }
                 />
