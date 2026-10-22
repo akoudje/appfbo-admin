@@ -884,6 +884,60 @@ export default function useOrderActions({
     }
   };
 
+  const doCreateBackorderCredit = async (body) => {
+    try {
+      setSaving(true);
+      setError("");
+      const created = await ordersService.createBackorderCredit(id, body);
+      setOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          backorderCredits: [
+            created,
+            ...(Array.isArray(prev.backorderCredits)
+              ? prev.backorderCredits
+              : []),
+          ],
+        };
+      });
+    } catch (e) {
+      setError(
+        e?.response?.data?.message ||
+          "Impossible de déclarer l'avoir produit",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doCancelBackorderCredit = async (creditId, reason) => {
+    try {
+      setSaving(true);
+      setError("");
+      const saved = await ordersService.cancelBackorderCredit(id, creditId, {
+        reason: normalizeStr(reason) || undefined,
+      });
+      setOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          backorderCredits: Array.isArray(prev.backorderCredits)
+            ? prev.backorderCredits.map((item) =>
+                item.id === creditId ? { ...item, ...saved } : item,
+              )
+            : prev.backorderCredits,
+        };
+      });
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || "Impossible d'annuler l'avoir produit",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const doReplaceBillingItem = async (itemId, nextProductId) => {
     try {
       setReplacingItemId(itemId);
@@ -944,6 +998,8 @@ export default function useOrderActions({
     doBulkUpdatePreparationChecklist,
     doCreatePreparationAnomaly,
     doResolvePreparationAnomaly,
+    doCreateBackorderCredit,
+    doCancelBackorderCredit,
     doReplaceBillingItem,
   };
   return Object.fromEntries(

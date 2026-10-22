@@ -228,6 +228,32 @@ export const ordersService = {
       )
     ).data,
 
+  createBackorderCredit: async (id, body) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/preparation/backorder-credits`,
+        body,
+      )
+    ).data,
+
+  cancelBackorderCredit: async (id, creditId, body = {}) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/preparation/backorder-credits/${creditId}/cancel`,
+        body,
+      )
+    ).data,
+
+  listBackorderCredits: async (params = {}) =>
+    (await api.get(`/admin/backorder-credits`, { params })).data,
+
+  prepareBackorderCredit: async (creditId) =>
+    (await api.post(`/admin/backorder-credits/${creditId}/prepare`)).data,
+
+  fulfillBackorderCredit: async (creditId, body) =>
+    (await api.post(`/admin/backorder-credits/${creditId}/fulfill`, body))
+      .data,
+
   fulfill: async (id, body) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/fulfill`, body))
       .data,
