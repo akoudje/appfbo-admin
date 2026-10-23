@@ -673,6 +673,33 @@ export default function useOrderActions({
     }
   };
 
+  const doReactivate = async () => {
+    try {
+      const approved = await confirm({
+        tone: "warning",
+        title: "Réactiver cette commande",
+        message:
+          "La commande " +
+          (order.preorderNumber || order.id) +
+          " sera remise dans l'espace caisse du facturier caissier qui l'avait traitée, comme avant la fermeture de sa caisse.",
+        confirmLabel: "Réactiver la commande",
+      });
+      if (!approved) return;
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.reactivate(id);
+      setOrder(result);
+      setInfo("Commande réactivée : elle est de nouveau dans l'espace caisse de son facturier.");
+      await load({ resetDrafts: true });
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de réactiver cette commande");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const copyWhatsApp = async () => {
     const text = order?.whatsappMessage || "";
     if (!text) return;
@@ -991,6 +1018,7 @@ export default function useOrderActions({
     doResendConfirmationSms,
     doFulfill,
     doCancel,
+    doReactivate,
     copyWhatsApp,
     doFulfillNoNotification,
     doDownloadDeliveryNote,
