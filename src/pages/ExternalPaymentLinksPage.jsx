@@ -2,7 +2,6 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { AlertTriangle, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Link as LinkIcon, Plus, Printer, QrCode, RefreshCw, Search, Send, X } from "lucide-react";
 import { externalPaymentLinksService } from "../services/externalPaymentLinksService";
-import CashRegisterStatusPanel from "../components/cashier/CashRegisterStatusPanel";
 
 const PAGE_SIZE = 50;
 const POLL_INTERVAL_MS = 15000;
@@ -453,7 +452,6 @@ export default function ExternalPaymentLinksPage() {
       <div><h1 className="text-2xl font-bold text-gray-950">Paiements Wave hors précommande</h1><p className="mt-1 text-sm text-gray-500">Créez un lien, suivez le paiement et rattachez-le à une commande.</p></div>
       <div className="flex flex-wrap gap-2"><button type="button" onClick={() => openModal("qr")} className={actionClass}><QrCode className="h-4 w-4" />Outils QR</button><button type="button" onClick={() => openModal("create")} className={`${actionClass} !bg-gray-900 !text-white`}><Plus className="h-4 w-4" />Nouveau lien</button></div>
     </header>
-    <CashRegisterStatusPanel />
     {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
     {notice && <div role="status" className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-sm break-words ${notice.tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}><span>{notice.text}</span><button type="button" aria-label="Fermer le message" onClick={() => setNotice(null)}><X className="h-4 w-4" /></button></div>}
     <div><p className="mb-2 text-xs text-gray-500">Indicateurs sur les résultats filtrés · montants encaissés incluant les frais Wave</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Résultats" value={total} /><Stat label="En attente" value={stats.activeCount || 0} /><Stat label="Paiements confirmés" value={stats.paidCount || 0} /><Stat label="Montant encaissé" value={formatFcfa(stats.paidAmountFcfa)} /></div></div>
