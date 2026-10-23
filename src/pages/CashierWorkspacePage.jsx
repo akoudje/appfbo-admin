@@ -338,6 +338,11 @@ function ProcessingTable({
                       <div className="text-xs text-gray-500">
                         Code caisse: {row.paymentCollectionCode || "-"}
                       </div>
+                      {row.assignedInvoicer ? (
+                        <div className="mt-1 text-xs font-medium text-indigo-700">
+                          Facturier : {displayAdminName(row.assignedInvoicer)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 font-mono text-base font-extrabold text-indigo-700">{row.factureReference || "-"}</td>
                     <td className="px-4 py-3">
