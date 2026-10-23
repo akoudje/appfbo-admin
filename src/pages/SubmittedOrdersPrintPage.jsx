@@ -55,8 +55,6 @@ function ExportOrderCard({ order, rank = null }) {
                   {item.sku || "Article"}
                 </span>
                 <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
-                <span className="whitespace-nowrap text-gray-600">@{formatFcfa(item.prixUnitaireFcfa)}</span>
-                <span className="whitespace-nowrap font-medium">{formatFcfa(item.lineTotalFcfa)}</span>
               </div>
             ))}
           </div>
