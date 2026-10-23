@@ -255,6 +255,11 @@ export default function SponsorshipReviewPage() {
 
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="mb-2 text-sm font-semibold text-gray-900">Parrain</h2>
+            {row.sponsorVerified === false ? (
+              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                ⚠️ Numéro FBO non reconnu par l'annuaire : nom et grade déclarés par le filleul, à vérifier avant d'approuver.
+              </div>
+            ) : null}
             <dl>
               <Row label="Nom" value={row.sponsorNom} />
               <Row label="N° FBO / niveau" value={`${row.sponsorNumero} · ${row.sponsorGrade}`} />
