@@ -7,10 +7,6 @@ function buildQueryParams(searchParams) {
   return Object.fromEntries(keys.filter(key => searchParams.has(key)).map(key => [key, searchParams.get(key)]));
 }
 
-function formatFcfa(value) {
-  return new Intl.NumberFormat("fr-FR").format(Number(value || 0));
-}
-
 function formatSubmittedAt(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -51,21 +47,16 @@ function ExportOrderCard({ order, rank = null }) {
                 key={item.id}
                 className="flex items-baseline justify-between gap-1.5 text-[10px] leading-[1.35] border-b border-gray-300 pb-1"
               >
+                <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
                 <span className="flex-1 font-semibold break-words">
                   {item.sku || "Article"}
                 </span>
-                <span className="whitespace-nowrap">x{Number(item.qty || 0)}</span>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-[10px] leading-[1.35]">Aucun article</div>
         )}
-      </div>
-
-      <div className="flex items-baseline justify-between text-[11px] font-bold mb-2 pt-1 border-t border-gray-400">
-        <span>Total commande</span>
-        <span>{formatFcfa(order.as400InvoiceTotalFcfa ?? order.indicativeTotalFcfa)} F</span>
       </div>
 
       <div className="border border-gray-300 min-h-[15mm] px-2.5 py-2">
