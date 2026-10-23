@@ -32,6 +32,8 @@ export default function OrderCancelPanel({
   cancelReason,
   setCancelReason,
   onCancel,
+  canReactivate = false,
+  onReactivate,
 }) {
   return (
     <div className="space-y-4">
@@ -85,6 +87,30 @@ export default function OrderCancelPanel({
           <div className="text-sm text-gray-700 whitespace-pre-wrap">
             {order.cancelReason}
           </div>
+        </div>
+      ) : null}
+
+      {canReactivate ? (
+        <div className="card p-4 space-y-3 border border-amber-200 bg-amber-50">
+          <div>
+            <div className="font-semibold text-amber-900">
+              Réactiver (fermeture de caisse)
+            </div>
+            <div className="text-sm text-amber-800">
+              Cette commande a été annulée automatiquement par une fermeture
+              de caisse, pas par une décision métier. La réactiver la remet
+              dans l'espace caisse du facturier caissier qui l'avait traitée,
+              avec le même statut qu'avant l'annulation.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            onClick={onReactivate}
+            disabled={saving}
+          >
+            {saving ? "..." : "Réactiver la commande"}
+          </button>
         </div>
       ) : null}
     </div>

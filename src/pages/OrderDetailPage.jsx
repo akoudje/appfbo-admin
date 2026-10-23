@@ -306,6 +306,18 @@ export default function OrderDetailPage() {
       (reason.includes("automatique") && reason.includes("sans paiement"))
     );
   }, [order?.cancelReason, order?.logs, paymentStatus, status]);
+  // Réservé aux administrateurs globaux : réactive une commande annulée par
+  // cash-register-closure.service.js (fermeture de caisse), pour la remettre
+  // dans l'espace caisse du facturier caissier qui l'avait traitée.
+  const canReactivate = useMemo(() => {
+    if (!isGlobalAdmin || status !== "CANCELLED") return false;
+    const logs = Array.isArray(order?.logs) ? order.logs : [];
+    return logs.some(
+      (log) =>
+        String(log?.action || "").toUpperCase() === "CANCEL" &&
+        String(log?.meta?.source || "").toUpperCase() === "CASH_REGISTER_CLOSURE",
+    );
+  }, [isGlobalAdmin, order?.logs, status]);
   // Virement bancaire / Ecobank Pay / PI SPI ont besoin d'un délai bien plus
   // long qu'une relance mobile money classique (le client doit d'abord faire
   // l'opération auprès de sa banque) : le widget de relance bascule alors en
@@ -591,6 +603,7 @@ export default function OrderDetailPage() {
     doResendConfirmationSms,
     doFulfill,
     doCancel,
+    doReactivate,
     copyWhatsApp,
     doFulfillNoNotification,
     doDownloadDeliveryNote,
@@ -1095,6 +1108,8 @@ export default function OrderDetailPage() {
               cancelReason={cancelReason}
               setCancelReason={setCancelReason}
               onCancel={doCancel}
+              canReactivate={canReactivate}
+              onReactivate={doReactivate}
             />
           </RequirePermission>
         )}
