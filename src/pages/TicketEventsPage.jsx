@@ -1659,9 +1659,19 @@ function BilanTab({ event }) {
         title: "Envoyer le rappel SMS",
         message: `Envoyer un SMS avec le lien direct vers leur billet à ${preview.targetCount} acheteur(s) payé(s) (hors commandes de test) ?`,
         detail: preview.sampleMessage ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
-            <div className="mb-1 font-semibold">Exemple de message envoyé :</div>
-            <div className="whitespace-pre-wrap break-all">{preview.sampleMessage}</div>
+          <div className="space-y-2">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+              <div className="mb-1 font-semibold">Exemple de message envoyé :</div>
+              <div className="whitespace-pre-wrap break-all">{preview.sampleMessage}</div>
+            </div>
+            {preview.multiOrderPhoneCount > 0 ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+                <div className="mb-1 font-semibold">
+                  {preview.multiOrderPhoneCount} numéro(s) ont plusieurs achats séparés — ils recevront aussi ce second SMS (une seule fois) :
+                </div>
+                <div className="whitespace-pre-wrap break-all">{preview.portalHintMessage}</div>
+              </div>
+            ) : null}
           </div>
         ) : null,
         confirmLabel: "Envoyer à tous",
