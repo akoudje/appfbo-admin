@@ -62,6 +62,12 @@ export const ticketEventsService = {
   getEventSummary: async (eventId) =>
     (await api.get(`/admin/ticket-events/${eventId}/summary`)).data,
 
+  getSmsReminderPreview: async (eventId, params = {}) =>
+    (await api.get(`/admin/ticket-events/${eventId}/sms-reminder/preview`, { params })).data,
+
+  sendSmsReminder: async (eventId, body = {}) =>
+    (await api.post(`/admin/ticket-events/${eventId}/sms-reminder`, body)).data,
+
   downloadEventOrdersCsv: async (eventId, params = {}) =>
     api.get(`/admin/ticket-events/${eventId}/orders/export`, {
       params,
