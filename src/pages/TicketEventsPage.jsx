@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { ticketEventsService } from "../services/ticketEventsService";
 import { useConfirm, usePrompt } from "../hooks/useDialogs";
-import { formatFboNumber } from "../utils/fboNumber";
 import { readEventAvailability, legacyEventAvailability, availabilityPresentation } from "../lib/ticketEvents/eventAvailability";
 import { EVENT_COLLECTIONS, eventCollection, eventLifecycleStatus, normalizeEventCollection, filterManagementEvents, resolveEventSelection } from "../lib/ticketEvents/eventCollections";
 
@@ -282,8 +281,6 @@ function emptyCashSaleForm() {
     buyerFullName: "",
     buyerPhone: "",
     buyerEmail: "",
-    buyerFboNumber: "",
-    buyerFboName: "",
     note: "",
     isTest: false,
   };
@@ -1349,29 +1346,12 @@ function OrdersTab({
                     required
                   />
                 </Field>
-                <Field label="Email ticket">
+                <Field label="Email ticket (optionnel)">
                   <input
                     type="email"
                     className={inputClass()}
                     value={cashSaleForm.buyerEmail}
                     onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerEmail: event.target.value })}
-                    required
-                  />
-                </Field>
-                <Field label="Numéro FBO">
-                  <input
-                    className={inputClass()}
-                    value={cashSaleForm.buyerFboNumber}
-                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboNumber: formatFboNumber(event.target.value) })}
-                    inputMode="numeric"
-                    maxLength={15}
-                  />
-                </Field>
-                <Field label="Nom FBO">
-                  <input
-                    className={inputClass()}
-                    value={cashSaleForm.buyerFboName}
-                    onChange={(event) => setCashSaleForm({ ...cashSaleForm, buyerFboName: event.target.value })}
                   />
                 </Field>
                 <Field label="Note">
@@ -1409,7 +1389,7 @@ function OrdersTab({
                   </button>
                   <button
                     type="submit"
-                    disabled={saving || !cashSaleForm.ticketTypeId || !cashSaleForm.buyerFullName.trim() || !cashSaleForm.buyerPhone.trim() || !cashSaleForm.buyerEmail.trim()}
+                    disabled={saving || !cashSaleForm.ticketTypeId || !cashSaleForm.buyerFullName.trim() || !cashSaleForm.buyerPhone.trim()}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#FFC600] px-4 py-2 text-sm font-semibold text-black hover:bg-[#e6b200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:opacity-50"
                   >
                     <Ticket className="h-4 w-4" />
