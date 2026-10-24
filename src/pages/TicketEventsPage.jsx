@@ -617,6 +617,28 @@ export default function TicketEventsPage() {
     }
   }
 
+  async function resendOrderSmsReminder(order) {
+    const confirmed = await confirm({
+      tone: "warning",
+      title: "Renvoyer le rappel SMS",
+      message: `Envoyer un SMS avec le lien direct vers son billet au ${order.buyerPhone || "numéro de l'acheteur"} ?`,
+      confirmLabel: "Envoyer",
+    });
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      await ticketEventsService.resendOrderSmsReminder(order.id);
+      setMessage(`Rappel SMS envoyé à ${order.buyerPhone || "l'acheteur"}.`);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Envoi du rappel SMS impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function createCashSale(event) {
     event.preventDefault();
     if (!selectedEvent?.id) return;
@@ -995,6 +1017,7 @@ export default function TicketEventsPage() {
                     onSyncWave={syncWavePayment}
                     onCancel={cancelOrder}
                     onResendTickets={resendOrderTicketsEmail}
+                    onResendSmsReminder={resendOrderSmsReminder}
                     onToggleTestFlag={toggleOrderTestFlag}
                   />
                 ) : null}
@@ -1176,6 +1199,7 @@ function OrdersTab({
   onSyncWave,
   onCancel,
   onResendTickets,
+  onResendSmsReminder,
   onToggleTestFlag,
 }) {
   const [detailOrder, setDetailOrder] = useState(null);
@@ -1471,6 +1495,16 @@ function OrdersTab({
                         className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
                       >
                         Renvoyer les billets
+                      </button>
+                    ) : null}
+                    {isPaid && !order.ticketIssueCode ? (
+                      <button
+                        type="button"
+                        onClick={() => onResendSmsReminder(order)}
+                        disabled={saving}
+                        className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 disabled:opacity-50"
+                      >
+                        Renvoyer le rappel SMS
                       </button>
                     ) : null}
                     {!isPaid && !isDeadOrderStatus(order.status) ? (
