@@ -1534,6 +1534,8 @@ function BilanTab({ event }) {
   const [restitutionMessage, setRestitutionMessage] = useState("");
   const [sendingRestitution, setSendingRestitution] = useState(false);
   const [restitutionResult, setRestitutionResult] = useState(null);
+  const [sendingSmsReminder, setSendingSmsReminder] = useState(false);
+  const [smsReminderResult, setSmsReminderResult] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -1609,6 +1611,38 @@ function BilanTab({ event }) {
     }
   }
 
+  async function handleSendSmsReminder() {
+    try {
+      setError("");
+      setSmsReminderResult(null);
+      const preview = await ticketEventsService.getSmsReminderPreview(event.id);
+      if (!preview.targetCount) {
+        setError("Aucun acheteur payé (hors test) à relancer pour cet événement.");
+        return;
+      }
+      const confirmed = await confirm({
+        tone: "warning",
+        title: "Envoyer le rappel SMS",
+        message: `Envoyer un SMS avec le lien direct vers leur billet à ${preview.targetCount} acheteur(s) payé(s) (hors commandes de test) ?`,
+        detail: preview.sampleMessage ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+            <div className="mb-1 font-semibold">Exemple de message envoyé :</div>
+            <div className="whitespace-pre-wrap break-all">{preview.sampleMessage}</div>
+          </div>
+        ) : null,
+        confirmLabel: "Envoyer à tous",
+      });
+      if (!confirmed) return;
+      setSendingSmsReminder(true);
+      const result = await ticketEventsService.sendSmsReminder(event.id, {});
+      setSmsReminderResult(result);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Aperçu ou envoi du rappel SMS impossible.");
+    } finally {
+      setSendingSmsReminder(false);
+    }
+  }
+
   if (loading && !summary) {
     return <div className="p-8 text-center text-sm text-gray-500">Chargement du bilan…</div>;
   }
@@ -1632,6 +1666,30 @@ function BilanTab({ event }) {
           {summary.totals.testOrdersExcludedCount} commande(s) de test exclue(s) de ce bilan.
         </div>
       ) : null}
+
+      <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold">Rappel SMS — billet</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Envoie un SMS avec le lien direct vers le billet à tous les acheteurs payés (utile si l'email de confirmation n'arrive pas — boîte pleine, etc.).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSendSmsReminder}
+            disabled={sendingSmsReminder}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+          >
+            {sendingSmsReminder ? "Envoi en cours…" : "Envoyer le rappel SMS"}
+          </button>
+        </div>
+        {smsReminderResult?.started ? (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800">
+            Envoi lancé vers {smsReminderResult.total} destinataire(s). Cela peut prendre quelques minutes.
+          </div>
+        ) : null}
+      </div>
 
       <div className="rounded-xl border border-gray-200">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4">
