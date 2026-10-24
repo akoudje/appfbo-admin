@@ -41,6 +41,9 @@ export const ticketEventsService = {
   resendOrderTicketsEmail: async (orderId, body = {}) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/resend-email`, body)).data,
 
+  resendOrderSmsReminder: async (orderId) =>
+    (await api.post(`/admin/ticket-events/orders/${orderId}/resend-sms-reminder`, {})).data,
+
   setOrderTestFlag: async (orderId, isTest) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/test-flag`, { isTest })).data,
 
