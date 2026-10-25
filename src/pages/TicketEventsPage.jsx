@@ -589,6 +589,30 @@ export default function TicketEventsPage() {
     }
   }
 
+  async function issueTicketCredit(ticket, order) {
+    const ok = await confirm({
+      tone: "warning",
+      title: "Reporter ce billet",
+      message: `Convertir le billet de ${ticket.holderFullName || order.buyerFullName} (${ticket.ticketCode}) en crédit utilisable à la prochaine édition ? Le client sera notifié par SMS/email.`,
+      confirmLabel: "Convertir en crédit",
+    });
+    if (!ok) return false;
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      await ticketEventsService.issueManualTicketCredit(ticket.id);
+      setMessage(`Billet ${ticket.ticketCode} converti en crédit.`);
+      await load({ eventId: selectedEventId });
+      return true;
+    } catch (err) {
+      setError(err?.response?.data?.message || "Report du billet impossible.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function resendOrderTicketsEmail(order) {
     const defaultEmail = order.buyerEmail || order.holderEmail || "";
     const recipientEmail = await promptText({
@@ -1016,6 +1040,7 @@ export default function TicketEventsPage() {
                     onResendTickets={resendOrderTicketsEmail}
                     onResendSmsReminder={resendOrderSmsReminder}
                     onToggleTestFlag={toggleOrderTestFlag}
+                    onIssueTicketCredit={issueTicketCredit}
                   />
                 ) : null}
                 {activeTab === "bilan" ? <BilanTab key={selectedEvent.id} event={selectedEvent} /> : null}
@@ -1198,6 +1223,7 @@ function OrdersTab({
   onResendTickets,
   onResendSmsReminder,
   onToggleTestFlag,
+  onIssueTicketCredit,
 }) {
   const [detailOrder, setDetailOrder] = useState(null);
   const ticketTypes = event?.ticketTypes || [];
@@ -1528,7 +1554,30 @@ function OrdersTab({
             <Info label="Commande de test" value={detailOrder.isTest ? "Oui — exclue du bilan" : "Non"} />
           </div>
           <h4 className="mb-3 mt-6 font-semibold">Billets associés</h4>
-          {(detailOrder.tickets || []).map((ticket) => <div key={ticket.id} className="flex flex-wrap justify-between gap-2 border-t py-3 text-sm"><span>{ticket.holderFullName || detailOrder.buyerFullName} · {ticket.ticketCode}</span><span>{statusLabel(ticket.status)}</span></div>)}
+          {(detailOrder.tickets || []).map((ticket) => (
+            <div key={ticket.id} className="flex flex-wrap items-center justify-between gap-2 border-t py-3 text-sm">
+              <span>{ticket.holderFullName || detailOrder.buyerFullName} · {ticket.ticketCode}</span>
+              <span className="flex items-center gap-2">
+                <span>{ticket.status === "EXPIRED" ? "Converti en crédit" : statusLabel(ticket.status)}</span>
+                {ticket.status === "ACTIVE" ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await onIssueTicketCredit(ticket, detailOrder);
+                      if (ok) {
+                        setDetailOrder((prev) => prev
+                          ? { ...prev, tickets: prev.tickets.map((t) => (t.id === ticket.id ? { ...t, status: "EXPIRED" } : t)) }
+                          : prev);
+                      }
+                    }}
+                    className="rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700"
+                  >
+                    Reporter en crédit
+                  </button>
+                ) : null}
+              </span>
+            </div>
+          ))}
           {!detailOrder.tickets?.length ? <p className="text-sm text-gray-500">Aucun billet émis.</p> : null}
         </div>
       </AccessibleDialog> : null}
