@@ -47,6 +47,9 @@ export const ticketEventsService = {
   setOrderTestFlag: async (orderId, isTest) =>
     (await api.post(`/admin/ticket-events/orders/${orderId}/test-flag`, { isTest })).data,
 
+  issueManualTicketCredit: async (ticketId) =>
+    (await api.post("/admin/ticket-events/credits/manual", { ticketId })).data,
+
   checkInTicket: async (body = {}) =>
     (await api.post("/admin/ticket-events/check-in", body)).data,
 
