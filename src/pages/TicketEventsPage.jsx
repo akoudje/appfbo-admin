@@ -72,6 +72,7 @@ function AccessibleDialog({ title, onClose, children }) {
 function paymentMethodLabel(method) {
   if (method === "CASH") return "Espèces";
   if (method === "WAVE") return "Wave";
+  if (method === "TICKET_CREDIT") return "Crédit (autre édition)";
   return "Autre";
 }
 
@@ -326,6 +327,7 @@ export default function TicketEventsPage() {
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatus, setOrderStatus] = useState(DEFAULT_ORDER_STATUS);
   const [orderPaymentMethod, setOrderPaymentMethod] = useState("");
+  const [orderKind, setOrderKind] = useState("");
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketTypeForm);
   const [cashSaleForm, setCashSaleForm] = useState(emptyCashSaleForm);
   const [cashSaleModalOpen, setCashSaleModalOpen] = useState(false);
@@ -381,6 +383,7 @@ export default function TicketEventsPage() {
       const q = overrides.q ?? orderQuery;
       const status = overrides.status ?? orderStatus;
       const paymentMethod = overrides.paymentMethod ?? orderPaymentMethod;
+      const kind = overrides.kind ?? orderKind;
       const eventsResponse = await ticketEventsService.listEvents();
       if (sequence !== loadSequence.current) return;
       const nextEvents = eventsResponse?.data || [];
@@ -397,6 +400,7 @@ export default function TicketEventsPage() {
       const [ordersResponse, summary] = await Promise.all([
         ticketEventsService.listOrders({ eventId: nextSelectedId, q: q || undefined,
           status: status || undefined, paymentMethod: paymentMethod || undefined,
+          kind: kind || undefined,
           page: overrides.page ?? 1, pageSize: 25 }),
         ticketEventsService.getEventSummary(nextSelectedId),
       ]);
@@ -1031,6 +1035,8 @@ export default function TicketEventsPage() {
                     setOrderStatus={setOrderStatus}
                     orderPaymentMethod={orderPaymentMethod}
                     setOrderPaymentMethod={setOrderPaymentMethod}
+                    orderKind={orderKind}
+                    setOrderKind={setOrderKind}
                     saving={saving}
                     onLoad={(overrides) => load({ eventId: selectedEvent.id, ...overrides })}
                     onExpire={expireOrders}
@@ -1214,6 +1220,8 @@ function OrdersTab({
   setOrderStatus,
   orderPaymentMethod,
   setOrderPaymentMethod,
+  orderKind,
+  setOrderKind,
   saving,
   onLoad,
   onExpire,
@@ -1237,6 +1245,7 @@ function OrdersTab({
       paymentMethod: Object.prototype.hasOwnProperty.call(next, "paymentMethod")
         ? next.paymentMethod
         : orderPaymentMethod,
+      kind: Object.prototype.hasOwnProperty.call(next, "kind") ? next.kind : orderKind,
     });
 
   return (
@@ -1287,6 +1296,21 @@ function OrdersTab({
             <option value="CASH">Espèces / Cash</option>
             <option value="WAVE">Wave</option>
             <option value="OTHER">Autres</option>
+          </select>
+          <select
+            aria-label="Origine de la commande"
+            value={orderKind}
+            onChange={(event) => {
+              const next = event.target.value;
+              setOrderKind(next);
+              loadOrders({ kind: next });
+            }}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-gray-900 focus:ring-2 focus:ring-[#FFC600]/40"
+          >
+            <option value="">Toutes origines</option>
+            <option value="NORMAL">Achats normaux</option>
+            <option value="TEST">Billets test</option>
+            <option value="CREDIT">Issus d’un crédit (autre édition)</option>
           </select>
           <label className="flex min-w-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 focus-within:border-gray-900 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
             <Search className="h-4 w-4 text-gray-400" />
@@ -1453,6 +1477,11 @@ function OrdersTab({
                       Test
                     </span>
                   ) : null}
+                  {String(order.paymentMethod || order.paymentProvider || "").toUpperCase() === "TICKET_CREDIT" ? (
+                    <span className="mt-1 inline-flex items-center rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">
+                      Crédit
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2">
                   <div className="font-semibold">{order.buyerFullName}</div>
@@ -1529,7 +1558,7 @@ function OrdersTab({
             })}
             {!orders.length ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">{orderQuery || orderStatus || orderPaymentMethod ? "Aucune commande ne correspond à ces filtres." : "Aucune commande pour cet événement."}</td>
+                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">{orderQuery || orderStatus || orderPaymentMethod || orderKind ? "Aucune commande ne correspond à ces filtres." : "Aucune commande pour cet événement."}</td>
               </tr>
             ) : null}
           </tbody>
