@@ -293,6 +293,14 @@ export const ordersService = {
   claimNextBilling: async () =>
     (await api.post("/admin/billing/claim-next")).data,
 
+  // Superviseurs : facturiers du pays { invoicers: [{ id, fullName, role,
+  // connected, autoDispatch, load, maxActive }] } et attribution manuelle.
+  listBillingInvoicers: async () =>
+    (await api.get("/admin/billing/invoicers")).data,
+
+  assignBilling: async (id, invoicerId) =>
+    (await api.post(`/admin/billing/${normalizeOrderId(id)}/assign`, { invoicerId })).data,
+
   startBilling: async (id) =>
     (await api.post(`/admin/billing/${normalizeOrderId(id)}/start`)).data,
 

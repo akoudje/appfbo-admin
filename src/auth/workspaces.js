@@ -47,9 +47,10 @@ export function getWorkspaceNavKeys(role) {
       return new Set(["orders", "cashier", "external-payment-links", "cash-closures", "reports"]);
     case AdminRole.CAISSIERE:
       return new Set(["cashier", "external-payment-links", "cash-closures", "billing"]);
-    // Union Facturier (billing/as400/sponsorships) + Caissière (cashier/cash-closures).
+    // Facturation + caisse (cashier/cash-closures), sans Gateway AS400 ni
+    // demandes de lien de paiement (traitées par le responsable facturation).
     case AdminRole.FACTURIER_CAISSIER:
-      return new Set(["billing", "as400", "external-payment-links", "sponsorships", "cashier", "cash-closures"]);
+      return new Set(["billing", "external-payment-links", "sponsorships", "cashier", "cash-closures"]);
     case AdminRole.ORDER_PREPARER:
       return new Set(["preparation"]);
     case AdminRole.STOCK_MANAGER:
