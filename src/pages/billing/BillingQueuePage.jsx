@@ -608,15 +608,37 @@ export default function BillingQueuePage() {
     navigate(`/orders/${row.id}?tab=billing`);
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (priority) params.set("billingPriority", priority);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
-    // Le serveur restreint lui-même un facturier (sans droit d'export) à sa
-    // propre file (non réclamé + ses dossiers) : pas besoin de le préciser ici.
-    window.open(`/orders/submitted-export/print?${params.toString()}`, "_blank", "noopener");
+    // Onglet ouvert tout de suite (sinon bloqué comme popup après l'attente),
+    // puis dirigé vers la feuille une fois les dossiers réservés.
+    const printWindow = window.open("", "_blank");
+    setError("");
+    setInfo("");
+    try {
+      // Un facturier se réserve d'abord les dossiers libres : la feuille ne
+      // contient que les siens, et ils sortent de la file des autres.
+      const result = await ordersService.claimSubmittedForPrint(Object.fromEntries(params));
+      if (!result?.skipped) {
+        setInfo(
+          result?.claimedCount
+            ? `${result.claimedCount} dossier(s) réservé(s) pour vous (${result.activeCount}/${result.maxActive} en cours).`
+            : `Aucun nouveau dossier réservé (${result?.activeCount ?? 0}/${result?.maxActive ?? "?"} en cours) : la feuille contient vos dossiers déjà attribués.`,
+        );
+        load({ silent: true });
+      }
+      if (printWindow) {
+        printWindow.opener = null;
+        printWindow.location.href = `/orders/submitted-export/print?${params.toString()}`;
+      }
+    } catch (e) {
+      printWindow?.close();
+      setError(e?.response?.data?.message || "Impossible de réserver les dossiers à imprimer.");
+    }
   };
 
   const handleClaimNext = async () => {
