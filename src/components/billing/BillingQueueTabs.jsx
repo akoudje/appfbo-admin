@@ -40,6 +40,7 @@ export default function BillingQueueTabs({
   tab,
   setTab,
   isBillingManager = false,
+  hideQueue = false,
   stats = {},
 }) {
   const urgentCount = Number(stats.escalated || 0);
@@ -54,7 +55,7 @@ export default function BillingQueueTabs({
           count: urgentCount,
         }
       : null,
-    { key: "queue", label: queueLabel },
+    hideQueue ? null : { key: "queue", label: queueLabel },
     { key: "my", label: isBillingManager ? "Activité facturiers" : "Mes dossiers" },
     { key: "waiting-payment", label: "En attente paiement" },
     !hasUrgencies

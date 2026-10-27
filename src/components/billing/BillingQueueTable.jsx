@@ -61,6 +61,8 @@ export default function BillingQueueTable({
   onEscalate,
   onResolveAs400Dispute,
   onResolveEscalation,
+  invoicers = null,
+  onAssign,
 }) {
   if (loading) {
     return (
@@ -113,6 +115,13 @@ export default function BillingQueueTable({
                 row?.billingWorkStatus === "ESCALATED" && !hasOpenAs400Dispute;
               const assignedName =
                 row?.assignedInvoicer?.fullName || row?.assignedInvoicer?.email || "—";
+              // Superviseur : attribution manuelle d'un dossier encore à facturer.
+              const canAssign =
+                Array.isArray(invoicers) &&
+                row?.status === "SUBMITTED" &&
+                ["QUEUED", "RELEASED", "ASSIGNED", "IN_PROGRESS", "WAITING_CUSTOMER_DATA"].includes(
+                  row?.billingWorkStatus,
+                );
 
               return (
                 <tr key={row.id} className="border-t border-gray-100 text-gray-800 align-top">
@@ -152,7 +161,29 @@ export default function BillingQueueTable({
                     </div>
                   </td>
 
-                  <td className="px-4 py-3">{assignedName}</td>
+                  <td className="px-4 py-3">
+                    <div>{assignedName}</div>
+                    {canAssign ? (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) onAssign?.(row, e.target.value);
+                        }}
+                        className="mt-1 w-full max-w-[14rem] rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700"
+                        aria-label="Attribuer le dossier à un facturier"
+                      >
+                        <option value="">{row?.assignedInvoicerId ? "Réattribuer à…" : "Attribuer à…"}</option>
+                        {invoicers
+                          .filter((invoicer) => invoicer.id !== row?.assignedInvoicerId)
+                          .map((invoicer) => (
+                            <option key={invoicer.id} value={invoicer.id}>
+                              {invoicer.connected ? "● " : "○ "}
+                              {invoicer.fullName || invoicer.email} ({invoicer.load}/{invoicer.maxActive})
+                            </option>
+                          ))}
+                      </select>
+                    ) : null}
+                  </td>
 
                   <td className="px-4 py-3">
                     <div className="text-sm">

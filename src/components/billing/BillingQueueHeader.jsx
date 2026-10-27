@@ -7,6 +7,7 @@ export default function BillingQueueHeader({
   onRefresh,
   onClaimNext,
   onPrint,
+  autoDispatch = false,
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -14,7 +15,9 @@ export default function BillingQueueHeader({
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Facturation</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Espace de travail des facturiers : queue, dossiers assignés, attente paiement, escalades.
+            {autoDispatch
+              ? "Vos dossiers vous sont attribués automatiquement : facturez-les, suivez leur paiement et vos escalades."
+              : "Espace de travail des facturiers : queue, dossiers assignés, attente paiement, escalades."}
           </p>
         </div>
 
@@ -28,14 +31,16 @@ export default function BillingQueueHeader({
             Rafraîchir
           </button>
 
-          <button
-            onClick={onClaimNext}
-            disabled={claiming}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            type="button"
-          >
-            {claiming ? "Attribution..." : "Prendre le prochain dossier"}
-          </button>
+          {!autoDispatch ? (
+            <button
+              onClick={onClaimNext}
+              disabled={claiming}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              type="button"
+            >
+              {claiming ? "Attribution..." : "Prendre le prochain dossier"}
+            </button>
+          ) : null}
 
           <button
             onClick={onPrint}

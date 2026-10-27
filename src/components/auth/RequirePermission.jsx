@@ -5,17 +5,22 @@
 
 import { usePermission } from "../../hooks/usePermission";
 import { useAnyPermission } from "../../hooks/usePermission";
+import useAdminAuth from "../../hooks/useAdminAuth";
 
 export default function RequirePermission({
   permission,
   permissions,
+  deniedRoles,
   fallback = null,
   children,
 }) {
+  const { role } = useAdminAuth();
   const allowedSingle = usePermission(permission);
   const allowedAny = useAnyPermission(permissions || []);
   const allowed = Array.isArray(permissions) ? allowedAny : allowedSingle;
 
-  if (!allowed) return fallback;
+  // deniedRoles : rôles exclus d'un module malgré la permission (ex. le
+  // facturier caissier n'a pas accès à la Gateway AS400).
+  if (!allowed || (Array.isArray(deniedRoles) && deniedRoles.includes(role))) return fallback;
   return children;
 }

@@ -114,6 +114,7 @@ const NAV_ITEMS = [
     to: "/billing/as400",
     label: "Gateway AS400",
     permission: Permission.INVOICE_CREATE,
+    deniedRoles: ["FACTURIER_CAISSIER"],
     icon: ServerCog,
     badge: null,
     description: "Demandes et logs d'intégration",
@@ -125,6 +126,7 @@ const NAV_ITEMS = [
     to: "/billing/payment-link-requests",
     label: "Liens paiement",
     permission: Permission.INVOICE_CREATE,
+    deniedRoles: ["FACTURIER_CAISSIER"],
     icon: MessageSquareText,
     badge: null,
     description: "Demandes de renvoi client",
@@ -675,6 +677,9 @@ function filterItems(items, role, permissions, permissionAllow = []) {
 
     // Vérification des rôles autorisés
     if (Array.isArray(item.allowedRoles) && !item.allowedRoles.includes(role)) {
+      return false;
+    }
+    if (Array.isArray(item.deniedRoles) && item.deniedRoles.includes(role)) {
       return false;
     }
 

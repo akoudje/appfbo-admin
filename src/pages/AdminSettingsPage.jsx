@@ -1896,7 +1896,7 @@ export default function AdminSettingsPage() {
 
                           <Field
                             label="Charge maximale par facturier"
-                            hint="Nombre de dossiers en cours qu'un facturier peut avoir en même temps (prise en charge et impression de la file)"
+                            hint="Nombre de dossiers à facturer qu'un facturier peut avoir en même temps : la répartition automatique remplit chaque facturier caissier connecté jusqu'à ce nombre"
                           >
                             <TextInput
                               type="number"

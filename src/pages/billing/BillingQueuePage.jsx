@@ -178,7 +178,12 @@ export default function BillingQueuePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { admin, role } = useAdminAuth();
-  const isBillingManager = role === "BILLING_MANAGER";
+  // Facturier caissier : dossiers attribués automatiquement, pas de file commune.
+  const isAutoDispatch = role === "FACTURIER_CAISSIER";
+  // Superviseurs : vue de tous les dossiers en cours et attribution manuelle
+  // à un facturier précis (même liste que BILLING_SUPERVISOR_ROLES côté API).
+  const isSupervisor = ["BILLING_MANAGER", "SALES_DIRECTOR", "SUPER_ADMIN", "TECH_ADMIN"].includes(role);
+  const isBillingManager = isSupervisor;
   const currentAdminId = admin?.id || null;
   const searchDebounceInitializedRef = useRef(false);
   const loadRef = useRef(null);
@@ -214,6 +219,12 @@ export default function BillingQueuePage() {
         loadRef.current?.({ silent: true });
         return;
       }
+      if (eventKey === "billing_queue_new" && isAutoDispatch) {
+        // Nouvelle commande en file : la répartition décide à qui elle va ;
+        // le rechargement signale au facturier celles qui lui sont attribuées.
+        loadRef.current?.({ silent: true });
+        return;
+      }
       if (eventKey === "billing_queue_new") {
         const played = await sound.notify("billing_queue_new", {
           signature: `rt:${eventKey}:${event?.orderId || event?.at || ""}`,
@@ -238,12 +249,13 @@ export default function BillingQueuePage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [attentionAlert, setAttentionAlert] = useState(null);
-  const defaultTab = "queue";
+  const defaultTab = isAutoDispatch ? "my" : "queue";
   const requestedTab = normalizeBillingTab(searchParams.get("tab"), defaultTab);
   const [tab, setTab] = useState(
-    requestedTab,
+    isAutoDispatch && requestedTab === "queue" ? "my" : requestedTab,
   );
   const [rows, setRows] = useState([]);
+  const [invoicers, setInvoicers] = useState(null);
   const [query, setQuery] = useState("");
   const [priority, setPriority] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -283,10 +295,14 @@ export default function BillingQueuePage() {
       count: safeCount,
       title: isEscalated
         ? "Nouvelle commande escaladée en facturation"
-        : "Nouvelle commande en file de facturation",
+        : isAutoDispatch
+          ? "Nouveau dossier attribué"
+          : "Nouvelle commande en file de facturation",
       message: isEscalated
         ? `${safeCount} dossier${safeCount > 1 ? "s" : ""} nécessite${safeCount > 1 ? "nt" : ""} une attention immédiate.`
-        : `${safeCount} nouvelle${safeCount > 1 ? "s" : ""} commande${safeCount > 1 ? "s" : ""} en attente de traitement.`,
+        : isAutoDispatch
+          ? `${safeCount} nouveau${safeCount > 1 ? "x" : ""} dossier${safeCount > 1 ? "s" : ""} à facturer dans « Mes dossiers ».`
+          : `${safeCount} nouvelle${safeCount > 1 ? "s" : ""} commande${safeCount > 1 ? "s" : ""} en attente de traitement.`,
     });
 
     attentionTimerRef.current = setTimeout(() => {
@@ -329,18 +345,23 @@ export default function BillingQueuePage() {
           sort: "billingSlaDeadlineAt",
           dir: "asc",
         }),
-        ordersService.getAll({
-          ...commonFilters,
-          billingWorkStatus: "QUEUED",
-          sort: "billingQueueEnteredAt",
-          dir: "asc",
-        }),
-        ordersService.getAll({
-          ...commonFilters,
-          billingWorkStatus: "RELEASED",
-          sort: "billingQueueEnteredAt",
-          dir: "asc",
-        }),
+        // File commune : pas pour le facturier caissier (répartition automatique).
+        ...(isAutoDispatch
+          ? []
+          : [
+              ordersService.getAll({
+                ...commonFilters,
+                billingWorkStatus: "QUEUED",
+                sort: "billingQueueEnteredAt",
+                dir: "asc",
+              }),
+              ordersService.getAll({
+                ...commonFilters,
+                billingWorkStatus: "RELEASED",
+                sort: "billingQueueEnteredAt",
+                dir: "asc",
+              }),
+            ]),
         ordersService.getAll({
           ...commonFilters,
           billingWorkStatus: "WAITING_PAYMENT",
@@ -385,7 +406,11 @@ export default function BillingQueuePage() {
         );
       }
 
-      const responses = await Promise.all(requests);
+      const [responses, invoicersResponse] = await Promise.all([
+        Promise.all(requests),
+        isSupervisor ? ordersService.listBillingInvoicers().catch(() => null) : null,
+      ]);
+      if (invoicersResponse) setInvoicers(invoicersResponse.invoicers || []);
       const merged = responses.flatMap((response) => response?.data || []);
 
       const uniqueMap = new Map();
@@ -412,11 +437,24 @@ export default function BillingQueuePage() {
               .filter((r) => r.billingWorkStatus === "ESCALATED")
               .map((r) => r.id),
           ),
+          // Facturier caissier : dossiers à facturer qui lui sont attribués.
+          mine: new Set(
+            nextRows
+              .filter(
+                (r) =>
+                  r.assignedInvoicerId === currentAdminId &&
+                  r.status === "SUBMITTED" &&
+                  BILLING_ACTIVE_WORK_STATUSES.has(r.billingWorkStatus),
+              )
+              .map((r) => r.id),
+          ),
         };
 
         if (!firstAlertLoadRef.current && previousAlertSnapshotRef.current) {
           const prev = previousAlertSnapshotRef.current;
-          const newQueueCount = [...snapshot.queue].filter((id) => !prev.queue.has(id)).length;
+          const newQueueCount = isAutoDispatch
+            ? [...snapshot.mine].filter((id) => !prev.mine.has(id)).length
+            : [...snapshot.queue].filter((id) => !prev.queue.has(id)).length;
           const newEscalatedCount = [...snapshot.escalated].filter(
             (id) => !prev.escalated.has(id),
           ).length;
@@ -497,10 +535,9 @@ export default function BillingQueuePage() {
   }, [query]);
 
   useEffect(() => {
-    const nextDefaultTab = "queue";
-    const nextTab = normalizeBillingTab(searchParams.get("tab"), nextDefaultTab);
-    setTab(nextTab);
-  }, [role, searchParams]);
+    const nextTab = normalizeBillingTab(searchParams.get("tab"), defaultTab);
+    setTab(isAutoDispatch && nextTab === "queue" ? "my" : nextTab);
+  }, [role, searchParams, defaultTab, isAutoDispatch]);
 
   useEffect(() => {
     setQuickPreset("ALL");
@@ -656,6 +693,12 @@ export default function BillingQueuePage() {
         return;
       }
 
+      if (result?.reason === "AUTO_DISPATCH") {
+        setInfo("Vos dossiers vous sont attribués automatiquement : retrouvez-les dans « Mes dossiers ».");
+        setTab("my");
+        return;
+      }
+
       if (result?.reason === "NO_ORDER_AVAILABLE") {
         setInfo("Aucun dossier disponible dans la file.");
         return;
@@ -702,6 +745,22 @@ export default function BillingQueuePage() {
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Impossible de libérer le dossier");
+    }
+  };
+
+  const handleAssign = async (row, invoicerId) => {
+    const invoicer = (invoicers || []).find((item) => item.id === invoicerId);
+    try {
+      setError("");
+      setInfo("");
+      await ordersService.assignBilling(row.id, invoicerId);
+      setInfo(
+        `Dossier ${row.preorderNumber || ""} attribué à ${invoicer?.fullName || invoicer?.email || "ce facturier"}` +
+          (invoicer && !invoicer.connected ? " (actuellement déconnecté)." : "."),
+      );
+      await load({ silent: true });
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible d'attribuer le dossier");
     }
   };
 
@@ -812,6 +871,7 @@ export default function BillingQueuePage() {
         onRefresh={load}
         onClaimNext={handleClaimNext}
         onPrint={handlePrint}
+        autoDispatch={isAutoDispatch}
       />
 
       {attentionAlert ? (
@@ -993,6 +1053,7 @@ export default function BillingQueuePage() {
         tab={tab}
         setTab={setTab}
         isBillingManager={isBillingManager}
+        hideQueue={isAutoDispatch}
         stats={stats}
       />
 
@@ -1006,6 +1067,8 @@ export default function BillingQueuePage() {
         onEscalate={handleEscalate}
         onResolveAs400Dispute={handleResolveAs400Dispute}
         onResolveEscalation={handleResolveEscalation}
+        invoicers={isSupervisor ? invoicers || [] : null}
+        onAssign={handleAssign}
       />
 
       <As400ResolveDialog
