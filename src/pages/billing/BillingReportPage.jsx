@@ -4,13 +4,14 @@
 // bilan de chaque facturier.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Printer, RefreshCw } from "lucide-react";
 import { ordersService } from "../../services/ordersService";
 import useAdminAuth from "../../hooks/useAdminAuth";
+import { BILLING_SUPERVISOR_ROLES as SUPERVISOR_ROLES } from "../../auth/workspaces";
 import { formatFcfa, formatDateTime } from "../../lib/format";
 
-const SUPERVISOR_ROLES = ["BILLING_MANAGER", "SALES_DIRECTOR", "SUPER_ADMIN", "TECH_ADMIN"];
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const MODE_LABELS = {
   ESPECES: "Espèces",
@@ -106,10 +107,17 @@ function ModeBreakdown({ title, rows }) {
 export default function BillingReportPage() {
   const { admin, role } = useAdminAuth();
   const isSupervisor = SUPERVISOR_ROLES.includes(role);
-  const [preset, setPreset] = useState("today");
-  const [range, setRange] = useState(() => presetRange("today"));
+  // Lien « Voir le bilan » de la supervision : facturier et période en paramètres.
+  const [searchParams] = useSearchParams();
+  const linkedFrom = searchParams.get("from");
+  const linkedTo = searchParams.get("to");
+  const linkedRange = DAY_PATTERN.test(linkedFrom || "") && DAY_PATTERN.test(linkedTo || "");
+  const [preset, setPreset] = useState(linkedRange ? "custom" : "today");
+  const [range, setRange] = useState(() =>
+    linkedRange ? { from: linkedFrom, to: linkedTo } : presetRange("today"),
+  );
   const [invoicers, setInvoicers] = useState([]);
-  const [invoicerId, setInvoicerId] = useState("");
+  const [invoicerId, setInvoicerId] = useState(() => searchParams.get("invoicerId") || "");
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

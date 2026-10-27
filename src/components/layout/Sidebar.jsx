@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 import { createElement, useState, useRef, useEffect, useMemo } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { AdminRole, Permission, hasPermission } from "../../auth/permissions";
-import { getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
+import { BILLING_SUPERVISOR_ROLES, getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
 import { foreverLogoHomeUrl } from "../../lib/assetUrls";
 import {
   // Navigation principale - Icônes plus spécifiques et professionnelles
@@ -121,6 +121,18 @@ const NAV_ITEMS = [
     shortcut: "B",
   },
   {
+    key: "billing",
+    to: "/billing/supervision",
+    label: "Supervision",
+    permission: Permission.INVOICE_CREATE,
+    allowedRoles: BILLING_SUPERVISOR_ROLES,
+    icon: Users,
+    badge: null,
+    description: "Activité des facturiers en temps réel",
+    color: "from-indigo-500 to-violet-500",
+    shortcut: "V",
+  },
+  {
     key: "as400",
     to: "/billing/as400",
     label: "Gateway AS400",
@@ -171,6 +183,7 @@ const NAV_ITEMS = [
     to: "/cash-closures",
     label: "Clôture caisse",
     permission: Permission.PAYMENT_VALIDATE,
+    deniedRoles: ["FACTURIER_CAISSIER"],
     icon: ShieldCheck,
     badge: null,
     description: "Point journalier des encaissements",

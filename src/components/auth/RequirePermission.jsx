@@ -11,6 +11,7 @@ export default function RequirePermission({
   permission,
   permissions,
   deniedRoles,
+  allowedRoles,
   fallback = null,
   children,
 }) {
@@ -20,7 +21,9 @@ export default function RequirePermission({
   const allowed = Array.isArray(permissions) ? allowedAny : allowedSingle;
 
   // deniedRoles : rôles exclus d'un module malgré la permission (ex. le
-  // facturier caissier n'a pas accès à la Gateway AS400).
+  // facturier caissier n'a pas accès à la Gateway AS400). allowedRoles :
+  // module réservé à certains rôles (ex. supervision de la facturation).
   if (!allowed || (Array.isArray(deniedRoles) && deniedRoles.includes(role))) return fallback;
+  if (Array.isArray(allowedRoles) && !allowedRoles.includes(role)) return fallback;
   return children;
 }

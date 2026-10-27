@@ -1,5 +1,14 @@
 import { AdminRole } from "./permissions";
 
+// Superviseurs de la facturation : supervision, attribution manuelle des
+// dossiers, bilan de chaque facturier (même liste que l'API).
+export const BILLING_SUPERVISOR_ROLES = [
+  AdminRole.BILLING_MANAGER,
+  AdminRole.SALES_DIRECTOR,
+  AdminRole.SUPER_ADMIN,
+  AdminRole.TECH_ADMIN,
+];
+
 const DASHBOARD_ROLES = new Set([
   AdminRole.SUPER_ADMIN,
   AdminRole.TECH_ADMIN,
@@ -47,10 +56,10 @@ export function getWorkspaceNavKeys(role) {
       return new Set(["orders", "cashier", "external-payment-links", "cash-closures", "reports"]);
     case AdminRole.CAISSIERE:
       return new Set(["cashier", "external-payment-links", "cash-closures", "billing"]);
-    // Facturation + caisse (cashier/cash-closures), sans Gateway AS400 ni
-    // demandes de lien de paiement (traitées par le responsable facturation).
+    // Facturation + caisse, sans Gateway AS400, demandes de lien de paiement
+    // ni point et clôture de caisse (traités par les responsables).
     case AdminRole.FACTURIER_CAISSIER:
-      return new Set(["billing", "external-payment-links", "sponsorships", "cashier", "cash-closures"]);
+      return new Set(["billing", "external-payment-links", "sponsorships", "cashier"]);
     case AdminRole.ORDER_PREPARER:
       return new Set(["preparation"]);
     case AdminRole.STOCK_MANAGER:
