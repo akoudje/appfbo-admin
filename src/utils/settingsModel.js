@@ -35,6 +35,8 @@ export const DEFAULT_SETTINGS = {
     minCartTotalFcfa: 100,
     maxQtyPerProduct: 10,
     packagingFeeFcfa: 100,
+    billingClaimTimeoutMin: 30,
+    maxActiveBillingPerInvoicer: 10,
     preinvoicedAutoCancelAfterHours: 2,
     preinvoicedAutoReminderAfterHours: 1,
     preinvoicedAutoCancelAfterMinutes: 120,
@@ -232,6 +234,11 @@ export function settingsFromApi(data = {}) {
         data.maxQtyPerProduct ?? prev.commercial.maxQtyPerProduct,
       packagingFeeFcfa:
         data.packagingFeeFcfa ?? prev.commercial.packagingFeeFcfa,
+      billingClaimTimeoutMin:
+        data.billingClaimTimeoutMin ?? prev.commercial.billingClaimTimeoutMin,
+      maxActiveBillingPerInvoicer:
+        data.maxActiveBillingPerInvoicer ??
+        prev.commercial.maxActiveBillingPerInvoicer,
       preinvoicedAutoCancelAfterHours:
         data.preinvoicedAutoCancelAfterHours ??
         prev.commercial.preinvoicedAutoCancelAfterHours,
@@ -304,6 +311,9 @@ export function settingsToApi(settings) {
     minCartFcfa: settings.commercial.minCartTotalFcfa,
     maxQtyPerProduct: settings.commercial.maxQtyPerProduct,
     packagingFeeFcfa: settings.commercial.packagingFeeFcfa,
+    billingClaimTimeoutMin: settings.commercial.billingClaimTimeoutMin,
+    maxActiveBillingPerInvoicer:
+      settings.commercial.maxActiveBillingPerInvoicer,
     preinvoicedAutoCancelAfterHours:
       settings.commercial.preinvoicedAutoCancelAfterHours,
     preinvoicedAutoReminderAfterHours:
