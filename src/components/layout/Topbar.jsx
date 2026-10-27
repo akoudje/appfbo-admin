@@ -67,6 +67,7 @@ function getPageTitle(pathname) {
   if (pathname.startsWith("/orders/")) return "Détail commande";
   if (pathname === "/billing") return "Espace Facturation";
   if (pathname === "/billing/as400") return "Gateway AS400";
+  if (pathname === "/billing/report") return "Bilan de facturation";
   if (pathname === "/cashier") return "Espace Caisse";
   if (pathname === "/preparation") return "Espace Préparation";
   if (pathname === "/preparation/shipments") return "Expéditions";
