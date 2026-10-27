@@ -42,6 +42,11 @@ export const ordersService = {
   getSubmittedExport: async (params = {}) =>
     (await api.get("/admin/orders/submitted-export", { params })).data,
 
+  // Réservation des dossiers libres de la file avant impression (facturier) :
+  // mêmes filtres que l'export. Réponse { claimedCount, activeCount, maxActive }.
+  claimSubmittedForPrint: async (params = {}) =>
+    (await api.post("/admin/orders/submitted-export/claim", null, { params })).data,
+
   getOverduePickups: async () =>
     (await api.get("/admin/orders/pickup-overdue")).data,
 
