@@ -298,6 +298,10 @@ export const ordersService = {
   listBillingInvoicers: async () =>
     (await api.get("/admin/billing/invoicers")).data,
 
+  // Bilan d'activité { from, to, invoicerId? } (invoicerId : superviseurs).
+  getBillingReport: async (params = {}) =>
+    (await api.get("/admin/billing/report", { params })).data,
+
   assignBilling: async (id, invoicerId) =>
     (await api.post(`/admin/billing/${normalizeOrderId(id)}/assign`, { invoicerId })).data,
 

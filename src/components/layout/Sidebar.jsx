@@ -110,6 +110,17 @@ const NAV_ITEMS = [
     shortcut: "3",
   },
   {
+    key: "billing",
+    to: "/billing/report",
+    label: "Mon bilan",
+    permission: Permission.INVOICE_CREATE,
+    icon: TrendingUp,
+    badge: null,
+    description: "Activité du jour, de la semaine, du mois",
+    color: "from-blue-500 to-indigo-500",
+    shortcut: "B",
+  },
+  {
     key: "as400",
     to: "/billing/as400",
     label: "Gateway AS400",

@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
+import BillingReportPage from "./pages/billing/BillingReportPage";
 import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import ShipmentsPage from "./pages/preparation/ShipmentsPage";
@@ -200,6 +201,18 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé à la file de facturation." />}
                     >
                       <BillingQueuePage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/billing/report"
+                  element={
+                    <RequirePermission
+                      permission={Permission.INVOICE_CREATE}
+                      fallback={<AccessDenied message="Accès refusé au bilan de facturation." />}
+                    >
+                      <BillingReportPage />
                     </RequirePermission>
                   }
                 />
