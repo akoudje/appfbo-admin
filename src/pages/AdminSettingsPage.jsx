@@ -474,6 +474,8 @@ export default function AdminSettingsPage() {
     minCartFcfa: "commercial.minCartTotalFcfa",
     maxQtyPerProduct: "commercial.maxQtyPerProduct",
     packagingFeeFcfa: "commercial.packagingFeeFcfa",
+    billingClaimTimeoutMin: "commercial.billingClaimTimeoutMin",
+    maxActiveBillingPerInvoicer: "commercial.maxActiveBillingPerInvoicer",
     preorderSubmissionEnabled: "commercial.preorderSubmissionEnabled",
     publicAnnouncementEnabled: "commercial.publicAnnouncementEnabled",
     publicAnnouncementMessage: "commercial.publicAnnouncementMessage",
@@ -1861,6 +1863,54 @@ export default function AdminSettingsPage() {
                                     ...prev.commercial,
                                     packagingFeeFcfa: Number(
                                       e.target.value || 0,
+                                    ),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+
+                          <Field
+                            label="Délai de prise en charge (minutes)"
+                            hint="Sans activité pendant ce délai, un dossier attribué ou imprimé par un facturier retourne dans la file de facturation"
+                          >
+                            <TextInput
+                              type="number"
+                              min="1"
+                              max="1440"
+                              value={settings.commercial.billingClaimTimeoutMin}
+                              data-setting-key="commercial.billingClaimTimeoutMin"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    billingClaimTimeoutMin: Number(
+                                      e.target.value || 1,
+                                    ),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+
+                          <Field
+                            label="Charge maximale par facturier"
+                            hint="Nombre de dossiers en cours qu'un facturier peut avoir en même temps (prise en charge et impression de la file)"
+                          >
+                            <TextInput
+                              type="number"
+                              min="1"
+                              max="1000"
+                              value={settings.commercial.maxActiveBillingPerInvoicer}
+                              data-setting-key="commercial.maxActiveBillingPerInvoicer"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    maxActiveBillingPerInvoicer: Number(
+                                      e.target.value || 1,
                                     ),
                                   },
                                 }))
