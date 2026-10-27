@@ -15,6 +15,8 @@ import Dashboard from "./pages/Dashboard";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
 import BillingReportPage from "./pages/billing/BillingReportPage";
+import BillingSupervisionPage from "./pages/billing/BillingSupervisionPage";
+import { BILLING_SUPERVISOR_ROLES } from "./auth/workspaces";
 import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import ShipmentsPage from "./pages/preparation/ShipmentsPage";
@@ -218,6 +220,19 @@ export default function App() {
                 />
 
                 <Route
+                  path="/billing/supervision"
+                  element={
+                    <RequirePermission
+                      permission={Permission.INVOICE_CREATE}
+                      allowedRoles={BILLING_SUPERVISOR_ROLES}
+                      fallback={<AccessDenied message="Accès réservé aux superviseurs de la facturation." />}
+                    >
+                      <BillingSupervisionPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
                   path="/billing/as400"
                   element={
                     <RequirePermission
@@ -247,6 +262,7 @@ export default function App() {
                   element={
                     <RequirePermission
                       permission={Permission.PAYMENT_VALIDATE}
+                      deniedRoles={["FACTURIER_CAISSIER"]}
                       fallback={<AccessDenied message="Accès refusé à la clôture caisse." />}
                     >
                       <CashClosurePage />

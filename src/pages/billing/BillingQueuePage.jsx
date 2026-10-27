@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ordersService } from "../../services/ordersService";
 import useAdminAuth from "../../hooks/useAdminAuth";
+import { BILLING_SUPERVISOR_ROLES } from "../../auth/workspaces";
 import BillingQueueHeader from "../../components/billing/BillingQueueHeader";
 import BillingQueueAlerts from "../../components/billing/BillingQueueAlerts";
 import BillingQueueStats from "../../components/billing/BillingQueueStats";
@@ -181,8 +182,8 @@ export default function BillingQueuePage() {
   // Facturier caissier : dossiers attribués automatiquement, pas de file commune.
   const isAutoDispatch = role === "FACTURIER_CAISSIER";
   // Superviseurs : vue de tous les dossiers en cours et attribution manuelle
-  // à un facturier précis (même liste que BILLING_SUPERVISOR_ROLES côté API).
-  const isSupervisor = ["BILLING_MANAGER", "SALES_DIRECTOR", "SUPER_ADMIN", "TECH_ADMIN"].includes(role);
+  // à un facturier précis.
+  const isSupervisor = BILLING_SUPERVISOR_ROLES.includes(role);
   const isBillingManager = isSupervisor;
   const currentAdminId = admin?.id || null;
   const searchDebounceInitializedRef = useRef(false);
