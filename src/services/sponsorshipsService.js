@@ -23,6 +23,12 @@ export const sponsorshipsService = {
 
   evaluate: async (id) => (await api.post(`/admin/sponsorships/${id}/evaluate`)).data,
 
+  // Renvoi au parrain et au filleul de la notification du statut en cours
+  // (approbation avec lien de paiement, ou validation) : channels ["SMS", "EMAIL"].
+  // Réponse { kind: "APPROVAL" | "VALIDATION", results: [{ channel, who, ok, skipped, error }] }.
+  resendNotification: async (id, channels) =>
+    (await api.post(`/admin/sponsorships/${id}/resend-notification`, { channels })).data,
+
   agreementPdf: async (id) => api.get(`/admin/sponsorships/${id}/agreement.pdf`, { responseType: "blob" }),
 
   // Fiche + pièce d'identité (impression / traitement), à tout statut.

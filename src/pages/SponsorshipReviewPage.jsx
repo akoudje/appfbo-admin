@@ -99,6 +99,7 @@ export default function SponsorshipReviewPage() {
   // Achat préfacturé à l'approbation : référence, montant et paiement AS400.
   const [invoice, setInvoice] = useState({ factureReference: "", invoiceAmountFcfa: "", paymentMode: "" });
   const [cancelReason, setCancelReason] = useState("");
+  const [resendChannels, setResendChannels] = useState({ SMS: true, EMAIL: true });
 
   const load = useCallback(async () => {
     setError("");
@@ -148,6 +149,26 @@ export default function SponsorshipReviewPage() {
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Approbation impossible.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  // Renvoi de la notification du statut en cours, avec le détail par destinataire.
+  const resendNotification = async () => {
+    const channels = Object.keys(resendChannels).filter((key) => resendChannels[key]);
+    setBusy("resend");
+    setError("");
+    setNotice("");
+    try {
+      const { kind, results } = await sponsorshipsService.resendNotification(row.id, channels);
+      const detail = (results || [])
+        .map((r) => `${r.channel === "SMS" ? "SMS" : "email"} ${r.who} : ${r.skipped ? "pas de destinataire" : r.ok ? "envoyé" : "échec"}`)
+        .join(" · ");
+      setNotice(`Notification ${kind === "VALIDATION" ? "de validation" : "d'approbation"} renvoyée — ${detail}.`);
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Renvoi impossible.");
     } finally {
       setBusy("");
     }
@@ -456,6 +477,43 @@ export default function SponsorshipReviewPage() {
               className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"
             >
               Annuler le parrainage
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {row.status === "VALIDATED" ||
+      (row.status === "APPROVED_PENDING_PURCHASE" && row.purchasePreorder && !["DRAFT", "CANCELLED"].includes(row.purchasePreorder.status)) ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Renvoyer la notification</h2>
+            <p className="text-xs text-gray-500">
+              {row.status === "VALIDATED"
+                ? "Confirmation de validation (n° FBO, commande payée), au parrain et au filleul."
+                : "Approbation : n° FBO, commande à payer et lien de paiement, au parrain et au filleul (email avec la fiche cachetée)."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {[
+              ["SMS", "SMS"],
+              ["EMAIL", "Email"],
+            ].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-1.5 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={resendChannels[key]}
+                  onChange={(e) => setResendChannels((current) => ({ ...current, [key]: e.target.checked }))}
+                />
+                {label}
+              </label>
+            ))}
+            <button
+              type="button"
+              disabled={Boolean(busy) || !Object.values(resendChannels).some(Boolean)}
+              onClick={resendNotification}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 disabled:opacity-50"
+            >
+              {busy === "resend" ? "Envoi…" : "Renvoyer"}
             </button>
           </div>
         </section>
