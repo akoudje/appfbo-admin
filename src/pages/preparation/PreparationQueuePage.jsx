@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ordersService } from "../../services/ordersService";
 import PreparationQueueHeader from "../../components/preparation/PreparationQueueHeader";
 import PreparationQueueAlerts from "../../components/preparation/PreparationQueueAlerts";
@@ -42,7 +43,13 @@ const TAB_QUERY_PARAMS = {
   ready: { status: "READY", sort: "preparedAt", dir: "asc", preparationQueue: true },
   fulfilled: { status: "FULFILLED", sort: "fulfilledAt", dir: "desc", preparationQueue: true },
 };
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
+const PAGE_SIZE_STORAGE_KEY = "preparation_queue_page_size_v1";
+
+function readStoredPageSize() {
+  const stored = Number(safeReadStorage(PAGE_SIZE_STORAGE_KEY, ""));
+  return PAGE_SIZE_OPTIONS.includes(stored) ? stored : PAGE_SIZE_OPTIONS[0];
+}
 
 // Ne récupère que le total d'un onglet (pour son badge de compteur), sans en télécharger les lignes.
 // pageSize vaut 10, le minimum côté API, puisqu'on n'utilise
@@ -67,6 +74,9 @@ export default function PreparationQueuePage() {
   const pageRef = useRef(1);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(readStoredPageSize);
+  const pageSizeRef = useRef(pageSize);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const firstAlertLoadRef = useRef(true);
   const previousAlertSnapshotRef = useRef(null);
@@ -140,6 +150,7 @@ export default function PreparationQueuePage() {
     const silent = Boolean(overrides.silent);
     const targetTab = overrides.tab ?? tab;
     const targetPage = overrides.page ?? (silent ? pageRef.current : 1);
+    const targetPageSize = overrides.pageSize ?? pageSizeRef.current;
     const requestId = ++requestIdRef.current;
     try {
       if (!silent) setLoading(true);
@@ -157,7 +168,7 @@ export default function PreparationQueuePage() {
 
       const otherTabs = Object.keys(TAB_QUERY_PARAMS).filter((key) => key !== targetTab);
       const [initialPage, lightEntries, newest] = await Promise.all([
-        ordersService.getAll({ ...commonFilters, ...TAB_QUERY_PARAMS[targetTab], page: targetPage, pageSize: PAGE_SIZE }),
+        ordersService.getAll({ ...commonFilters, ...TAB_QUERY_PARAMS[targetTab], page: targetPage, pageSize: targetPageSize }),
         Promise.all(otherTabs.map(async (key) => [key, await fetchTabCount(commonFilters, key)])),
         ordersService.getAll({ ...TAB_QUERY_PARAMS["to-prepare"], dir: "desc", page: 1, pageSize: 10 }),
       ]);
@@ -165,7 +176,7 @@ export default function PreparationQueuePage() {
       const pageCount = Math.max(1, Number(initialPage.totalPages) || 1);
       const effectivePage = Math.min(targetPage, pageCount);
       const activePage = effectivePage === targetPage ? initialPage : await ordersService.getAll({
-        ...commonFilters, ...TAB_QUERY_PARAMS[targetTab], page: effectivePage, pageSize: PAGE_SIZE,
+        ...commonFilters, ...TAB_QUERY_PARAMS[targetTab], page: effectivePage, pageSize: targetPageSize,
       });
       if (requestId !== requestIdRef.current) return;
       const countByTab = { ...Object.fromEntries(lightEntries), [targetTab]: Number(activePage.totalCount || 0) };
@@ -179,6 +190,7 @@ export default function PreparationQueuePage() {
       pageRef.current = effectivePage;
       setPage(effectivePage);
       setTotalPages(Math.max(1, Number(activePage.totalPages) || 1));
+      setTotalCount(Number(activePage.totalCount || 0));
       setLastUpdatedAt(new Date().toISOString());
       setSelectedIds((previous) => new Set([...previous].filter((id) => nextRows.some((row) => row.id === id))));
 
@@ -246,6 +258,13 @@ export default function PreparationQueuePage() {
     });
   };
 
+
+  const handlePageSizeChange = (nextSize) => {
+    pageSizeRef.current = nextSize;
+    setPageSize(nextSize);
+    safeWriteStorage(PAGE_SIZE_STORAGE_KEY, String(nextSize));
+    load({ page: 1, pageSize: nextSize });
+  };
 
   useEffect(() => {
     loadRef.current = load;
@@ -732,10 +751,51 @@ export default function PreparationQueuePage() {
         onToggleSelectAll={handleToggleSelectAll}
       />
 
-      <nav aria-label="Pages de commandes" className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3">
-        <button type="button" disabled={loading || page <= 1} onClick={() => load({ page: page - 1 })} className="min-h-11 rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Précédent</button>
-        <span className="text-sm text-gray-600">Page {page} sur {totalPages}</span>
-        <button type="button" disabled={loading || page >= totalPages} onClick={() => load({ page: page + 1 })} className="min-h-11 rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Suivant</button>
+      <nav
+        aria-label="Pages de commandes"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600"
+      >
+        <label className="flex items-center gap-2">
+          Par page
+          <select
+            aria-label="Commandes par page"
+            value={pageSize}
+            onChange={(event) => handlePageSizeChange(Number(event.target.value))}
+            disabled={loading}
+            className="rounded border border-gray-300 bg-white px-2 py-1"
+          >
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+        <span>
+          {totalCount ? (page - 1) * pageSize + 1 : 0}–
+          {Math.min(page * pageSize, totalCount)} sur {totalCount}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Page précédente"
+            disabled={loading || page <= 1}
+            onClick={() => load({ page: page - 1 })}
+            className="rounded-lg border bg-white p-2 disabled:opacity-40"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span>
+            Page {page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            aria-label="Page suivante"
+            disabled={loading || page >= totalPages}
+            onClick={() => load({ page: page + 1 })}
+            className="rounded-lg border bg-white p-2 disabled:opacity-40"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
       </nav>
 
       <FulfillNoNotificationDialog
