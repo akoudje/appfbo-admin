@@ -87,11 +87,11 @@ function wrap(ctx, text, width) {
 }
 
 // Draws the label at printer resolution (1 canvas px = 1 dot) and returns the
-// canvas plus its 1-bit raster. Long names shrink the text down to 80 % of
-// the format size; beyond that nothing is printed.
+// canvas plus its 1-bit raster. The text takes the largest size that fits,
+// from 140 % down to 80 % of the format size; beyond that nothing is printed.
 export function renderLabel(data, dimensions, qrText) {
-  for (let ratio = 1; ratio >= 0.8 - 1e-9; ratio -= 0.05) {
-    const canvas = drawLabel(data, dimensions, qrText, dimensions.scale * ratio);
+  for (let step = 14; step >= 8; step--) {
+    const canvas = drawLabel(data, dimensions, qrText, (dimensions.scale * step) / 10);
     if (canvas) {
       const raster = packRgba(
         canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data,
@@ -136,18 +136,19 @@ function drawLabel(data, dimensions, qrText, s) {
   const counter = `${data.index}/${data.count}`;
   const counterWidth = ctx.measureText(counter).width;
   ctx.fillText(counter, width - pad - counterWidth, y);
-  font(18, 800);
+  font(20, 800);
   const headerLabel = `FOREVER · ${data.mode}`;
-  ctx.fillText(headerLabel, pad, y + counterHeight - size(18 * 1.12));
+  ctx.fillText(headerLabel, pad, y + counterHeight - size(20 * 1.12));
   const headerOverflow = ctx.measureText(headerLabel).width + gap + counterWidth > inner;
   y += counterHeight + gap;
   ctx.fillRect(pad, y, inner, Math.max(2, size(2)));
   y += Math.max(2, size(2)) + gap;
   y += block(data.beneficiary, 30, 700, pad, inner, y) + gap;
-  if (data.destination) y += block("Livraison : " + data.destination, 15, 400, pad, inner, y) + gap;
+  if (data.destination) y += block("Livraison : " + data.destination, 16, 400, pad, inner, y) + gap;
 
   const qr = QRCode.create(qrText, { errorCorrectionLevel: "M" });
-  const moduleDots = Math.max(QR_MODULE_DOTS, Math.round(QR_MODULE_DOTS * s));
+  // The QR follows the format, not the text size, so it never eats the text column.
+  const moduleDots = Math.max(QR_MODULE_DOTS, Math.round(QR_MODULE_DOTS * dimensions.scale));
   const qrSize = (qr.modules.size + QR_MARGIN * 2) * moduleDots;
   const qrX = width - pad - qrSize;
   for (let row = 0; row < qr.modules.size; row++)
@@ -156,11 +157,11 @@ function drawLabel(data, dimensions, qrText, s) {
         ctx.fillRect(qrX + (col + QR_MARGIN) * moduleDots, y + (row + QR_MARGIN) * moduleDots, moduleDots, moduleDots);
   const column = inner - qrSize - gap;
   let left = y;
-  left += block(data.preorder === data.reference ? "COLIS / PRÉCOMMANDE" : "RÉF. COLIS", 12, 400, pad, column, left);
+  left += block(data.preorder === data.reference ? "COLIS / PRÉCOMMANDE" : "RÉF. COLIS", 14, 400, pad, column, left);
   left += block(data.reference, 22, 700, pad, column, left);
   if (data.preorder !== data.reference) {
     left += gap;
-    left += block("PRÉCOMMANDE", 12, 400, pad, column, left);
+    left += block("PRÉCOMMANDE", 14, 400, pad, column, left);
     left += block(data.preorder, 18, 700, pad, column, left);
   }
   const bottom = Math.max(left, y + qrSize);
