@@ -174,6 +174,26 @@ function createMainWindow() {
     child.webContents.on("will-navigate", (event) => event.preventDefault());
   });
 
+  // Electron has no native Web Bluetooth chooser: pick the first Eleph-label
+  // printer (P5_XXXX) found, or cancel the request after 15 s.
+  let bluetoothChoice = null;
+  function finishBluetoothChoice(deviceId) {
+    if (!bluetoothChoice) return;
+    clearTimeout(bluetoothChoice.timer);
+    const { callback } = bluetoothChoice;
+    bluetoothChoice = null;
+    callback(deviceId);
+  }
+  win.webContents.on("select-bluetooth-device", (event, devices, callback) => {
+    event.preventDefault();
+    if (!bluetoothChoice) {
+      bluetoothChoice = { callback, timer: setTimeout(() => finishBluetoothChoice(""), 15000) };
+    }
+    bluetoothChoice.callback = callback;
+    const printer = devices.find((device) => /^P\d+[A-Z]*_[0-9A-F]{4}$/i.test(device.deviceName || ""));
+    if (printer) finishBluetoothChoice(printer.deviceId);
+  });
+
   win.webContents.on("will-navigate", (event, url) => {
     if (isDev && url.startsWith(DEV_URL)) return;
     if (!isDev && url.startsWith("file://")) return;

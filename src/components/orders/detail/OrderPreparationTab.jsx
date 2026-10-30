@@ -1,6 +1,7 @@
 import ShippingQuotePanel from "./ShippingQuotePanel";
 import { useMemo, useState } from "react";
 import { openParcelLabel } from "../../../utils/parcelLabel";
+import P5PrintDialog from "../../preparation/P5PrintDialog";
 import { TextPromptDialog } from "../../ui/Dialogs";
 
 function Field({ label, children, optional = false }) {
@@ -159,6 +160,7 @@ export default function OrderPreparationTab({
     productLabel: "",
   });
   const [creditDeclaring, setCreditDeclaring] = useState(false);
+  const [p5DialogOpen, setP5DialogOpen] = useState(false);
 
   const status = order?.status;
   const stockDebited = Boolean(order?.stockDeductedAt);
@@ -254,6 +256,7 @@ export default function OrderPreparationTab({
           </div>
           <div className="flex flex-wrap gap-2">
             {(canBePrepared || status === "READY" || status === "FULFILLED") ? <button type="button" onClick={handlePrintLabel} disabled={labelLoading || saving} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-50">{labelLoading ? "Préparation de l’étiquette…" : "Imprimer l’étiquette"}</button> : null}
+            {(canBePrepared || status === "READY" || status === "FULFILLED") ? <button type="button" onClick={() => setP5DialogOpen(true)} disabled={saving} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-50">Étiquette P5 Bluetooth</button> : null}
             <Badge tone="blue">{{ PAID: "À préparer", READY: "Prête à remettre", FULFILLED: "Remise effectuée" }[status] || "En attente"}</Badge>
             <Badge tone={stockDebited ? "emerald" : "gray"}>
               {stockDebited ? "Stock sorti" : "Stock en attente"}
@@ -610,6 +613,7 @@ export default function OrderPreparationTab({
           }
         }}
       />
+      {p5DialogOpen ? <P5PrintDialog order={order} onClose={() => setP5DialogOpen(false)} /> : null}
     </div>
   );
 }
