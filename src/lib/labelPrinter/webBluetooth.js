@@ -45,12 +45,16 @@ export function createWebBluetoothTransport({ onDiagnostic = () => {} } = {}) {
       }
       withResponse = Boolean(writer.properties.write);
       onDiagnostic(
-        "Profil Eleph trouvé · écriture " + (withResponse ? "avec" : "sans") + " accusé · notifications " +
+        "Profil Eleph trouvé · écriture " + (withResponse ? "avec" : "sans") + " accusé" +
+          (writer.properties.write && writer.properties.writeWithoutResponse ? " (sans accusé possible)" : "") +
+          " · notifications " +
           [notifier.properties.notify && "N", notifier.properties.indicate && "I"].filter(Boolean).join("/"),
       );
       await notifier.startNotifications();
-      // Chrome negotiates the MTU itself; 183 keeps acknowledged writes at 180 bytes.
-      return { id: device.id, name: device.name || "P5", mtu: 183, withResponse };
+      // Web Bluetooth cannot read or request the MTU. Above the negotiated MTU,
+      // Chrome on Windows falls back to long (prepared) writes, which stalled the
+      // P5 mid-label. 20-byte writes always fit one ATT packet, as in TiMini-Print.
+      return { id: device.id, name: device.name || "P5", mtu: 23, withResponse };
     },
     subscribe(callback) {
       const onValue = (event) => {

@@ -65,7 +65,12 @@ function createElephSession(
     const delay = context.withResponse ? 0 : 30;
     for (let at = 0; at < bytes.length; at += chunk) {
       ensure(current);
-      await transport.write(bytes.slice(at, at + chunk));
+      try {
+        await transport.write(bytes.slice(at, at + chunk));
+      } catch (error) {
+        if (bytes.length > chunk) onDiagnostic("Arrêt à " + at + " / " + bytes.length + " octets");
+        throw error;
+      }
       if (delay) await sleep(delay);
       onProgress?.(Math.min(100, Math.round(((at + chunk) * 100) / bytes.length)));
     }
@@ -143,7 +148,9 @@ function createElephSession(
       if (before && wire.statusErrors(before).length) fault = before;
       ensure(current);
       onDiagnostic("Envoi " + raster.width + "×" + raster.height + " · " + job.length + " octets");
+      const started = Date.now();
       await write(job, current, onProgress);
+      onDiagnostic("Envoyé en " + ((Date.now() - started) / 1000).toFixed(1) + " s");
       await sleep(settleMs);
       const after = await query("status", wire.STATUS_QUERY, current);
       if (after && wire.statusErrors(after).length) fault = after;
