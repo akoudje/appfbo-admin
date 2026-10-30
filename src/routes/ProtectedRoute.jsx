@@ -18,7 +18,9 @@ export default function ProtectedRoute() {
         const user = res.data?.user;
         if (!user) return;
         setAdminUser(user);
-        if (user.countryCode) setCountryCode(user.countryCode);
+        // Un super admin garde le pays choisi dans la topbar : le pays de
+        // son compte n'est qu'un défaut appliqué à la connexion (Login.jsx).
+        if (user.countryCode && user.role !== "SUPER_ADMIN") setCountryCode(user.countryCode);
       })
       .catch(() => {});
 
