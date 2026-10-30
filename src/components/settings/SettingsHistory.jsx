@@ -10,6 +10,10 @@ const LABELS = {
   publicAnnouncementEnabled: "Annonce publique",
   publicAnnouncementMessage: "Texte de l’annonce",
   closedOnSaturday: "Fermeture le samedi",
+  submissionScheduleEnabled: "Horaire automatique des soumissions",
+  submissionSchedule: "Horaire des soumissions",
+  submissionGraceMinutes: "Tolérance après fermeture (minutes)",
+  submissionOverride: "Exception du jour (soumissions)",
   sponsorshipEnabled: "Parrainage en ligne",
   sponsorshipMinPurchaseFcfa: "Achat minimum de parrainage",
   supportPhone: "Téléphone d’assistance",
@@ -58,7 +62,22 @@ const LABELS = {
   piSpiQrImageUrl: "QR PI SPI",
   piSpiInstructions: "Instructions PI SPI",
 };
-function valueLabel(value) {
+const DAY_NAMES = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
+function scheduleLabel(value) {
+  const days = [1, 2, 3, 4, 5, 6, 0]
+    .filter((day) => value[day])
+    .map((day) => DAY_NAMES[day] + " " + value[day].open + "–" + value[day].close);
+  return days.length ? days.join(", ") : "Fermé tous les jours";
+}
+function valueLabel(value, key) {
+  if (key === "submissionOverride")
+    return !value
+      ? "Horaire normal"
+      : value.mode === "CLOSED"
+        ? "Fermeture manuelle du " + value.date
+        : "Ouvert jusqu’à " + value.until + " le " + value.date;
+  if (key === "submissionSchedule" && value && typeof value === "object")
+    return scheduleLabel(value);
   if (value === null || value === undefined || value === "")
     return "Non renseigné";
   if (typeof value === "boolean") return value ? "Activé" : "Désactivé";
@@ -157,10 +176,10 @@ export default function SettingsHistory({ countryCode, updatedAt }) {
                         {LABELS[key] || "Paramètre du pays"}
                       </th>
                       <td className="max-w-56 break-words py-3 pr-3 text-gray-500">
-                        {valueLabel(change.before)}
+                        {valueLabel(change.before, key)}
                       </td>
                       <td className="max-w-56 break-words py-3 text-gray-900">
-                        {valueLabel(change.after)}
+                        {valueLabel(change.after, key)}
                       </td>
                     </tr>
                   ))}

@@ -12,6 +12,10 @@ export const settingsService = {
   updateCountrySettings: async (body, countryCode) =>
     (await api.patch("/admin/country-settings", body, countryConfig(countryCode))).data,
 
+  // Exception du jour : mode "OPEN" (avec until "HH:MM"), "CLOSED" ou null.
+  setSubmissionOverride: async (mode, until, countryCode) =>
+    (await api.post("/admin/country-settings/submission-override", { mode, until }, countryConfig(countryCode))).data,
+
   getHistory: async (countryCode) => (await api.get("/admin/country-settings/history", countryConfig(countryCode))).data,
 
   getCountriesList: async () =>

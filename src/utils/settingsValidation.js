@@ -1,3 +1,17 @@
+// Miroir de validateSchedule (backend, submission-schedule.service.js).
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+function validateSchedule(raw) {
+  if (raw === null) return "";
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "Horaire invalide.";
+  for (const day of Object.values(raw)) {
+    if (!day) continue;
+    if (!TIME_PATTERN.test(day.open || "") || !TIME_PATTERN.test(day.close || ""))
+      return "Saisissez les heures au format HH:MM.";
+    if (day.open >= day.close) return "L’heure d’ouverture doit précéder l’heure de fermeture.";
+  }
+  return "";
+}
+
 function validateCountrySettings(patch, existing = {}) {
   const errors = {};
   const all = { ...existing, ...patch };
@@ -14,6 +28,7 @@ function validateCountrySettings(patch, existing = {}) {
     preinvoicedAutoCancelAfterMinutes: [1, 43200],
     preinvoicedAutoReminderAfterMinutes: [1, 43199],
     sponsorshipMinPurchaseFcfa: [0, 100000000],
+    submissionGraceMinutes: [0, 120],
   };
   for (const [key, [min, max]] of Object.entries(numbers))
     if (
@@ -26,6 +41,7 @@ function validateCountrySettings(patch, existing = {}) {
       errors[key] = "Saisissez un entier entre " + min + " et " + max + ".";
   const booleans = [
     "preorderSubmissionEnabled",
+    "submissionScheduleEnabled",
     "publicAnnouncementEnabled",
     "closedOnSaturday",
     "sponsorshipEnabled",
@@ -115,6 +131,17 @@ function validateCountrySettings(patch, existing = {}) {
     "piSpiQrImageUrl",
   ]);
   requiredIfEnabled("publicAnnouncementEnabled", ["publicAnnouncementMessage"]);
+  if ("submissionSchedule" in patch) {
+    const scheduleError = validateSchedule(patch.submissionSchedule);
+    if (scheduleError) errors.submissionSchedule = scheduleError;
+  }
+  if (
+    ("submissionScheduleEnabled" in patch || "submissionSchedule" in patch) &&
+    all.submissionScheduleEnabled &&
+    !errors.submissionSchedule &&
+    !Object.values(all.submissionSchedule || {}).some(Boolean)
+  )
+    errors.submissionSchedule = "Ouvrez au moins un jour, ou désactivez l’horaire automatique.";
   if (
     "preorderSubmissionEnabled" in patch &&
     !all.preorderSubmissionEnabled &&

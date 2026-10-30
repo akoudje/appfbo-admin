@@ -20,6 +20,10 @@ import {
 import { validateCountrySettings } from "../utils/settingsValidation";
 import SettingsNotificationEditor from "../components/settings/SettingsNotificationEditor";
 import SettingsHistory from "../components/settings/SettingsHistory";
+import {
+  SubmissionScheduleEditor,
+  SubmissionTodayPanel,
+} from "../components/settings/SubmissionSchedule";
 import { settingsService } from "../services/settingsService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useAdminAuth from "../hooks/useAdminAuth";
@@ -438,6 +442,9 @@ export default function AdminSettingsPage() {
     structuredClone(DEFAULT_SETTINGS),
   );
   const [version, setVersion] = useState(null);
+  // État des soumissions calculé par le serveur (horaire du pays, exception du jour).
+  const [submissionWindow, setSubmissionWindow] = useState(null);
+  const [overrideBusy, setOverrideBusy] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [conflictError, setConflictError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -480,6 +487,9 @@ export default function AdminSettingsPage() {
     publicAnnouncementEnabled: "commercial.publicAnnouncementEnabled",
     publicAnnouncementMessage: "commercial.publicAnnouncementMessage",
     closedOnSaturday: "commercial.closedOnSaturday",
+    submissionScheduleEnabled: "commercial.submissionScheduleEnabled",
+    submissionSchedule: "commercial.submissionSchedule",
+    submissionGraceMinutes: "commercial.submissionGraceMinutes",
     sponsorshipEnabled: "commercial.sponsorshipEnabled",
     sponsorshipMinPurchaseFcfa: "commercial.sponsorshipMinPurchaseFcfa",
     supportPhone: "countries.supportPhone",
@@ -560,6 +570,7 @@ export default function AdminSettingsPage() {
         setSettings(next);
         setBaseline(structuredClone(next));
         setVersion(data.updatedAt || null);
+        setSubmissionWindow(data.submissionWindow || null);
         setConflictError(false);
         setServerErrors({});
       })
@@ -655,6 +666,45 @@ export default function AdminSettingsPage() {
       setToast(null);
     }
   };
+  // Exception du jour, appliquée tout de suite (hors bouton Enregistrer).
+  // Elle modifie la version des réglages : on recharge ensuite le formulaire,
+  // d'où le blocage tant que des modifications ne sont pas enregistrées.
+  const applySubmissionOverride = async (mode, until) => {
+    if (overrideBusy || dirty) return;
+    if (
+      mode === "CLOSED" &&
+      !(await confirm({
+        title: "Fermer les soumissions maintenant ?",
+        message:
+          "Les clients ne pourront plus envoyer de précommande jusqu’à la prochaine ouverture prévue. Les paniers en cours ne bénéficient pas de la tolérance.",
+        confirmLabel: "Fermer maintenant",
+        tone: "warning",
+      }))
+    )
+      return;
+    setOverrideBusy(true);
+    try {
+      const data = await settingsService.setSubmissionOverride(mode, until, selectedCountryCode);
+      setSubmissionWindow(data.submissionWindow || null);
+      setReload((value) => value + 1);
+      setToast({
+        type: "success",
+        message:
+          mode === "CLOSED"
+            ? "Soumissions fermées pour aujourd’hui."
+            : mode === "OPEN"
+              ? "Soumissions ouvertes jusqu’à " + until.replace(":", "h") + "."
+              : "Retour à l’horaire normal.",
+      });
+    } catch (error) {
+      setToast({
+        type: "error",
+        message: error?.response?.data?.message || "Impossible d’appliquer cette action.",
+      });
+    } finally {
+      setOverrideBusy(false);
+    }
+  };
   const discardChanges = async () => {
     if (saveLock.current) return;
     if (
@@ -691,6 +741,7 @@ export default function AdminSettingsPage() {
       setSettings(next);
       setBaseline(structuredClone(next));
       setVersion(data.updatedAt || null);
+      setSubmissionWindow(data.submissionWindow || null);
       setServerErrors({});
       setToast({
         type: "success",
@@ -1992,7 +2043,7 @@ export default function AdminSettingsPage() {
                         <div className="grid gap-3 sm:grid-cols-2">
                           <ToggleCard
                             label="Autoriser les nouvelles soumissions"
-                            hint="Coupe uniquement l'envoi final de nouvelles précommandes. Le catalogue reste accessible."
+                            hint="Coupure générale de l'envoi final, sans réouverture automatique. Le catalogue reste accessible. Pour la journée seulement, utilisez « Fermer maintenant » ci-dessous."
                             checked={
                               settings.commercial.preorderSubmissionEnabled
                             }
@@ -2007,21 +2058,74 @@ export default function AdminSettingsPage() {
                               }))
                             }
                           />
-                          <StatCard
-                            icon={ShoppingCart}
-                            label="Soumissions"
-                            value={
-                              settings.commercial.preorderSubmissionEnabled
-                                ? "Ouvertes"
-                                : "Fermées"
-                            }
-                            color={
-                              settings.commercial.preorderSubmissionEnabled
-                                ? "emerald"
-                                : "gold"
-                            }
+                          <ToggleCard
+                            label="Horaire automatique"
+                            hint="Ferme et rouvre les soumissions chaque jour aux heures prévues (heure du pays)."
+                            checked={settings.commercial.submissionScheduleEnabled}
+                            settingKey="commercial.submissionScheduleEnabled"
+                            onChange={(value) =>
+                              setSettings((prev) => ({
+                                ...prev,
+                                commercial: { ...prev.commercial, submissionScheduleEnabled: value },
+                              }))}
                           />
                         </div>
+
+                        <SubmissionTodayPanel
+                          window={submissionWindow}
+                          canWrite={canWrite}
+                          busy={overrideBusy}
+                          blockedReason={
+                            dirty
+                              ? "Enregistrez ou annulez vos modifications avant d’agir sur la journée."
+                              : ""
+                          }
+                          onOverride={applySubmissionOverride}
+                        />
+
+                        {settings.commercial.submissionScheduleEnabled ? (
+                          <div className="space-y-4 rounded-xl border border-gray-200 p-4">
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-900">
+                                Horaire des soumissions
+                              </h4>
+                              <p className="text-xs text-gray-500">
+                                Heures du pays. En dehors de ces plages, le site affiche l’heure de réouverture. Enregistrez pour appliquer.
+                              </p>
+                            </div>
+                            <SubmissionScheduleEditor
+                              schedule={settings.commercial.submissionSchedule}
+                              disabled={!canWrite}
+                              error={fieldErrors["commercial.submissionSchedule"]}
+                              onChange={(value) =>
+                              setSettings((prev) => ({
+                                ...prev,
+                                commercial: { ...prev.commercial, submissionSchedule: value },
+                              }))}
+                            />
+                            <Field
+                              label="Tolérance après la fermeture (minutes)"
+                              hint="Un client qui a commencé son panier avant l’heure de fermeture peut encore l’envoyer pendant ce délai. 0 pour aucune tolérance."
+                            >
+                              <TextInput
+                                type="number"
+                                min="0"
+                                max="120"
+                                value={settings.commercial.submissionGraceMinutes}
+                                data-setting-key="commercial.submissionGraceMinutes"
+                                onChange={(e) =>
+                                  setSettings((prev) => ({
+                                    ...prev,
+                                    commercial: {
+                                      ...prev.commercial,
+                                      submissionGraceMinutes: Number(e.target.value || 0),
+                                    },
+                                  }))
+                                }
+                              />
+                            </Field>
+                          </div>
+                        ) : null}
 
                         {/* Parrainage en ligne : ouverture et achat minimum. */}
                         <div className="grid gap-3 sm:grid-cols-2">

@@ -1,4 +1,16 @@
 import { foreverLogoUrl } from "../lib/assetUrls";
+const SCHEDULE_DAY_KEYS = ["0", "1", "2", "3", "4", "5", "6"];
+
+// Toujours les 7 jours (0 = dimanche), pour comparer sans faux changement.
+export function normalizeSubmissionSchedule(raw) {
+  return Object.fromEntries(
+    SCHEDULE_DAY_KEYS.map((key) => {
+      const day = raw?.[key];
+      return [key, day?.open && day?.close ? { open: day.open, close: day.close } : null];
+    }),
+  );
+}
+
 export const DEFAULT_SETTINGS = {
   countries: {
     supportPhone: "",
@@ -47,6 +59,9 @@ export const DEFAULT_SETTINGS = {
     publicAnnouncementEnabled: false,
     publicAnnouncementMessage: "",
     closedOnSaturday: false,
+    submissionScheduleEnabled: false,
+    submissionSchedule: normalizeSubmissionSchedule(null),
+    submissionGraceMinutes: 15,
     sponsorshipEnabled: false,
     sponsorshipMinPurchaseFcfa: 53000,
     currencyLabel: "FCFA",
@@ -269,6 +284,15 @@ export function settingsFromApi(data = {}) {
         prev.commercial.publicAnnouncementMessage,
       closedOnSaturday:
         data.closedOnSaturday ?? prev.commercial.closedOnSaturday,
+      submissionScheduleEnabled:
+        data.submissionScheduleEnabled ?? prev.commercial.submissionScheduleEnabled,
+      submissionSchedule: normalizeSubmissionSchedule(
+        data.submissionSchedule === undefined
+          ? prev.commercial.submissionSchedule
+          : data.submissionSchedule,
+      ),
+      submissionGraceMinutes:
+        data.submissionGraceMinutes ?? prev.commercial.submissionGraceMinutes,
       sponsorshipEnabled:
         data.sponsorshipEnabled ?? prev.commercial.sponsorshipEnabled,
       sponsorshipMinPurchaseFcfa:
@@ -328,6 +352,9 @@ export function settingsToApi(settings) {
     publicAnnouncementEnabled: settings.commercial.publicAnnouncementEnabled,
     publicAnnouncementMessage: settings.commercial.publicAnnouncementMessage,
     closedOnSaturday: settings.commercial.closedOnSaturday,
+    submissionScheduleEnabled: settings.commercial.submissionScheduleEnabled,
+    submissionSchedule: settings.commercial.submissionSchedule,
+    submissionGraceMinutes: settings.commercial.submissionGraceMinutes,
     sponsorshipEnabled: settings.commercial.sponsorshipEnabled,
     sponsorshipMinPurchaseFcfa: settings.commercial.sponsorshipMinPurchaseFcfa,
     supportPhone: settings.countries.supportPhone,
