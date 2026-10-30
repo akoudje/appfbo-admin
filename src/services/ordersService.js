@@ -306,6 +306,24 @@ export const ordersService = {
   getBillingSupervision: async (params = {}) =>
     (await api.get("/admin/billing/supervision", { params })).data,
 
+  // Commandes réglées par une autre filiale FLP (ex. FLP Burkina).
+  listSettlementEntities: async () =>
+    (await api.get("/admin/billing/settlements/entities")).data,
+
+  // { entity, text, reference } : text = liste de n° collée telle quelle.
+  markSettlementBatch: async (payload) =>
+    (await api.post("/admin/billing/settlements/mark", payload)).data,
+
+  listSettlementPending: async (params = {}) =>
+    (await api.get("/admin/billing/settlements/pending", { params })).data,
+
+  unmarkSettlement: async (id) =>
+    (await api.delete(`/admin/billing/settlements/${normalizeOrderId(id)}`)).data,
+
+  // { entity, from, to }
+  getSettlementReport: async (params = {}) =>
+    (await api.get("/admin/billing/settlements/report", { params })).data,
+
   assignBilling: async (id, invoicerId) =>
     (await api.post(`/admin/billing/${normalizeOrderId(id)}/assign`, { invoicerId })).data,
 

@@ -6,6 +6,7 @@ import {
   orderLabel,
 } from "../../../lib/orders/orderPresentation";
 import { formatFcfa, formatDateTime } from "../../../lib/format";
+import { settlementLabel } from "../../../lib/settlement";
 export default function OrderDetailHeader({
   order,
   saving,
@@ -40,9 +41,19 @@ export default function OrderDetailHeader({
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusBadge status={order.status} />
-            <span className="text-xs text-gray-600">
-              {orderLabel(order.preorderPaymentMode || order.paymentMode)}
-            </span>
+            {order.settlementEntity ? (
+              <span
+                className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800"
+                title="Payée au siège de la filiale : pas de lien de paiement, pas de SMS, hors caisse."
+              >
+                Réglée par {settlementLabel(order.settlementEntity)}
+                {order.settlementReference ? ` · réf. ${order.settlementReference}` : ""}
+              </span>
+            ) : (
+              <span className="text-xs text-gray-600">
+                {orderLabel(order.preorderPaymentMode || order.paymentMode)}
+              </span>
+            )}
             {order.parcelNumber && (
               <span className="font-mono text-xs text-gray-500">
                 {order.parcelNumber}

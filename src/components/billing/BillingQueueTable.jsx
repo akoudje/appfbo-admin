@@ -1,6 +1,7 @@
 import OrderBillingBadge from "../orders/OrderBillingBadge";
 import RequirePermission from "../auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
+import { settlementLabel } from "../../lib/settlement";
 
 function formatFcfa(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -138,6 +139,11 @@ export default function BillingQueueTable({
                     <div className="text-xs text-gray-500">
                       {row.factureReference || row.preorderNumber || row.id}
                     </div>
+                    {row.settlementEntity ? (
+                      <div className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                        Réglée par {settlementLabel(row.settlementEntity)} · facturer sans encaisser
+                      </div>
+                    ) : null}
                     {hasOpenAs400Dispute ? (
                       <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
                         Facture absente certification AS400
