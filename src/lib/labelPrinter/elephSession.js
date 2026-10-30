@@ -59,10 +59,11 @@ function createElephSession(
     }
   }
   // With-response writes are acknowledged by the printer, so they can use the
-  // full ATT payload. Without response, keep TiMini's proven 20 B / 30 ms pacing.
+  // full ATT payload. Without response, TiMini's proven pacing is 20 B / 30 ms;
+  // a transport with its own flow control may ask for a shorter writeDelay.
   async function write(bytes, current, onProgress) {
     const chunk = context.withResponse ? Math.max(20, Math.min(180, (context.mtu || 23) - 3)) : 20;
-    const delay = context.withResponse ? 0 : 30;
+    const delay = context.withResponse ? 0 : context.writeDelay ?? 30;
     for (let at = 0; at < bytes.length; at += chunk) {
       ensure(current);
       try {

@@ -1,5 +1,8 @@
 import { SERVICE, WRITE_CHAR, NOTIFY_CHAR } from "./elephProtocol.js";
 
+const FAST_WRITE_DELAY_MS = 10;
+const FAST_SYNC_EVERY = 16;
+
 export function webBluetoothSupport() {
   if (typeof navigator === "undefined" || !navigator.bluetooth)
     return "Ce navigateur ne gère pas le Bluetooth. Utilisez Chrome ou Edge sur ordinateur ou Android, ou l’application Forever Admin Desktop.";
@@ -15,7 +18,9 @@ export function createWebBluetoothTransport({ onDiagnostic = () => {} } = {}) {
   let device = null,
     writer = null,
     notifier = null,
-    withResponse = false;
+    withResponse = false,
+    fast = false,
+    sent = 0;
   return {
     async connect() {
       const unsupported = webBluetoothSupport();
@@ -44,9 +49,12 @@ export function createWebBluetoothTransport({ onDiagnostic = () => {} } = {}) {
         throw new Error("Cette imprimante n’expose pas le profil Eleph-label (P5) pris en charge.");
       }
       withResponse = Boolean(writer.properties.write);
+      // Fast mode: unacknowledged writes, with one acknowledged write every
+      // FAST_SYNC_EVERY packets so a busy printer slows the stream down.
+      fast = withResponse && Boolean(writer.properties.writeWithoutResponse);
+      sent = 0;
       onDiagnostic(
-        "Profil Eleph trouvé · écriture " + (withResponse ? "avec" : "sans") + " accusé" +
-          (writer.properties.write && writer.properties.writeWithoutResponse ? " (sans accusé possible)" : "") +
+        "Profil Eleph trouvé · écriture " + (fast ? "rapide" : withResponse ? "avec accusé" : "sans accusé") +
           " · notifications " +
           [notifier.properties.notify && "N", notifier.properties.indicate && "I"].filter(Boolean).join("/"),
       );
@@ -54,7 +62,9 @@ export function createWebBluetoothTransport({ onDiagnostic = () => {} } = {}) {
       // Web Bluetooth cannot read or request the MTU. Above the negotiated MTU,
       // Chrome on Windows falls back to long (prepared) writes, which stalled the
       // P5 mid-label. 20-byte writes always fit one ATT packet, as in TiMini-Print.
-      return { id: device.id, name: device.name || "P5", mtu: 23, withResponse };
+      return fast
+        ? { id: device.id, name: device.name || "P5", mtu: 23, withResponse: false, writeDelay: FAST_WRITE_DELAY_MS }
+        : { id: device.id, name: device.name || "P5", mtu: 23, withResponse };
     },
     subscribe(callback) {
       const onValue = (event) => {
@@ -74,7 +84,7 @@ export function createWebBluetoothTransport({ onDiagnostic = () => {} } = {}) {
     },
     async write(bytes) {
       if (!device?.gatt.connected || !writer) throw new Error("Imprimante déconnectée.");
-      if (withResponse) await writer.writeValueWithResponse(bytes);
+      if (withResponse && (!fast || ++sent % FAST_SYNC_EVERY === 0)) await writer.writeValueWithResponse(bytes);
       else await writer.writeValueWithoutResponse(bytes);
     },
     async disconnect() {
