@@ -16,7 +16,8 @@ import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
 import BillingReportPage from "./pages/billing/BillingReportPage";
 import BillingSupervisionPage from "./pages/billing/BillingSupervisionPage";
-import { BILLING_SUPERVISOR_ROLES } from "./auth/workspaces";
+import BillingSettlementsPage from "./pages/billing/BillingSettlementsPage";
+import { BILLING_SUPERVISOR_ROLES, SETTLEMENT_REPORT_ROLES } from "./auth/workspaces";
 import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import ShipmentsPage from "./pages/preparation/ShipmentsPage";
@@ -43,6 +44,7 @@ import SponsorshipsListPage from "./pages/SponsorshipsListPage";
 import SponsorshipCounterSubmitPage from "./pages/SponsorshipCounterSubmitPage";
 import SponsorshipReviewPage from "./pages/SponsorshipReviewPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
+import SettlementReportPage from "./pages/SettlementReportPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
@@ -233,6 +235,18 @@ export default function App() {
                 />
 
                 <Route
+                  path="/billing/settlements"
+                  element={
+                    <RequirePermission
+                      permission={Permission.INVOICE_CREATE}
+                      fallback={<AccessDenied message="Accès refusé aux commandes réglées par une filiale." />}
+                    >
+                      <BillingSettlementsPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
                   path="/billing/as400"
                   element={
                     <RequirePermission
@@ -303,6 +317,19 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux rapports." />}
                     >
                       <DailySalesReportPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/reports/settlements"
+                  element={
+                    <RequirePermission
+                      permission={Permission.EXPORT_READ}
+                      allowedRoles={SETTLEMENT_REPORT_ROLES}
+                      fallback={<AccessDenied message="Rapport réservé aux responsables facturation, à la finance et à la direction." />}
+                    >
+                      <SettlementReportPage />
                     </RequirePermission>
                   }
                 />

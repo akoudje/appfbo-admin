@@ -9,6 +9,16 @@ export const BILLING_SUPERVISOR_ROLES = [
   AdminRole.TECH_ADMIN,
 ];
 
+// Rapport des commandes réglées par une autre filiale (ex. FLP Burkina) :
+// même liste que l'API (settlement.controller.js).
+export const SETTLEMENT_REPORT_ROLES = [
+  AdminRole.BILLING_MANAGER,
+  AdminRole.SUPER_ADMIN,
+  AdminRole.TECH_ADMIN,
+  AdminRole.FINANCE_MANAGER,
+  AdminRole.SALES_DIRECTOR,
+];
+
 const DASHBOARD_ROLES = new Set([
   AdminRole.SUPER_ADMIN,
   AdminRole.TECH_ADMIN,

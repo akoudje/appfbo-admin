@@ -4,7 +4,12 @@ import { NavLink } from "react-router-dom";
 import { createElement, useState, useRef, useEffect, useMemo } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { AdminRole, Permission, hasPermission } from "../../auth/permissions";
-import { BILLING_SUPERVISOR_ROLES, getWorkspaceNavKeys, shouldShowDashboard } from "../../auth/workspaces";
+import {
+  BILLING_SUPERVISOR_ROLES,
+  SETTLEMENT_REPORT_ROLES,
+  getWorkspaceNavKeys,
+  shouldShowDashboard,
+} from "../../auth/workspaces";
 import { foreverLogoHomeUrl } from "../../lib/assetUrls";
 import {
   // Navigation principale - Icônes plus spécifiques et professionnelles
@@ -21,6 +26,7 @@ import {
   FileBarChart,
   FileCheck2,
   UserPlus,
+  Globe,
 
   // Administration - Icônes distinctes pour éviter la confusion
   SlidersHorizontal,
@@ -131,6 +137,16 @@ const NAV_ITEMS = [
     description: "Activité des facturiers en temps réel",
     color: "from-indigo-500 to-violet-500",
     shortcut: "V",
+  },
+  {
+    key: "billing",
+    to: "/billing/settlements",
+    label: "FLP Burkina",
+    permission: Permission.INVOICE_CREATE,
+    icon: Globe,
+    badge: null,
+    description: "Commandes réglées au siège FLP Burkina",
+    color: "from-emerald-500 to-teal-500",
   },
   {
     key: "as400",
@@ -273,6 +289,17 @@ const NAV_ITEMS = [
     description: "Analyses et statistiques",
     color: "from-rose-500 to-red-500",
     shortcut: "8",
+  },
+  {
+    key: "reports",
+    to: "/reports/settlements",
+    label: "Rapport FLP Burkina",
+    permission: Permission.EXPORT_READ,
+    allowedRoles: SETTLEMENT_REPORT_ROLES,
+    icon: FileBarChart,
+    badge: null,
+    description: "Commandes réglées par FLP Burkina, montant dû",
+    color: "from-emerald-500 to-teal-500",
   },
   {
     key: "fbo-documents",
