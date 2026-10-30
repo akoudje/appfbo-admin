@@ -8,7 +8,7 @@ const code = fs
   .replaceAll("export ", "");
 const api = vm.runInNewContext(
   code +
-    ";({DEFAULT_SETTINGS,settingsFromApi,settingsToApi,settingsPatch,resetSettingsSection})",
+    ";({normalizeSubmissionSchedule,DEFAULT_SETTINGS,settingsFromApi,settingsToApi,settingsPatch,resetSettingsSection})",
   { structuredClone },
 );
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -67,4 +67,21 @@ test("restoring a section cannot mutate the stored baseline", () => {
   const before = api.settingsFromApi({ supportPhone: "old" });
   api.resetSettingsSection(before, "countries");
   assert.equal(before.countries.supportPhone, "old");
+});
+test("the submission schedule loads without a false change and sends edited days", () => {
+  const loaded = api.settingsFromApi({
+    submissionScheduleEnabled: true,
+    submissionSchedule: { 1: { open: "07:00", close: "15:00" } },
+    submissionGraceMinutes: 15,
+  });
+  assert.deepEqual(plain(api.settingsPatch(loaded, structuredClone(loaded))), {});
+  assert.equal(loaded.commercial.submissionSchedule["0"], null);
+  const empty = api.settingsFromApi({ submissionSchedule: null });
+  assert.deepEqual(plain(api.settingsPatch(empty, api.settingsFromApi({}))), {});
+  const edited = structuredClone(loaded);
+  edited.commercial.submissionSchedule["6"] = { open: "08:00", close: "11:00" };
+  const patch = plain(api.settingsPatch(edited, loaded));
+  assert.deepEqual(Object.keys(patch), ["submissionSchedule"]);
+  assert.deepEqual(patch.submissionSchedule["6"], { open: "08:00", close: "11:00" });
+  assert.equal(patch.submissionSchedule["1"].close, "15:00");
 });
