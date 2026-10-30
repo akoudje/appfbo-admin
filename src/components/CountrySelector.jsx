@@ -1,7 +1,7 @@
 // src/components/CountrySelector.jsx
 // Ce composant affiche un sélecteur de pays dans la topbar pour permettre à l'utilisateur de changer le pays actif de l'application.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getCountryCode, setCountryCode } from "../services/api";
 import useAdminAuth from "../hooks/useAdminAuth";
 
@@ -19,6 +19,18 @@ export default function CountrySelector({ className = "" }) {
   const lockedCountryCode = admin?.countryCode || getCountryCode();
   const [country, setCountry] = useState(getCountryCode());
   const effectiveCountry = isSuperAdmin ? country : lockedCountryCode;
+
+  // Le pays actif peut changer ailleurs (session rafraîchie, autre onglet) :
+  // le sélecteur doit toujours afficher celui qu'utilisent les requêtes.
+  useEffect(() => {
+    const sync = () => setCountry(getCountryCode());
+    window.addEventListener("country-code-change", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("country-code-change", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   function onChange(e) {
     const next = setCountryCode(e.target.value);
