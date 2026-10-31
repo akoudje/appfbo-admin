@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { Download, RefreshCw } from "lucide-react";
 import { reportsService } from "../services/reportsService";
 import CashRecoveryPanel from "../components/cash/CashRecoveryPanel";
+import CashClosuresPanel from "../components/cash/CashClosuresPanel";
 import { formatFcfa, formatDateTime } from "../lib/format";
 
 const PERIODS = [
@@ -45,8 +46,9 @@ const PAYMENT_MODES = {
 // Le journal peut compter plusieurs milliers de lignes sur un mois : on en
 // affiche une page à la fois, l'export contient tout.
 const JOURNAL_PAGE = 200;
-// Rafraîchissement automatique du point du jour (encaissements Wave en continu).
-const LIVE_REFRESH_MS = 60_000;
+// Point du jour en direct : un « pouls » très léger est interrogé toutes les
+// 15 s ; le point de caisse n'est rechargé que s'il a bougé.
+const PULSE_INTERVAL_MS = 15_000;
 
 function isoDay(date) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -143,6 +145,8 @@ export default function CashSupervisionPage() {
   const [search, setSearch] = useState("");
   const [visible, setVisible] = useState(JOURNAL_PAGE);
   const [tab, setTab] = useState("cash");
+  const [lastPaidAt, setLastPaidAt] = useState(null);
+  const [freshAt, setFreshAt] = useState(null);
 
   const params = useMemo(() => {
     const base = Object.fromEntries(Object.entries(filters).filter(([, value]) => value));
@@ -150,6 +154,11 @@ export default function CashSupervisionPage() {
       ? { ...base, period, dateFrom: range.from, dateTo: range.to }
       : { ...base, period, date };
   }, [period, date, range.from, range.to, filters]);
+
+  const periodParams = useMemo(
+    () => (period === "custom" ? { period, dateFrom: range.from, dateTo: range.to } : { period, date }),
+    [period, date, range.from, range.to],
+  );
 
   const recoveryParams = useMemo(() => {
     const base = filters.invoicerId ? { invoicerId: filters.invoicerId } : {};
@@ -191,10 +200,37 @@ export default function CashSupervisionPage() {
   }, [load]);
 
   useEffect(() => {
-    if (!isLive) return undefined;
-    const timer = setInterval(() => load({ silent: true }), LIVE_REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [isLive, load]);
+    if (!isLive || tab !== "cash") return undefined;
+    let lastSignature = null;
+    let cancelled = false;
+    const beat = async () => {
+      try {
+        const pulse = await reportsService.getCashSupervisionPulse();
+        if (cancelled) return;
+        setLastPaidAt(pulse.lastPaidAt);
+        if (lastSignature !== null && pulse.signature !== lastSignature) {
+          setFreshAt(Date.now());
+          load({ silent: true });
+        }
+        lastSignature = pulse.signature;
+      } catch {
+        // Pouls manqué : le suivant réessaiera.
+      }
+    };
+    beat();
+    const timer = setInterval(beat, PULSE_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isLive, tab, load]);
+
+  // Bandeau « nouvel encaissement » visible quelques secondes.
+  useEffect(() => {
+    if (!freshAt) return undefined;
+    const timer = setTimeout(() => setFreshAt(null), 6000);
+    return () => clearTimeout(timer);
+  }, [freshAt]);
 
   const setFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
   const toggleFilter = (key, value) =>
@@ -254,6 +290,7 @@ export default function CashSupervisionPage() {
               {[
                 { key: "cash", label: "Point de caisse" },
                 { key: "recovery", label: "Recouvrement" },
+                { key: "closures", label: "Clôtures" },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -336,12 +373,20 @@ export default function CashSupervisionPage() {
           )}
           {data?.period?.label ? (
             <span className="text-xs text-gray-500">
-              {isLive ? "Aujourd'hui · mise à jour automatique chaque minute" : data.period.label}
+              {isLive ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                  En direct
+                  {lastPaidAt ? ` · dernier encaissement à ${formatDateTime(lastPaidAt).split(" ").pop()}` : ""}
+                </span>
+              ) : (
+                data.period.label
+              )}
             </span>
           ) : null}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className={`mt-3 flex-wrap items-center gap-2 ${tab === "closures" ? "hidden" : "flex"}`}>
           {tab === "cash" ? (
             <>
               <select
@@ -407,6 +452,14 @@ export default function CashSupervisionPage() {
           selectedInvoicerId={filters.invoicerId}
           onSelectInvoicer={(id) => toggleFilter("invoicerId", id)}
         />
+      ) : null}
+
+      {tab === "closures" ? <CashClosuresPanel params={periodParams} /> : null}
+
+      {tab === "cash" && freshAt ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900" role="status">
+          Nouvel encaissement : le point de caisse vient d'être mis à jour.
+        </div>
       ) : null}
 
       {tab === "cash" && error ? (
@@ -491,10 +544,57 @@ export default function CashSupervisionPage() {
             />
             <BreakdownTable
               title="Billets par événement"
-              groups={data.ticketsByEvent}
+              groups={data.ticketsByEvent.map((group) => ({
+                ...group,
+                label: `${group.label} · ${group.ticketCount} billet(s)`,
+              }))}
               total={bySource.TICKET?.amountFcfa}
             />
           </div>
+
+          {data.byDay?.length > 1 ? (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-100 px-4 py-3">
+                <h2 className="text-sm font-semibold text-gray-900">Évolution jour par jour</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-gray-600">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Jour</th>
+                      <th className="px-4 py-2 text-right font-medium">Encaissements</th>
+                      <th className="px-4 py-2 text-right font-medium">Montant</th>
+                      <th className="px-4 py-2 text-right font-medium">Emballage</th>
+                      <th className="px-4 py-2 text-right font-medium">Billets</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.byDay.map((day) => (
+                      <tr key={day.key} className="border-t border-gray-100">
+                        <td className="px-4 py-2 text-gray-800">
+                          {new Date(`${day.key}T12:00:00Z`).toLocaleDateString("fr-FR", {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "2-digit",
+                          })}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">{day.count}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{formatFcfa(day.amountFcfa)}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {formatFcfa(day.packagingFcfa)}
+                          <div className="text-xs text-gray-500">{day.preorderCount} précommande(s)</div>
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {formatFcfa(day.ticketAmountFcfa)}
+                          <div className="text-xs text-gray-500">{day.ticketCount} billet(s)</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
 
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
