@@ -10,4 +10,12 @@ export const reportsService = {
 
   exportPackagingSummary: async (params = {}) =>
     api.get("/admin/reports/packaging-summary/export", { params, responseType: "blob" }),
+
+  // params : { period: "day" | "week" | "month" | "custom", date | dateFrom/dateTo,
+  // source?, paymentMode?, invoicerId? }
+  getCashSupervision: async (params = {}) =>
+    (await api.get("/admin/reports/cash-supervision", { params })).data,
+
+  exportCashSupervision: async (params = {}) =>
+    api.get("/admin/reports/cash-supervision/export", { params, responseType: "blob" }),
 };

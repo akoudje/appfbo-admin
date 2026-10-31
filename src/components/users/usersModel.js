@@ -124,6 +124,7 @@ export const PERMISSION_LABELS = {
   INVOICE_CREATE: "Facturer les commandes",
   PAYMENT_VALIDATE: "Valider les paiements",
   EXTERNAL_PAYMENT_LINKS_MANAGE: "Gérer les liens de paiement",
+  PAYMENT_FOLLOWUP: "Suivre et relancer les paiements",
   PREPARATION_UPDATE: "Préparer et remettre les colis",
   EXPORT_READ: "Consulter les rapports et exporter",
   FBO_DOCUMENT_ISSUE: "Émettre les documents FBO",

@@ -17,7 +17,7 @@ import BillingQueuePage from "./pages/billing/BillingQueuePage";
 import BillingReportPage from "./pages/billing/BillingReportPage";
 import BillingSupervisionPage from "./pages/billing/BillingSupervisionPage";
 import BillingSettlementsPage from "./pages/billing/BillingSettlementsPage";
-import { BILLING_SUPERVISOR_ROLES, SETTLEMENT_REPORT_ROLES } from "./auth/workspaces";
+import { BILLING_SUPERVISOR_ROLES, CASH_SUPERVISION_ROLES, SETTLEMENT_REPORT_ROLES } from "./auth/workspaces";
 import AS400GatewayPage from "./pages/AS400GatewayPage";
 import PreparationQueuePage from "./pages/preparation/PreparationQueuePage";
 import ShipmentsPage from "./pages/preparation/ShipmentsPage";
@@ -45,6 +45,7 @@ import SponsorshipCounterSubmitPage from "./pages/SponsorshipCounterSubmitPage";
 import SponsorshipReviewPage from "./pages/SponsorshipReviewPage";
 import DailySalesReportPage from "./pages/DailySalesReportPage";
 import SettlementReportPage from "./pages/SettlementReportPage";
+import CashSupervisionPage from "./pages/CashSupervisionPage";
 import PaymentLinkRequestsPage from "./pages/PaymentLinkRequestsPage";
 import ExternalPaymentLinksPage from "./pages/ExternalPaymentLinksPage";
 import PickupCodeRequestsPage from "./pages/PickupCodeRequestsPage";
@@ -305,6 +306,19 @@ export default function App() {
                       fallback={<AccessDenied message="Accès refusé aux liens hors précommande." />}
                     >
                       <ExternalPaymentLinksPage />
+                    </RequirePermission>
+                  }
+                />
+
+                <Route
+                  path="/cash-supervision"
+                  element={
+                    <RequirePermission
+                      permission={Permission.EXPORT_READ}
+                      allowedRoles={CASH_SUPERVISION_ROLES}
+                      fallback={<AccessDenied message="Supervision réservée à la responsable caisse, à la finance et à la direction." />}
+                    >
+                      <CashSupervisionPage />
                     </RequirePermission>
                   }
                 />
