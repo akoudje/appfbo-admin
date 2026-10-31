@@ -22,4 +22,12 @@ export const reportsService = {
   // Même période que getCashSupervision ; seul filtre : invoicerId.
   getCashRecovery: async (params = {}) =>
     (await api.get("/admin/reports/cash-supervision/recovery", { params })).data,
+
+  // Pouls du jour : { lastPaidAt, signature } (rafraîchissement en direct).
+  getCashSupervisionPulse: async () =>
+    (await api.get("/admin/reports/cash-supervision/pulse")).data,
+
+  // Même période que getCashSupervision.
+  getCashClosuresOverview: async (params = {}) =>
+    (await api.get("/admin/reports/cash-supervision/closures", { params })).data,
 };
