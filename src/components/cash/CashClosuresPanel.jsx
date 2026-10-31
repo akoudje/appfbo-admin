@@ -27,6 +27,11 @@ const STATES = {
     tone: "bg-gray-100 text-gray-700",
     hint: "Brouillon ouvert sans paiement validé",
   },
+  ADMIN_ASSIST: {
+    label: "Aide au paiement",
+    tone: "bg-gray-100 text-gray-700",
+    hint: "Administrateur : pas de caisse, preuve transmise au facturier",
+  },
 };
 
 function dayLabel(dateKey) {
@@ -145,7 +150,8 @@ export default function CashClosuresPanel({ params }) {
             <h2 className="text-sm font-semibold text-gray-900">Clôtures par caissier et par jour</h2>
             <p className="mt-0.5 text-xs text-gray-500">
               Une journée « non clôturée » est une journée où le caissier a validé des paiements sans soumettre sa
-              clôture. Les journées où il n'a validé que des virements bancaires n'exigent pas de clôture.
+              clôture. Les journées où il n'a validé que des virements bancaires, et les paiements validés par un
+              administrateur en appui, n'exigent pas de clôture.
             </p>
           </div>
           <Link to="/cash-closures" className="text-sm font-medium text-blue-700 hover:underline">
