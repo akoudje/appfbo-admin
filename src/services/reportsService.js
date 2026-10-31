@@ -18,4 +18,8 @@ export const reportsService = {
 
   exportCashSupervision: async (params = {}) =>
     api.get("/admin/reports/cash-supervision/export", { params, responseType: "blob" }),
+
+  // Même période que getCashSupervision ; seul filtre : invoicerId.
+  getCashRecovery: async (params = {}) =>
+    (await api.get("/admin/reports/cash-supervision/recovery", { params })).data,
 };

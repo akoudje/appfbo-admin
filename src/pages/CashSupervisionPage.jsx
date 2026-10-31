@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Download, RefreshCw } from "lucide-react";
 import { reportsService } from "../services/reportsService";
+import CashRecoveryPanel from "../components/cash/CashRecoveryPanel";
 import { formatFcfa, formatDateTime } from "../lib/format";
 
 const PERIODS = [
@@ -141,6 +142,7 @@ export default function CashSupervisionPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [visible, setVisible] = useState(JOURNAL_PAGE);
+  const [tab, setTab] = useState("cash");
 
   const params = useMemo(() => {
     const base = Object.fromEntries(Object.entries(filters).filter(([, value]) => value));
@@ -148,6 +150,13 @@ export default function CashSupervisionPage() {
       ? { ...base, period, dateFrom: range.from, dateTo: range.to }
       : { ...base, period, date };
   }, [period, date, range.from, range.to, filters]);
+
+  const recoveryParams = useMemo(() => {
+    const base = filters.invoicerId ? { invoicerId: filters.invoicerId } : {};
+    return period === "custom"
+      ? { ...base, period, dateFrom: range.from, dateTo: range.to }
+      : { ...base, period, date };
+  }, [period, date, range.from, range.to, filters.invoicerId]);
 
   const isLive = period === "day" && date === isoDay(new Date());
 
@@ -241,8 +250,27 @@ export default function CashSupervisionPage() {
               Point de caisse de tous les encaissements : précommandes, billets, liens hors précommande et frais
               d'expédition. Une précommande est comptée au facturier qui l'a facturée.
             </p>
+            <div className="mt-3 inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist">
+              {[
+                { key: "cash", label: "Point de caisse" },
+                { key: "recovery", label: "Recouvrement" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.key}
+                  onClick={() => setTab(item.key)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                    tab === item.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2 self-start">
+          <div className={`gap-2 self-start ${tab === "cash" ? "flex" : "hidden"}`}>
             <button
               type="button"
               onClick={() => load()}
@@ -314,31 +342,35 @@ export default function CashSupervisionPage() {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select
-            value={filters.source}
-            onChange={(e) => setFilter("source", e.target.value)}
-            className="rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-            aria-label="Source"
-          >
-            {SOURCES.map((item) => (
-              <option key={item.key} value={item.key}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filters.paymentMode}
-            onChange={(e) => setFilter("paymentMode", e.target.value)}
-            className="rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-            aria-label="Moyen de paiement"
-          >
-            <option value="">Tous les moyens de paiement</option>
-            {modeOptions.map((key) => (
-              <option key={key} value={key}>
-                {PAYMENT_MODES[key] || key}
-              </option>
-            ))}
-          </select>
+          {tab === "cash" ? (
+            <>
+              <select
+                value={filters.source}
+                onChange={(e) => setFilter("source", e.target.value)}
+                className="rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
+                aria-label="Source"
+              >
+                {SOURCES.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.paymentMode}
+                onChange={(e) => setFilter("paymentMode", e.target.value)}
+                className="rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
+                aria-label="Moyen de paiement"
+              >
+                <option value="">Tous les moyens de paiement</option>
+                {modeOptions.map((key) => (
+                  <option key={key} value={key}>
+                    {PAYMENT_MODES[key] || key}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
           <select
             value={filters.invoicerId}
             onChange={(e) => setFilter("invoicerId", e.target.value)}
@@ -362,22 +394,30 @@ export default function CashSupervisionPage() {
             </button>
           ) : null}
         </div>
-        {filters.invoicerId ? (
+        {filters.invoicerId && tab === "cash" ? (
           <p className="mt-2 text-xs text-gray-500">
             Filtre facturier : billets et paiements QR exclus (ils n'ont pas de facturier).
           </p>
         ) : null}
       </div>
 
-      {error ? (
+      {tab === "recovery" ? (
+        <CashRecoveryPanel
+          params={recoveryParams}
+          selectedInvoicerId={filters.invoicerId}
+          onSelectInvoicer={(id) => toggleFilter("invoicerId", id)}
+        />
+      ) : null}
+
+      {tab === "cash" && error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       ) : null}
 
-      {loading && !data ? (
+      {tab === "cash" && loading && !data ? (
         <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-sm">Chargement…</div>
       ) : null}
 
-      {data ? (
+      {tab === "cash" && data ? (
         <div className={`space-y-4 ${loading ? "opacity-60" : ""}`}>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
