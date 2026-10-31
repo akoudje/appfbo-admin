@@ -12,6 +12,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { reportsService } from "../services/reportsService";
 import CashRecoveryPanel from "../components/cash/CashRecoveryPanel";
 import CashClosuresPanel from "../components/cash/CashClosuresPanel";
+import PackagingSummaryPanel from "../components/cashier/PackagingSummaryPanel";
 import { formatFcfa, formatDateTime } from "../lib/format";
 
 const PERIODS = [
@@ -291,6 +292,7 @@ export default function CashSupervisionPage() {
                 { key: "cash", label: "Point de caisse" },
                 { key: "recovery", label: "Recouvrement" },
                 { key: "closures", label: "Clôtures" },
+                { key: "packaging", label: "Emballage" },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -329,7 +331,8 @@ export default function CashSupervisionPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* L'onglet Emballage a son propre sélecteur jour / mois / année. */}
+        <div className={`mt-4 flex-wrap items-center gap-2 ${tab === "packaging" ? "hidden" : "flex"}`}>
           {PERIODS.map((item) => (
             <button
               key={item.key}
@@ -386,7 +389,11 @@ export default function CashSupervisionPage() {
           ) : null}
         </div>
 
-        <div className={`mt-3 flex-wrap items-center gap-2 ${tab === "closures" ? "hidden" : "flex"}`}>
+        <div
+          className={`mt-3 flex-wrap items-center gap-2 ${
+            tab === "closures" || tab === "packaging" ? "hidden" : "flex"
+          }`}
+        >
           {tab === "cash" ? (
             <>
               <select
@@ -456,6 +463,10 @@ export default function CashSupervisionPage() {
 
       {tab === "closures" ? <CashClosuresPanel params={periodParams} /> : null}
 
+      {tab === "packaging" ? (
+        <PackagingSummaryPanel service={reportsService} title="Bilan emballages · par période" />
+      ) : null}
+
       {tab === "cash" && freshAt ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900" role="status">
           Nouvel encaissement : le point de caisse vient d'être mis à jour.
@@ -491,7 +502,7 @@ export default function CashSupervisionPage() {
             <SummaryCard
               label="Précommandes"
               value={formatFcfa(bySource.PREORDER?.amountFcfa)}
-              sub={`${bySource.PREORDER?.count || 0} commande(s) · emballage ${formatFcfa(data.packaging.amountFcfa)}`}
+              sub={`${bySource.PREORDER?.count || 0} commande(s)`}
             />
             <SummaryCard
               label="Billets d'événement"
@@ -505,7 +516,28 @@ export default function CashSupervisionPage() {
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <SummaryCard
+              label="Emballage"
+              value={formatFcfa(data.packaging.amountFcfa)}
+              sub={
+                <>
+                  {data.packaging.count} précommande(s) avec emballage
+                  {(bySource.PREORDER?.count || 0) > data.packaging.count ? (
+                    <div className="text-xs text-gray-500">
+                      {(bySource.PREORDER?.count || 0) - data.packaging.count} sans frais d'emballage
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setTab("packaging")}
+                    className="mt-1 block text-xs font-medium text-blue-700 hover:underline"
+                  >
+                    Voir le bilan emballages
+                  </button>
+                </>
+              }
+            />
             <SummaryCard
               label="Liens hors précommande"
               value={formatFcfa(bySource.EXTERNAL_LINK?.amountFcfa)}
@@ -623,6 +655,7 @@ export default function CashSupervisionPage() {
                     <th className="px-4 py-3 font-medium">Client</th>
                     <th className="px-4 py-3 font-medium">Moyen</th>
                     <th className="px-4 py-3 font-medium">Facturier</th>
+                    <th className="px-4 py-3 text-right font-medium">Emballage</th>
                     <th className="px-4 py-3 text-right font-medium">Encaissé</th>
                   </tr>
                 </thead>
@@ -640,6 +673,9 @@ export default function CashSupervisionPage() {
                       <td className="px-4 py-2 text-gray-700">
                         {row.invoicer?.label || "—"}
                         {row.cashier ? <div className="text-xs text-gray-500">Caisse : {row.cashier.label}</div> : null}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-gray-700">
+                        {row.source === "PREORDER" ? formatFcfa(row.packagingFcfa) : "—"}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums">
                         {formatFcfa(row.amountFcfa)}
