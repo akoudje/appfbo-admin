@@ -38,6 +38,8 @@ export const Permission = {
   INVOICE_CREATE: "INVOICE_CREATE",
   PAYMENT_VALIDATE: "PAYMENT_VALIDATE",
   EXTERNAL_PAYMENT_LINKS_MANAGE: "EXTERNAL_PAYMENT_LINKS_MANAGE",
+  // Relancer un paiement / renvoyer la notification sans droit de facturer.
+  PAYMENT_FOLLOWUP: "PAYMENT_FOLLOWUP",
   PREPARATION_UPDATE: "PREPARATION_UPDATE",
   EXPORT_READ: "EXPORT_READ",
   FBO_DOCUMENT_ISSUE: "FBO_DOCUMENT_ISSUE",
@@ -142,6 +144,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     Permission.PREORDER_READ,
     Permission.PAYMENT_VALIDATE,
     Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
+    Permission.PAYMENT_FOLLOWUP,
     Permission.EXPORT_READ,
   ],
 

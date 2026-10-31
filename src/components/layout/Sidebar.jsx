@@ -6,6 +6,7 @@ import useAdminAuth from "../../hooks/useAdminAuth";
 import { AdminRole, Permission, hasPermission } from "../../auth/permissions";
 import {
   BILLING_SUPERVISOR_ROLES,
+  CASH_SUPERVISION_ROLES,
   SETTLEMENT_REPORT_ROLES,
   getWorkspaceNavKeys,
   shouldShowDashboard,
@@ -278,6 +279,17 @@ const NAV_ITEMS = [
     description: "Produits et prix",
     color: "from-stone-500 to-neutral-700",
     shortcut: "7",
+  },
+  {
+    key: "reports",
+    to: "/cash-supervision",
+    label: "Supervision caisse",
+    permission: Permission.EXPORT_READ,
+    allowedRoles: CASH_SUPERVISION_ROLES,
+    icon: Banknote,
+    badge: null,
+    description: "Point de caisse de tous les encaissements",
+    color: "from-lime-500 to-green-600",
   },
   {
     key: "reports",

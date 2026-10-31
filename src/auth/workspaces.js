@@ -19,6 +19,16 @@ export const SETTLEMENT_REPORT_ROLES = [
   AdminRole.SALES_DIRECTOR,
 ];
 
+// Supervision caisse (point de caisse de tous les encaissements) : la
+// responsable caisse, la finance et la direction.
+export const CASH_SUPERVISION_ROLES = [
+  AdminRole.COUNTER_MANAGER,
+  AdminRole.FINANCE_MANAGER,
+  AdminRole.OPERATIONS_DIRECTOR,
+  AdminRole.SUPER_ADMIN,
+  AdminRole.TECH_ADMIN,
+];
+
 const DASHBOARD_ROLES = new Set([
   AdminRole.SUPER_ADMIN,
   AdminRole.TECH_ADMIN,
@@ -34,8 +44,9 @@ export function getDefaultWorkspaceRoute(role) {
     case AdminRole.BILLING_MANAGER:
       return "/billing";
     case AdminRole.CAISSIERE:
-    case AdminRole.COUNTER_MANAGER:
       return "/cashier";
+    case AdminRole.COUNTER_MANAGER:
+      return "/cash-supervision";
     case AdminRole.FINANCE_MANAGER:
       return "/reports/daily-sales";
     case AdminRole.ORDER_PREPARER:
