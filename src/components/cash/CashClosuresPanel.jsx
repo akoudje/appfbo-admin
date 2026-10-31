@@ -17,6 +17,16 @@ const STATES = {
   SUBMITTED: { label: "À valider", tone: "bg-blue-50 text-blue-700" },
   APPROVED: { label: "Validée", tone: "bg-emerald-50 text-emerald-700" },
   REJECTED: { label: "Rejetée", tone: "bg-red-50 text-red-700" },
+  TRANSFER_ONLY: {
+    label: "Virements uniquement",
+    tone: "bg-gray-100 text-gray-700",
+    hint: "Pas de clôture attendue",
+  },
+  NOTHING_TO_CLOSE: {
+    label: "Rien à clôturer",
+    tone: "bg-gray-100 text-gray-700",
+    hint: "Brouillon ouvert sans paiement validé",
+  },
 };
 
 function dayLabel(dateKey) {
@@ -122,7 +132,9 @@ export default function CashClosuresPanel({ params }) {
         <Card
           label="Clôtures manquantes"
           value={summary.missing}
-          sub={`${summary.toReview} clôture(s) à valider`}
+          sub={`${summary.toReview} clôture(s) à valider${
+            summary.transferOnly ? ` · ${summary.transferOnly} journée(s) de virements uniquement` : ""
+          }`}
           tone={summary.missing ? "border-red-200" : "border-emerald-200"}
         />
       </div>
@@ -133,7 +145,7 @@ export default function CashClosuresPanel({ params }) {
             <h2 className="text-sm font-semibold text-gray-900">Clôtures par caissier et par jour</h2>
             <p className="mt-0.5 text-xs text-gray-500">
               Une journée « non clôturée » est une journée où le caissier a validé des paiements sans soumettre sa
-              clôture.
+              clôture. Les journées où il n'a validé que des virements bancaires n'exigent pas de clôture.
             </p>
           </div>
           <Link to="/cash-closures" className="text-sm font-medium text-blue-700 hover:underline">
@@ -178,6 +190,7 @@ export default function CashClosuresPanel({ params }) {
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${state.tone}`}>
                         {state.label}
                       </span>
+                      {state.hint ? <div className="mt-0.5 text-xs text-gray-500">{state.hint}</div> : null}
                       {row.closure?.reviewedBy ? (
                         <div className="mt-0.5 text-xs text-gray-500">par {row.closure.reviewedBy.label}</div>
                       ) : null}
