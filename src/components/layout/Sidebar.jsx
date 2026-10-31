@@ -1,15 +1,14 @@
 // admin-app/src/components/layout/Sidebar.jsx
 // Composant de la barre latérale de navigation avec icônes Lucide React optimisées
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { filterItems } from "./navAccess";
+import { NAV_GROUPS } from "./navGroups";
 import { createElement, useState, useRef, useEffect, useMemo } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
-import { AdminRole, Permission, hasPermission } from "../../auth/permissions";
+import { AdminRole, Permission } from "../../auth/permissions";
 import {
   BILLING_SUPERVISOR_ROLES,
   CASH_SUPERVISION_ROLES,
-  SETTLEMENT_REPORT_ROLES,
-  getWorkspaceNavKeys,
-  shouldShowDashboard,
 } from "../../auth/workspaces";
 import { foreverLogoHomeUrl } from "../../lib/assetUrls";
 import {
@@ -28,6 +27,7 @@ import {
   FileCheck2,
   UserPlus,
   Globe,
+  Gauge,
 
   // Administration - Icônes distinctes pour éviter la confusion
   SlidersHorizontal,
@@ -37,6 +37,7 @@ import {
   // Interface
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   Star,
   TrendingUp,
@@ -56,7 +57,6 @@ import {
   List,
   AlertTriangle,
   Info,
-  ShieldCheck,
 } from "lucide-react";
 
 // ============================================
@@ -86,7 +86,8 @@ const NAV_ITEMS = [
   {
     key: "dashboard",
     to: "/dashboard",
-    label: "Dashboard",
+    label: "Tableau de bord",
+    section: "general",
     permission: Permission.EXPORT_READ,
     icon: LayoutDashboard,
     badge: null,
@@ -98,6 +99,7 @@ const NAV_ITEMS = [
     key: "orders",
     to: "/orders",
     label: "Commandes",
+    section: "general",
     permission: Permission.PREORDER_READ,
     icon: ShoppingBag,
     badge: null,
@@ -108,11 +110,13 @@ const NAV_ITEMS = [
   {
     key: "billing",
     to: "/billing",
+    group: "billing",
     label: "Facturation",
+    section: "billing",
     permission: Permission.INVOICE_CREATE,
     icon: Receipt,
     badge: null,
-    description: "Files d'attente et factures",
+    description: "File de facturation et renvois de lien",
     color: "from-green-500 to-emerald-500",
     shortcut: "3",
   },
@@ -120,6 +124,7 @@ const NAV_ITEMS = [
     key: "billing",
     to: "/billing/report",
     label: "Mon bilan",
+    section: "billing",
     permission: Permission.INVOICE_CREATE,
     icon: TrendingUp,
     badge: null,
@@ -130,7 +135,8 @@ const NAV_ITEMS = [
   {
     key: "billing",
     to: "/billing/supervision",
-    label: "Supervision",
+    label: "Supervision facturation",
+    section: "billing",
     permission: Permission.INVOICE_CREATE,
     allowedRoles: BILLING_SUPERVISOR_ROLES,
     icon: Users,
@@ -142,19 +148,23 @@ const NAV_ITEMS = [
   {
     key: "billing",
     to: "/billing/settlements",
+    group: "settlements",
     label: "FLP Burkina",
+    section: "billing",
     permission: Permission.INVOICE_CREATE,
     icon: Globe,
     badge: null,
-    description: "Commandes réglées au siège FLP Burkina",
+    description: "Commandes réglées au siège et montant dû",
     color: "from-emerald-500 to-teal-500",
   },
   {
     key: "as400",
     to: "/billing/as400",
     label: "Gateway AS400",
+    section: "billing",
     permission: Permission.INVOICE_CREATE,
-    deniedRoles: ["FACTURIER_CAISSIER"],
+    // Page technique : réservée au Tech Admin.
+    allowedRoles: [AdminRole.TECH_ADMIN],
     icon: ServerCog,
     badge: null,
     description: "Demandes et logs d'intégration",
@@ -162,25 +172,15 @@ const NAV_ITEMS = [
     shortcut: "A",
   },
   {
-    key: "billing",
-    to: "/billing/payment-link-requests",
-    label: "Liens paiement",
-    permission: Permission.INVOICE_CREATE,
-    deniedRoles: ["FACTURIER_CAISSIER"],
-    icon: MessageSquareText,
-    badge: null,
-    description: "Demandes de renvoi client",
-    color: "from-emerald-500 to-teal-500",
-    shortcut: "L",
-  },
-  {
     key: "cashier",
     to: "/cashier",
+    group: "cash",
     label: "Caisse",
+    section: "cash",
     permission: Permission.PAYMENT_VALIDATE,
     icon: Banknote,
     badge: null,
-    description: "Paiements et encaissements",
+    description: "Encaissements et clôture de caisse",
     color: "from-lime-500 to-green-600",
     shortcut: "4",
   },
@@ -188,6 +188,7 @@ const NAV_ITEMS = [
     key: "external-payment-links",
     to: "/billing/external-payment-links",
     label: "Liens hors app",
+    section: "cash",
     permission: Permission.EXTERNAL_PAYMENT_LINKS_MANAGE,
     icon: Link2,
     badge: null,
@@ -196,62 +197,23 @@ const NAV_ITEMS = [
     shortcut: "P",
   },
   {
-    key: "cash-closures",
-    to: "/cash-closures",
-    label: "Clôture caisse",
-    permission: Permission.PAYMENT_VALIDATE,
-    deniedRoles: ["FACTURIER_CAISSIER"],
-    icon: ShieldCheck,
-    badge: null,
-    description: "Point journalier des encaissements",
-    color: "from-emerald-500 to-teal-500",
-    shortcut: "C",
-  },
-  {
     key: "preparation",
     to: "/preparation",
+    group: "preparation",
     label: "Préparation",
+    section: "logistics",
     permission: Permission.PREPARATION_UPDATE,
     icon: ClipboardCheck,
     badge: null,
-    description: "Suivi des préparations",
+    description: "File, expéditions, retraits en retard",
     color: "from-yellow-500 to-amber-500",
     shortcut: "5",
   },
   {
     key: "preparation",
-    to: "/preparation/shipments",
-    label: "Expéditions",
-    permission: Permission.PREPARATION_UPDATE,
-    icon: ClipboardCheck,
-    description: "La Poste et Coditrans",
-  },
-  {
-    key: "preparation",
-    to: "/preparation/pickup-code-requests",
-    label: "Codes retrait",
-    permission: Permission.PREPARATION_UPDATE,
-    icon: MessageSquareText,
-    badge: null,
-    description: "Demandes de renvoi client",
-    color: "from-amber-500 to-orange-500",
-    shortcut: "R",
-  },
-  {
-    key: "preparation",
-    to: "/preparation/pickup-overdue",
-    label: "Retraits en retard",
-    permission: Permission.PREPARATION_UPDATE,
-    icon: AlertTriangleIcon,
-    badge: null,
-    description: "Colis prêts non retirés",
-    color: "from-red-500 to-orange-600",
-    shortcut: "O",
-  },
-  {
-    key: "preparation",
     to: "/preparation/backorder-credits",
     label: "Avoirs produits",
+    section: "logistics",
     permission: Permission.PREPARATION_UPDATE,
     icon: PackageX,
     badge: null,
@@ -262,6 +224,7 @@ const NAV_ITEMS = [
     key: "stock",
     to: "/stock",
     label: "Stock",
+    section: "logistics",
     permission: Permission.PRODUCT_READ,
     icon: PackageOpen,
     badge: null,
@@ -273,6 +236,7 @@ const NAV_ITEMS = [
     key: "products",
     to: "/products",
     label: "Catalogue",
+    section: "catalog",
     permission: Permission.PRODUCT_READ,
     icon: Store,
     badge: null,
@@ -284,9 +248,10 @@ const NAV_ITEMS = [
     key: "reports",
     to: "/cash-supervision",
     label: "Supervision caisse",
+    section: "cash",
     permission: Permission.EXPORT_READ,
     allowedRoles: CASH_SUPERVISION_ROLES,
-    icon: Banknote,
+    icon: Gauge,
     badge: null,
     description: "Point de caisse de tous les encaissements",
     color: "from-lime-500 to-green-600",
@@ -295,6 +260,7 @@ const NAV_ITEMS = [
     key: "reports",
     to: "/reports/daily-sales",
     label: "Rapports",
+    section: "reports",
     permission: Permission.EXPORT_READ,
     icon: FileBarChart,
     badge: null,
@@ -303,20 +269,10 @@ const NAV_ITEMS = [
     shortcut: "8",
   },
   {
-    key: "reports",
-    to: "/reports/settlements",
-    label: "Rapport FLP Burkina",
-    permission: Permission.EXPORT_READ,
-    allowedRoles: SETTLEMENT_REPORT_ROLES,
-    icon: FileBarChart,
-    badge: null,
-    description: "Commandes réglées par FLP Burkina, montant dû",
-    color: "from-emerald-500 to-teal-500",
-  },
-  {
     key: "fbo-documents",
     to: "/fbo-documents",
     label: "Documents FBO",
+    section: "catalog",
     permission: Permission.FBO_DOCUMENT_ISSUE,
     icon: FileCheck2,
     badge: null,
@@ -328,6 +284,7 @@ const NAV_ITEMS = [
     key: "sponsorships",
     to: "/sponsorships",
     label: "Parrainages",
+    section: "catalog",
     permission: Permission.SPONSORSHIP_REVIEW,
     icon: UserPlus,
     badge: null,
@@ -343,6 +300,7 @@ const SETTINGS_ITEMS = [
     key: "settings",
     to: "/settings",
     label: "Paramètres",
+    section: "settings",
     permission: Permission.COUNTRY_WRITE,
     icon: SlidersHorizontal,
     description: "Configuration générale",
@@ -353,6 +311,7 @@ const SETTINGS_ITEMS = [
     key: "marketing",
     to: "/marketing/campaigns",
     label: "Visuels marketing",
+    section: "marketing",
     permission: Permission.COUNTRY_READ,
     icon: Image,
     description: "Slider et panneaux storefront",
@@ -371,6 +330,7 @@ const SETTINGS_ITEMS = [
     key: "sms-campaigns",
     to: "/marketing/sms-campaigns",
     label: "Campagnes SMS",
+    section: "marketing",
     permission: Permission.COUNTRY_READ,
     icon: MessageSquareText,
     description: "Invitations et suivis SMS",
@@ -389,6 +349,7 @@ const SETTINGS_ITEMS = [
     key: "ticket-events",
     to: "/marketing/ticket-events",
     label: "Événements",
+    section: "marketing",
     permission: Permission.MARKETING_WRITE,
     icon: Star,
     description: "Billetterie et participants",
@@ -404,6 +365,58 @@ const SETTINGS_ITEMS = [
     shortcut: "E",
   },
 ];
+
+// Sections du menu, dans l'ordre d'affichage. Chaque entrée de NAV_ITEMS /
+// SETTINGS_ITEMS porte sa section ; une section sans entrée visible pour le
+// rôle n'est pas affichée.
+const NAV_SECTIONS = [
+  { key: "general", title: "Général" },
+  { key: "billing", title: "Facturation" },
+  { key: "cash", title: "Caisse" },
+  { key: "logistics", title: "Logistique" },
+  { key: "catalog", title: "Catalogue et FBO" },
+  { key: "reports", title: "Pilotage" },
+  { key: "marketing", title: "Marketing" },
+  { key: "settings", title: "Configuration" },
+];
+
+const CLOSED_SECTIONS_STORAGE_KEY = "sidebar-closed-sections";
+
+function readClosedSections() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CLOSED_SECTIONS_STORAGE_KEY) || "[]");
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
+}
+
+// Entrée regroupant plusieurs pages (navGroups.js) : visible si au moins un
+// de ses onglets l'est, et pointe vers le premier onglet accessible.
+function resolveVisibleItems(items, role, permissions, permissionAllow) {
+  return items.flatMap((item) => {
+    if (!item.group) return filterItems([item], role, permissions, permissionAllow);
+    const tabs = filterItems(NAV_GROUPS[item.group], role, permissions, permissionAllow);
+    if (!tabs.length) return [];
+    return [{ ...item, to: tabs[0].to, matchPaths: tabs.map((tab) => tab.to) }];
+  });
+}
+
+// Entrée de la page ouverte : celle dont un chemin est le plus long préfixe
+// de l'URL (/preparation/backorder-credits l'emporte sur /preparation).
+function activeItemKey(items, pathname) {
+  let best = null;
+  let bestLength = -1;
+  for (const item of items) {
+    for (const path of item.matchPaths || [item.to]) {
+      if ((pathname === path || pathname.startsWith(`${path}/`)) && path.length > bestLength) {
+        best = item;
+        bestLength = path.length;
+      }
+    }
+  }
+  return best;
+}
 
 // Badge de notification amélioré avec animation
 function NotificationBadge({ count, type = "default" }) {
@@ -498,6 +511,8 @@ function EnhancedTooltip({ children, content, shortcut, position = "right" }) {
 function NavItem({ item, collapsed = false, onClick, showDescription = false }) {
   const linkRef = useRef(null);
   const Icon = item.icon;
+  // Calculé par SectionedNav : une entrée peut couvrir plusieurs pages.
+  const isActive = Boolean(item.active);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -514,7 +529,7 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
     }
   }, []);
 
-  const navLinkContent = ({ isActive }) => (
+  const navLinkContent = () => (
     <>
       <IconWithIndicator icon={Icon} isActive={isActive} color={item.color} />
       
@@ -560,7 +575,7 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
         ref={linkRef}
         to={item.to}
         onClick={onClick}
-        className={({ isActive }) =>
+        className={() =>
           `group relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 ${
             isActive
               ? `bg-gradient-to-r ${item.color} text-white shadow-lg scale-[0.98]`
@@ -576,7 +591,7 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
       ref={linkRef}
       to={item.to}
       onClick={onClick}
-      className={({ isActive }) =>
+      className={() =>
         `group relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 ${
           isActive
             ? `bg-gradient-to-r ${item.color} text-white shadow-lg scale-[0.98]`
@@ -591,35 +606,97 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
   return itemContent;
 }
 
-// Section de navigation avec compteur d'éléments
-function NavSection({ title, items, collapsed, onItemClick, showDescriptions = false }) {
+// Section de navigation repliable, avec compteur d'éléments. Barre réduite :
+// pas de titre, toutes les icônes restent visibles.
+function NavSection({ title, items, collapsed, onItemClick, showDescriptions = false, open = true, onToggle }) {
   if (items.length === 0) return null;
+  const expanded = collapsed || open;
 
   return (
     <div className="space-y-1">
       {!collapsed && title && (
-        <div className="px-3 pt-4 pb-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[11px] font-semibold text-white/30 uppercase tracking-widest">
-              {title}
-            </h3>
+        <div className="px-3 pt-2 pb-1">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            className="flex w-full items-center justify-between gap-2 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC600]/30"
+          >
+            <span className="flex items-center gap-1.5">
+              <ChevronDown
+                className={`h-3 w-3 text-white/30 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+                aria-hidden="true"
+              />
+              <h3 className="text-[11px] font-semibold text-white/30 uppercase tracking-widest">{title}</h3>
+            </span>
             <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-full">
               {items.length}
             </span>
-          </div>
+          </button>
         </div>
       )}
-      <nav className="space-y-0.5">
-        {items.map((item) => (
-          <NavItem
-            key={item.to}
-            item={item}
+      {expanded ? (
+        <nav className="space-y-0.5">
+          {items.map((item) => (
+            <NavItem
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              onClick={onItemClick}
+              showDescription={showDescriptions}
+            />
+          ))}
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
+// Menu complet découpé en sections. La section de la page ouverte reste
+// toujours dépliée ; les sections repliées sont mémorisées par navigateur.
+function SectionedNav({ items, collapsed, onItemClick, showDescriptions }) {
+  const { pathname } = useLocation();
+  const [closed, setClosed] = useState(readClosedSections);
+  const activeItem = activeItemKey(items, pathname);
+  const activeSection = activeItem?.section || null;
+
+  const toggle = (key) => {
+    setClosed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(CLOSED_SECTIONS_STORAGE_KEY, JSON.stringify([...next]));
+      } catch {
+        // Ignorer les erreurs localStorage
+      }
+      return next;
+    });
+  };
+
+  const sections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: items
+      .filter((item) => item.section === section.key)
+      .map((item) => ({ ...item, active: item === activeItem })),
+  })).filter((section) => section.items.length > 0);
+
+  return (
+    <div className={collapsed ? "space-y-2" : "space-y-3"}>
+      {sections.map((section, index) => (
+        <div key={section.key}>
+          {collapsed && index > 0 ? <div className="mx-3 mb-2 h-px bg-white/[0.08]" aria-hidden="true" /> : null}
+          <NavSection
+            title={section.title}
+            items={section.items}
             collapsed={collapsed}
-            onClick={onItemClick}
-            showDescription={showDescriptions}
+            onItemClick={onItemClick}
+            showDescriptions={showDescriptions}
+            open={section.key === activeSection || !closed.has(section.key)}
+            onToggle={() => toggle(section.key)}
           />
-        ))}
-      </nav>
+        </div>
+      ))}
     </div>
   );
 }
@@ -704,61 +781,6 @@ function UserProfileCard({ fullName, email, role }) {
   );
 }
 
-// Fonctions de filtrage améliorées
-function itemMatchesPermission(item, role, permissions) {
-  if (Array.isArray(item.permissions)) {
-    return item.permissions.some((permission) =>
-      hasPermission(role, permission, permissions),
-    );
-  }
-  return !item.permission || hasPermission(role, item.permission, permissions);
-}
-
-// Un droit accordé explicitement à CET utilisateur (override "permissionAllow"
-// depuis la page Utilisateurs, distinct des droits hérités du rôle) doit
-// toujours rendre la section correspondante visible, même si la clé de
-// workspace du rôle de base ne l'inclut pas par défaut. Sans ce
-// contournement, chaque droit spécifique accordé à quelqu'un nécessite en
-// plus un correctif de code pour que le menu suive (cf. bugs ADMIN_ASSISTANT
-// / Documents FBO et CAISSIERE / Facturation).
-function itemHasExplicitOverride(item, permissionAllow) {
-  const allow = new Set(Array.isArray(permissionAllow) ? permissionAllow : []);
-  if (Array.isArray(item.permissions)) {
-    return item.permissions.some((permission) => allow.has(permission));
-  }
-  return Boolean(item.permission) && allow.has(item.permission);
-}
-
-function filterItems(items, role, permissions, permissionAllow = []) {
-  const allowedKeys = getWorkspaceNavKeys(role);
-
-  return items.filter((item) => {
-    // Vérification dashboard
-    if (item.key === "dashboard" && !shouldShowDashboard(role)) {
-      return false;
-    }
-
-    // Vérification des rôles autorisés
-    if (Array.isArray(item.allowedRoles) && !item.allowedRoles.includes(role)) {
-      return false;
-    }
-    if (Array.isArray(item.deniedRoles) && item.deniedRoles.includes(role)) {
-      return false;
-    }
-
-    // Vérification des clés de workspace, avec contournement si l'utilisateur
-    // a explicitement reçu le droit correspondant (voir itemHasExplicitOverride).
-    if (item.key && !allowedKeys.has(item.key)) {
-      return (
-        itemHasExplicitOverride(item, permissionAllow) &&
-        itemMatchesPermission(item, role, permissions)
-      );
-    }
-
-    return itemMatchesPermission(item, role, permissions);
-  });
-}
-
 // Pastilles live (facturation/caisse/parrainages en attente) : ciblées par
 // "to" plutôt que "key", certaines pages partagent la même clé de workspace
 // (ex. "Facturation" et "Liens paiement" partagent key: "billing") sans
@@ -785,14 +807,13 @@ export function DesktopSidebar({ collapsed, onToggle, badgeCounts = {} }) {
   const sidebarRef = useRef(null);
 
   // Mémorisation des éléments filtrés pour performance
-  const visibleNavItems = useMemo(
-    () => applyBadgeCounts(filterItems(NAV_ITEMS, role, permissions, permissionAllow), badgeCounts),
+  const visibleItems = useMemo(
+    () =>
+      applyBadgeCounts(
+        resolveVisibleItems([...NAV_ITEMS, ...SETTINGS_ITEMS], role, permissions, permissionAllow),
+        badgeCounts,
+      ),
     [role, permissions, permissionAllow, badgeCounts]
-  );
-
-  const visibleSettingsItems = useMemo(
-    () => filterItems(SETTINGS_ITEMS, role, permissions, permissionAllow),
-    [role, permissions, permissionAllow]
   );
 
   // Raccourci clavier global
@@ -884,29 +905,12 @@ export function DesktopSidebar({ collapsed, onToggle, badgeCounts = {} }) {
 
       {/* Navigation principale */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20">
-        <div className="py-3 px-2 space-y-6">
-          <NavSection
-            title="Principal"
-            items={visibleNavItems}
+        <div className="py-3 px-2">
+          <SectionedNav
+            items={visibleItems}
             collapsed={collapsed}
             showDescriptions={showDescriptions && !collapsed}
           />
-
-          {visibleSettingsItems.length > 0 && (
-            <>
-              {!collapsed && (
-                <div className="px-3">
-                  <div className="h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-                </div>
-              )}
-              <NavSection
-                title="Configuration"
-                items={visibleSettingsItems}
-                collapsed={collapsed}
-                showDescriptions={showDescriptions && !collapsed}
-              />
-            </>
-          )}
         </div>
       </div>
 
@@ -961,14 +965,13 @@ export function MobileSidebar({ isOpen, onClose, badgeCounts = {} }) {
   const { role, permissions, permissionAllow, fullName, email } = useAdminAuth();
   const sidebarRef = useRef(null);
 
-  const visibleNavItems = useMemo(
-    () => applyBadgeCounts(filterItems(NAV_ITEMS, role, permissions, permissionAllow), badgeCounts),
+  const visibleItems = useMemo(
+    () =>
+      applyBadgeCounts(
+        resolveVisibleItems([...NAV_ITEMS, ...SETTINGS_ITEMS], role, permissions, permissionAllow),
+        badgeCounts,
+      ),
     [role, permissions, permissionAllow, badgeCounts]
-  );
-
-  const visibleSettingsItems = useMemo(
-    () => filterItems(SETTINGS_ITEMS, role, permissions, permissionAllow),
-    [role, permissions, permissionAllow]
   );
 
   useEffect(() => {
@@ -1044,29 +1047,8 @@ export function MobileSidebar({ isOpen, onClose, badgeCounts = {} }) {
 
         {/* Navigation scrollable */}
         <div className="overflow-y-auto h-[calc(100vh-16rem)] scrollbar-thin scrollbar-thumb-white/10">
-          <div className="p-4 space-y-6">
-            <NavSection
-              title="Principal"
-              items={visibleNavItems}
-              collapsed={false}
-              onItemClick={onClose}
-              showDescriptions={true}
-            />
-
-            {visibleSettingsItems.length > 0 && (
-              <>
-                <div className="px-3">
-                  <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                </div>
-                <NavSection
-                  title="Configuration"
-                  items={visibleSettingsItems}
-                  collapsed={false}
-                  onItemClick={onClose}
-                  showDescriptions={true}
-                />
-              </>
-            )}
+          <div className="p-4">
+            <SectionedNav items={visibleItems} collapsed={false} onItemClick={onClose} showDescriptions={true} />
           </div>
         </div>
 

@@ -252,8 +252,8 @@ export default function App() {
                   element={
                     <RequirePermission
                       permission={Permission.INVOICE_CREATE}
-                      deniedRoles={["FACTURIER_CAISSIER"]}
-                      fallback={<AccessDenied message="Accès refusé à la supervision AS400." />}
+                      allowedRoles={[AdminRole.TECH_ADMIN]}
+                      fallback={<AccessDenied message="Page technique réservée au Tech Admin." />}
                     >
                       <AS400GatewayPage />
                     </RequirePermission>
