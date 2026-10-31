@@ -7,7 +7,6 @@ import { createElement, useState, useRef, useEffect, useMemo } from "react";
 import useAdminAuth from "../../hooks/useAdminAuth";
 import { AdminRole, Permission } from "../../auth/permissions";
 import {
-  BILLING_SUPERVISOR_ROLES,
   CASH_SUPERVISION_ROLES,
 } from "../../auth/workspaces";
 import { foreverLogoHomeUrl } from "../../lib/assetUrls";
@@ -21,7 +20,6 @@ import {
   Link2,
   ClipboardCheck,
   PackageOpen,
-  PackageX,
   Store,
   FileBarChart,
   FileCheck2,
@@ -123,27 +121,17 @@ const NAV_ITEMS = [
   {
     key: "billing",
     to: "/billing/report",
+    group: "billingActivity",
+    // « Supervision facturation » pour les superviseurs, « Mon bilan » sinon.
+    labelFromFirstTab: true,
     label: "Mon bilan",
     section: "billing",
     permission: Permission.INVOICE_CREATE,
     icon: TrendingUp,
     badge: null,
-    description: "Activité du jour, de la semaine, du mois",
+    description: "Bilan personnel et activité des facturiers",
     color: "from-blue-500 to-indigo-500",
     shortcut: "B",
-  },
-  {
-    key: "billing",
-    to: "/billing/supervision",
-    label: "Supervision facturation",
-    section: "billing",
-    permission: Permission.INVOICE_CREATE,
-    allowedRoles: BILLING_SUPERVISOR_ROLES,
-    icon: Users,
-    badge: null,
-    description: "Activité des facturiers en temps réel",
-    color: "from-indigo-500 to-violet-500",
-    shortcut: "V",
   },
   {
     key: "billing",
@@ -163,8 +151,8 @@ const NAV_ITEMS = [
     label: "Gateway AS400",
     section: "billing",
     permission: Permission.INVOICE_CREATE,
-    // Page technique : réservée au Tech Admin.
-    allowedRoles: [AdminRole.TECH_ADMIN],
+    // Page technique : réservée au Tech Admin et au Super Admin.
+    allowedRoles: [AdminRole.TECH_ADMIN, AdminRole.SUPER_ADMIN],
     icon: ServerCog,
     badge: null,
     description: "Demandes et logs d'intégration",
@@ -205,20 +193,9 @@ const NAV_ITEMS = [
     permission: Permission.PREPARATION_UPDATE,
     icon: ClipboardCheck,
     badge: null,
-    description: "File, expéditions, retraits en retard",
+    description: "File, expéditions, retraits, avoirs produits",
     color: "from-yellow-500 to-amber-500",
     shortcut: "5",
-  },
-  {
-    key: "preparation",
-    to: "/preparation/backorder-credits",
-    label: "Avoirs produits",
-    section: "logistics",
-    permission: Permission.PREPARATION_UPDATE,
-    icon: PackageX,
-    badge: null,
-    description: "Produits en rupture à livrer plus tard",
-    color: "from-orange-500 to-amber-600",
   },
   {
     key: "stock",
@@ -398,12 +375,19 @@ function resolveVisibleItems(items, role, permissions, permissionAllow) {
     if (!item.group) return filterItems([item], role, permissions, permissionAllow);
     const tabs = filterItems(NAV_GROUPS[item.group], role, permissions, permissionAllow);
     if (!tabs.length) return [];
-    return [{ ...item, to: tabs[0].to, matchPaths: tabs.map((tab) => tab.to) }];
+    return [
+      {
+        ...item,
+        to: tabs[0].to,
+        label: item.labelFromFirstTab ? tabs[0].label : item.label,
+        matchPaths: tabs.map((tab) => tab.to),
+      },
+    ];
   });
 }
 
 // Entrée de la page ouverte : celle dont un chemin est le plus long préfixe
-// de l'URL (/preparation/backorder-credits l'emporte sur /preparation).
+// de l'URL (/billing/report l'emporte sur /billing).
 function activeItemKey(items, pathname) {
   let best = null;
   let bestLength = -1;

@@ -3,7 +3,7 @@
 // onglets en haut de page (PageTabs). Chaque onglet garde les droits de
 // l'ancienne entrée de menu : il n'est affiché qu'aux rôles qui la voyaient.
 import { Permission } from "../../auth/permissions";
-import { SETTLEMENT_REPORT_ROLES } from "../../auth/workspaces";
+import { BILLING_SUPERVISOR_ROLES, SETTLEMENT_REPORT_ROLES } from "../../auth/workspaces";
 
 export const NAV_GROUPS = {
   billing: [
@@ -15,6 +15,17 @@ export const NAV_GROUPS = {
       permission: Permission.INVOICE_CREATE,
       deniedRoles: ["FACTURIER_CAISSIER"],
     },
+  ],
+  // Superviseurs : la supervision d'abord (page d'arrivée), puis leur bilan.
+  billingActivity: [
+    {
+      key: "billing",
+      to: "/billing/supervision",
+      label: "Supervision facturation",
+      permission: Permission.INVOICE_CREATE,
+      allowedRoles: BILLING_SUPERVISOR_ROLES,
+    },
+    { key: "billing", to: "/billing/report", label: "Mon bilan", permission: Permission.INVOICE_CREATE },
   ],
   settlements: [
     { key: "billing", to: "/billing/settlements", label: "Commandes réglées", permission: Permission.INVOICE_CREATE },
@@ -49,6 +60,12 @@ export const NAV_GROUPS = {
       key: "preparation",
       to: "/preparation/pickup-code-requests",
       label: "Codes retrait",
+      permission: Permission.PREPARATION_UPDATE,
+    },
+    {
+      key: "preparation",
+      to: "/preparation/backorder-credits",
+      label: "Avoirs produits",
       permission: Permission.PREPARATION_UPDATE,
     },
   ],

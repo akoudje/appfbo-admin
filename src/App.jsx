@@ -252,8 +252,8 @@ export default function App() {
                   element={
                     <RequirePermission
                       permission={Permission.INVOICE_CREATE}
-                      allowedRoles={[AdminRole.TECH_ADMIN]}
-                      fallback={<AccessDenied message="Page technique réservée au Tech Admin." />}
+                      allowedRoles={[AdminRole.TECH_ADMIN, AdminRole.SUPER_ADMIN]}
+                      fallback={<AccessDenied message="Page technique réservée au Tech Admin et au Super Admin." />}
                     >
                       <AS400GatewayPage />
                     </RequirePermission>
