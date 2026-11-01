@@ -46,6 +46,8 @@ function emptyForm() {
     idDocumentType: "CNI",
     idDocumentNumber: "",
     mobile: "",
+    whatsapp: "",
+    whatsappSameAsPhone: true,
     email: "",
     addressArea: "",
     city: "",
@@ -236,9 +238,20 @@ export default function SponsorshipCounterSubmitPage() {
         </Section>
 
         <Section title="Filleul — coordonnées">
-          <Field label="Téléphone mobile" required>
-            {(id) => <input id={id} className={inputClass()} value={form.mobile} onChange={(e) => set("mobile", e.target.value)} required />}
+          <Field label="Téléphone mobile" required hint="Tout pays : saisir l'indicatif (+33…) pour un numéro étranger, qui devient aussi son WhatsApp.">
+            {(id) => <input id={id} type="tel" className={inputClass()} value={form.mobile} onChange={(e) => set("mobile", e.target.value)} required />}
           </Field>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-gray-800">
+              <input type="checkbox" checked={form.whatsappSameAsPhone} onChange={(e) => set("whatsappSameAsPhone", e.target.checked)} />
+              Ce numéro est aussi son WhatsApp
+            </label>
+            {!form.whatsappSameAsPhone ? (
+              <Field label="Numéro WhatsApp" hint="Facultatif, tout pays.">
+                {(id) => <input id={id} type="tel" className={inputClass()} value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="+33 6 12 34 56 78" />}
+              </Field>
+            ) : null}
+          </div>
           <Field label="Email" required hint="Doit être unique à ce parrainage.">
             {(id) => <input id={id} type="email" className={inputClass()} value={form.email} onChange={(e) => set("email", e.target.value)} required />}
           </Field>

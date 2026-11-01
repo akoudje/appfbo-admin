@@ -269,6 +269,7 @@ export default function SponsorshipReviewPage() {
               <Row label="Pièce d'identité" value={`${ID_DOCUMENT_LABELS[row.idDocumentType] || "CNI"} n° ${row.idDocumentNumber}`} />
               {row.passportNumber ? <Row label="N° passeport" value={row.passportNumber} /> : null}
               <Row label="Mobile" value={row.mobile} />
+              <Row label="WhatsApp" value={row.whatsapp ? (row.whatsapp === row.mobile ? "même numéro" : row.whatsapp) : "—"} />
               <Row label="Email" value={row.email} />
               <Row label="Adresse" value={[row.addressArea, row.city, row.homeCountry].filter(Boolean).join(", ")} />
             </dl>
