@@ -681,7 +681,7 @@ export default function useOrderActions({
         message:
           "La commande " +
           (order.preorderNumber || order.id) +
-          " sera remise dans l'espace caisse du facturier caissier qui l'avait traitée, comme avant la fermeture de sa caisse.",
+          " sera remise dans l'espace caisse de l'agent de vente qui l'avait traitée, comme avant la fermeture de sa caisse.",
         confirmLabel: "Réactiver la commande",
       });
       if (!approved) return;

@@ -1947,7 +1947,7 @@ export default function AdminSettingsPage() {
 
                           <Field
                             label="Charge maximale par facturier"
-                            hint="Nombre de dossiers à facturer qu'un facturier peut avoir en même temps : la répartition automatique remplit chaque facturier caissier connecté jusqu'à ce nombre"
+                            hint="Nombre de dossiers à facturer qu'un facturier peut avoir en même temps : la répartition automatique remplit chaque agent de vente connecté jusqu'à ce nombre"
                           >
                             <TextInput
                               type="number"

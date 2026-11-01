@@ -276,7 +276,7 @@ export default function BillingSupervisionPage() {
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-900">{row.fullName || row.email}</div>
                         <div className="text-xs text-gray-500">
-                          {row.autoDispatch ? "Facturier caissier" : "Facturier"}
+                          {row.autoDispatch ? "Agent de vente" : "Facturier"}
                         </div>
                       </td>
                       <td className="px-4 py-3">

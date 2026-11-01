@@ -99,7 +99,7 @@ export default function OrderCancelPanel({
             <div className="text-sm text-amber-800">
               Cette commande a été annulée automatiquement par une fermeture
               de caisse, pas par une décision métier. La réactiver la remet
-              dans l'espace caisse du facturier caissier qui l'avait traitée,
+              dans l'espace caisse de l'agent de vente qui l'avait traitée,
               avec le même statut qu'avant l'annulation.
             </div>
           </div>

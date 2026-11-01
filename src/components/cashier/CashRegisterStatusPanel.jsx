@@ -71,7 +71,7 @@ export default function CashRegisterStatusPanel() {
             précommande.
           </li>
           {isPersonal ? (
-            <li>Les caisses des autres facturiers caissiers ne sont pas affectées.</li>
+            <li>Les caisses des autres agents de vente ne sont pas affectées.</li>
           ) : null}
         </ul>
       ),
