@@ -41,7 +41,7 @@ function formatRoleLabel(role) {
     COUNTER_MANAGER: "Responsable caisse",
     CAISSIERE: "Caissière",
     INVOICER: "Facturier",
-    FACTURIER_CAISSIER: "Facturier caissier",
+    FACTURIER_CAISSIER: "Agent de vente",
     ORDER_PREPARER: "Préparateur de commande",
   };
 

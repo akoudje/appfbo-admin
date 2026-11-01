@@ -15,7 +15,7 @@ export const ROLE_GROUPS = [
       },
       {
         value: "FACTURIER_CAISSIER",
-        label: "Facturier caissier",
+        label: "Agent de vente",
         help: "Facture, encaisse, certifie AS400, lance la préparation et traite les parrainages.",
       },
       {
