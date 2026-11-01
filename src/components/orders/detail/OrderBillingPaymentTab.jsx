@@ -1,7 +1,7 @@
 import { orderLabel } from "../../../lib/orders/orderPresentation";
 // src/components/orders/detail/OrderBillingPaymentTab.jsx
 import React from "react";
-import { Phone, Mail } from "lucide-react";
+import { Phone, Mail, MessageCircle } from "lucide-react";
 import RequirePermission from "../../auth/RequirePermission";
 import { Permission } from "../../../auth/permissions";
 import OrderItemsTable from "./OrderItemsTable";
@@ -477,6 +477,8 @@ function BillingActionCard({
   setInvoiceRef,
   invoiceWaTo,
   setInvoiceWaTo,
+  invoiceWhatsapp,
+  setInvoiceWhatsapp,
   invoiceEmail,
   setInvoiceEmail,
   invoiceGrade,
@@ -705,6 +707,18 @@ function BillingActionCard({
               value={invoiceWaTo || ""}
               onChange={(e) => setInvoiceWaTo?.(e.target.value)}
               placeholder="+225 07 01 02 03 04"
+              disabled={!canEditNotificationContacts || saving}
+            />
+            <p className="mt-1 text-xs text-gray-500">Tout pays : saisir l'indicatif (+33…). Un numéro étranger devient aussi le WhatsApp.</p>
+          </Field>
+
+          <Field label="WhatsApp du destinataire" optional>
+            <input
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 text-sm"
+              value={invoiceWhatsapp || ""}
+              onChange={(e) => setInvoiceWhatsapp?.(e.target.value)}
+              placeholder="+33 6 12 34 56 78"
+              type="tel"
               disabled={!canEditNotificationContacts || saving}
             />
           </Field>
@@ -1915,6 +1929,8 @@ export default function OrderBillingPaymentTab({
   setInvoiceRef,
   invoiceWaTo,
   setInvoiceWaTo,
+  invoiceWhatsapp,
+  setInvoiceWhatsapp,
   invoiceEmail,
   setInvoiceEmail,
   invoiceGrade,
@@ -2158,6 +2174,16 @@ export default function OrderBillingPaymentTab({
                 ) : (
                   <span className="text-sm text-gray-400">Téléphone non renseigné</span>
                 )}
+                {invoiceWhatsapp ? (
+                  <a
+                    href={`https://wa.me/${String(invoiceWhatsapp).replace(/D/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:underline"
+                  >
+                    <MessageCircle className="h-4 w-4" /> WhatsApp {invoiceWhatsapp !== invoiceWaTo ? invoiceWhatsapp : ""}
+                  </a>
+                ) : null}
                 {invoiceEmail ? (
                   <a
                     href={`mailto:${invoiceEmail}`}
@@ -2223,6 +2249,8 @@ export default function OrderBillingPaymentTab({
             setInvoiceRef={setInvoiceRef}
             invoiceWaTo={invoiceWaTo}
             setInvoiceWaTo={setInvoiceWaTo}
+            invoiceWhatsapp={invoiceWhatsapp}
+            setInvoiceWhatsapp={setInvoiceWhatsapp}
             invoiceEmail={invoiceEmail}
             setInvoiceEmail={setInvoiceEmail}
             invoiceGrade={invoiceGrade}

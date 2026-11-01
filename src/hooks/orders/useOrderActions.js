@@ -24,6 +24,7 @@ export default function useOrderActions({
   invoiceNote,
   invoiceRef,
   invoiceWaTo,
+  invoiceWhatsapp,
   isBankStyleRelaunch,
   isCurrentOrder,
   load,
@@ -167,6 +168,7 @@ export default function useOrderActions({
 
       const result = await ordersService.updateNotificationContacts(id, {
         phone: normalizeStr(invoiceWaTo) || "",
+        whatsapp: normalizeStr(invoiceWhatsapp) || "",
         email: normalizeStr(invoiceEmail) || "",
       });
 

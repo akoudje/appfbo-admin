@@ -120,6 +120,7 @@ export default function OrderDetailPage() {
 
   const [invoiceRef, setInvoiceRef] = useState("");
   const [invoiceWaTo, setInvoiceWaTo] = useState("");
+  const [invoiceWhatsapp, setInvoiceWhatsapp] = useState("");
   const [invoiceEmail, setInvoiceEmail] = useState("");
   const [invoiceGrade, setInvoiceGrade] = useState("");
   const [invoiceAmountFcfa, setInvoiceAmountFcfa] = useState("");
@@ -171,6 +172,7 @@ export default function OrderDetailPage() {
   const hydrateOrderForms = (data) => {
     setInvoiceRef(data?.factureReference || "");
     setInvoiceWaTo(data?.factureWhatsappTo || "");
+    setInvoiceWhatsapp(data?.contactWhatsapp || "");
     setInvoiceEmail(data?.fboEmail || "");
     setInvoiceGrade(data?.billingGrade || data?.fboGrade || "");
     setInvoiceAmountFcfa(
@@ -635,6 +637,7 @@ export default function OrderDetailPage() {
     invoiceNote,
     invoiceRef,
     invoiceWaTo,
+    invoiceWhatsapp,
     isBankStyleRelaunch,
     isCurrentOrder,
     load,
@@ -861,6 +864,8 @@ export default function OrderDetailPage() {
               setInvoiceRef={setInvoiceRef}
               invoiceWaTo={invoiceWaTo}
               setInvoiceWaTo={setInvoiceWaTo}
+              invoiceWhatsapp={invoiceWhatsapp}
+              setInvoiceWhatsapp={setInvoiceWhatsapp}
               invoiceEmail={invoiceEmail}
               setInvoiceEmail={setInvoiceEmail}
               invoiceGrade={invoiceGrade}
