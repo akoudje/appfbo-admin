@@ -19,6 +19,7 @@ import {
   RECEIPT_STYLE_CSS,
   buildReceiptBodyHtml,
 } from "../utils/cashierReceipt";
+import { settlementLabel } from "../lib/settlement";
 
 const CASHIER_FILTER_STORAGE_PREFIX = "cashier_workspace_filters_v3";
 
@@ -241,6 +242,22 @@ function statusTone(status) {
   return "bg-gray-100 text-gray-700";
 }
 
+// Commande réglée au siège d'une autre filiale (FLP Burkina...) : rien à
+// encaisser au comptoir, pas de reçu caisse (cf. settlement.service.js côté API).
+function SettlementBadge({ row }) {
+  if (!row?.settlementEntity) return null;
+  return (
+    <div
+      className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900"
+      title="Payée au siège de la filiale : hors caisse, ne rien encaisser."
+    >
+      Réglée par {settlementLabel(row.settlementEntity)} · ne pas encaisser
+      {row.settlementReference ? (
+        <div className="font-medium text-amber-800">Réf. {row.settlementReference}</div>
+      ) : null}
+    </div>
+  );
+}
 
 function printCashierReceipt(row, admin = {}) {
   if (!row?.id || typeof window === "undefined") return false;
@@ -321,18 +338,19 @@ function ProcessingTable({
                 const paymentMode = String(row.preorderPaymentMode || "").toUpperCase();
                 const isCash = paymentMode.includes("ESPE") || paymentMode.includes("CASH");
                 const isWave = String(row.paymentProvider || "").toUpperCase() === "WAVE";
-                const canCashPay = isCash && row.paymentStatus !== "PAID";
-                const canVerify = !isCash && !isWave && row.status === "PAYMENT_PENDING" && row.paymentStatus !== "PAID";
+                const isSettled = Boolean(row.settlementEntity);
+                const canCashPay = !isSettled && isCash && row.paymentStatus !== "PAID";
+                const canVerify = !isSettled && !isCash && !isWave && row.status === "PAYMENT_PENDING" && row.paymentStatus !== "PAID";
                 const canPrepare = row.status === "PAID";
-                const canSyncWave = isWave && row.paymentStatus !== "PAID";
-                const canPrintReceipt = row.paymentStatus === "PAID" || row.status === "PAID";
+                const canSyncWave = !isSettled && isWave && row.paymentStatus !== "PAID";
+                const canPrintReceipt = !isSettled && (row.paymentStatus === "PAID" || row.status === "PAID");
                 const hasOpenAs400Dispute =
                   row.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
                   ["OPEN", "REPORTED"].includes(row.as400CertificationStatus || "");
                 const disabled = busyId === row.id;
 
                 return (
-                  <tr key={row.id} className="border-t border-gray-100 align-top">
+                  <tr key={row.id} className={`border-t border-gray-100 align-top ${isSettled ? "bg-amber-50/40" : ""}`}>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
                       <div className="text-xs text-gray-500">
@@ -350,8 +368,14 @@ function ProcessingTable({
                       <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
-                      <div className="text-xs text-gray-500">{row.paymentProvider || "-"}</div>
+                      {isSettled ? (
+                        <SettlementBadge row={row} />
+                      ) : (
+                        <>
+                          <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
+                          <div className="text-xs text-gray-500">{row.paymentProvider || "-"}</div>
+                        </>
+                      )}
                       {row.validatedBy || row.cashierTransaction?.cashier ? (
                         <div className="mt-1 text-xs text-emerald-700">
                           Validé par {displayAdminName(row.validatedBy || row.cashierTransaction?.cashier)}
@@ -449,8 +473,14 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
                     <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
-                    <div className="text-xs text-gray-500">{humanizeEnum(row.paymentStatus)} / {row.paymentProvider || "-"}</div>
+                    {row.settlementEntity ? (
+                      <SettlementBadge row={row} />
+                    ) : (
+                      <>
+                        <div className="font-medium text-gray-900">{humanizeEnum(row.preorderPaymentMode)}</div>
+                        <div className="text-xs text-gray-500">{humanizeEnum(row.paymentStatus)} / {row.paymentProvider || "-"}</div>
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">
@@ -469,7 +499,9 @@ function ArchiveTable({ rows, emptyLabel, onOpenDetails, onOpenOrder, onPrintRec
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => onPrintReceipt(row)} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white">Imprimer reçu</button>
+                      {row.settlementEntity ? null : (
+                        <button type="button" onClick={() => onPrintReceipt(row)} className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white">Imprimer reçu</button>
+                      )}
                       <button type="button" onClick={() => onOpenDetails(row.id)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">Voir</button>
                       <button type="button" onClick={() => onOpenOrder(row.id)} className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white">Fiche</button>
                     </div>
@@ -744,7 +776,11 @@ function OrderDrawer({ open, loading, order, onClose, onOpenOrder, onReportAs400
               <div className="grid gap-2 md:grid-cols-2">
                 <div><strong>Client:</strong> {order.fboNomComplet || "-"} (FBO {order.fboNumero || "-"})</div>
                 <div><strong>Statut:</strong> {humanizeEnum(order.status)} / {humanizeEnum(order.paymentStatus)}</div>
-                <div><strong>Mode paiement:</strong> {humanizeEnum(order.preorderPaymentMode)} ({order.paymentProvider || "-"})</div>
+                {order.settlementEntity ? (
+                  <div className="md:col-span-2"><SettlementBadge row={order} /></div>
+                ) : (
+                  <div><strong>Mode paiement:</strong> {humanizeEnum(order.preorderPaymentMode)} ({order.paymentProvider || "-"})</div>
+                )}
                 <div><strong>Téléphone payeur:</strong> {attempt?.providerPayerPhone || "-"}</div>
                 <div><strong>Transaction Wave:</strong> {order?.activePayment?.providerTxnId || attempt?.providerTransactionId || "-"}</div>
                 <div><strong>Session Wave:</strong> {order?.activePayment?.providerReference || attempt?.providerSessionId || "-"}</div>
@@ -923,6 +959,9 @@ function PaidTodayModal({ open, onClose }) {
   if (!open) return null;
 
   const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+  const settledAmountFcfa = rows
+    .filter((row) => row.settlementEntity)
+    .reduce((sum, row) => sum + Number(row.as400InvoiceTotalFcfa || 0), 0);
 
   function toggleRow(id) {
     setSelectedIds((prev) => {
@@ -951,6 +990,11 @@ function PaidTodayModal({ open, onClose }) {
             <p className="text-xs text-gray-500">
               {data ? `${data.total} commande${data.total > 1 ? "s" : ""} payée${data.total > 1 ? "s" : ""} • ${formatFcfa(data.totalAmountFcfa || 0)}` : "Chargement..."}
             </p>
+            {settledAmountFcfa > 0 ? (
+              <p className="text-xs font-semibold text-amber-800">
+                dont {formatFcfa(settledAmountFcfa)} réglés par une autre filiale (hors caisse)
+              </p>
+            ) : null}
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
             ✕
@@ -999,7 +1043,9 @@ function PaidTodayModal({ open, onClose }) {
                       <div className="font-medium text-gray-900">{row.fboNomComplet || "-"}</div>
                       <div className="text-xs text-gray-500">FBO {row.fboNumero || "-"}</div>
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{humanizeEnum(row.preorderPaymentMode)}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">
+                      {row.settlementEntity ? <SettlementBadge row={row} /> : humanizeEnum(row.preorderPaymentMode)}
+                    </td>
                     <td className="px-3 py-2 text-right font-semibold text-gray-900">
                       {formatFcfa(row.as400InvoiceTotalFcfa || row.totalFcfa)}
                     </td>
