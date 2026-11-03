@@ -312,8 +312,11 @@ function ToggleCard({
 }) {
   const errors = useContext(SettingsErrorContext);
   return (
+    // relative : la case cachée (sr-only) reste dans la carte. Sans ancêtre
+    // positionné, elle se plaçait hors de la zone qui défile ; au focus, le
+    // navigateur faisait défiler la page vers une zone vide (page blanche).
     <Motion.label
-      className={`flex items-center gap-4 rounded-lg border-2 px-4 py-3 cursor-pointer transition-all ${
+      className={`relative flex items-center gap-4 rounded-lg border-2 px-4 py-3 cursor-pointer transition-all ${
         checked
           ? "border-gray-900 bg-gray-50"
           : "border-gray-200 bg-white hover:bg-gray-50"

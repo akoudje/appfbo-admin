@@ -279,7 +279,7 @@ export default function ProductForm({
                 className="h-28 w-28 rounded-xl border border-gray-200 bg-white object-contain"
               />
               <div className="space-y-2">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
+                <label className="relative inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
                   <Upload size={16} aria-hidden="true" />
                   {form.imageUrl
                     ? "Choisir une autre image"

@@ -272,7 +272,7 @@ export default function TicketEventFormPage() {
               <input className={inputClass()} value={eventForm.posterUrl} onChange={(e) => setEventForm({ ...eventForm, posterUrl: e.target.value })} />
             </Field>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className={`inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 focus-within:ring-2 focus-within:ring-[#FFC600]/60 ${uploadingPoster ? "opacity-60" : "cursor-pointer hover:bg-gray-50"}`}>
+              <label className={`relative inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 focus-within:ring-2 focus-within:ring-[#FFC600]/60 ${uploadingPoster ? "opacity-60" : "cursor-pointer hover:bg-gray-50"}`}>
                 <Upload size={16} aria-hidden="true" />
                 {uploadingPoster ? "Importation…" : "Importer l'affiche"}
                 <input
