@@ -21,6 +21,9 @@ export const externalPaymentLinksService = {
   attachToOrder: async (id, body = {}) =>
     (await api.post(`/admin/external-payment-links/${id}/attach-order`, body)).data,
 
+  attachToOrders: async (id, body = {}) =>
+    (await api.post(`/admin/external-payment-links/${id}/attach-orders`, body)).data,
+
   updateStatus: async (id, status) =>
     (await api.patch(`/admin/external-payment-links/${id}/status`, { status })).data,
 };
