@@ -1,16 +1,22 @@
 // Miroir de validateSchedule (backend, submission-schedule.service.js).
-const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const TIME_PATTERN = /^(?:([01]\d|2[0-3]):([0-5]\d)|24:00)$/;
 function validateSchedule(raw) {
   if (raw === null) return "";
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "Horaire invalide.";
-  for (const day of Object.values(raw)) {
-    if (!day) continue;
-    if (!TIME_PATTERN.test(day.open || "") || !TIME_PATTERN.test(day.close || ""))
+  if (!raw || typeof raw !== "object" || raw.version !== 2 || !raw.days) return "Horaire invalide.";
+  for (const pauses of Object.values(raw.days)) {
+    if (!Array.isArray(pauses)) return "Horaire invalide.";
+    if (pauses.length > 4) return "4 pauses au plus par jour.";
+    if (pauses.some((pause) => !TIME_PATTERN.test(pause?.start || "") || !TIME_PATTERN.test(pause?.end || "")))
       return "Saisissez les heures au format HH:MM.";
-    if (day.open >= day.close) return "L’heure d’ouverture doit précéder l’heure de fermeture.";
+    if (pauses.some((pause) => pause.start >= pause.end)) return "Le début d’une pause doit précéder sa fin.";
+    const sorted = [...pauses].sort((a, b) => a.start.localeCompare(b.start));
+    if (sorted.some((pause, index) => index && pause.start < sorted[index - 1].end))
+      return "Deux pauses du même jour se chevauchent.";
   }
   return "";
 }
+const isFullDay = (pauses) =>
+  pauses?.length === 1 && pauses[0].start === "00:00" && pauses[0].end === "24:00";
 
 function validateCountrySettings(patch, existing = {}) {
   const errors = {};
@@ -139,9 +145,10 @@ function validateCountrySettings(patch, existing = {}) {
     ("submissionScheduleEnabled" in patch || "submissionSchedule" in patch) &&
     all.submissionScheduleEnabled &&
     !errors.submissionSchedule &&
-    !Object.values(all.submissionSchedule || {}).some(Boolean)
+    Object.values(all.submissionSchedule?.days || {}).every(isFullDay) &&
+    Object.keys(all.submissionSchedule?.days || {}).length === 7
   )
-    errors.submissionSchedule = "Ouvrez au moins un jour, ou désactivez l’horaire automatique.";
+    errors.submissionSchedule = "Laissez au moins un moment d’ouverture dans la semaine, ou désactivez l’horaire automatique.";
   if (
     "preorderSubmissionEnabled" in patch &&
     !all.preorderSubmissionEnabled &&

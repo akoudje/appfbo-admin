@@ -68,20 +68,30 @@ test("restoring a section cannot mutate the stored baseline", () => {
   api.resetSettingsSection(before, "countries");
   assert.equal(before.countries.supportPhone, "old");
 });
-test("the submission schedule loads without a false change and sends edited days", () => {
+test("the submission pauses load without a false change and send edited days", () => {
   const loaded = api.settingsFromApi({
     submissionScheduleEnabled: true,
-    submissionSchedule: { 1: { open: "07:00", close: "15:00" } },
+    submissionSchedule: { version: 2, days: { 1: [{ start: "15:00", end: "18:30" }] } },
     submissionGraceMinutes: 15,
   });
   assert.deepEqual(plain(api.settingsPatch(loaded, structuredClone(loaded))), {});
-  assert.equal(loaded.commercial.submissionSchedule["0"], null);
+  assert.deepEqual(plain(loaded.commercial.submissionSchedule.days["0"]), []);
   const empty = api.settingsFromApi({ submissionSchedule: null });
   assert.deepEqual(plain(api.settingsPatch(empty, api.settingsFromApi({}))), {});
   const edited = structuredClone(loaded);
-  edited.commercial.submissionSchedule["6"] = { open: "08:00", close: "11:00" };
+  edited.commercial.submissionSchedule.days["6"] = [{ start: "00:00", end: "17:00" }];
   const patch = plain(api.settingsPatch(edited, loaded));
   assert.deepEqual(Object.keys(patch), ["submissionSchedule"]);
-  assert.deepEqual(patch.submissionSchedule["6"], { open: "08:00", close: "11:00" });
-  assert.equal(patch.submissionSchedule["1"].close, "15:00");
+  assert.equal(patch.submissionSchedule.version, 2);
+  assert.deepEqual(patch.submissionSchedule.days["6"], [{ start: "00:00", end: "17:00" }]);
+  assert.deepEqual(patch.submissionSchedule.days["1"], [{ start: "15:00", end: "18:30" }]);
+});
+
+test("a schedule saved in the former opening-hours format is shown as pauses", () => {
+  const loaded = api.settingsFromApi({ submissionSchedule: { 0: null, 1: { open: "07:00", close: "15:00" } } });
+  assert.deepEqual(plain(loaded.commercial.submissionSchedule.days["1"]), [
+    { start: "00:00", end: "07:00" },
+    { start: "15:00", end: "24:00" },
+  ]);
+  assert.deepEqual(plain(loaded.commercial.submissionSchedule.days["0"]), [{ start: "00:00", end: "24:00" }]);
 });

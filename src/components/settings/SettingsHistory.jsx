@@ -64,18 +64,33 @@ const LABELS = {
 };
 const DAY_NAMES = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
 function scheduleLabel(value) {
+  // Ancien format : plages d'ouverture.
+  if (value.version !== 2) {
+    const days = [1, 2, 3, 4, 5, 6, 0]
+      .filter((day) => value[day])
+      .map((day) => DAY_NAMES[day] + " ouvert " + value[day].open + "–" + value[day].close);
+    return days.length ? days.join(", ") : "Fermé tous les jours";
+  }
   const days = [1, 2, 3, 4, 5, 6, 0]
-    .filter((day) => value[day])
-    .map((day) => DAY_NAMES[day] + " " + value[day].open + "–" + value[day].close);
-  return days.length ? days.join(", ") : "Fermé tous les jours";
+    .filter((day) => value.days?.[day]?.length)
+    .map((day) => {
+      const pauses = value.days[day];
+      return pauses.length === 1 && pauses[0].start === "00:00" && pauses[0].end === "24:00"
+        ? DAY_NAMES[day] + " fermé"
+        : DAY_NAMES[day] + " pause " + pauses.map((pause) => pause.start + "–" + pause.end).join(", ");
+    });
+  return days.length ? days.join(" ; ") : "Aucune pause";
+}
+function overrideLabel(value) {
+  if (!value) return "Horaire normal";
+  // Ancien format { date, until: "HH:MM" } ; nouveau : until = instant ISO.
+  const until = value.date
+    ? (value.until || "minuit") + " le " + value.date
+    : new Date(value.until).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return (value.mode === "CLOSED" ? "Fermé jusqu’à " : "Ouvert jusqu’à ") + until;
 }
 function valueLabel(value, key) {
-  if (key === "submissionOverride")
-    return !value
-      ? "Horaire normal"
-      : value.mode === "CLOSED"
-        ? "Fermeture manuelle du " + value.date
-        : "Ouvert jusqu’à " + value.until + " le " + value.date;
+  if (key === "submissionOverride") return overrideLabel(value);
   if (key === "submissionSchedule" && value && typeof value === "object")
     return scheduleLabel(value);
   if (value === null || value === undefined || value === "")
