@@ -24,6 +24,7 @@ import {
   SubmissionScheduleEditor,
   SubmissionTodayPanel,
 } from "../components/settings/SubmissionSchedule";
+import CommercialMonthClosings from "../components/settings/CommercialMonthClosings";
 import { settingsService } from "../services/settingsService";
 import useSoundAlerts from "../hooks/useSoundAlerts";
 import useAdminAuth from "../hooks/useAdminAuth";
@@ -671,13 +672,14 @@ export default function AdminSettingsPage() {
   // d'où le blocage tant que des modifications ne sont pas enregistrées.
   const applySubmissionOverride = async (mode, until) => {
     if (overrideBusy || dirty) return;
+    const untilLabel = until === "24:00" ? "minuit" : String(until || "").replace(":", "h");
     if (
       mode === "CLOSED" &&
       !(await confirm({
-        title: "Fermer les soumissions maintenant ?",
+        title: "Fermer les soumissions jusqu’à " + untilLabel + " ?",
         message:
-          "Les clients ne pourront plus envoyer de précommande jusqu’à la prochaine ouverture prévue. Les paniers en cours ne bénéficient pas de la tolérance.",
-        confirmLabel: "Fermer maintenant",
+          "Les clients ne pourront plus envoyer de précommande jusqu’à " + untilLabel + " (ou jusqu’à la fin de la pause en cours à ce moment-là). Les paniers en cours ne bénéficient pas de la tolérance.",
+        confirmLabel: "Fermer",
         tone: "warning",
       }))
     )
@@ -691,9 +693,9 @@ export default function AdminSettingsPage() {
         type: "success",
         message:
           mode === "CLOSED"
-            ? "Soumissions fermées pour aujourd’hui."
+            ? "Soumissions fermées jusqu’à " + untilLabel + "."
             : mode === "OPEN"
-              ? "Soumissions ouvertes jusqu’à " + until.replace(":", "h") + "."
+              ? "Soumissions ouvertes jusqu’à " + untilLabel + "."
               : "Retour à l’horaire normal.",
       });
     } catch (error) {
@@ -2059,8 +2061,8 @@ export default function AdminSettingsPage() {
                             }
                           />
                           <ToggleCard
-                            label="Horaire automatique"
-                            hint="Ferme et rouvre les soumissions chaque jour aux heures prévues (heure du pays)."
+                            label="Pauses automatiques"
+                            hint="Ferme les soumissions pendant les pauses prévues (ex. 15h00–18h30 pour traiter les commandes) et les rouvre à la fin, heure du pays."
                             checked={settings.commercial.submissionScheduleEnabled}
                             settingKey="commercial.submissionScheduleEnabled"
                             onChange={(value) =>
@@ -2087,10 +2089,10 @@ export default function AdminSettingsPage() {
                           <div className="space-y-4 rounded-xl border border-gray-200 p-4">
                             <div>
                               <h4 className="text-sm font-semibold text-gray-900">
-                                Horaire des soumissions
+                                Pauses des soumissions
                               </h4>
                               <p className="text-xs text-gray-500">
-                                Heures du pays. En dehors de ces plages, le site affiche l’heure de réouverture. Enregistrez pour appliquer.
+                                Les soumissions sont ouvertes en dehors des pauses. Pendant une pause, le site affiche l’heure de réouverture prévue. Enregistrez pour appliquer.
                               </p>
                             </div>
                             <SubmissionScheduleEditor
@@ -2104,8 +2106,8 @@ export default function AdminSettingsPage() {
                               }))}
                             />
                             <Field
-                              label="Tolérance après la fermeture (minutes)"
-                              hint="Un client qui a commencé son panier avant l’heure de fermeture peut encore l’envoyer pendant ce délai. 0 pour aucune tolérance."
+                              label="Tolérance au début d’une pause (minutes)"
+                              hint="Un client qui a commencé son panier avant le début de la pause peut encore l’envoyer pendant ce délai. 0 pour aucune tolérance."
                             >
                               <TextInput
                                 type="number"
@@ -2126,6 +2128,12 @@ export default function AdminSettingsPage() {
                             </Field>
                           </div>
                         ) : null}
+
+                        <CommercialMonthClosings
+                          key={selectedCountryCode}
+                          countryCode={selectedCountryCode}
+                          canWrite={canWrite}
+                        />
 
                         {/* Parrainage en ligne : ouverture et achat minimum. */}
                         <div className="grid gap-3 sm:grid-cols-2">

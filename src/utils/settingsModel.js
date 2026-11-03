@@ -1,14 +1,33 @@
 import { foreverLogoUrl } from "../lib/assetUrls";
 const SCHEDULE_DAY_KEYS = ["0", "1", "2", "3", "4", "5", "6"];
 
-// Toujours les 7 jours (0 = dimanche), pour comparer sans faux changement.
+// Pauses de soumission : { version: 2, days: { "0".."6": [{ start, end }] } }
+// (0 = dimanche, end "24:00" = minuit). Toujours les 7 jours, pour comparer
+// sans faux changement. L'ancien format (une plage d'OUVERTURE par jour) est
+// converti comme côté serveur (submission-schedule.service.js).
 export function normalizeSubmissionSchedule(raw) {
-  return Object.fromEntries(
-    SCHEDULE_DAY_KEYS.map((key) => {
-      const day = raw?.[key];
-      return [key, day?.open && day?.close ? { open: day.open, close: day.close } : null];
-    }),
-  );
+  const legacy =
+    raw && typeof raw === "object" && raw.version !== 2 && SCHEDULE_DAY_KEYS.some((key) => key in raw);
+  return {
+    version: 2,
+    days: Object.fromEntries(
+      SCHEDULE_DAY_KEYS.map((key) => {
+        if (legacy) {
+          const day = raw[key];
+          if (!day?.open || !day?.close) return [key, [{ start: "00:00", end: "24:00" }]];
+          return [
+            key,
+            [
+              day.open !== "00:00" ? { start: "00:00", end: day.open } : null,
+              { start: day.close, end: "24:00" },
+            ].filter(Boolean),
+          ];
+        }
+        const list = Array.isArray(raw?.days?.[key]) ? raw.days[key] : [];
+        return [key, list.filter((pause) => pause?.start && pause?.end).map((pause) => ({ start: pause.start, end: pause.end }))];
+      }),
+    ),
+  };
 }
 
 export const DEFAULT_SETTINGS = {
