@@ -64,7 +64,7 @@ function ImportForm({ onClose, onDone }) {
           existants ne sera pas modifié.
         </p>
         <div className="flex flex-wrap gap-3">
-          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
+          <label className="relative inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-[#FFC600]/40">
             Choisir un fichier CSV
             <input
               type="file"

@@ -25,7 +25,11 @@ export default function AdminLayout({ children }) {
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onMenuClick={() => setMobileMenuOpen(true)} />
-          <main className="min-w-0 p-3 pb-24 md:overflow-auto md:p-4 md:pb-4 lg:p-6">
+          {/* relative : sur ordinateur, seul <main> défile. Sans ancêtre
+              positionné, les éléments absolus (cases et libellés sr-only)
+              se plaçaient hors de cette zone et allongeaient la page ; au
+              focus d'une case, le navigateur défilait vers une zone vide. */}
+          <main className="relative min-w-0 p-3 pb-24 md:overflow-auto md:p-4 md:pb-4 lg:p-6">
             <PageTabs />
             {children}
           </main>
