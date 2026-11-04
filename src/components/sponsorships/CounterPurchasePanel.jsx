@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { sponsorshipsService } from "../../services/sponsorshipsService";
+import { cartCcSummary, formatCc, promotionHint, savedCartCcSummary } from "../../utils/sponsorshipCc";
 
 import { PURCHASE_PAYMENT_MODES as PAYMENT_MODES } from "./sponsorshipStatus";
 
@@ -48,6 +49,8 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
   const byId = useMemo(() => new Map(catalog.products.map((p) => [p.id, p])), [catalog.products]);
   const total = cart.reduce((sum, line) => sum + Math.round((byId.get(line.productId)?.prixFcfa || 0) * line.qty), 0);
   const minimum = Number(sponsorship.minPurchaseFcfa || 0);
+  const cc = cartCcSummary(cart, byId);
+  const parentCc = parentCart ? savedCartCcSummary(sponsorship.purchaseItems) : null;
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? catalog.products.filter((p) => `${p.nom} ${p.sku || ""}`.toLowerCase().includes(q)).slice(0, 8) : [];
@@ -114,7 +117,11 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
               Panier préparé par le parrain : commande <Link to={`/orders/${sponsorship.purchasePreorder.id}`} className="font-semibold underline">{sponsorship.purchasePreorder.preorderNumber}</Link> (brouillon).
             </>
           ) : (
-            <>Panier du parrain repris : {sponsorship.purchaseItems.length} produit(s), {fcfa(sponsorship.purchaseIndicativeTotalFcfa)} indicatifs (quantités recalées sur le stock).</>
+            <>
+              Panier du parrain repris : {sponsorship.purchaseItems.length} produit(s), {fcfa(sponsorship.purchaseIndicativeTotalFcfa)} indicatifs
+              {parentCc?.known ? ` · ${formatCc(parentCc.totalCc)}` : ""} (quantités recalées sur le stock).
+              <span className={`mt-1 block text-xs ${parentCc?.qualifies ? "font-semibold text-emerald-700" : "text-gray-600"}`}>{promotionHint(parentCc)}</span>
+            </>
           )}
         </p>
       ) : catalog.loading ? (
@@ -132,7 +139,7 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
                   <li key={p.id}>
                     <button type="button" onClick={() => { setQty(p.id, (cart.find((l) => l.productId === p.id)?.qty || 0) + 1); setQuery(""); }} className="flex w-full justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
                       <span>{p.nom}</span>
-                      <span className="text-xs text-gray-500">{fcfa(p.prixFcfa)} · stock {p.stockQty}</span>
+                      <span className="text-xs text-gray-500">{fcfa(p.prixFcfa)} · {formatCc(p.cc)} · stock {p.stockQty}</span>
                     </button>
                   </li>
                 ))}
@@ -143,7 +150,10 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
             const p = byId.get(line.productId);
             return (
               <div key={line.productId} className="flex items-center justify-between gap-2 text-sm">
-                <span>{p?.nom}</span>
+                <span>
+                  {p?.nom}
+                  <span className="ml-1 text-xs text-gray-500">{formatCc(Number(p?.cc || 0) * line.qty)}</span>
+                </span>
                 <span className="flex items-center gap-1">
                   <button type="button" onClick={() => setQty(line.productId, line.qty - 1)} className="rounded border p-1" aria-label="Moins"><Minus className="h-3 w-3" /></button>
                   <input type="number" value={line.qty} onChange={(e) => setQty(line.productId, e.target.value)} className="w-14 rounded border px-1 py-0.5 text-center" aria-label="Quantité" />
@@ -154,9 +164,12 @@ export default function CounterPurchasePanel({ sponsorship, onDone }) {
             );
           })}
           {cart.length ? (
-            <p className={`text-sm font-semibold ${total < minimum ? "text-red-700" : "text-emerald-700"}`}>
-              Total indicatif : {fcfa(total)} {total < minimum ? `— minimum ${fcfa(minimum)} non atteint` : "— minimum atteint"}
-            </p>
+            <>
+              <p className={`text-sm font-semibold ${total < minimum ? "text-red-700" : "text-emerald-700"}`}>
+                Total indicatif : {fcfa(total)} · {formatCc(cc.totalCc)} {total < minimum ? `— minimum ${fcfa(minimum)} non atteint` : "— minimum atteint"}
+              </p>
+              <p className={`text-xs ${cc.qualifies ? "font-semibold text-emerald-700" : "text-gray-600"}`}>{promotionHint(cc)}</p>
+            </>
           ) : null}
         </div>
       )}
