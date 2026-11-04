@@ -502,7 +502,7 @@ export default function PreparationQueuePage() {
 
   const handleInvertSelection = () => {
     const selectableIds = filteredRows
-      .filter((row) => row.status === "READY")
+      .filter((row) => ["PAID", "READY"].includes(row.status))
       .map((row) => row.id);
     setSelectedIds((prev) => new Set(selectableIds.filter((id) => !prev.has(id))));
   };
@@ -704,7 +704,7 @@ export default function PreparationQueuePage() {
 
       <PreparationQueueTabs tab={tab} setTab={setTab} stats={stats} />
 
-      {canFulfillNoNotification && tab === "ready" && selectedIds.size > 0 ? (
+      {canFulfillNoNotification && ["to-prepare", "ready"].includes(tab) && selectedIds.size > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <div className="font-medium">
             {selectedIds.size} commande{selectedIds.size > 1 ? "s" : ""} sélectionnée{selectedIds.size > 1 ? "s" : ""}
@@ -723,7 +723,7 @@ export default function PreparationQueuePage() {
               onClick={handleInvertSelection}
               className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
               disabled={!!actionLoadingId}
-              title="Sélectionne les commandes prêtes non cochées et décoche celles qui l'étaient"
+              title="Sélectionne les commandes visibles non cochées et décoche celles qui l'étaient"
             >
               Inverser la sélection
             </button>
