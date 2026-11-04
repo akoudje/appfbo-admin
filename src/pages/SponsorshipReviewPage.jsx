@@ -12,6 +12,7 @@ import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePane
 import useAdminAuth from "../hooks/useAdminAuth";
 import { hasPermission, Permission } from "../auth/permissions";
 import { formatFboNumber, defaultFboNumberPrefix } from "../utils/fboNumber";
+import { formatCc, promotionHint, savedCartCcSummary } from "../utils/sponsorshipCc";
 
 const ID_DOCUMENT_LABELS = {
   CNI: "CNI",
@@ -199,6 +200,7 @@ export default function SponsorshipReviewPage() {
 
   const status = SPONSORSHIP_STATUS[row.status] || { label: row.status, style: "" };
   const underage = row.recruitAge != null && row.recruitAge < 18;
+  const purchaseCc = savedCartCcSummary(row.purchaseItems);
   const canDecide = row.status === "SUBMITTED";
   const canReject = ["SUBMITTED", "CHANGES_REQUESTED"].includes(row.status);
 
@@ -300,6 +302,7 @@ export default function SponsorshipReviewPage() {
                     <tr>
                       <th className="py-1">Produit</th>
                       <th className="py-1 text-right">Qté</th>
+                      <th className="py-1 text-right">CC</th>
                       <th className="py-1 text-right">Montant indicatif</th>
                     </tr>
                   </thead>
@@ -308,6 +311,7 @@ export default function SponsorshipReviewPage() {
                       <tr key={line.productId}>
                         <td className="py-1">{line.nom}{line.sku ? <span className="text-xs text-gray-500"> · {line.sku}</span> : null}</td>
                         <td className="py-1 text-right">{line.qty}</td>
+                        <td className="py-1 text-right">{line.lineTotalCc != null ? formatCc(line.lineTotalCc) : "—"}</td>
                         <td className="py-1 text-right">{Number(line.lineTotalFcfa || 0).toLocaleString("fr-FR")} F</td>
                       </tr>
                     ))}
@@ -315,8 +319,14 @@ export default function SponsorshipReviewPage() {
                 </table>
                 <div className="mt-2 flex justify-between border-t border-gray-100 pt-2 text-sm font-semibold">
                   <span>Total indicatif (prix Client privilégié)</span>
-                  <span>{Number(row.purchaseIndicativeTotalFcfa || 0).toLocaleString("fr-FR")} F</span>
+                  <span>
+                    {purchaseCc.known ? `${formatCc(purchaseCc.totalCc)} · ` : ""}
+                    {Number(row.purchaseIndicativeTotalFcfa || 0).toLocaleString("fr-FR")} F
+                  </span>
                 </div>
+                <p className={`mt-1 text-xs ${purchaseCc.qualifies ? "font-semibold text-emerald-700" : "text-gray-600"}`}>
+                  {promotionHint(purchaseCc)}
+                </p>
                 <p className="mt-2 text-xs text-gray-500">
                   {row.purchasePreorder
                     ? `Commande créée à l'approbation : ${row.purchasePreorder.preorderNumber} (${row.purchasePreorder.status === "DRAFT" ? "brouillon, en attente du parrain" : row.purchasePreorder.status}).`
