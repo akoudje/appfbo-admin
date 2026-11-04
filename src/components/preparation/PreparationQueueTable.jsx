@@ -80,6 +80,8 @@ function PickupNotificationBadge({ message, shipping }) {
   );
 }
 
+const SELECTABLE_STATUSES = ["PAID", "READY"];
+
 export default function PreparationQueueTable({
   rows,
   loading,
@@ -93,7 +95,9 @@ export default function PreparationQueueTable({
 }) {
   const canPrepare = usePermission(Permission.PREPARATION_UPDATE);
   const selectionEnabled = canFulfillNoNotification && Boolean(selectedIds) && Boolean(onToggleSelect);
-  const selectableRows = selectionEnabled ? rows.filter((row) => row.status === "READY") : [];
+  // Régularisation groupée possible depuis « À préparer » (PAID) comme depuis
+  // « Prêtes à remettre » (READY) : la route admin accepte les deux.
+  const selectableRows = selectionEnabled ? rows.filter((row) => SELECTABLE_STATUSES.includes(row.status)) : [];
   const allSelectableSelected =
     selectableRows.length > 0 && selectableRows.every((row) => selectedIds.has(row.id));
 
@@ -131,7 +135,7 @@ export default function PreparationQueueTable({
                         e.target.checked,
                       )
                     }
-                    aria-label="Sélectionner toutes les commandes prêtes visibles"
+                    aria-label="Sélectionner toutes les commandes visibles"
                   />
                 </th>
               ) : null}
@@ -148,7 +152,7 @@ export default function PreparationQueueTable({
               <tr key={row.id} className="border-t border-gray-100 text-gray-800 align-top">
                 {selectionEnabled ? (
                   <td className="px-4 py-3">
-                    {row.status === "READY" ? (
+                    {SELECTABLE_STATUSES.includes(row.status) ? (
                       <input
                         type="checkbox"
                         checked={selectedIds.has(row.id)}
