@@ -512,6 +512,7 @@ export default function ExternalPaymentLinksPage() {
         {groupPreview && <div className={`rounded-xl p-3 text-sm ${groupPreview.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
           <p>{groupPreview.orders.length} commande{groupPreview.orders.length > 1 ? "s" : ""} trouvée{groupPreview.orders.length > 1 ? "s" : ""} · total factures {formatFcfa(groupPreview.ordersTotalFcfa)}</p>
           <p>Paiement hors frais : {formatFcfa(groupPreview.invoiceAmountFcfa)}</p>
+          {groupPreview.reactivatedCount > 0 && <p className="mt-1">Dont {groupPreview.reactivatedCount} annulée{groupPreview.reactivatedCount > 1 ? "s" : ""} automatiquement faute de paiement : {groupPreview.reactivatedCount > 1 ? "elles seront réactivées" : "elle sera réactivée"} (aucun message envoyé au client).</p>}
           {groupPreview.unrecognized?.length > 0 && <p className="mt-1">Ignoré (non reconnu) : {groupPreview.unrecognized.join(", ")}</p>}
           {groupPreview.issues.length > 0 ? <ul className="mt-2 list-disc space-y-0.5 pl-5 font-medium">{groupPreview.issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <p className="mt-2 font-semibold">Montants identiques. Ces {groupPreview.orders.length} commandes seront marquées payées.</p>}
         </div>}
