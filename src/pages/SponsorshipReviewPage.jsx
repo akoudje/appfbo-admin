@@ -86,6 +86,20 @@ function DocumentViewer({ sponsorshipId, document }) {
 
 const AGREEMENT_STATUSES = new Set(["APPROVED_PENDING_PURCHASE", "VALIDATED", "EXPIRED"]);
 
+// Renvoi de la notification du statut en cours (libellé du résultat et description).
+const RESEND_KIND_LABELS = {
+  VALIDATION: "de validation",
+  APPROVAL: "d'approbation",
+  CHANGES_REQUESTED: "de demande de complément",
+  REJECTED: "de refus",
+};
+const RESEND_DESCRIPTIONS = {
+  CHANGES_REQUESTED: "Demande de complément : motif et nouveau lien de correction (valable 30 jours), au filleul et au parrain.",
+  REJECTED: "Refus : motif du refus, au filleul et au parrain.",
+  APPROVED_PENDING_PURCHASE: "Approbation : n° FBO, commande à payer et lien de paiement, au parrain et au filleul (email avec la fiche cachetée).",
+  VALIDATED: "Confirmation de validation (n° FBO, commande payée), au parrain et au filleul.",
+};
+
 export default function SponsorshipReviewPage() {
   const { id } = useParams();
   const location = useLocation();
@@ -166,7 +180,7 @@ export default function SponsorshipReviewPage() {
       const detail = (results || [])
         .map((r) => `${r.channel === "SMS" ? "SMS" : "email"} ${r.who} : ${r.skipped ? "pas de destinataire" : r.ok ? "envoyé" : "échec"}`)
         .join(" · ");
-      setNotice(`Notification ${kind === "VALIDATION" ? "de validation" : "d'approbation"} renvoyée — ${detail}.`);
+      setNotice(`Notification ${RESEND_KIND_LABELS[kind] || ""} renvoyée — ${detail}.`);
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || "Renvoi impossible.");
@@ -493,15 +507,13 @@ export default function SponsorshipReviewPage() {
         </section>
       ) : null}
 
-      {row.status === "VALIDATED" ||
+      {["VALIDATED", "CHANGES_REQUESTED", "REJECTED"].includes(row.status) ||
       (row.status === "APPROVED_PENDING_PURCHASE" && row.purchasePreorder && !["DRAFT", "CANCELLED"].includes(row.purchasePreorder.status)) ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Renvoyer la notification</h2>
             <p className="text-xs text-gray-500">
-              {row.status === "VALIDATED"
-                ? "Confirmation de validation (n° FBO, commande payée), au parrain et au filleul."
-                : "Approbation : n° FBO, commande à payer et lien de paiement, au parrain et au filleul (email avec la fiche cachetée)."}
+              {RESEND_DESCRIPTIONS[row.status] || RESEND_DESCRIPTIONS.APPROVED_PENDING_PURCHASE}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
