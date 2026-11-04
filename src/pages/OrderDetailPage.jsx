@@ -302,9 +302,18 @@ export default function OrderDetailPage() {
         String(log?.meta?.mode || "").toUpperCase() ===
           "AUTO_CANCEL_UNPAID_AFTER_EXPIRY_WINDOW",
     );
+    // Annulée par une fermeture de caisse : le serveur accepte aussi la
+    // relance (relaunchPayment, orders.controller.js), comme la supervision
+    // caisse ; sans ce cas, la fiche n'offrait aucun moyen de relancer.
+    const hasCashClosureCancelLog = logs.some(
+      (log) =>
+        String(log?.action || "").toUpperCase() === "CANCEL" &&
+        String(log?.meta?.source || "").toUpperCase() === "CASH_REGISTER_CLOSURE",
+    );
     const reason = String(order?.cancelReason || "").toLowerCase();
     return (
       hasAutoCancelLog ||
+      hasCashClosureCancelLog ||
       (reason.includes("automatique") && reason.includes("sans paiement"))
     );
   }, [order?.cancelReason, order?.logs, paymentStatus, status]);
@@ -469,6 +478,10 @@ export default function OrderDetailPage() {
     const extraTabs = getExtraOrderTabsFromOverride(permissionAllow).filter(
       (tab) => !baseTabs.some((base) => base.key === tab.key),
     );
+    // L'onglet Annulation est masqué pour une commande annulée ; il porte
+    // pourtant « Réactiver la commande » (fermeture de caisse).
+    if (canReactivate && !baseTabs.some((tab) => tab.key === "cancel"))
+      extraTabs.push({ key: "cancel", label: "Annulation" });
     return [...baseTabs, ...extraTabs].filter((tab) => {
       if (tab.key === "billing") return canAccessBilling;
       if (tab.key === "payment") return canAccessPayment;
@@ -484,6 +497,7 @@ export default function OrderDetailPage() {
     canAccessCancel,
     canAccessPayment,
     canAccessPreparation,
+    canReactivate,
     order?.status,
   ]);
 
