@@ -329,6 +329,24 @@ export default function OrderDetailPage() {
         String(log?.meta?.source || "").toUpperCase() === "CASH_REGISTER_CLOSURE",
     );
   }, [isGlobalAdmin, order?.logs, status]);
+  // Réservé aux administrateurs globaux : commande préfacturée, déjà remise au
+  // client, annulée automatiquement (fermeture de caisse ou délai expiré) alors
+  // que le paiement espèces est arrivé après la fermeture de caisse. Mêmes
+  // critères que le contrôleur regularizeLateCashPayment.
+  const canRegularizeLateCash = useMemo(() => {
+    if (!isGlobalAdmin || status !== "CANCELLED" || paymentStatus === "PAID") return false;
+    if (!order?.invoicedAt || order?.stockDeductedAt || order?.preparationLaunchedAt) return false;
+    if (!order?.assignedInvoicerId) return false;
+    const logs = Array.isArray(order?.logs) ? order.logs : [];
+    const autoCancelLog = logs.some(
+      (log) =>
+        String(log?.action || "").toUpperCase() === "CANCEL" &&
+        (String(log?.meta?.source || "").toUpperCase() === "CASH_REGISTER_CLOSURE" ||
+          String(log?.meta?.mode || "").toUpperCase() === "AUTO_CANCEL_UNPAID_AFTER_EXPIRY_WINDOW"),
+    );
+    const reason = String(order?.cancelReason || "").toLowerCase();
+    return autoCancelLog || (reason.includes("automatique") && reason.includes("sans paiement"));
+  }, [isGlobalAdmin, order, paymentStatus, status]);
   // Virement bancaire / Ecobank Pay / PI SPI ont besoin d'un délai bien plus
   // long qu'une relance mobile money classique (le client doit d'abord faire
   // l'opération auprès de sa banque) : le widget de relance bascule alors en
@@ -480,7 +498,7 @@ export default function OrderDetailPage() {
     );
     // L'onglet Annulation est masqué pour une commande annulée ; il porte
     // pourtant « Réactiver la commande » (fermeture de caisse).
-    if (canReactivate && !baseTabs.some((tab) => tab.key === "cancel"))
+    if ((canReactivate || canRegularizeLateCash) && !baseTabs.some((tab) => tab.key === "cancel"))
       extraTabs.push({ key: "cancel", label: "Annulation" });
     return [...baseTabs, ...extraTabs].filter((tab) => {
       if (tab.key === "billing") return canAccessBilling;
@@ -498,6 +516,7 @@ export default function OrderDetailPage() {
     canAccessPayment,
     canAccessPreparation,
     canReactivate,
+    canRegularizeLateCash,
     order?.status,
   ]);
 
@@ -620,6 +639,7 @@ export default function OrderDetailPage() {
     doFulfill,
     doCancel,
     doReactivate,
+    doRegularizeLateCash,
     copyWhatsApp,
     doFulfillNoNotification,
     doDownloadDeliveryNote,
@@ -1129,6 +1149,8 @@ export default function OrderDetailPage() {
               onCancel={doCancel}
               canReactivate={canReactivate}
               onReactivate={doReactivate}
+              canRegularizeLateCash={canRegularizeLateCash}
+              onRegularizeLateCash={doRegularizeLateCash}
             />
           </RequirePermission>
         )}

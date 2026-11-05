@@ -1,4 +1,5 @@
 // src/components/orders/detail/OrderCancelPanel.jsx
+import { useState } from "react";
 
 function Alert({ tone = "red", title, children }) {
   const tones = {
@@ -34,6 +35,8 @@ export default function OrderCancelPanel({
   onCancel,
   canReactivate = false,
   onReactivate,
+  canRegularizeLateCash = false,
+  onRegularizeLateCash,
 }) {
   return (
     <div className="space-y-4">
@@ -113,6 +116,103 @@ export default function OrderCancelPanel({
           </button>
         </div>
       ) : null}
+
+      {canRegularizeLateCash ? (
+        <LateCashRegularization order={order} saving={saving} onSubmit={onRegularizeLateCash} />
+      ) : null}
+    </div>
+  );
+}
+
+// Valeur par défaut d'un <input type="datetime-local"> (heure locale du poste).
+function toLocalInputValue(date) {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function LateCashRegularization({ order, saving, onSubmit }) {
+  const amount = Number(order?.as400InvoiceTotalFcfa || order?.totalFcfa || 0);
+  const agentName = order?.assignedInvoicer?.fullName || order?.assignedInvoicer?.email || "";
+  const [deliveredAt, setDeliveredAt] = useState("");
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const minDelivered = toLocalInputValue(order?.invoicedAt ? new Date(order.invoicedAt) : null);
+  const maxDelivered = toLocalInputValue(new Date());
+  const ready = Boolean(deliveredAt && receiptNumber.trim() && amount > 0);
+
+  const submit = async () => {
+    const ok = await onSubmit?.({
+      receiptNumber: receiptNumber.trim(),
+      amountReceivedFcfa: amount,
+      deliveredAt: new Date(deliveredAt).toISOString(),
+      agentName,
+    });
+    if (ok) {
+      setDeliveredAt("");
+      setReceiptNumber("");
+    }
+  };
+
+  return (
+    <div className="card p-4 space-y-3 border border-blue-200 bg-blue-50">
+      <div>
+        <div className="font-semibold text-blue-900">
+          Encaissement reçu après la fermeture de caisse
+        </div>
+        <div className="text-sm text-blue-800 space-y-1">
+          <p>
+            À utiliser quand la commande a été servie et remise au client, mais
+            que l’argent est arrivé après la fermeture de caisse, souvent le
+            lendemain. Ne pas utiliser « Réactiver » dans ce cas : le lendemain,
+            la commande serait aussitôt ré-annulée faute de paiement.
+          </p>
+          <p>
+            La commande passe « Livrée » à la date de remise indiquée. Le
+            paiement espèces est enregistré maintenant dans la caisse du jour de{" "}
+            <strong>{agentName || "l’agent de vente"}</strong>, la caisse de la
+            veille n’est pas modifiée. Le stock est débité. Aucun message n’est
+            envoyé au client.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Date et heure de remise au client">
+          <input
+            type="datetime-local"
+            className="input"
+            value={deliveredAt}
+            min={minDelivered}
+            max={maxDelivered}
+            onChange={(e) => setDeliveredAt(e.target.value)}
+            disabled={saving}
+          />
+        </Field>
+        <Field label="N° de reçu caisse">
+          <input
+            className="input"
+            value={receiptNumber}
+            maxLength={100}
+            onChange={(e) => setReceiptNumber(e.target.value)}
+            placeholder="Ex. RC-…"
+            disabled={saving}
+          />
+        </Field>
+        <Field label="Montant encaissé (montant facturé)">
+          <div className="input bg-white/60 tabular-nums">
+            {amount.toLocaleString("fr-FR")} FCFA
+          </div>
+        </Field>
+      </div>
+
+      <button
+        type="button"
+        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        onClick={submit}
+        disabled={saving || !ready}
+      >
+        {saving ? "..." : "Régulariser l’encaissement"}
+      </button>
     </div>
   );
 }
