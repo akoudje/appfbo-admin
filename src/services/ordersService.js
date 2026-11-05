@@ -278,6 +278,14 @@ export const ordersService = {
   reactivate: async (id) =>
     (await api.post(`/admin/orders/${normalizeOrderId(id)}/reactivate`)).data,
 
+  regularizeLateCashPayment: async (id, body) =>
+    (
+      await api.post(
+        `/admin/orders/${normalizeOrderId(id)}/regularize-late-cash-payment`,
+        body,
+      )
+    ).data,
+
   applyPickupPenalty: async (id, body = {}) =>
     (
       await api.post(

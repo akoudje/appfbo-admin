@@ -702,6 +702,41 @@ export default function useOrderActions({
     }
   };
 
+  // Encaissement espèces reçu après la fermeture de caisse, pour une commande
+  // déjà remise au client : retourne true si la régularisation a réussi.
+  const doRegularizeLateCash = async ({ receiptNumber, amountReceivedFcfa, deliveredAt, agentName }) => {
+    try {
+      const approved = await confirm({
+        tone: "warning",
+        title: "Régulariser l'encaissement",
+        message:
+          `La commande ${order.preorderNumber || order.id} passera « Livrée » et payée en espèces. ` +
+          `${Number(amountReceivedFcfa).toLocaleString("fr-FR")} FCFA seront ajoutés à la caisse du jour de ${agentName || "l'agent de vente"}, ` +
+          "et le stock sera débité. Aucun message ne sera envoyé au client.",
+        confirmLabel: "Régulariser",
+      });
+      if (!approved) return false;
+      setSaving(true);
+      setError("");
+      setInfo("");
+
+      const result = await ordersService.regularizeLateCashPayment(id, {
+        receiptNumber,
+        amountReceivedFcfa,
+        deliveredAt,
+      });
+      setOrder(result);
+      setInfo("Encaissement régularisé : commande livrée et payée, montant ajouté à la caisse du jour de l'agent de vente.");
+      await load({ resetDrafts: true });
+      return true;
+    } catch (e) {
+      setError(e?.response?.data?.message || "Impossible de régulariser cet encaissement");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const copyWhatsApp = async () => {
     const text = order?.whatsappMessage || "";
     if (!text) return;
@@ -1021,6 +1056,7 @@ export default function useOrderActions({
     doFulfill,
     doCancel,
     doReactivate,
+    doRegularizeLateCash,
     copyWhatsApp,
     doFulfillNoNotification,
     doDownloadDeliveryNote,
