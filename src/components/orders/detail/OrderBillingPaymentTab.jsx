@@ -467,6 +467,7 @@ function getLatestAttempt(order) {
 // ============================================
 
 function BillingActionCard({
+  declaredGrade = null,
   canInvoice,
   canEnqueueAs400Request = false,
   canCorrectAs400Invoice = false,
@@ -750,6 +751,17 @@ function BillingActionCard({
             </select>
           </Field>
         </div>
+
+        {declaredGrade ? (
+          <Alert tone="amber" title="Grade déclaré par le client, non vérifié">
+            <div className="text-sm">
+              Ce numéro FBO est inconnu de FBO Service. Le client a déclaré le grade{" "}
+              <span className="font-semibold">{GRADE_LABELS[declaredGrade] || declaredGrade}</span>
+              , mais la commande a été chiffrée au tarif Client privilégié. Vérifiez le grade dans AS400,
+              puis choisissez le grade de facturation.
+            </div>
+          </Alert>
+        ) : null}
 
         {duplicateReference ? (
           <Alert tone="red" title="Référence AS400 déjà utilisée — facturation bloquée">
@@ -2239,6 +2251,7 @@ export default function OrderBillingPaymentTab({
         {/* Colonne droite : Facturation */}
         <div>
           <BillingActionCard
+            declaredGrade={order?.invoicedAt ? null : order?.fboGradeDeclared || null}
             canInvoice={canInvoice}
             canEnqueueAs400Request={canEnqueueAs400Request}
             canCorrectAs400Invoice={canCorrectAs400Invoice}
