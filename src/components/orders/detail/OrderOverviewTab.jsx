@@ -263,6 +263,13 @@ export default function OrderOverviewTab({
             <Row label="Numéro FBO" value={order?.fboNumero || "—"} copyable />
             <Row label="Client" value={order?.fboNomComplet || "—"} />
             <Row label="Grade initial" value={humanizeEnum(order?.fboGrade)} />
+            {/* Numéro inconnu de FBO Service : grade saisi par le client, sans remise tant qu'il n'est pas vérifié. */}
+            {order?.fboGradeDeclared ? (
+              <Row
+                label="Grade déclaré (non vérifié)"
+                value={humanizeEnum(order.fboGradeDeclared)}
+              />
+            ) : null}
             <Row
               label="Grade facturation"
               value={humanizeEnum(order?.billingGrade || order?.fboGrade)}
