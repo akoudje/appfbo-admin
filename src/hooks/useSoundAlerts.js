@@ -30,6 +30,14 @@ function safeWriteStorage(key, value) {
 
 function eventPattern(eventKey) {
   const key = String(eventKey || "").toLowerCase();
+  // Rappel « colis payés à lancer » : volontairement doux (sinusoïde, notes
+  // graves et longues), distinct du bip d'arrivée sans être agressif.
+  if (key === "launch_reminder") {
+    return [
+      { freq: 659, duration: 0.22, gap: 0.09, type: "sine", layerFreq: 988, attack: 0.03 },
+      { freq: 880, duration: 0.32, gap: 0.1, type: "sine", layerFreq: 1318, attack: 0.03 },
+    ];
+  }
   if (key.includes("cashier")) {
     return [
       { freq: 988, duration: 0.09, gap: 0.035, type: "triangle", layerFreq: 1480 },
@@ -107,6 +115,37 @@ function playBeepPattern(audioContext, pattern, volume = 0.6) {
 
     cursor += duration + Number(step.gap || 0.06);
   });
+}
+
+// Lecture directe des préférences d'un espace (hors hook) : le moteur de
+// rappels global relit le volume à chaque son, pour suivre un réglage
+// modifié entre-temps dans Paramètres > Alertes sonores.
+export function readSoundPreferences(workspaceKey) {
+  const saved = safeReadStorage(
+    `${STORAGE_PREFIX}:${String(workspaceKey || "default").toLowerCase()}`,
+    { enabled: DEFAULT_SOUND_ENABLED, volume: DEFAULT_SOUND_VOLUME },
+  );
+  const volume = Number(saved.volume);
+  return {
+    enabled: typeof saved.enabled === "boolean" ? saved.enabled : DEFAULT_SOUND_ENABLED,
+    volume: Number.isFinite(volume) && volume >= 0 && volume <= 1 ? volume : DEFAULT_SOUND_VOLUME,
+  };
+}
+
+// Joue un motif sur le contexte audio partagé (déjà débloqué par un geste
+// de l'utilisateur). Renvoie false si le navigateur bloque encore le son.
+export async function playSoundPattern(eventKey, volume = DEFAULT_SOUND_VOLUME) {
+  if (!isSoundSessionUnlocked()) return false;
+  const ctx = getOrCreateSharedAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === "suspended") await ctx.resume();
+  } catch {
+    return false;
+  }
+  if (ctx.state !== "running") return false;
+  playBeepPattern(ctx, eventPattern(eventKey), volume);
+  return true;
 }
 
 export function useSoundAlerts(workspaceKey) {

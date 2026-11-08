@@ -20,6 +20,11 @@ import {
   buildReceiptBodyHtml,
 } from "../utils/cashierReceipt";
 import { settlementLabel } from "../lib/settlement";
+import { formatWait } from "../lib/launchReminders";
+import {
+  requestLaunchRemindersRefresh,
+  useLaunchReminders,
+} from "../hooks/useLaunchReminders";
 
 const CASHIER_FILTER_STORAGE_PREFIX = "cashier_workspace_filters_v3";
 
@@ -299,9 +304,34 @@ function printCashierReceipt(row, admin = {}) {
   return true;
 }
 
+// Ancienneté d'un colis payé à lancer, depuis la confirmation du paiement :
+// discrète au début, orange après l'alerte visuelle, plus marquée après le
+// seuil (sans rouge vif). Voir lib/launchReminders.js.
+const WAIT_TONES = {
+  fresh: "text-gray-500",
+  warn: "rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800",
+  overdue: "rounded-full bg-rose-100 px-2 py-0.5 font-semibold text-rose-800",
+};
+const WAIT_ROW_TONES = {
+  warn: "bg-amber-50/50",
+  overdue: "bg-rose-50/60 shadow-[inset_3px_0_0_0_rgb(244,63,94)]",
+};
+
+function WaitIndicator({ wait }) {
+  if (!wait || wait.minutes === null || !wait.level) return null;
+  return (
+    <div className="mt-2 text-xs">
+      <span className={`inline-flex ${WAIT_TONES[wait.level]}`}>Payé il y a {formatWait(wait.minutes)}</span>
+    </div>
+  );
+}
+
 function ProcessingTable({
   rows,
   busyId,
+  waitFor,
+  onSnooze,
+  snoozedUntil,
   onCashPay,
   onVerify,
   onPrepare,
@@ -348,9 +378,12 @@ function ProcessingTable({
                   row.billingEscalationType === "AS400_CERTIFICATION_MISSING" &&
                   ["OPEN", "REPORTED"].includes(row.as400CertificationStatus || "");
                 const disabled = busyId === row.id;
+                const wait = waitFor ? waitFor(row) : null;
+                const snoozed = snoozedUntil ? snoozedUntil(row.id) : 0;
+                const rowTone = isSettled ? "bg-amber-50/40" : WAIT_ROW_TONES[wait?.level] || "";
 
                 return (
-                  <tr key={row.id} className={`border-t border-gray-100 align-top ${isSettled ? "bg-amber-50/40" : ""}`}>
+                  <tr key={row.id} className={`border-t border-gray-100 align-top ${rowTone}`}>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-900">{row.parcelNumber || row.preorderNumber || row.paymentCollectionCode || row.factureReference || row.id}</div>
                       <div className="text-xs text-gray-500">
@@ -395,6 +428,7 @@ function ProcessingTable({
                           Contentieux AS400 ouvert
                         </div>
                       ) : null}
+                      <WaitIndicator wait={wait} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -409,6 +443,22 @@ function ProcessingTable({
                         ) : null}
                         {canPrepare ? (
                           <button type="button" onClick={() => onPrepare(row)} disabled={disabled} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Lancer prep</button>
+                        ) : null}
+                        {canPrepare && onSnooze && wait?.level === "overdue" ? (
+                          snoozed ? (
+                            <span className="self-center text-xs text-gray-500">
+                              Rappel suspendu jusqu’à {new Date(snoozed).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onSnooze(row.id)}
+                              title="Suspend les rappels de ce colis pendant 10 minutes"
+                              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                              Je m’en occupe
+                            </button>
+                          )
                         ) : null}
                         {canPrepare && !hasOpenAs400Dispute ? (
                           <button
@@ -1096,6 +1146,7 @@ export default function CashierWorkspacePage() {
   const previousAlertSnapshotRef = useRef(null);
   const attentionTimerRef = useRef(null);
   const sound = useSoundAlerts("cashier");
+  const reminders = useLaunchReminders();
 
   useRealtimeAlerts({
     onEvent: async (event) => {
@@ -1418,6 +1469,7 @@ export default function CashierWorkspacePage() {
       setInfo("");
       await action();
       await load();
+      requestLaunchRemindersRefresh();
     } catch (e) {
       setError(e?.response?.data?.message || e?.message || "Action impossible.");
     } finally {
@@ -1740,6 +1792,9 @@ export default function CashierWorkspacePage() {
             <ProcessingTable
               rows={toLaunchPreparation}
               busyId={busyId}
+              waitFor={reminders.enabled ? (row) => reminders.waitOf(row.paidAt) : null}
+              onSnooze={reminders.remindUser ? reminders.snoozeOrder : null}
+              snoozedUntil={reminders.snoozedUntil}
               onOpenDetails={openDetails}
               onPrintReceipt={handlePrintReceipt}
               onCashPay={() => {}}

@@ -486,6 +486,10 @@ export default function AdminSettingsPage() {
     maxQtyPerProduct: "commercial.maxQtyPerProduct",
     packagingFeeFcfa: "commercial.packagingFeeFcfa",
     billingClaimTimeoutMin: "commercial.billingClaimTimeoutMin",
+    cashierLaunchWarnAfterMinutes: "commercial.cashierLaunchWarnAfterMinutes",
+    cashierLaunchAlertAfterMinutes: "commercial.cashierLaunchAlertAfterMinutes",
+    cashierLaunchReminderIntervalMinutes: "commercial.cashierLaunchReminderIntervalMinutes",
+    cashierLaunchMaxReminders: "commercial.cashierLaunchMaxReminders",
     maxActiveBillingPerInvoicer: "commercial.maxActiveBillingPerInvoicer",
     preorderSubmissionEnabled: "commercial.preorderSubmissionEnabled",
     publicAnnouncementEnabled: "commercial.publicAnnouncementEnabled",
@@ -2045,6 +2049,104 @@ export default function AdminSettingsPage() {
                           </Field>
                         </div>
 
+                        <div className="space-y-3 rounded-xl border border-gray-200 p-4">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Rappels « colis payés à lancer »</h3>
+                            <p className="mt-1 text-xs text-gray-500">
+                              Comptés depuis la confirmation du paiement. Aucun son pendant que l’agent travaille, ni caisse fermée.
+                            </p>
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                          <Field
+                            label="Pastille orange après (minutes)"
+                            hint="Sans aucun son : la commande payée passe en orange dans l’espace caisse."
+                          >
+                            <TextInput
+                              type="number"
+                              min="1"
+                              max="1440"
+                              value={settings.commercial.cashierLaunchWarnAfterMinutes}
+                              data-setting-key="commercial.cashierLaunchWarnAfterMinutes"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    cashierLaunchWarnAfterMinutes: Number(e.target.value || 1),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+
+                          <Field
+                            label="Seuil d’alerte (minutes)"
+                            hint="Au-delà, un son doux et une notification rappellent l’agent de vente (une seule fois pour tous ses colis en attente)."
+                          >
+                            <TextInput
+                              type="number"
+                              min="1"
+                              max="1440"
+                              value={settings.commercial.cashierLaunchAlertAfterMinutes}
+                              data-setting-key="commercial.cashierLaunchAlertAfterMinutes"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    cashierLaunchAlertAfterMinutes: Number(e.target.value || 1),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+
+                          <Field
+                            label="Intervalle entre rappels (minutes)"
+                            hint="Temps minimum entre deux rappels pour un même colis."
+                          >
+                            <TextInput
+                              type="number"
+                              min="1"
+                              max="240"
+                              value={settings.commercial.cashierLaunchReminderIntervalMinutes}
+                              data-setting-key="commercial.cashierLaunchReminderIntervalMinutes"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    cashierLaunchReminderIntervalMinutes: Number(e.target.value || 1),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+
+                          <Field
+                            label="Nombre maximum de rappels"
+                            hint="Après ce nombre de rappels, plus aucun son pour ce colis (0 = un seul son au seuil)."
+                          >
+                            <TextInput
+                              type="number"
+                              min="0"
+                              max="20"
+                              value={settings.commercial.cashierLaunchMaxReminders}
+                              data-setting-key="commercial.cashierLaunchMaxReminders"
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  commercial: {
+                                    ...prev.commercial,
+                                    cashierLaunchMaxReminders: Number(e.target.value || 0),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+                          </div>
+                        </div>
+
                         <div className="grid gap-3 sm:grid-cols-2">
                           <ToggleCard
                             label="Autoriser les nouvelles soumissions"
@@ -2518,6 +2620,13 @@ export default function AdminSettingsPage() {
                           checked={sound.enabled}
                           onChange={sound.setEnabled}
                         />
+                        {soundWorkspace === "cashier" ? (
+                          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                            Les rappels « colis payés à lancer » restent actifs même alertes désactivées
+                            (au volume choisi ci-dessous). Ils se mettent en pause 15 min depuis le
+                            bandeau, et se taisent pendant que l’agent travaille ou caisse fermée.
+                          </p>
+                        ) : null}
                         <Field
                           label="Volume des alertes"
                           hint={Math.round(sound.volume * 100) + " %"}
