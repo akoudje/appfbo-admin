@@ -16,7 +16,41 @@ export default function LaunchRemindersBanner() {
   const { pathname } = useLocation();
   const { summary } = reminders;
 
-  if (!reminders.enabled || !reminders.remindUser || summary.attention === 0) return null;
+  if (!reminders.enabled) return null;
+
+  // Responsable de comptoir : seulement les colis qui attendent depuis plus
+  // de 2 × le seuil (l'agent a déjà été rappelé), sans son.
+  if (reminders.escalateToUser) {
+    if (!summary.escalated) return null;
+    const m = summary.escalated;
+    return (
+      <div
+        role="status"
+        className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-100 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="flex items-start gap-3">
+          <PackageCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div className="font-semibold">
+            {m} colis payé{m > 1 ? "s" : ""} attend{m > 1 ? "ent" : ""} le lancement depuis plus de{" "}
+            {formatWait(reminders.settings.escalateAfterMinutes)}
+            {summary.oldestMinutes !== null ? (
+              <span className="font-normal"> · le plus ancien depuis {formatWait(summary.oldestMinutes)}</span>
+            ) : null}
+          </div>
+        </div>
+        {pathname !== "/cash-supervision" ? (
+          <Link
+            to="/cash-supervision?tab=launches"
+            className="self-start rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800 sm:self-auto"
+          >
+            Voir qui doit les lancer
+          </Link>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (!reminders.remindUser || summary.attention === 0) return null;
 
   const strong = summary.overdue > 0;
   const n = summary.total;
