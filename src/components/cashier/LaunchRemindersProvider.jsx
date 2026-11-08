@@ -15,6 +15,13 @@ import { Permission } from "../../auth/permissions";
 import { cashierService } from "../../services/cashierService";
 import { playSoundPattern, readSoundPreferences } from "../../hooks/useSoundAlerts";
 import { unlockGlobalSoundSession } from "../../lib/soundEngine";
+import {
+  desktopFlash,
+  desktopNotify,
+  desktopSetBadge,
+  isDesktopApp,
+  onDesktopNavigate,
+} from "../../lib/desktopBridge";
 import { LAUNCH_REMINDERS_REFRESH_EVENT, LaunchRemindersContext } from "../../hooks/useLaunchReminders";
 import {
   DEFAULT_LAUNCH_ALERT_SETTINGS,
@@ -51,6 +58,8 @@ function writeState(key, value) {
 }
 
 function notificationPermission() {
+  // Application de bureau : notifications Windows natives, sans autorisation.
+  if (isDesktopApp()) return "granted";
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   return window.Notification.permission;
 }
@@ -156,6 +165,9 @@ export function LaunchRemindersProvider({ children }) {
       // coupure totale) : seuls la pause de 15 min et le volume s'appliquent.
       const volume = Math.max(0.05, Math.min(1, prefs.volume)) * 0.8;
       if (prefs.volume > 0) await playSoundPattern("launch_reminder", volume);
+      // Application de bureau : icône qui clignote + notification native.
+      desktopFlash();
+      if (desktopNotify({ title: "Colis payés à lancer", body: reminderMessage(summary), route: "/cashier" })) return;
       if (notificationPermission() === "granted") {
         try {
           const notification = new window.Notification("Colis payés à lancer", {
@@ -208,6 +220,15 @@ export function LaunchRemindersProvider({ children }) {
   }, [canUse, data, pending, settings, registerOpen, remindUser, ring, updatePersisted, currentState]);
 
   const summary = useMemo(() => summarizePending(pending, settings, nowMs), [pending, settings, nowMs]);
+
+  // Application de bureau : pastille du nombre de colis sur l'icône de la
+  // barre des tâches, et clic sur une notification → espace caisse.
+  const badgeCount = canUse && remindUser ? summary.total : 0;
+  useEffect(() => {
+    desktopSetBadge(badgeCount);
+  }, [badgeCount]);
+  useEffect(() => () => desktopSetBadge(0), []);
+  useEffect(() => onDesktopNavigate((route) => navigateRef.current(route)), []);
 
   // Compteur dans le titre de l'onglet, visible depuis les autres onglets.
   useEffect(() => {
