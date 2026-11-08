@@ -263,7 +263,7 @@ export default function CashSupervisionPage() {
     const term = search.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((row) =>
-      [row.reference, row.customer, row.detail, row.invoicer?.label, row.cashier?.label]
+      [row.reference, row.as400Reference, row.customer, row.detail, row.invoicer?.label, row.cashier?.label]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term)),
     );
@@ -640,7 +640,7 @@ export default function CashSupervisionPage() {
                   setSearch(e.target.value);
                   setVisible(JOURNAL_PAGE);
                 }}
-                placeholder="Référence, client, facturier…"
+                placeholder="Référence, réf. AS400, client, facturier…"
                 className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm sm:w-72"
                 aria-label="Rechercher dans le journal"
               />
@@ -652,6 +652,7 @@ export default function CashSupervisionPage() {
                     <th className="px-4 py-3 font-medium">Encaissé le</th>
                     <th className="px-4 py-3 font-medium">Source</th>
                     <th className="px-4 py-3 font-medium">Référence</th>
+                    <th className="px-4 py-3 font-medium">Réf. AS400</th>
                     <th className="px-4 py-3 font-medium">Client</th>
                     <th className="px-4 py-3 font-medium">Moyen</th>
                     <th className="px-4 py-3 font-medium">Facturier</th>
@@ -667,6 +668,9 @@ export default function CashSupervisionPage() {
                       <td className="px-4 py-2 font-mono text-xs">
                         <RowLink row={row} />
                         {row.detail ? <div className="mt-0.5 font-sans text-gray-500">{row.detail}</div> : null}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 font-mono text-sm font-semibold text-indigo-700">
+                        {row.as400Reference || <span className="font-sans font-normal text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-2 text-gray-800">{row.customer || "—"}</td>
                       <td className="px-4 py-2 text-gray-700">{PAYMENT_MODES[row.paymentMode] || row.paymentMode}</td>
