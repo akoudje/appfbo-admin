@@ -79,5 +79,6 @@ test("colis lancé : oublié de la mémoire", () => {
 
 test("résumé : compte et plus ancien", () => {
   const s = summarizePending([order("a", 5), order("b", 18), order("c", 42)], S, T0);
-  assert.deepEqual(s, { total: 3, warn: 1, overdue: 1, attention: 2, oldestMinutes: 42 });
+  assert.deepEqual(s, { total: 3, warn: 1, overdue: 1, escalated: 0, attention: 2, oldestMinutes: 42 });
+  assert.equal(summarizePending([order("a", 50), order("b", 49)], S, T0).escalated, 1);
 });

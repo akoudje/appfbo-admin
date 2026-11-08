@@ -38,6 +38,8 @@ export function normalizeSettings(settings) {
   return {
     warnAfterMinutes,
     alertAfterMinutes,
+    // Remontée au responsable de comptoir (2 × le seuil, fourni par le serveur).
+    escalateAfterMinutes: int(s.escalateAfterMinutes, alertAfterMinutes * 2),
     reminderIntervalMinutes: int(s.reminderIntervalMinutes, 10),
     maxReminders: int(s.maxReminders, 3, 0),
   };
@@ -69,17 +71,20 @@ export function formatWait(minutes) {
 
 // Résumé pour le bandeau et le titre d'onglet.
 export function summarizePending(pending, settings, nowMs) {
+  const escalateAfter = normalizeSettings(settings).escalateAfterMinutes;
   let warn = 0;
   let overdue = 0;
+  let escalated = 0;
   let oldestMinutes = null;
   for (const row of pending || []) {
     const minutes = waitMinutes(row.paidAt, nowMs);
     const level = waitLevel(minutes, settings);
+    if (minutes !== null && minutes >= escalateAfter) escalated += 1;
     if (level === "overdue") overdue += 1;
     else if (level === "warn") warn += 1;
     if (minutes !== null && (oldestMinutes === null || minutes > oldestMinutes)) oldestMinutes = minutes;
   }
-  return { total: (pending || []).length, warn, overdue, attention: warn + overdue, oldestMinutes };
+  return { total: (pending || []).length, warn, overdue, escalated, attention: warn + overdue, oldestMinutes };
 }
 
 // Décide s'il faut sonner maintenant. `memory` : { [orderId]: { count,

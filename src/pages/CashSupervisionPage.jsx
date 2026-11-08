@@ -7,11 +7,12 @@
 // la direction), quel que soit le moyen de paiement.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Download, RefreshCw } from "lucide-react";
 import { reportsService } from "../services/reportsService";
 import CashRecoveryPanel from "../components/cash/CashRecoveryPanel";
 import CashClosuresPanel from "../components/cash/CashClosuresPanel";
+import CashLaunchDelaysPanel from "../components/cash/CashLaunchDelaysPanel";
 import PackagingSummaryPanel from "../components/cashier/PackagingSummaryPanel";
 import { formatFcfa, formatDateTime } from "../lib/format";
 
@@ -145,7 +146,13 @@ export default function CashSupervisionPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [visible, setVisible] = useState(JOURNAL_PAGE);
-  const [tab, setTab] = useState("cash");
+  // ?tab=launches : lien du bandeau d'escalade (colis payés non lancés).
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() =>
+    ["cash", "recovery", "closures", "launches", "packaging"].includes(searchParams.get("tab"))
+      ? searchParams.get("tab")
+      : "cash",
+  );
   const [lastPaidAt, setLastPaidAt] = useState(null);
   const [freshAt, setFreshAt] = useState(null);
 
@@ -292,6 +299,7 @@ export default function CashSupervisionPage() {
                 { key: "cash", label: "Point de caisse" },
                 { key: "recovery", label: "Recouvrement" },
                 { key: "closures", label: "Clôtures" },
+                { key: "launches", label: "Lancements" },
                 { key: "packaging", label: "Emballage" },
               ].map((item) => (
                 <button
@@ -391,7 +399,7 @@ export default function CashSupervisionPage() {
 
         <div
           className={`mt-3 flex-wrap items-center gap-2 ${
-            tab === "closures" || tab === "packaging" ? "hidden" : "flex"
+            tab === "closures" || tab === "packaging" || tab === "launches" ? "hidden" : "flex"
           }`}
         >
           {tab === "cash" ? (
@@ -462,6 +470,8 @@ export default function CashSupervisionPage() {
       ) : null}
 
       {tab === "closures" ? <CashClosuresPanel params={periodParams} /> : null}
+
+      {tab === "launches" ? <CashLaunchDelaysPanel params={periodParams} /> : null}
 
       {tab === "packaging" ? (
         <PackagingSummaryPanel service={reportsService} title="Bilan emballages · par période" />

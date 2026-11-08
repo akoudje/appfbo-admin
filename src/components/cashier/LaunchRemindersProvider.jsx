@@ -146,6 +146,7 @@ export function LaunchRemindersProvider({ children }) {
   );
   const pending = useMemo(() => (Array.isArray(rawPending) ? rawPending : []), [rawPending]);
   const remindUser = Boolean(data?.remindUser);
+  const escalateToUser = Boolean(data?.escalateToUser);
   const registerOpen = data?.registerOpen !== false;
 
   const ring = useCallback(
@@ -270,6 +271,7 @@ export function LaunchRemindersProvider({ children }) {
       summary,
       nowMs,
       remindUser,
+      escalateToUser,
       registerOpen,
       pausedUntil,
       notifPermission,
@@ -287,7 +289,7 @@ export function LaunchRemindersProvider({ children }) {
         return { minutes, level: waitLevel(minutes, settings) };
       },
     }),
-    [canUse, data, settings, pending, summary, nowMs, remindUser, registerOpen, pausedUntil, notifPermission, refresh, snoozeOrder, pause, resume, requestNotifications, persisted],
+    [canUse, data, settings, pending, summary, nowMs, remindUser, escalateToUser, registerOpen, pausedUntil, notifPermission, refresh, snoozeOrder, pause, resume, requestNotifications, persisted],
   );
 
   return <LaunchRemindersContext.Provider value={value}>{children}</LaunchRemindersContext.Provider>;

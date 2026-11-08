@@ -27,6 +27,10 @@ export const reportsService = {
   getCashSupervisionPulse: async () =>
     (await api.get("/admin/reports/cash-supervision/pulse")).data,
 
+  // Délais paiement → lancement de préparation, colis en attente (même période).
+  getCashLaunchDelays: async (params = {}) =>
+    (await api.get("/admin/reports/cash-supervision/launch-delays", { params })).data,
+
   // Même période que getCashSupervision.
   getCashClosuresOverview: async (params = {}) =>
     (await api.get("/admin/reports/cash-supervision/closures", { params })).data,
