@@ -1,11 +1,31 @@
 const fs = require("fs");
 const path = require("path");
-const { app, BrowserWindow, ipcMain, shell, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, safeStorage, Notification, nativeImage } = require("electron");
 
 const isDev = !app.isPackaged;
 const DEV_URL = process.env.ELECTRON_START_URL || "http://127.0.0.1:5173";
 const SECURE_STORE_FILE = "secure-store.json";
 const AUTH_TOKEN_KEY = "adminToken";
+const APP_USER_MODEL_ID = "com.foreverciv.admin";
+
+// Les rappels « colis payés à lancer » doivent sonner sans clic préalable
+// (fenêtre réduite, poste laissé ouvert) : pas de blocage autoplay ici.
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
+// Une seule instance : deux fenêtres sonneraient chacune de leur côté.
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) app.quit();
+
+let mainWindow = null;
+let pendingUpdateVersion = null;
+const liveNotifications = new Set();
+
+function revealMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 
 function isAllowedExternalUrl(value) {
   try {
@@ -128,6 +148,18 @@ function setupAutoUpdates() {
 
   autoUpdater.on("update-downloaded", (info) => {
     console.log("[desktop] update downloaded:", info?.version || "unknown");
+    // Les postes restent ouverts toute la journée : on propose de redémarrer
+    // plutôt que d'attendre la fermeture de l'application.
+    pendingUpdateVersion = info?.version || "nouvelle version";
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("desktop:update-ready", { version: pendingUpdateVersion });
+    }
+  });
+
+  ipcMain.handle("desktop:update:install", () => {
+    if (!pendingUpdateVersion) return false;
+    setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    return true;
   });
 
   autoUpdater
@@ -155,7 +187,17 @@ function createMainWindow() {
       nodeIntegration: false,
       sandbox: true,
       devTools: isDev,
+      // Fenêtre réduite : les minuteries des rappels et le son continuent.
+      backgroundThrottling: false,
     },
+  });
+  mainWindow = win;
+  win.on("focus", () => win.flashFrame(false));
+  win.on("closed", () => {
+    if (mainWindow === win) mainWindow = null;
+  });
+  win.webContents.on("did-finish-load", () => {
+    if (pendingUpdateVersion) win.webContents.send("desktop:update-ready", { version: pendingUpdateVersion });
   });
 
   win.webContents.setWindowOpenHandler(({ url, frameName }) => {
@@ -217,8 +259,63 @@ ipcMain.handle("desktop:openExternal", async (_event, url) => {
   return true;
 });
 
+// Rappels « colis payés à lancer » (voir LaunchRemindersProvider) :
+//  - pastille du nombre de colis sur l'icône de la barre des tâches ;
+//  - clignotement de l'icône au moment d'un rappel, arrêté dès que l'agent
+//    revient sur la fenêtre ;
+//  - notification Windows native ; un clic ramène la fenêtre sur la page
+//    indiquée (espace caisse).
+function setupAttentionIpc() {
+  ipcMain.on("desktop:attention:badge", (_event, payload = {}) => {
+    if (!mainWindow || mainWindow.isDestroyed() || process.platform !== "win32") return;
+    const count = Number(payload.count || 0);
+    if (count > 0 && typeof payload.imageDataUrl === "string" && payload.imageDataUrl.startsWith("data:image/png")) {
+      mainWindow.setOverlayIcon(nativeImage.createFromDataURL(payload.imageDataUrl), `${count} colis payés à lancer`);
+    } else {
+      mainWindow.setOverlayIcon(null, "");
+    }
+  });
+
+  ipcMain.on("desktop:attention:flash", () => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFocused()) return;
+    mainWindow.flashFrame(true);
+  });
+
+  ipcMain.handle("desktop:notify", (_event, payload = {}) => {
+    if (!Notification.isSupported()) return false;
+    const notification = new Notification({
+      title: String(payload.title || "Forever Admin").slice(0, 120),
+      body: String(payload.body || "").slice(0, 300),
+      silent: true, // le son doux est joué par l'application elle-même
+    });
+    const route = typeof payload.route === "string" && payload.route.startsWith("/") ? payload.route : null;
+    // Référence gardée jusqu'au clic ou à la fermeture : sinon le ramasse-miettes
+    // supprime la notification et le clic n'est plus reçu (Windows).
+    liveNotifications.add(notification);
+    const release = () => liveNotifications.delete(notification);
+    notification.on("click", () => {
+      release();
+      revealMainWindow();
+      if (route && mainWindow) mainWindow.webContents.send("desktop:navigate", route);
+    });
+    notification.on("close", release);
+    notification.show();
+    setTimeout(release, 10 * 60 * 1000);
+    return true;
+  });
+
+  ipcMain.on("desktop:appVersion:getSync", (event) => {
+    event.returnValue = app.getVersion();
+  });
+}
+
+app.on("second-instance", () => revealMainWindow());
+
 app.whenReady().then(() => {
+  if (!hasInstanceLock) return;
+  if (process.platform === "win32") app.setAppUserModelId(APP_USER_MODEL_ID);
   setupSecureAuthIpc();
+  setupAttentionIpc();
   setupAutoUpdates();
   createMainWindow();
 

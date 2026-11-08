@@ -4,6 +4,7 @@ import {
   isSoundSessionUnlocked,
   unlockGlobalSoundSession,
 } from "../lib/soundEngine";
+import { desktopAutoplayAllowed } from "../lib/desktopBridge";
 
 const STORAGE_PREFIX = "workspace_sound_alert_v1";
 const DEFAULT_SOUND_ENABLED = true;
@@ -135,7 +136,8 @@ export function readSoundPreferences(workspaceKey) {
 // Joue un motif sur le contexte audio partagé (déjà débloqué par un geste
 // de l'utilisateur). Renvoie false si le navigateur bloque encore le son.
 export async function playSoundPattern(eventKey, volume = DEFAULT_SOUND_VOLUME) {
-  if (!isSoundSessionUnlocked()) return false;
+  // Application de bureau : lecture autorisée sans clic (voir electron/main.cjs).
+  if (!isSoundSessionUnlocked() && !desktopAutoplayAllowed()) return false;
   const ctx = getOrCreateSharedAudioContext();
   if (!ctx) return false;
   try {

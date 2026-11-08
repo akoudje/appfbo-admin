@@ -6,6 +6,7 @@ import PageTabs from "./PageTabs";
 import useNavBadgeCounts from "../../hooks/useNavBadgeCounts";
 import { LaunchRemindersProvider } from "../cashier/LaunchRemindersProvider";
 import LaunchRemindersBanner from "../cashier/LaunchRemindersBanner";
+import DesktopUpdateBanner from "./DesktopUpdateBanner";
 
 export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function AdminLayout({ children }) {
               focus d'une case, le navigateur défilait vers une zone vide. */}
           <main className="relative min-w-0 p-3 pb-24 md:overflow-auto md:p-4 md:pb-4 lg:p-6">
             <PageTabs />
+            <DesktopUpdateBanner />
             <LaunchRemindersBanner />
             {children}
           </main>
