@@ -4,6 +4,10 @@ export const cashierService = {
   getWorkspace: async (params = {}) =>
     (await api.get("/admin/cashier/workspace", { params })).data,
 
+  // Colis payés à lancer + seuils du pays (rappels, voir LaunchRemindersProvider).
+  getLaunchAlerts: async () =>
+    (await api.get("/admin/cashier/launch-alerts")).data,
+
   getPaidToday: async (params = {}) =>
     (await api.get("/admin/cashier/paid-today", { params })).data,
 

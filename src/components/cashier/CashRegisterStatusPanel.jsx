@@ -14,7 +14,8 @@
 import { useEffect, useState } from "react";
 import { Lock, Unlock } from "lucide-react";
 import { cashRegisterStatusService } from "../../services/cashRegisterStatusService";
-import { useConfirm } from "../../hooks/useDialogs";
+import CloseRegisterDialog from "./CloseRegisterDialog";
+import { requestLaunchRemindersRefresh } from "../../hooks/useLaunchReminders";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -28,7 +29,7 @@ function actorLabel(actor) {
 }
 
 export default function CashRegisterStatusPanel() {
-  const confirm = useConfirm();
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -55,40 +56,25 @@ export default function CashRegisterStatusPanel() {
   const isPersonal = status?.scope === "personal";
   const registerLabel = isPersonal ? "Ma caisse" : "Caisse (comptoir)";
 
-  async function handleClose() {
-    const confirmed = await confirm({
-      tone: "danger",
-      title: `Fermer ${isPersonal ? "ma caisse" : "la caisse"} ?`,
-      message:
-        "Cette action est immédiate et ne peut pas être annulée automatiquement.",
-      detail: (
-        <ul className="list-disc space-y-1.5 pl-4 text-left text-sm text-gray-700">
-          <li>
-            {isPersonal
-              ? "Vos précommandes préfacturées encore en attente de paiement seront "
-              : "Toutes les précommandes préfacturées encore en attente de paiement seront "}
-            <strong>ANNULÉES</strong> (statut Annulé) — les clients concernés devront resoumettre leur
-            précommande.
-          </li>
-          {isPersonal ? (
-            <li>Les caisses des autres agents de vente ne sont pas affectées.</li>
-          ) : null}
-        </ul>
-      ),
-      confirmLabel: `Fermer ${isPersonal ? "ma caisse" : "la caisse"}`,
-      cancelLabel: "Annuler",
-    });
-    if (!confirmed) return;
-
+  // La confirmation (liste des préfactures annulées, encaissements espèces
+  // non saisis) se fait dans CloseRegisterDialog.
+  async function handleClose({ confirmNoUnrecordedCash }) {
     try {
       setBusy(true);
       setError("");
       setMessage("");
-      const response = await cashRegisterStatusService.close();
+      const response = await cashRegisterStatusService.close("", { confirmNoUnrecordedCash });
       setStatus(response?.status || null);
+      setCloseDialogOpen(false);
       setMessage(`Caisse fermée : ${response?.cancelledPreordersCount || 0} précommande(s) préfacturée(s) annulée(s).`);
+      requestLaunchRemindersRefresh();
     } catch (err) {
-      setError(err?.response?.data?.message || "Fermeture impossible.");
+      setCloseDialogOpen(false);
+      setError(
+        err?.response?.data?.code === "CLOSURE_CONFIRMATION_REQUIRED"
+          ? "De nouvelles préfactures sont arrivées entre-temps : rouvrez la fermeture pour les vérifier."
+          : err?.response?.data?.message || "Fermeture impossible.",
+      );
     } finally {
       setBusy(false);
     }
@@ -101,6 +87,7 @@ export default function CashRegisterStatusPanel() {
       setMessage("");
       const response = await cashRegisterStatusService.open();
       setStatus(response?.status || null);
+      requestLaunchRemindersRefresh();
     } catch (err) {
       setError(err?.response?.data?.message || "Réouverture impossible.");
     } finally {
@@ -145,7 +132,7 @@ export default function CashRegisterStatusPanel() {
       {isOpen ? (
         <button
           type="button"
-          onClick={handleClose}
+          onClick={() => setCloseDialogOpen(true)}
           disabled={busy}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
         >
@@ -163,6 +150,14 @@ export default function CashRegisterStatusPanel() {
           Rouvrir {isPersonal ? "ma caisse" : "la caisse"}
         </button>
       )}
+      {closeDialogOpen ? (
+        <CloseRegisterDialog
+          isPersonal={isPersonal}
+          busy={busy}
+          onCancel={() => setCloseDialogOpen(false)}
+          onConfirm={handleClose}
+        />
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import Topbar from "./Topbar";
 import MobileNav from "./MobileNav";
 import PageTabs from "./PageTabs";
 import useNavBadgeCounts from "../../hooks/useNavBadgeCounts";
+import { LaunchRemindersProvider } from "../cashier/LaunchRemindersProvider";
+import LaunchRemindersBanner from "../cashier/LaunchRemindersBanner";
 
 export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -18,6 +20,7 @@ export default function AdminLayout({ children }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
   return (
+    <LaunchRemindersProvider>
     <div className="min-h-screen bg-gray-50">
       <div className="flex min-h-screen md:h-screen">
         <div className="hidden shrink-0 md:flex">
@@ -31,6 +34,7 @@ export default function AdminLayout({ children }) {
               focus d'une case, le navigateur défilait vers une zone vide. */}
           <main className="relative min-w-0 p-3 pb-24 md:overflow-auto md:p-4 md:pb-4 lg:p-6">
             <PageTabs />
+            <LaunchRemindersBanner />
             {children}
           </main>
         </div>
@@ -44,5 +48,6 @@ export default function AdminLayout({ children }) {
         <MobileNav />
       </div>
     </div>
+    </LaunchRemindersProvider>
   );
 }

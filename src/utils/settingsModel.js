@@ -72,6 +72,10 @@ export const DEFAULT_SETTINGS = {
     preinvoicedAutoReminderAfterHours: 1,
     preinvoicedAutoCancelAfterMinutes: 120,
     preinvoicedAutoReminderAfterMinutes: 60,
+    cashierLaunchWarnAfterMinutes: 15,
+    cashierLaunchAlertAfterMinutes: 25,
+    cashierLaunchReminderIntervalMinutes: 10,
+    cashierLaunchMaxReminders: 3,
     preorderSubmissionEnabled: true,
     preorderSubmissionDisabledMessage:
       "Les soumissions de précommandes sont temporairement suspendues. Vous pouvez continuer à consulter le catalogue et votre panier.",
@@ -289,6 +293,10 @@ export function settingsFromApi(data = {}) {
         (data.preinvoicedAutoReminderAfterHours
           ? data.preinvoicedAutoReminderAfterHours * 60
           : prev.commercial.preinvoicedAutoReminderAfterMinutes),
+      cashierLaunchWarnAfterMinutes: data.cashierLaunchWarnAfterMinutes ?? prev.commercial.cashierLaunchWarnAfterMinutes,
+      cashierLaunchAlertAfterMinutes: data.cashierLaunchAlertAfterMinutes ?? prev.commercial.cashierLaunchAlertAfterMinutes,
+      cashierLaunchReminderIntervalMinutes: data.cashierLaunchReminderIntervalMinutes ?? prev.commercial.cashierLaunchReminderIntervalMinutes,
+      cashierLaunchMaxReminders: data.cashierLaunchMaxReminders ?? prev.commercial.cashierLaunchMaxReminders,
       preorderSubmissionEnabled:
         data.preorderSubmissionEnabled ??
         prev.commercial.preorderSubmissionEnabled,
@@ -365,6 +373,10 @@ export function settingsToApi(settings) {
       settings.commercial.preinvoicedAutoCancelAfterMinutes,
     preinvoicedAutoReminderAfterMinutes:
       settings.commercial.preinvoicedAutoReminderAfterMinutes,
+    cashierLaunchWarnAfterMinutes: settings.commercial.cashierLaunchWarnAfterMinutes,
+    cashierLaunchAlertAfterMinutes: settings.commercial.cashierLaunchAlertAfterMinutes,
+    cashierLaunchReminderIntervalMinutes: settings.commercial.cashierLaunchReminderIntervalMinutes,
+    cashierLaunchMaxReminders: settings.commercial.cashierLaunchMaxReminders,
     preorderSubmissionEnabled: settings.commercial.preorderSubmissionEnabled,
     preorderSubmissionDisabledMessage:
       settings.commercial.preorderSubmissionDisabledMessage,
