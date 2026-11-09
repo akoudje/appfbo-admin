@@ -402,21 +402,25 @@ function activeItemKey(items, pathname) {
   return best;
 }
 
-// Badge de notification amélioré avec animation
-function NotificationBadge({ count, type = "default" }) {
-  const types = {
-    default: "bg-gradient-to-r from-red-500 to-red-600",
-    warning: "bg-gradient-to-r from-orange-500 to-amber-500",
-    success: "bg-gradient-to-r from-green-500 to-emerald-500",
-  };
+// Pastille du nombre d'éléments en attente. Couleur selon l'urgence, jamais
+// de clignotement : un chiffre neutre la plupart du temps, l'orange puis le
+// rouge seulement quand un colis payé dépasse les seuils du pays (une
+// pastille rouge en permanence finit par ne plus être vue).
+const BADGE_STYLES = {
+  none: "bg-white/20 text-white",
+  warn: "bg-amber-500 text-white",
+  alert: "bg-red-600 text-white",
+};
 
+function NotificationBadge({ count, level = "none", compact = false }) {
+  const label = count > 99 ? "99+" : count;
   return (
     <span
-      className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white rounded-full shadow-lg ${
-        types[type] || types.default
-      } animate-pulse`}
+      className={`inline-flex items-center justify-center rounded-full font-bold tabular-nums shadow ${
+        BADGE_STYLES[level] || BADGE_STYLES.none
+      } ${compact ? "min-w-[16px] h-4 px-1 text-[9px] ring-2 ring-black" : "min-w-[20px] h-5 px-1.5 text-[10px]"}`}
     >
-      {count > 99 ? "99+" : count}
+      {label}
     </span>
   );
 }
@@ -515,15 +519,23 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
 
   const navLinkContent = () => (
     <>
-      <IconWithIndicator icon={Icon} isActive={isActive} color={item.color} />
-      
+      <span className="relative">
+        <IconWithIndicator icon={Icon} isActive={isActive} color={item.color} />
+        {/* Menu réduit : pastille posée sur le coin de l'icône. */}
+        {collapsed && item.badge ? (
+          <span className="absolute -right-2.5 -top-2">
+            <NotificationBadge count={item.badge} level={item.badgeLevel} compact />
+          </span>
+        ) : null}
+      </span>
+
       {!collapsed && (
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium transition-colors duration-200">
               {item.label}
             </span>
-            {item.badge && <NotificationBadge count={item.badge} />}
+            {item.badge ? <NotificationBadge count={item.badge} level={item.badgeLevel} /> : null}
           </div>
           {showDescription && item.description && (
             <p className="text-[10px] text-white/40 mt-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -554,7 +566,11 @@ function NavItem({ item, collapsed = false, onClick, showDescription = false }) 
   );
 
   const itemContent = collapsed ? (
-    <EnhancedTooltip content={item.label} shortcut={item.shortcut} position="right">
+    <EnhancedTooltip
+      content={item.badge ? `${item.label} (${item.badge} en attente)` : item.label}
+      shortcut={item.shortcut}
+      position="right"
+    >
       <NavLink
         ref={linkRef}
         to={item.to}
@@ -780,7 +796,8 @@ function applyBadgeCounts(items, badgeCounts = {}) {
     const countKey = BADGE_COUNT_BY_PATH[item.to];
     if (!countKey) return item;
     const count = Number(badgeCounts[countKey] || 0);
-    return count > 0 ? { ...item, badge: count } : item;
+    if (count <= 0) return item;
+    return { ...item, badge: count, badgeLevel: badgeCounts.levels?.[countKey] || "none" };
   });
 }
 
