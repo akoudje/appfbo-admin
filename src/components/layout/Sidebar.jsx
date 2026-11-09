@@ -13,6 +13,7 @@ import { foreverLogoHomeUrl } from "../../lib/assetUrls";
 import {
   // Navigation principale - Icônes plus spécifiques et professionnelles
   LayoutDashboard,
+  Sun,
   ShoppingBag,
   Receipt,
   ServerCog,
@@ -81,6 +82,19 @@ const XIcon = X;
 
 // Navigation principale avec icônes plus évocatrices
 const NAV_ITEMS = [
+  {
+    // Page d'accueil de l'agent de vente (tuiles du travail en attente).
+    key: "my-day",
+    to: "/my-day",
+    label: "Ma journée",
+    section: "general",
+    allowedRoles: [AdminRole.FACTURIER_CAISSIER],
+    icon: Sun,
+    badge: null,
+    description: "Tout votre travail en attente",
+    color: "from-amber-400 to-orange-500",
+    shortcut: "0",
+  },
   {
     key: "dashboard",
     to: "/dashboard",

@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import BillingQueuePage from "./pages/billing/BillingQueuePage";
+import MyDayPage from "./pages/MyDayPage";
 import BillingReportPage from "./pages/billing/BillingReportPage";
 import BillingSupervisionPage from "./pages/billing/BillingSupervisionPage";
 import BillingSettlementsPage from "./pages/billing/BillingSettlementsPage";
@@ -173,6 +174,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<WorkspaceHome />} />
                 <Route path="/dashboard" element={<DashboardHome />} />
+                <Route path="/my-day" element={<MyDayPage />} />
 
                 <Route
                   path="/orders"

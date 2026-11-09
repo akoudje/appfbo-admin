@@ -39,8 +39,10 @@ const DASHBOARD_ROLES = new Set([
 
 export function getDefaultWorkspaceRoute(role) {
   switch (role) {
-    case AdminRole.INVOICER:
+    // Agent de vente : page « Ma journée » (tout son travail en attente).
     case AdminRole.FACTURIER_CAISSIER:
+      return "/my-day";
+    case AdminRole.INVOICER:
     case AdminRole.BILLING_MANAGER:
       return "/billing";
     case AdminRole.CAISSIERE:
@@ -80,7 +82,7 @@ export function getWorkspaceNavKeys(role) {
     // Facturation + caisse, sans Gateway AS400, demandes de lien de paiement
     // ni point et clôture de caisse (traités par les responsables).
     case AdminRole.FACTURIER_CAISSIER:
-      return new Set(["billing", "external-payment-links", "sponsorships", "cashier"]);
+      return new Set(["my-day", "billing", "external-payment-links", "sponsorships", "cashier"]);
     case AdminRole.ORDER_PREPARER:
       return new Set(["preparation"]);
     case AdminRole.STOCK_MANAGER:

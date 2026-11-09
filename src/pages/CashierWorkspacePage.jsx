@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { cashierService } from "../services/cashierService";
 import { ordersService } from "../services/ordersService";
@@ -1194,6 +1194,10 @@ export default function CashierWorkspacePage() {
   const [, setAttentionAlert] = useState(null);
 
   const [activeTab, setActiveTab] = useState("processing");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusSection = searchParams.get("focus");
+  const collectSectionRef = useRef(null);
+  const launchSectionRef = useRef(null);
   const [as400ListOpen, setAs400ListOpen] = useState(false);
 
   const [query, setQuery] = useState("");
@@ -1204,6 +1208,23 @@ export default function CashierWorkspacePage() {
   const [workspace, setWorkspace] = useState(null);
   const [completedRows, setCompletedRows] = useState([]);
   const [searchRows, setSearchRows] = useState([]);
+
+  // Arrivée depuis une tuile de « Ma journée » (?focus=launch|collect) : une
+  // fois les listes chargées, la section demandée est amenée à l'écran, puis
+  // le paramètre est retiré (un simple rafraîchissement ne redéfile pas).
+  useEffect(() => {
+    if (!workspace || !focusSection) return;
+    const target = focusSection === "launch" ? launchSectionRef.current : collectSectionRef.current;
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params);
+        next.delete("focus");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [workspace, focusSection, setSearchParams]);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
@@ -1737,7 +1758,7 @@ export default function CashierWorkspacePage() {
 
       {activeTab === "processing" ? (
         <div className="space-y-4">
-          <section className="space-y-2">
+          <section ref={collectSectionRef} className="scroll-mt-4 space-y-2">
             <h2 className="text-lg font-semibold text-gray-900">À encaisser / confirmer</h2>
             <ProcessingTable
               rows={toCollect}
@@ -1784,7 +1805,7 @@ export default function CashierWorkspacePage() {
             />
           </section>
 
-          <section className="space-y-2">
+          <section ref={launchSectionRef} className="scroll-mt-4 space-y-2">
             <h2 className="text-lg font-semibold text-gray-900">À lancer en préparation</h2>
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               Après vérification dans l'application de certification : cliquez sur <strong>Lancer prep</strong> si la Ref AS400 existe, ou sur <strong>Ouvrir contentieux AS400</strong> si elle est absente.
