@@ -16,7 +16,12 @@ const RELEVANT_EVENT_KEYS = new Set([
   "sponsorship_submitted",
 ]);
 
-const EMPTY_COUNTS = { billing: 0, cashier: 0, sponsorships: 0 };
+const EMPTY_COUNTS = { billing: 0, cashier: 0, sponsorships: 0, levels: {} };
+
+// Le niveau d'urgence de la caisse (orange, rouge) évolue avec le temps qui
+// passe, sans événement : rechargement léger chaque minute.
+const REFRESH_INTERVAL_MS = 60_000;
+const LEVELS = new Set(["none", "warn", "alert"]);
 
 export default function useNavBadgeCounts() {
   const [counts, setCounts] = useState(EMPTY_COUNTS);
@@ -27,10 +32,12 @@ export default function useNavBadgeCounts() {
     inFlightRef.current = true;
     try {
       const data = await navBadgesService.get();
+      const cashierLevel = String(data?.levels?.cashier || "none");
       setCounts({
         billing: Number(data?.billing || 0),
         cashier: Number(data?.cashier || 0),
         sponsorships: Number(data?.sponsorships || 0),
+        levels: { cashier: LEVELS.has(cashierLevel) ? cashierLevel : "none" },
       });
     } catch {
       // Pastilles best-effort : une erreur ne doit pas casser le menu.
@@ -41,6 +48,17 @@ export default function useNavBadgeCounts() {
 
   useEffect(() => {
     reload();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") reload();
+    }, REFRESH_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [reload]);
 
   useRealtimeAlerts({
