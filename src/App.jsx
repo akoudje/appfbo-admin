@@ -240,6 +240,7 @@ export default function App() {
                   element={
                     <RequirePermission
                       permission={Permission.INVOICE_CREATE}
+                      allowedRoles={BILLING_SUPERVISOR_ROLES}
                       fallback={<AccessDenied message="Accès refusé aux commandes réglées par une filiale." />}
                     >
                       <BillingSettlementsPage />
