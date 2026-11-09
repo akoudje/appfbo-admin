@@ -4,6 +4,7 @@ import Topbar from "./Topbar";
 import MobileNav from "./MobileNav";
 import PageTabs from "./PageTabs";
 import useNavBadgeCounts from "../../hooks/useNavBadgeCounts";
+import { NavBadgeCountsContext } from "../../hooks/navBadgeCountsContext";
 import { LaunchRemindersProvider } from "../cashier/LaunchRemindersProvider";
 import LaunchRemindersBanner from "../cashier/LaunchRemindersBanner";
 import DesktopUpdateBanner from "./DesktopUpdateBanner";
@@ -21,6 +22,7 @@ export default function AdminLayout({ children }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
   return (
+    <NavBadgeCountsContext.Provider value={badgeCounts}>
     <LaunchRemindersProvider>
     <div className="min-h-screen bg-gray-50">
       <div className="flex min-h-screen md:h-screen">
@@ -51,5 +53,6 @@ export default function AdminLayout({ children }) {
       </div>
     </div>
     </LaunchRemindersProvider>
+    </NavBadgeCountsContext.Provider>
   );
 }
