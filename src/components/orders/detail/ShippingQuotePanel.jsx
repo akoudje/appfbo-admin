@@ -1,6 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { ordersService } from '../../../services/ordersService';
+import { formatDateTime } from '../../../lib/format';
+
+const fcfa = value => `${Number(value || 0).toLocaleString('fr-FR')} FCFA`;
+const PROVIDER_LABELS = { WAVE: 'Wave' };
+
+// Détails du paiement des frais d'expédition, une fois réglés : quand, combien,
+// par quel moyen, et le n° de transaction à donner au client ou à la compta.
+function ShippingPaymentDetails({ link }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), 2500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  const rows = [
+    ['Réglé le', link.paidAt ? formatDateTime(link.paidAt) : null],
+    ['Moyen de paiement', PROVIDER_LABELS[link.provider] || link.provider || null],
+    ['Montant payé', link.amountFcfa != null ? fcfa(link.amountFcfa) : null],
+    ['dont frais d’expédition', link.baseAmountFcfa != null ? fcfa(link.baseAmountFcfa) : null],
+    ['dont frais de paiement', link.serviceFeeFcfa ? fcfa(link.serviceFeeFcfa) : null],
+    ['Téléphone du payeur', link.providerPayerPhone || null],
+    ['Référence', link.reference || null],
+  ].filter(([, value]) => value);
+  return <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+    <p className="font-semibold text-emerald-900">Paiement des frais d’expédition</p>
+    <dl className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-[auto,1fr]">
+      {rows.map(([label, value]) => <div key={label} className="contents">
+        <dt className="text-emerald-800">{label}</dt>
+        <dd className="break-words font-medium text-gray-900">{value}</dd>
+      </div>)}
+      {link.providerTransactionId && <div className="contents">
+        <dt className="text-emerald-800">N° de transaction</dt>
+        <dd className="flex flex-wrap items-center gap-2">
+          <span className="break-all font-mono font-medium text-gray-900">{link.providerTransactionId}</span>
+          <button type="button" onClick={() => navigator.clipboard?.writeText(link.providerTransactionId).then(() => setCopied(true), () => {})} className="inline-flex min-h-8 items-center gap-1 rounded-md border border-emerald-300 bg-white px-2 text-xs font-semibold text-emerald-900">
+            {copied ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
+            {copied ? 'Copié' : 'Copier'}
+          </button>
+        </dd>
+      </div>}
+    </dl>
+  </div>;
+}
 
 // Copie dans le presse-papiers, avec repli pour les navigateurs qui refusent
 // l'API Clipboard (contexte non sécurisé, permission refusée).
@@ -105,6 +148,7 @@ export default function ShippingQuotePanel({ order, reload, saving, allChecked }
     </div>
     {editable && <button type="button" onClick={() => act()} disabled={busy || saving} className="min-h-11 rounded-lg bg-[#FFC600] px-4 py-2 font-semibold disabled:opacity-50">{busy ? 'Traitement…' : 'Enregistrer les frais'}</button>}
     {order.shippingFeeFcfa == null ? <p className="text-amber-800">Frais à déterminer avant de marquer le colis prêt.</p> : <p className={paid ? 'text-emerald-700' : 'text-amber-800'}>{paid ? order.shippingFeeFcfa === 0 ? 'Expédition offerte.' : 'Expédition réglée.' : `En attente du paiement séparé : ${Number(link?.amountFcfa ?? order.shippingFeeFcfa).toLocaleString('fr-FR')} FCFA.`}</p>}
+    {paid && order.shippingFeeFcfa > 0 && link && <ShippingPaymentDetails link={link} />}
     {locked && !paid && <p className="text-gray-600">Un paiement a été lancé. Le montant est désormais verrouillé.</p>}
     {link && !paid && <>
       <div role="status" className="rounded-lg border border-gray-200 bg-gray-50 p-3">
