@@ -9,6 +9,9 @@ export const sponsorshipsService = {
   downloadDocument: async (id, documentId) =>
     api.get(`/admin/sponsorships/${id}/documents/${documentId}/file`, { responseType: "blob" }),
 
+  // Payeur tiers de l'achat (champs vides : retrait).
+  updatePayer: async (id, body) => (await api.patch(`/admin/sponsorships/${id}/payer`, body)).data,
+
   requestChanges: async (id, note) => (await api.post(`/admin/sponsorships/${id}/request-changes`, { note })).data,
 
   reject: async (id, reason) => (await api.post(`/admin/sponsorships/${id}/reject`, { reason })).data,

@@ -9,6 +9,7 @@ import { ArrowLeft, Download, ExternalLink, Printer } from "lucide-react";
 import { sponsorshipsService } from "../services/sponsorshipsService";
 import { PURCHASE_PAYMENT_MODES, SPONSORSHIP_STATUS } from "../components/sponsorships/sponsorshipStatus";
 import CounterPurchasePanel from "../components/sponsorships/CounterPurchasePanel";
+import PayerContactSection from "../components/sponsorships/PayerContactSection";
 import useAdminAuth from "../hooks/useAdminAuth";
 import { hasPermission, Permission } from "../auth/permissions";
 import { formatFboNumber, defaultFboNumberPrefix } from "../utils/fboNumber";
@@ -351,6 +352,15 @@ export default function SponsorshipReviewPage() {
               <p className="text-sm text-gray-500">Aucun panier préparé : le parrain composera l'achat après l'approbation.</p>
             )}
           </section>
+
+          <PayerContactSection
+            key={`${row.id}:${row.purchasePayerPhone || ""}:${row.purchasePayerEmail || ""}`}
+            row={row}
+            onSaved={async (message) => {
+              setNotice(message);
+              await load();
+            }}
+          />
         </div>
 
         <div className="space-y-4">
