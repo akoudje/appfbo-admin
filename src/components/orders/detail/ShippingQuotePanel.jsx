@@ -1,5 +1,65 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { ordersService } from '../../../services/ordersService';
+
+// Copie dans le presse-papiers, avec repli pour les navigateurs qui refusent
+// l'API Clipboard (contexte non sécurisé, permission refusée).
+async function copyText(text, input) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    if (!input) return false;
+    input.focus();
+    input.select();
+    try { return document.execCommand('copy'); } catch { return false; }
+  }
+}
+
+// Lien de paiement des frais d'expédition, à copier pour l'envoyer soi-même
+// au client (WhatsApp, appel…). Le serveur remet le lien en service s'il
+// avait expiré à cause de la session Wave.
+function ShippingPaymentLinkCopy({ order, disabled, onRenewed }) {
+  const inputRef = useRef(null);
+  // Lien renvoyé par le serveur à la copie (prioritaire), sinon celui de la commande.
+  const [fetchedUrl, setFetchedUrl] = useState('');
+  const url = fetchedUrl || order.shippingPaymentUrl || '';
+  const [state, setState] = useState('idle');
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    if (state !== 'copied') return undefined;
+    const timer = setTimeout(() => setState('idle'), 2500);
+    return () => clearTimeout(timer);
+  }, [state]);
+
+  async function handleCopy() {
+    setState('busy'); setMessage('');
+    try {
+      const result = await ordersService.shippingPaymentLink(order.id);
+      const fresh = result?.url || url;
+      setFetchedUrl(fresh);
+      const ok = await copyText(fresh, inputRef.current);
+      setState(ok ? 'copied' : 'idle');
+      if (!ok) setMessage('Copie automatique impossible : sélectionnez le lien ci-dessus et copiez-le.');
+      if (!order.shippingPaymentUrl) onRenewed?.();
+    } catch (err) {
+      setState('idle');
+      setMessage(err.response?.data?.message || 'Impossible de récupérer le lien de paiement.');
+    }
+  }
+
+  return <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+    <p className="font-semibold">Lien de paiement</p>
+    {order.shippingPaymentLinkExpired && !url && <p className="text-amber-800">La session de paiement Wave a expiré. « Copier le lien » ou « Renvoyer la notification » remet le lien en service.</p>}
+    {url && <input ref={inputRef} readOnly value={url} onFocus={e => e.target.select()} aria-label="Lien de paiement des frais d’expédition" className="min-h-11 w-full rounded-lg border border-gray-300 bg-gray-50 p-2 font-mono text-xs" />}
+    <button type="button" disabled={disabled || state === 'busy'} onClick={handleCopy} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-semibold disabled:opacity-50">
+      {state === 'copied' ? <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+      {state === 'busy' ? 'Préparation…' : state === 'copied' ? 'Lien copié' : 'Copier le lien'}
+    </button>
+    <p className="text-xs text-gray-500">À envoyer directement au client (WhatsApp, SMS depuis votre téléphone…). C’est le même lien que celui des notifications.</p>
+    {message && <p role="alert" className="text-amber-800">{message}</p>}
+  </div>;
+}
 
 export default function ShippingQuotePanel({ order, reload, saving, allChecked }) {
   const [amount, setAmount] = useState(String(order.shippingFeeFcfa ?? ''));
@@ -52,6 +112,7 @@ export default function ShippingQuotePanel({ order, reload, saving, allChecked }
         <p className={['FAILED', 'PARTIAL', 'NONE'].includes(notification?.status) ? 'mt-1 text-amber-800' : 'mt-1 text-gray-700'}>{notification?.message || 'Aucune notification de paiement enregistrée.'}</p>
         <p className="mt-1 text-xs text-gray-500">Email et SMS sont adressés aux coordonnées de la commande. Le SMS peut rester en file avant son envoi.</p>
       </div>
+      <ShippingPaymentLinkCopy order={order} disabled={busy || saving} onRenewed={reload} />
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={busy || saving} onClick={() => act('notify')} className="min-h-11 rounded-lg bg-[#FFC600] px-4 py-2 font-semibold disabled:opacity-50">{notification?.status && !['NONE', 'FAILED'].includes(notification.status) ? 'Renvoyer la notification' : 'Notifier le client'}</button>
         <button type="button" disabled={busy || saving} onClick={() => act('sync')} className="min-h-11 rounded-lg border border-gray-300 px-4 py-2 font-semibold disabled:opacity-50">Vérifier le paiement</button>

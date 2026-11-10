@@ -195,6 +195,8 @@ export const ordersService = {
 
   shippingQuote: async (id, body) => (await api.post(`/admin/orders/${normalizeOrderId(id)}/shipping-quote`, body)).data,
   syncShippingPayment: async (id) => (await api.post(`/admin/orders/${normalizeOrderId(id)}/shipping-payment/sync`)).data,
+  // Lien de paiement des frais d'expédition à copier (remis en service si besoin).
+  shippingPaymentLink: async (id) => (await api.post(`/admin/orders/${normalizeOrderId(id)}/shipping-payment/link`)).data,
   notifyShippingPayment: async (id) => (await api.post(`/admin/orders/${normalizeOrderId(id)}/shipping-payment/notify`)).data,
 
   prepare: async (id, body) =>
