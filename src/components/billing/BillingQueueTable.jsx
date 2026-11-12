@@ -2,6 +2,7 @@ import OrderBillingBadge from "../orders/OrderBillingBadge";
 import RequirePermission from "../auth/RequirePermission";
 import { Permission } from "../../auth/permissions";
 import { settlementLabel } from "../../lib/settlement";
+import PaymentNotificationCell from "./PaymentNotificationCell";
 
 function formatFcfa(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -64,7 +65,14 @@ export default function BillingQueueTable({
   onResolveEscalation,
   invoicers = null,
   onAssign,
+  // Onglet « En attente paiement » : état des notifications de paiement.
+  // null = colonne masquée.
+  notificationStatuses = null,
+  notificationsLoading = false,
+  resendingNotificationId = null,
+  onResendNotification,
 }) {
+  const showNotifications = notificationStatuses !== null;
   if (loading) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-sm">
@@ -91,6 +99,7 @@ export default function BillingQueueTable({
               <th className="px-4 py-3 font-medium">Dossier</th>
               <th className="px-4 py-3 font-medium">Montant</th>
               <th className="px-4 py-3 font-medium">État</th>
+              {showNotifications ? <th className="px-4 py-3 font-medium">Notification</th> : null}
               <th className="px-4 py-3 font-medium">Assigné à</th>
               <th className="px-4 py-3 font-medium">Dates</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -166,6 +175,17 @@ export default function BillingQueueTable({
                       <OrderStatusBadge status={row.status} />
                     </div>
                   </td>
+
+                  {showNotifications ? (
+                    <td className="px-4 py-3">
+                      <PaymentNotificationCell
+                        status={notificationStatuses[row.id] || null}
+                        loading={notificationsLoading}
+                        resending={resendingNotificationId === row.id}
+                        onResend={() => onResendNotification?.(row, notificationStatuses[row.id] || null)}
+                      />
+                    </td>
+                  ) : null}
 
                   <td className="px-4 py-3">
                     <div>{assignedName}</div>
