@@ -12,6 +12,7 @@ import BillingQueueAlerts from "../../components/billing/BillingQueueAlerts";
 import BillingQueueStats from "../../components/billing/BillingQueueStats";
 import BillingQueueTabs from "../../components/billing/BillingQueueTabs";
 import BillingQueueTable from "../../components/billing/BillingQueueTable";
+import BulkPaymentNotificationsPanel from "../../components/billing/BulkPaymentNotificationsPanel";
 import useSoundAlerts from "../../hooks/useSoundAlerts";
 import useRealtimeAlerts from "../../hooks/useRealtimeAlerts";
 import { ackRealtimeAlertPlayback } from "../../services/realtimeAlertsService";
@@ -249,6 +250,11 @@ export default function BillingQueuePage() {
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  // Onglet « En attente paiement » : état des notifications de paiement.
+  const [notificationStatuses, setNotificationStatuses] = useState({});
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [resendingNotificationId, setResendingNotificationId] = useState(null);
+  const [notificationsVersion, setNotificationsVersion] = useState(0);
   const [attentionAlert, setAttentionAlert] = useState(null);
   const defaultTab = isAutoDispatch ? "my" : "queue";
   const requestedTab = normalizeBillingTab(searchParams.get("tab"), defaultTab);
@@ -623,6 +629,63 @@ export default function BillingQueuePage() {
   }, [rows, tab, currentAdminId, isBillingManager]);
 
   const activeFilterCount = [query, priority, dateFrom, dateTo].filter(Boolean).length;
+
+  const waitingPaymentIdsKey = useMemo(
+    () => (tab === "waiting-payment" ? filteredRows.map((row) => row.id).join(",") : ""),
+    [tab, filteredRows],
+  );
+
+  useEffect(() => {
+    if (!waitingPaymentIdsKey) return undefined;
+    let cancelled = false;
+    const ids = waitingPaymentIdsKey.split(",");
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
+    setNotificationsLoading(true);
+    Promise.all(chunks.map((chunk) => ordersService.getPaymentNotificationStatuses(chunk)))
+      .then((responses) => {
+        if (cancelled) return;
+        setNotificationStatuses(Object.assign({}, ...responses.map((r) => r?.statuses || {})));
+      })
+      .catch(() => {
+        if (!cancelled) setError("Impossible de lire l'état des notifications de paiement.");
+      })
+      .finally(() => {
+        if (!cancelled) setNotificationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [waitingPaymentIdsKey, notificationsVersion]);
+
+  const refreshNotificationStatuses = () => setNotificationsVersion((v) => v + 1);
+
+  const handleResendNotification = async (row, status) => {
+    const label = row.factureReference || row.preorderNumber || row.id;
+    const minutesAgo = status?.lastAt
+      ? Math.floor((Date.now() - new Date(status.lastAt).getTime()) / 60000)
+      : null;
+    if (minutesAgo !== null && minutesAgo < 30) {
+      const ok = window.confirm(
+        `${label} a déjà été notifiée il y a ${minutesAgo} min. Renvoyer quand même ? Le lien envoyé précédemment ne fonctionnera plus.`,
+      );
+      if (!ok) return;
+    }
+    try {
+      setError("");
+      setInfo("");
+      setResendingNotificationId(row.id);
+      const result = await ordersService.resendInvoiceSms(row.id, {});
+      if (result?.sent) setInfo(`Notification de paiement renvoyée pour ${label}.`);
+      else if (result?.queued) setInfo(`Notification de paiement de ${label} mise en file d'envoi.`);
+      else setError(`Échec du renvoi pour ${label}${result?.errorMessage ? ` : ${result.errorMessage}` : "."}`);
+    } catch (e) {
+      setError(e?.response?.data?.message || `Impossible de renvoyer la notification de ${label}.`);
+    } finally {
+      setResendingNotificationId(null);
+      refreshNotificationStatuses();
+    }
+  };
 
   const stats = useMemo(() => {
     const all = (Array.isArray(rows) ? rows : []).filter(isBillingOrderActive);
@@ -1058,6 +1121,10 @@ export default function BillingQueuePage() {
         stats={stats}
       />
 
+      {tab === "waiting-payment" && isSupervisor ? (
+        <BulkPaymentNotificationsPanel onFinished={refreshNotificationStatuses} />
+      ) : null}
+
       <BillingQueueTable
         rows={filteredRows}
         loading={loading}
@@ -1070,6 +1137,10 @@ export default function BillingQueuePage() {
         onResolveEscalation={handleResolveEscalation}
         invoicers={isSupervisor ? invoicers || [] : null}
         onAssign={handleAssign}
+        notificationStatuses={tab === "waiting-payment" ? notificationStatuses : null}
+        notificationsLoading={notificationsLoading}
+        resendingNotificationId={resendingNotificationId}
+        onResendNotification={handleResendNotification}
       />
 
       <As400ResolveDialog

@@ -308,6 +308,18 @@ export const ordersService = {
   listBillingInvoicers: async () =>
     (await api.get("/admin/billing/invoicers")).data,
 
+  // Onglet « En attente paiement » : état des notifications de paiement
+  // { statuses: { [orderId]: { state, lastAt, channels, lastError, count } } }.
+  getPaymentNotificationStatuses: async (ids = []) =>
+    (await api.get("/admin/billing/payment-notifications", { params: { ids: ids.join(",") } })).data,
+  // Renvoi groupé (superviseurs) : aperçu, lancement, suivi.
+  previewBulkPaymentNotifications: async (ids = null) =>
+    (await api.post("/admin/billing/payment-notifications/bulk-preview", ids ? { ids } : {})).data,
+  startBulkPaymentNotifications: async (ids = null) =>
+    (await api.post("/admin/billing/payment-notifications/bulk-resend", ids ? { ids } : {})).data,
+  getBulkPaymentNotificationsJob: async (jobId = "current") =>
+    (await api.get(`/admin/billing/payment-notifications/bulk-resend/${encodeURIComponent(jobId)}`)).data,
+
   // Bilan d'activité { from, to, invoicerId? } (invoicerId : superviseurs).
   getBillingReport: async (params = {}) =>
     (await api.get("/admin/billing/report", { params })).data,
