@@ -28,7 +28,15 @@ export const NAV_GROUPS = {
     { key: "billing", to: "/billing/report", label: "Mon bilan", permission: Permission.INVOICE_CREATE },
   ],
   settlements: [
-    { key: "billing", to: "/billing/settlements", label: "Commandes réglées", permission: Permission.INVOICE_CREATE },
+    // Lots FLP Burkina : réservés aux superviseurs de la facturation (pas aux
+    // agents, qui facturent ces commandes depuis leur file comme les autres).
+    {
+      key: "billing",
+      to: "/billing/settlements",
+      label: "Commandes réglées",
+      permission: Permission.INVOICE_CREATE,
+      allowedRoles: BILLING_SUPERVISOR_ROLES,
+    },
     {
       key: "reports",
       to: "/reports/settlements",
